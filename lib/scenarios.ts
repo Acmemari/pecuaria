@@ -7,22 +7,55 @@ const MAX_SCENARIOS = 10;
  * Get all saved scenarios for the current user
  */
 export const getSavedScenarios = async (userId: string): Promise<CattleScenario[]> => {
-  const { data, error } = await supabase
-    .from('cattle_scenarios')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+  try {
+    const { data, error } = await supabase
+      .from('cattle_scenarios')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching scenarios:', error);
-    throw new Error('Erro ao carregar cenários salvos');
+    if (error) {
+      console.error('Error fetching scenarios:', error);
+      
+      // Check if table doesn't exist
+      if (error.message?.includes('schema cache') || error.code === '42P01') {
+        console.warn('Table cattle_scenarios does not exist yet');
+        // Return empty array if table doesn't exist - feature not yet available
+        return [];
+      }
+      
+      // For other errors, throw
+      throw new Error(error.message || 'Erro ao carregar cenários salvos');
+    }
+
+    // Handle case where data is null or undefined
+    if (!data) {
+      return [];
+    }
+
+    // Map and validate the data
+    return data.map((scenario) => {
+      // Validate that required fields exist
+      if (!scenario.id || !scenario.user_id || !scenario.name || !scenario.inputs) {
+        console.warn('Invalid scenario data:', scenario);
+        return null;
+      }
+      
+      return {
+        id: scenario.id,
+        user_id: scenario.user_id,
+        name: scenario.name,
+        inputs: scenario.inputs as CattleCalculatorInputs,
+        results: scenario.results ? (scenario.results as CalculationResults) : undefined,
+        created_at: scenario.created_at,
+        updated_at: scenario.updated_at || scenario.created_at
+      };
+    }).filter((scenario): scenario is CattleScenario => scenario !== null);
+  } catch (err: any) {
+    console.error('Error in getSavedScenarios:', err);
+    // Re-throw with a user-friendly message
+    throw new Error(err.message || 'Erro ao carregar cenários salvos');
   }
-
-  return (data || []).map((scenario) => ({
-    ...scenario,
-    inputs: scenario.inputs as CattleCalculatorInputs,
-    results: scenario.results as CalculationResults | undefined
-  }));
 };
 
 /**
@@ -70,6 +103,12 @@ export const saveScenario = async (
 
   if (error) {
     console.error('Error saving scenario:', error);
+    
+    // Check if table doesn't exist
+    if (error.message?.includes('schema cache') || error.code === '42P01') {
+      throw new Error('Funcionalidade de salvar cenários ainda não está disponível. A tabela precisa ser criada no banco de dados.');
+    }
+    
     throw new Error('Erro ao salvar cenário');
   }
 

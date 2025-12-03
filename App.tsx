@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import Sidebar from './components/Sidebar';
 import LoginPage from './components/LoginPage';
 import SubscriptionPage from './components/SubscriptionPage';
@@ -58,63 +58,81 @@ const AppContent: React.FC = () => {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // Define available agents with SaaS permissions
-  const baseAgents: Agent[] = [
-    {
-      id: 'cattle-profit',
-      name: 'Lucro do Boi',
-      description: 'Análise econômica completa.',
-      icon: 'calculator',
-      category: 'financeiro',
-      status: checkPermission('Calculadora') ? 'active' : 'locked'
-    },
-    {
-      id: 'saved-scenarios',
-      name: 'Meus Salvos',
-      description: 'Cenários e simulações salvos.',
-      icon: 'save',
-      category: 'financeiro',
-      status: checkPermission('Calculadora') ? 'active' : 'locked'
-    },
-    {
-      id: 'ask-antonio',
-      name: 'Pergunte p/ Antonio',
-      description: 'Consultor virtual especialista.',
-      icon: 'nutrition',
-      category: 'consultoria',
-      status: checkPermission('Chat') ? 'active' : 'locked'
-    },
-    {
-      id: 'market-trends',
-      name: 'Tendências',
-      description: 'Ciclo pecuário e reposição.',
-      icon: 'chart',
-      category: 'mercado',
-      status: checkPermission('Tendências') ? 'active' : 'locked'
+  // Define available agents with SaaS permissions (memoized)
+  const agents = useMemo(() => {
+    if (isLoading || !user) {
+      return [];
     }
-  ];
 
-  // Dynamically add Admin tools if user is admin
-  const agents = user?.role === 'admin'
-    ? [
-      ...baseAgents,
+    const baseAgents: Agent[] = [
       {
-        id: 'admin-dashboard',
-        name: 'Gestão de Clientes',
-        description: 'Painel mestre administrativo',
-        icon: 'users',
-        category: 'admin',
-        status: 'active'
-      } as Agent
-    ]
-    : baseAgents;
+        id: 'cattle-profit',
+        name: 'Lucro do Boi',
+        description: 'Análise econômica completa.',
+        icon: 'calculator',
+        category: 'financeiro',
+        status: checkPermission('Calculadora') ? 'active' : 'locked'
+      },
+      {
+        id: 'saved-scenarios',
+        name: 'Meus Salvos',
+        description: 'Cenários e simulações salvos.',
+        icon: 'save',
+        category: 'financeiro',
+        status: checkPermission('Calculadora') ? 'active' : 'locked'
+      },
+      {
+        id: 'ask-antonio',
+        name: 'Pergunte p/ Antonio',
+        description: 'Consultor virtual especialista.',
+        icon: 'nutrition',
+        category: 'consultoria',
+        status: 'locked'
+      },
+      {
+        id: 'market-trends',
+        name: 'Tendências',
+        description: 'Ciclo pecuário e reposição.',
+        icon: 'chart',
+        category: 'mercado',
+        status: checkPermission('Tendências') ? 'active' : 'locked'
+      }
+    ];
+
+    // Dynamically add Admin tools if user is admin
+    return user?.role === 'admin'
+      ? [
+        ...baseAgents,
+        {
+          id: 'admin-dashboard',
+          name: 'Gestão de Clientes',
+          description: 'Painel mestre administrativo',
+          icon: 'users',
+          category: 'admin',
+          status: 'active'
+        } as Agent
+      ]
+      : baseAgents;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isLoading]);
 
   // Reset active agent if access is lost or on role change
   useEffect(() => {
+    // Only run if user is loaded (not loading)
+    if (isLoading || !user) return;
+    
     if (activeAgentId === 'admin-dashboard' && user?.role !== 'admin') {
       setActiveAgentId('cattle-profit');
+      return;
     }
-  }, [user, activeAgentId]);
+    
+    // Redirect if trying to access locked agents (ask-antonio, market-trends)
+    const lockedAgents = ['ask-antonio', 'market-trends'];
+    if (lockedAgents.includes(activeAgentId)) {
+      setActiveAgentId('cattle-profit');
+      return;
+    }
+  }, [user, activeAgentId, isLoading]);
 
   if (isLoading) {
     return (
@@ -126,6 +144,15 @@ const AppContent: React.FC = () => {
 
   if (!user) {
     return <LoginPage />;
+  }
+
+  // If agents are not loaded yet, show loading
+  if (agents.length === 0) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
+        <Loader2 size={32} className="animate-spin" />
+      </div>
+    );
   }
 
   const activeAgent = agents.find(a => a.id === activeAgentId);
@@ -164,6 +191,7 @@ const AppContent: React.FC = () => {
             <CattleProfitCalculator 
               initialInputs={calculatorInputs}
               onToast={addToast}
+              onNavigateToSaved={() => setActiveAgentId('saved-scenarios')}
             />
           </Suspense>
         );
@@ -171,6 +199,7 @@ const AppContent: React.FC = () => {
         return (
           <Suspense fallback={<LoadingFallback />}>
             <SavedScenarios
+              key="saved-scenarios"
               onLoadScenario={(inputs) => {
                 setCalculatorInputs(inputs);
                 setActiveAgentId('cattle-profit');

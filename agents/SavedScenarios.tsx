@@ -28,7 +28,11 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({ onLoadScenario, onNavig
   }, [user]);
 
   const loadScenarios = async () => {
-    if (!user) return;
+    if (!user) {
+      setError('Usuário não autenticado');
+      setIsLoading(false);
+      return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -36,7 +40,9 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({ onLoadScenario, onNavig
       const data = await getSavedScenarios(user.id);
       setScenarios(data);
     } catch (err: any) {
-      setError(err.message || 'Erro ao carregar cenários salvos');
+      console.error('Error loading scenarios:', err);
+      const errorMessage = err.message || 'Erro ao carregar cenários salvos';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

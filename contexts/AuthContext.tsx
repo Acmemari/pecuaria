@@ -199,7 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return checkLimitUtil(user, limit, currentValue);
   };
 
-  const signup = async (email: string, password: string, name: string, organizationName?: string): Promise<{ success: boolean; error?: string }> => {
+  const signup = async (email: string, password: string, name: string, phone: string, organizationName?: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
       // Sign up with Supabase Auth
@@ -213,7 +213,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             organization_name: organizationName || `${name}'s Organization`,
             role: 'client',
             plan: 'basic',
-            avatar: name.charAt(0).toUpperCase()
+            avatar: name.charAt(0).toUpperCase(),
+            phone: phone
           },
           emailRedirectTo: `${window.location.origin}`
         }
@@ -226,6 +227,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.user) {
+        // Update the profile with phone number if it exists
+        // The trigger will create the profile, but we need to update it with phone
+        try {
+          const { error: updateError } = await supabase
+            .from('user_profiles')
+            .update({ phone: phone })
+            .eq('id', data.user.id);
+          
+          if (updateError) {
+            console.warn('Could not update phone in profile:', updateError);
+            // Continue anyway - phone might be set later
+          }
+        } catch (err) {
+          console.warn('Error updating phone:', err);
+        }
+
         // Wait a bit for the trigger to create the profile
         await new Promise(resolve => setTimeout(resolve, 1000));
         
@@ -295,7 +312,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signup
     } as AuthContextType & { 
       signInWithOAuth: (provider: 'google') => Promise<any>;
-      signup: (email: string, password: string, name: string, organizationName?: string) => Promise<{ success: boolean; error?: string }>;
+      signup: (email: string, password: string, name: string, phone: string, organizationName?: string) => Promise<{ success: boolean; error?: string }>;
     }}>
       {children}
     </AuthContext.Provider>

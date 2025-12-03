@@ -23,9 +23,10 @@ import { Toast } from '../components/Toast';
 interface CattleProfitCalculatorProps {
   initialInputs?: CattleCalculatorInputs;
   onToast?: (toast: Toast) => void;
+  onNavigateToSaved?: () => void;
 }
 
-const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initialInputs, onToast }) => {
+const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initialInputs, onToast, onNavigateToSaved }) => {
   const { user } = useAuth();
   // Initial state based on the PDF Page 8 Ranges
   const [inputs, setInputs] = useState<CattleCalculatorInputs>(
@@ -143,6 +144,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           message: 'Cenário salvo com sucesso!',
           type: 'success'
         });
+      }
+      // Navigate to saved scenarios page after successful save
+      if (onNavigateToSaved) {
+        onNavigateToSaved();
       }
     } catch (error: any) {
       if (onToast) {

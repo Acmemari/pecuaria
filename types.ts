@@ -52,6 +52,7 @@ export interface User {
   status?: 'active' | 'inactive';
   lastLogin?: string;
   organizationId?: string;
+  phone?: string;
 }
 
 export interface Plan {

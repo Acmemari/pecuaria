@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BrainCircuit, Lock, Mail, ArrowRight, Loader2, User, Building2 } from 'lucide-react';
+import { BrainCircuit, Lock, Mail, ArrowRight, Loader2, User, Building2, Phone } from 'lucide-react';
+import { formatPhone, validatePhone } from '../lib/utils/phoneMask';
 
 const LoginPage: React.FC = () => {
   const { login, signInWithOAuth, signup } = useAuth() as any;
@@ -9,6 +10,7 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [organizationName, setOrganizationName] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,7 +41,19 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      const result = await signup(email, password, name, organizationName);
+      if (!phone.trim()) {
+        setError('Por favor, informe seu telefone.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!validatePhone(phone)) {
+        setError('Por favor, informe um telefone válido. Formato: (XX) XXXXX-XXXX');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const result = await signup(email, password, name, phone, organizationName);
       
       if (!result.success) {
         setError(result.error || 'Erro ao criar conta. Tente novamente.');
@@ -115,6 +129,7 @@ const LoginPage: React.FC = () => {
                         setPassword('');
                         setConfirmPassword('');
                         setName('');
+                        setPhone('');
                         setOrganizationName('');
                     }}
                     className={`flex-1 py-2 px-3 sm:px-4 rounded-md text-[10px] sm:text-xs font-medium transition-colors ${
@@ -179,6 +194,43 @@ const LoginPage: React.FC = () => {
                         />
                     </div>
                 </div>
+
+                {isSignup && (
+                    <div>
+                        <label className="block text-[10px] sm:text-xs font-medium text-ai-text mb-1.5">
+                            Telefone / WhatsApp
+                            {phone && !validatePhone(phone) && (
+                                <span className="text-rose-500 ml-1">(formato inválido)</span>
+                            )}
+                            {phone && validatePhone(phone) && (
+                                <span className="text-green-600 ml-1">✓</span>
+                            )}
+                        </label>
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none text-ai-subtext">
+                                <Phone size={14} className="sm:w-4 sm:h-4" />
+                            </div>
+                            <input 
+                                type="tel" 
+                                required={isSignup}
+                                value={phone}
+                                onChange={(e) => {
+                                    const formatted = formatPhone(e.target.value);
+                                    setPhone(formatted);
+                                }}
+                                className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text transition-all outline-none ${
+                                    phone && !validatePhone(phone)
+                                        ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
+                                        : phone && validatePhone(phone)
+                                        ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
+                                        : 'border-ai-border focus:border-ai-text'
+                                }`}
+                                placeholder="Ex: (55) 99999-9999"
+                                maxLength={15}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 <div>
                     <label className="block text-[10px] sm:text-xs font-medium text-ai-text mb-1.5">
@@ -271,7 +323,7 @@ const LoginPage: React.FC = () => {
                     disabled={
                         isSubmitting || 
                         isOAuthLoading !== null || 
-                        (isSignup && (!passwordsMatch || !passwordLengthValid || !name.trim()))
+                        (isSignup && (!passwordsMatch || !passwordLengthValid || !name.trim() || !phone.trim() || !validatePhone(phone)))
                     }
                     className="w-full flex items-center justify-center py-2.5 sm:py-3 px-4 bg-ai-text text-white rounded-lg hover:bg-black transition-colors font-medium text-xs sm:text-sm disabled:opacity-70 disabled:cursor-not-allowed"
                 >

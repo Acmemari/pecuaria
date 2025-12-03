@@ -87,6 +87,9 @@ export const mapUserProfile = (profile: any): User | null => {
     }
   }
 
+  // Processamento de phone (opcional)
+  const phone = profile.phone && typeof profile.phone === 'string' ? profile.phone : undefined;
+
   const mappedUser: User = {
     id: String(profile.id),
     name,
@@ -96,9 +99,9 @@ export const mapUserProfile = (profile: any): User | null => {
     plan,
     status,
     lastLogin,
-    organizationId
+    organizationId,
+    phone
   };
 
   return mappedUser;
 };
-
