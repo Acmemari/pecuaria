@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Users, Activity, Search, MoreHorizontal, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { User, Shield, Users, Activity, Search, MoreHorizontal, CheckCircle2, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import { User as UserType } from '../types';
 import { supabase } from '../lib/supabase';
 import { mapUserProfile } from '../lib/auth/mapUserProfile';
+import { useAuth } from '../contexts/AuthContext';
 
 const AdminDashboard: React.FC = () => {
+  const { user: currentUser } = useAuth();
   const [clients, setClients] = useState<UserType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState({
     total: 0,
@@ -15,44 +18,106 @@ const AdminDashboard: React.FC = () => {
   });
 
   useEffect(() => {
-    loadClients();
-  }, []);
-
-  const loadClients = async () => {
-    try {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('role', 'client')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error loading clients:', error);
-        return;
-      }
-
-      if (data) {
-        const mappedClients = data.map(mapUserProfile).filter(Boolean) as UserType[];
-        setClients(mappedClients);
-        
-        // Calculate stats
-        const active = mappedClients.filter(c => c.status === 'active').length;
-        const mrr = mappedClients.reduce((sum, c) => {
-          const planPrice = c.plan === 'enterprise' ? 299 : c.plan === 'pro' ? 97 : 0;
-          return sum + planPrice;
-        }, 0);
-        
-        setStats({
-          total: mappedClients.length,
-          active,
-          mrr,
-        });
-      }
-    } catch (error) {
-      console.error('Error loading clients:', error);
-    } finally {
+    // Verify admin permission before loading
+    if (currentUser?.role === 'admin') {
+      loadClients();
+    } else if (currentUser && currentUser.role !== 'admin') {
+      setError('Acesso negado. Apenas administradores podem visualizar esta página.');
       setIsLoading(false);
+    }
+  }, [currentUser]);
+
+  const loadClients = async (retries = 3, delay = 1000) => {
+    // Verify admin permission
+    if (currentUser?.role !== 'admin') {
+      setError('Acesso negado. Apenas administradores podem visualizar esta página.');
+      setIsLoading(false);
+      return;
+    }
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        console.log(`[AdminDashboard] Loading clients (attempt ${attempt + 1}/${retries})...`);
+        
+        const { data, error: queryError } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('role', 'client')
+          .order('created_at', { ascending: false });
+
+        if (queryError) {
+          console.error('[AdminDashboard] Error loading clients:', {
+            code: queryError.code,
+            message: queryError.message,
+            details: queryError.details,
+            hint: queryError.hint
+          });
+
+          // If it's a permission/RLS error, don't retry
+          if (queryError.code === 'PGRST301' || queryError.message?.includes('permission') || queryError.message?.includes('RLS')) {
+            setError('Erro de permissão. Verifique se você tem permissão de administrador e se as políticas RLS estão configuradas corretamente.');
+            setIsLoading(false);
+            return;
+          }
+
+          // Retry on other errors
+          if (attempt < retries - 1) {
+            console.log(`[AdminDashboard] Retrying after ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+
+          setError(`Erro ao carregar clientes: ${queryError.message || 'Erro desconhecido'}`);
+          setIsLoading(false);
+          return;
+        }
+
+        if (data) {
+          console.log(`[AdminDashboard] Loaded ${data.length} client profiles from database`);
+          
+          const mappedClients = data.map(mapUserProfile).filter(Boolean) as UserType[];
+          console.log(`[AdminDashboard] Successfully mapped ${mappedClients.length} clients`);
+          
+          setClients(mappedClients);
+          
+          // Calculate stats
+          const active = mappedClients.filter(c => c.status === 'active').length;
+          const mrr = mappedClients.reduce((sum, c) => {
+            const planPrice = c.plan === 'enterprise' ? 299 : c.plan === 'pro' ? 97 : 0;
+            return sum + planPrice;
+          }, 0);
+          
+          setStats({
+            total: mappedClients.length,
+            active,
+            mrr,
+          });
+          
+          setIsLoading(false);
+          return; // Success, exit retry loop
+        } else {
+          console.log('[AdminDashboard] No data returned from query');
+          setClients([]);
+          setStats({ total: 0, active: 0, mrr: 0 });
+        }
+      } catch (error: any) {
+        console.error('[AdminDashboard] Exception loading clients:', error);
+        
+        if (attempt < retries - 1) {
+          console.log(`[AdminDashboard] Retrying after ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        setError(`Erro inesperado ao carregar clientes: ${error.message || 'Erro desconhecido'}`);
+      } finally {
+        if (attempt === retries - 1) {
+          setIsLoading(false);
+        }
+      }
     }
   };
 
@@ -75,10 +140,34 @@ const AdminDashboard: React.FC = () => {
     return date.toLocaleDateString('pt-BR');
   };
 
+  // Show loading state
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
         <Loader2 size={32} className="animate-spin text-ai-subtext" />
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center p-4">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-md w-full">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={24} className="text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-red-900 mb-1">Erro ao carregar dados</h3>
+              <p className="text-xs text-red-700 mb-4">{error}</p>
+              <button
+                onClick={() => loadClients()}
+                className="text-xs px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

@@ -83,3 +83,13 @@ export interface AuthContextType {
   checkLimit: (limit: keyof Plan['limits'], value: number) => boolean;
   upgradePlan: (planId: Plan['id']) => void;
 }
+
+export interface CattleScenario {
+  id: string;
+  user_id: string;
+  name: string;
+  inputs: CattleCalculatorInputs;
+  results?: CalculationResults;
+  created_at: string;
+  updated_at: string;
+}

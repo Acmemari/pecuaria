@@ -14,21 +14,42 @@ import {
   YAxis,
   CartesianGrid
 } from 'recharts';
-import { SlidersHorizontal, PieChart as PieIcon, BarChart3 } from 'lucide-react';
+import { SlidersHorizontal, PieChart as PieIcon, BarChart3, Save } from 'lucide-react';
+import SaveScenarioModal from '../components/SaveScenarioModal';
+import { saveScenario } from '../lib/scenarios';
+import { useAuth } from '../contexts/AuthContext';
+import { Toast } from '../components/Toast';
 
-const CattleProfitCalculator: React.FC = () => {
+interface CattleProfitCalculatorProps {
+  initialInputs?: CattleCalculatorInputs;
+  onToast?: (toast: Toast) => void;
+}
+
+const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initialInputs, onToast }) => {
+  const { user } = useAuth();
   // Initial state based on the PDF Page 8 Ranges
-  const [inputs, setInputs] = useState<CattleCalculatorInputs>({
-    pesoCompra: 300,        // 1. Peso de compra (kg)
-    valorCompra: 14.50,     // 2. Valor de compra (R$/kg)
-    pesoAbate: 510,         // 3. Peso vivo ao abate (kg)
-    rendimentoCarcaca: 52,  // 4. Rendimento de carcaça (%)
-    valorVenda: 280,        // 5. Valor de venda (R$ por arroba)
-    gmd: 0.85,              // 6. Ganho médio diário – GMD (kg/dia)
-    custoMensal: 135        // 7. Desembolso por cabeça ao mês (R$/cab/mês)
-  });
+  const [inputs, setInputs] = useState<CattleCalculatorInputs>(
+    initialInputs || {
+      pesoCompra: 300,        // 1. Peso de compra (kg)
+      valorCompra: 14.50,     // 2. Valor de compra (R$/kg)
+      pesoAbate: 510,         // 3. Peso vivo ao abate (kg)
+      rendimentoCarcaca: 52,  // 4. Rendimento de carcaça (%)
+      valorVenda: 280,        // 5. Valor de venda (R$ por arroba)
+      gmd: 0.85,              // 6. Ganho médio diário – GMD (kg/dia)
+      custoMensal: 135        // 7. Desembolso por cabeça ao mês (R$/cab/mês)
+    }
+  );
 
   const [results, setResults] = useState<CalculationResults | null>(null);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Update inputs when initialInputs changes
+  useEffect(() => {
+    if (initialInputs) {
+      setInputs(initialInputs);
+    }
+  }, [initialInputs]);
 
   // Constants
   const ARROBA_KG = 15;
@@ -109,17 +130,56 @@ const CattleProfitCalculator: React.FC = () => {
     });
   }, [inputs, results]);
 
+  const handleSave = async (name: string) => {
+    if (!user || !results) return;
+
+    setIsSaving(true);
+    try {
+      await saveScenario(user.id, name, inputs, results);
+      setIsSaveModalOpen(false);
+      if (onToast) {
+        onToast({
+          id: Date.now().toString(),
+          message: 'Cenário salvo com sucesso!',
+          type: 'success'
+        });
+      }
+    } catch (error: any) {
+      if (onToast) {
+        onToast({
+          id: Date.now().toString(),
+          message: error.message || 'Erro ao salvar cenário',
+          type: 'error'
+        });
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!results) return <div className="p-4 md:p-10 text-center">Calculando...</div>;
 
   return (
-    <div className="h-full flex flex-col md:flex-row gap-2 md:gap-4">
-      
-      {/* Left Column: Inputs - Full width on mobile, fixed width on desktop */}
-      <div className="w-full md:w-[300px] flex flex-col shrink-0 md:h-full overflow-hidden">
-        <div className="mb-2 md:mb-3 flex items-center gap-2 px-1">
-            <SlidersHorizontal size={18} className="text-ai-subtext" />
-            <h2 className="text-sm font-semibold text-ai-text">Premissas</h2>
-        </div>
+    <>
+      <div className="h-full flex flex-col md:flex-row gap-2 md:gap-4">
+        
+        {/* Left Column: Inputs - Full width on mobile, fixed width on desktop */}
+        <div className="w-full md:w-[300px] flex flex-col shrink-0 md:h-full overflow-hidden">
+          <div className="mb-2 md:mb-3 flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal size={18} className="text-ai-subtext" />
+              <h2 className="text-sm font-semibold text-ai-text">Premissas</h2>
+            </div>
+            {user && (
+              <button
+                onClick={() => setIsSaveModalOpen(true)}
+                className="p-1.5 text-ai-subtext hover:text-ai-accent hover:bg-ai-surface rounded transition-colors"
+                title="Salvar cenário"
+              >
+                <Save size={16} />
+              </button>
+            )}
+          </div>
 
         <div className="flex flex-col md:flex-1 md:justify-between overflow-y-auto md:pr-1 pb-1 space-y-1.5 md:space-y-2">
              <Slider index={1} label="Peso de Compra" value={inputs.pesoCompra} min={150} max={420} step={1} unit="kg" onChange={(v) => handleInputChange('pesoCompra', v)} />
@@ -204,7 +264,19 @@ const CattleProfitCalculator: React.FC = () => {
         </div>
 
       </div>
-    </div>
+      </div>
+
+      {/* Save Modal */}
+      {user && (
+        <SaveScenarioModal
+          isOpen={isSaveModalOpen}
+          onClose={() => setIsSaveModalOpen(false)}
+          onSave={handleSave}
+          inputs={inputs}
+          isLoading={isSaving}
+        />
+      )}
+    </>
   );
 };
 

@@ -2,16 +2,19 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Sidebar from './components/Sidebar';
 import LoginPage from './components/LoginPage';
 import SubscriptionPage from './components/SubscriptionPage';
+import SettingsPage from './components/SettingsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Agent } from './types';
 import { Menu, Construction, Loader2 } from 'lucide-react';
+import { ToastContainer, Toast } from './components/Toast';
 
 // Lazy load agents for code splitting
 const CattleProfitCalculator = lazy(() => import('./agents/CattleProfitCalculator'));
 const ChatAgent = lazy(() => import('./agents/ChatAgent'));
 const AdminDashboard = lazy(() => import('./agents/AdminDashboard'));
 const MarketTrends = lazy(() => import('./agents/MarketTrends'));
+const SavedScenarios = lazy(() => import('./agents/SavedScenarios'));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full">
@@ -22,6 +25,8 @@ const LoadingFallback: React.FC = () => (
 const AppContent: React.FC = () => {
   const { user, isLoading, logout, checkPermission, upgradePlan } = useAuth();
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
   // Sidebar starts closed on mobile, open on desktop
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     // Check if we're on desktop (window width >= 768px)
@@ -45,6 +50,14 @@ const AppContent: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, [isSidebarOpen]);
 
+  const addToast = (toast: Toast) => {
+    setToasts(prev => [...prev, toast]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
   // Define available agents with SaaS permissions
   const baseAgents: Agent[] = [
     {
@@ -52,6 +65,14 @@ const AppContent: React.FC = () => {
       name: 'Lucro do Boi',
       description: 'Análise econômica completa.',
       icon: 'calculator',
+      category: 'financeiro',
+      status: checkPermission('Calculadora') ? 'active' : 'locked'
+    },
+    {
+      id: 'saved-scenarios',
+      name: 'Meus Salvos',
+      description: 'Cenários e simulações salvos.',
+      icon: 'save',
       category: 'financeiro',
       status: checkPermission('Calculadora') ? 'active' : 'locked'
     },
@@ -109,8 +130,20 @@ const AppContent: React.FC = () => {
 
   const activeAgent = agents.find(a => a.id === activeAgentId);
   const isSubscriptionPage = activeAgentId === 'subscription';
+  const isSettingsPage = activeAgentId === 'settings';
 
   const renderContent = () => {
+    if (activeAgentId === 'settings') {
+      return (
+        <SettingsPage
+          user={user}
+          onBack={() => setActiveAgentId('cattle-profit')}
+          onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+          onLogout={logout}
+        />
+      );
+    }
+
     if (activeAgentId === 'subscription') {
       return (
         <SubscriptionPage
@@ -128,7 +161,22 @@ const AppContent: React.FC = () => {
       case 'cattle-profit':
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <CattleProfitCalculator />
+            <CattleProfitCalculator 
+              initialInputs={calculatorInputs}
+              onToast={addToast}
+            />
+          </Suspense>
+        );
+      case 'saved-scenarios':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <SavedScenarios
+              onLoadScenario={(inputs) => {
+                setCalculatorInputs(inputs);
+                setActiveAgentId('cattle-profit');
+              }}
+              onNavigateToCalculator={() => setActiveAgentId('cattle-profit')}
+            />
           </Suspense>
         );
       case 'ask-antonio':
@@ -174,7 +222,7 @@ const AppContent: React.FC = () => {
         toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         user={user}
         onLogout={logout}
-        onSettingsClick={() => setActiveAgentId('subscription')}
+        onSettingsClick={() => setActiveAgentId('settings')}
       />
 
       {/* Main Content Area */}
@@ -193,7 +241,7 @@ const AppContent: React.FC = () => {
               <Menu size={20} />
             </button>
             <h1 className="text-sm font-semibold text-ai-text flex items-center gap-2">
-              {isSubscriptionPage ? 'Assinatura e Planos' : activeAgent?.name}
+              {isSettingsPage ? 'Configurações' : isSubscriptionPage ? 'Assinatura e Planos' : activeAgent?.name}
             </h1>
           </div>
 
@@ -213,6 +261,9 @@ const AppContent: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   );
 };

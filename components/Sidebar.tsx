@@ -9,7 +9,8 @@ import {
   Lock,
   LogOut,
   Users,
-  X
+  X,
+  Save
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -91,6 +92,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                 >
                   <div className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}>
                     {agent.icon === 'calculator' && <Calculator size={16} />}
+                    {agent.icon === 'save' && <Save size={16} />}
                     {agent.icon === 'chart' && <TrendingUp size={16} />}
                     {agent.icon === 'nutrition' && <Sprout size={16} />}
                     {agent.icon === 'users' && <Users size={16} />}
