@@ -205,7 +205,7 @@ const AppContent: React.FC = () => {
         </header>
 
         {/* Workspace */}
-        <main className="flex-1 overflow-hidden p-3 bg-ai-bg">
+        <main className="flex-1 overflow-hidden p-2 md:p-3 bg-ai-bg">
           <div className="h-full w-full max-w-[1600px] mx-auto overflow-y-auto">
             <ErrorBoundary>
               {renderContent()}

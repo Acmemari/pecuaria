@@ -26,8 +26,8 @@ const Slider: React.FC<SliderProps> = ({
   const percentage = ((value - min) / (max - min)) * 100;
 
   return (
-    <div className="bg-ai-surface p-2.5 rounded border border-ai-border/50 hover:border-ai-accent/30 transition-colors group">
-      <div className="flex justify-between items-baseline mb-1.5">
+    <div className="bg-ai-surface p-2 md:p-2.5 rounded border border-ai-border/50 hover:border-ai-accent/30 transition-colors group">
+      <div className="flex justify-between items-baseline mb-1.5 md:mb-1.5">
         <div className="flex-1 mr-2">
           <label className="text-ai-text font-medium text-xs flex items-center gap-1.5 truncate">
             {index && <span className="text-ai-subtext font-mono text-[10px] w-3">{index}.</span>}
@@ -43,9 +43,9 @@ const Slider: React.FC<SliderProps> = ({
         </div>
       </div>
 
-      <div className="relative h-4 flex items-center cursor-pointer">
-        {/* Track background */}
-        <div className="absolute w-full h-[3px] bg-ai-border rounded-full overflow-hidden">
+      <div className="relative h-6 md:h-4 flex items-center cursor-pointer touch-none">
+        {/* Track background - taller on mobile for better touch target */}
+        <div className="absolute w-full h-1 md:h-[3px] bg-ai-border rounded-full overflow-hidden">
           {/* Active track */}
           <div 
             className="h-full bg-ai-accent transition-all duration-75 ease-out"
@@ -53,7 +53,7 @@ const Slider: React.FC<SliderProps> = ({
           />
         </div>
 
-        {/* Range Input (Invisible but functional) */}
+        {/* Range Input (Invisible but functional) - larger touch target on mobile */}
         <input
           type="range"
           min={min}
@@ -61,14 +61,16 @@ const Slider: React.FC<SliderProps> = ({
           step={step}
           value={value}
           onChange={(e) => onChange(parseFloat(e.target.value))}
-          className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+          className="absolute w-full h-full opacity-0 cursor-pointer z-10 touch-none"
+          style={{ minHeight: '44px' }} // Minimum touch target size
         />
 
-        {/* Thumb (Visual) */}
+        {/* Thumb (Visual) - larger on mobile for better visibility and touch */}
         <div 
-          className="absolute h-3 w-3 bg-white rounded-full border border-ai-border shadow-sm pointer-events-none transition-all duration-75 ease-out group-hover:scale-125 group-hover:border-ai-accent"
+          className="absolute h-4 w-4 md:h-3 md:w-3 bg-white rounded-full border border-ai-border shadow-sm pointer-events-none transition-all duration-75 ease-out group-hover:scale-125 group-hover:border-ai-accent"
           style={{ 
-            left: `calc(${percentage}% - 6px)`
+            left: `${percentage}%`,
+            transform: 'translateX(-50%)'
           }}
         />
       </div>

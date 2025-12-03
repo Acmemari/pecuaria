@@ -109,19 +109,19 @@ const CattleProfitCalculator: React.FC = () => {
     });
   }, [inputs, results]);
 
-  if (!results) return <div className="p-10 text-center">Calculando...</div>;
+  if (!results) return <div className="p-4 md:p-10 text-center">Calculando...</div>;
 
   return (
-    <div className="h-full flex gap-4">
+    <div className="h-full flex flex-col md:flex-row gap-2 md:gap-4">
       
-      {/* Left Column: Inputs (Fixed width, ~300px) */}
-      <div className="w-[300px] flex flex-col shrink-0 h-full overflow-hidden">
-        <div className="mb-3 flex items-center gap-2 px-1">
+      {/* Left Column: Inputs - Full width on mobile, fixed width on desktop */}
+      <div className="w-full md:w-[300px] flex flex-col shrink-0 md:h-full overflow-hidden">
+        <div className="mb-2 md:mb-3 flex items-center gap-2 px-1">
             <SlidersHorizontal size={18} className="text-ai-subtext" />
             <h2 className="text-sm font-semibold text-ai-text">Premissas</h2>
         </div>
 
-        <div className="flex-1 flex flex-col justify-between overflow-y-auto pr-1 pb-1 space-y-2">
+        <div className="flex flex-col md:flex-1 md:justify-between overflow-y-auto md:pr-1 pb-1 space-y-1.5 md:space-y-2">
              <Slider index={1} label="Peso de Compra" value={inputs.pesoCompra} min={150} max={420} step={1} unit="kg" onChange={(v) => handleInputChange('pesoCompra', v)} />
              <Slider index={2} label="Valor de Compra" value={inputs.valorCompra} min={11} max={18} step={0.05} unit="R$/kg" onChange={(v) => handleInputChange('valorCompra', v)} />
              <Slider index={3} label="Peso Vivo Abate" value={inputs.pesoAbate} min={Math.max(390, inputs.pesoCompra + 10)} max={630} step={1} unit="kg" onChange={(v) => handleInputChange('pesoAbate', v)} />
@@ -133,10 +133,10 @@ const CattleProfitCalculator: React.FC = () => {
       </div>
 
       {/* Right Column: Dashboard Grid */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col md:h-full overflow-hidden min-h-0">
         
-        {/* Results Grid - Using CSS Grid for layout */}
-        <div className="grid grid-cols-4 grid-rows-3 gap-3 h-[60%] mb-3">
+        {/* Results Grid - Responsive: 1 col mobile, 2 col tablet, 4 col desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3 auto-rows-fr md:h-[60%] mb-2 md:mb-3">
           
           {/* Row 1 */}
           <ResultCard label="1. Peso Final Arrobas" value={`${results.pesoFinalArrobas.toFixed(2)} @`} />
@@ -153,20 +153,20 @@ const CattleProfitCalculator: React.FC = () => {
           {/* Row 3 */}
           <ResultCard label="9. Margem %" value={`${results.margemVenda.toFixed(2)}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} />
           <ResultCard label="10/11. Res. Mensal/Anual" value={`${results.resultadoMensal.toFixed(2)}% a.m.`} subValue={`${results.resultadoAnual.toFixed(2)}% a.a.`} />
-          <div className="col-span-2">
+          <div className="col-span-1 sm:col-span-2 lg:col-span-2">
              <ResultCard label="12. Resultado Total por Cabeça" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} highlight color="info" subValue="Lucro Líquido Final" />
           </div>
         </div>
 
-        {/* Charts Row - Filling remaining height */}
-        <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
+        {/* Charts Row - Stack vertical on mobile, horizontal on desktop */}
+        <div className="flex-1 flex flex-col md:grid md:grid-cols-2 gap-2 md:gap-3 min-h-[400px] md:min-h-0">
             {/* Chart 1: Breakdown */}
-            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-row items-center relative">
-                <div className="absolute top-3 left-3 flex items-center gap-2">
+            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col sm:flex-row items-center relative min-h-[200px] md:min-h-0">
+                <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
                    <PieIcon size={14} className="text-ai-subtext"/>
                    <span className="text-[10px] font-bold uppercase text-ai-subtext">Composição</span>
                 </div>
-                <div className="w-1/2 h-full">
+                <div className="w-full sm:w-1/2 h-full mt-6 sm:mt-0">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie data={costBreakdownData} cx="50%" cy="50%" innerRadius={35} outerRadius={50} paddingAngle={2} dataKey="value" stroke="none">
@@ -176,7 +176,7 @@ const CattleProfitCalculator: React.FC = () => {
                         </PieChart>
                     </ResponsiveContainer>
                 </div>
-                <div className="w-1/2 flex flex-col justify-center gap-2 text-[10px] text-ai-subtext">
+                <div className="w-full sm:w-1/2 flex flex-row sm:flex-col justify-center gap-2 sm:gap-2 text-[10px] text-ai-subtext mt-2 sm:mt-0">
                     <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-400"></div>Compra</div>
                     <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-600"></div>Operacional</div>
                     <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-600"></div>Lucro</div>
@@ -184,7 +184,7 @@ const CattleProfitCalculator: React.FC = () => {
             </div>
 
             {/* Chart 2: Sensitivity */}
-            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative">
+            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative min-h-[200px] md:min-h-0">
                 <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
                    <BarChart3 size={14} className="text-ai-subtext"/>
                    <span className="text-[10px] font-bold uppercase text-ai-subtext">Sensibilidade (GMD)</span>

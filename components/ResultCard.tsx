@@ -28,12 +28,12 @@ const ResultCard: React.FC<ResultCardProps> = ({
   const bgClass = highlight ? 'bg-white' : 'bg-white';
 
   return (
-    <div className={`p-3 rounded-lg border ${borderClass} ${bgClass} flex flex-col justify-between h-full min-h-[80px]`}>
+    <div className={`p-2.5 md:p-3 rounded-lg border ${borderClass} ${bgClass} flex flex-col justify-between h-full min-h-[80px]`}>
       <div className="text-ai-subtext text-[10px] font-bold uppercase tracking-wider leading-tight mb-1 truncate">
         {label}
       </div>
       <div>
-        <div className={`text-xl font-mono font-medium tracking-tight ${valueColor[color]}`}>
+        <div className={`text-lg md:text-xl font-mono font-medium tracking-tight ${valueColor[color]}`}>
             {value}
         </div>
         {subValue && (
