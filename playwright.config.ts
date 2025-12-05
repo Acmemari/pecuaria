@@ -1,0 +1,43 @@
+import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * Configuração do Playwright para testes E2E
+ * @see https://playwright.dev/docs/test-configuration
+ */
+export default defineConfig({
+  testDir: './src/test/e2e',
+  /* Roda testes em paralelo */
+  fullyParallel: true,
+  /* Falha o build no CI se você deixar test.only no código */
+  forbidOnly: !!process.env.CI,
+  /* Retry no CI */
+  retries: process.env.CI ? 2 : 0,
+  /* Workers no CI */
+  workers: process.env.CI ? 1 : undefined,
+  /* Configuração do reporter */
+  reporter: 'html',
+  /* Configurações compartilhadas para todos os projetos */
+  use: {
+    /* Base URL para usar em navegação como await page.goto('/') */
+    baseURL: 'http://localhost:3000',
+    /* Coletar trace quando retentar o teste */
+    trace: 'on-first-retry',
+  },
+
+  /* Configurar projetos para múltiplos navegadores */
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+
+  /* Rodar servidor de desenvolvimento antes dos testes */
+  webServer: {
+    command: 'npm run dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
+  },
+});
+

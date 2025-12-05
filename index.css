@@ -1,0 +1,52 @@
+/* Diretivas do Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Estilos customizados - Custom scrollbar */
+@layer base {
+  /* Reset básico para garantir consistência */
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    min-height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  body {
+    background-color: #FFFFFF;
+    color: #1F1F1F;
+    min-height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  /* Custom scrollbar - thinner and lighter */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #E0E3E7;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #C4C7C5;
+  }
+
+  /* Garantir que o root esteja pronto para montagem */
+  #root {
+    width: 100%;
+    min-height: 100vh;
+  }
+}
+
