@@ -324,6 +324,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshProfile = async () => {
+    if (!user) return;
+    try {
+      const userProfile = await loadUserProfile(user.id, 1, 0);
+      if (userProfile) {
+        setUser(userProfile);
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -333,6 +345,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       checkPermission,
       checkLimit,
       upgradePlan,
+      refreshProfile,
       signInWithOAuth,
       signup
     } as AuthContextType & {

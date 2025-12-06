@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { 
-  User as UserIcon, 
-  Lock, 
-  Bell, 
-  Palette, 
-  Shield, 
+import {
+  User as UserIcon,
+  Lock,
+  Bell,
+  Palette,
+  Shield,
   HelpCircle,
   Save,
   Eye,
@@ -39,6 +40,7 @@ interface Tab {
 }
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLogout }) => {
+  const { refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('profile');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -160,6 +162,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         if (emailError) throw emailError;
       }
 
+      await refreshProfile();
       onToast('Perfil atualizado com sucesso!', 'success');
       setHasUnsavedChanges(false);
     } catch (error: any) {
@@ -217,10 +220,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       if (profileError) throw profileError;
 
       onToast('Sua conta foi marcada para exclusão. Entre em contato com o suporte para finalizar o processo.', 'info');
-      
+
       // Sign out the user
       await supabase.auth.signOut();
-      
+
       setTimeout(() => {
         onLogout();
       }, 2000);
@@ -270,7 +273,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-semibold text-ai-text mb-4">Informações do Perfil</h3>
-        
+
         {/* Avatar Upload */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-ai-text mb-2">Foto do Perfil</label>
@@ -353,10 +356,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                 {user.plan === 'basic' ? 'Básico' : user.plan === 'pro' ? 'Profissional' : user.plan === 'enterprise' ? 'Enterprise' : 'Gratuito'}
               </p>
               <p className="text-sm text-ai-subtext mt-1">
-                {user.plan === 'basic' ? 'Plano gratuito com recursos limitados' : 
-                 user.plan === 'pro' ? 'Acesso completo a todos os recursos' : 
-                 user.plan === 'enterprise' ? 'Solução empresarial completa' : 
-                 'Plano padrão'}
+                {user.plan === 'basic' ? 'Plano gratuito com recursos limitados' :
+                  user.plan === 'pro' ? 'Acesso completo a todos os recursos' :
+                    user.plan === 'enterprise' ? 'Solução empresarial completa' :
+                      'Plano padrão'}
               </p>
             </div>
             <span className="px-3 py-1 bg-ai-accent/10 text-ai-accent text-xs font-medium rounded-full border border-ai-accent/20">
@@ -451,14 +454,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           </div>
           <button
             onClick={() => setTwoFactorEnabled(!twoFactorEnabled)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              twoFactorEnabled ? 'bg-ai-accent' : 'bg-gray-300'
-            }`}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${twoFactorEnabled ? 'bg-ai-accent' : 'bg-gray-300'
+              }`}
           >
             <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                twoFactorEnabled ? 'translate-x-6' : 'translate-x-1'
-              }`}
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${twoFactorEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
             />
           </button>
         </div>
@@ -504,7 +505,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const renderNotificationsTab = () => (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-ai-text mb-4">Preferências de Notificação</h3>
-      
+
       {[
         { key: 'email', label: 'Notificações por Email', description: 'Receba notificações importantes por email' },
         { key: 'push', label: 'Notificações Push', description: 'Receba notificações no navegador' },
@@ -519,14 +520,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           <button
             onClick={() => !item.disabled && setNotifications(prev => ({ ...prev, [item.key]: !prev[item.key as keyof typeof notifications] }))}
             disabled={item.disabled}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              notifications[item.key as keyof typeof notifications] ? 'bg-ai-accent' : 'bg-gray-300'
-            } ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications[item.key as keyof typeof notifications] ? 'bg-ai-accent' : 'bg-gray-300'
+              } ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                notifications[item.key as keyof typeof notifications] ? 'translate-x-6' : 'translate-x-1'
-              }`}
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications[item.key as keyof typeof notifications] ? 'translate-x-6' : 'translate-x-1'
+                }`}
             />
           </button>
         </div>
@@ -537,7 +536,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const renderAppearanceTab = () => (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-ai-text mb-4">Personalização</h3>
-      
+
       {/* Theme */}
       <div>
         <label className="block text-sm font-medium text-ai-text mb-2">Tema</label>
@@ -550,11 +549,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
             <button
               key={theme.value}
               onClick={() => setAppearance(prev => ({ ...prev, theme: theme.value as any }))}
-              className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
-                appearance.theme === theme.value
-                  ? 'border-ai-accent bg-ai-accent/10'
-                  : 'border-ai-border bg-white hover:border-ai-subtext'
-              }`}
+              className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${appearance.theme === theme.value
+                ? 'border-ai-accent bg-ai-accent/10'
+                : 'border-ai-border bg-white hover:border-ai-subtext'
+                }`}
             >
               {theme.icon}
               <span className="text-sm font-medium text-ai-text">{theme.label}</span>
@@ -610,7 +608,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const renderPrivacyTab = () => (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-ai-text mb-4">Configurações de Privacidade</h3>
-      
+
       {/* Profile Visibility */}
       <div>
         <label className="block text-sm font-medium text-ai-text mb-2">Visibilidade do Perfil</label>
@@ -633,14 +631,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         </div>
         <button
           onClick={() => setPrivacy(prev => ({ ...prev, dataSharing: !prev.dataSharing }))}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            privacy.dataSharing ? 'bg-ai-accent' : 'bg-gray-300'
-          }`}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${privacy.dataSharing ? 'bg-ai-accent' : 'bg-gray-300'
+            }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              privacy.dataSharing ? 'translate-x-6' : 'translate-x-1'
-            }`}
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${privacy.dataSharing ? 'translate-x-6' : 'translate-x-1'
+              }`}
           />
         </button>
       </div>
@@ -680,7 +676,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const renderSupportTab = () => (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-ai-text mb-4">Central de Ajuda</h3>
-      
+
       <div className="grid md:grid-cols-2 gap-4">
         <a
           href="#"
@@ -779,11 +775,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === tab.id
-                      ? 'bg-ai-accent text-white'
-                      : 'text-ai-text hover:bg-ai-surface2'
-                  }`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id
+                    ? 'bg-ai-accent text-white'
+                    : 'text-ai-text hover:bg-ai-surface2'
+                    }`}
                 >
                   {tab.icon}
                   {tab.label}

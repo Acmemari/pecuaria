@@ -83,6 +83,7 @@ export interface AuthContextType {
   checkPermission: (feature: string) => boolean;
   checkLimit: (limit: keyof Plan['limits'], value: number) => boolean;
   upgradePlan: (planId: Plan['id']) => void;
+  refreshProfile: () => Promise<void>;
 }
 
 export interface CattleScenario {
