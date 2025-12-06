@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { BrainCircuit, Lock, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
 
@@ -7,6 +7,11 @@ interface ResetPasswordPageProps {
     onSuccess: () => void;
 }
 
+/**
+ * Página de redefinição de senha
+ * Esta página é exibida quando o Supabase dispara o evento PASSWORD_RECOVERY
+ * O token já foi validado pelo Supabase, então só precisamos mostrar o formulário
+ */
 const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSuccess }) => {
     const { updatePassword } = useAuth() as any;
     const [password, setPassword] = useState('');
@@ -14,63 +19,6 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSucces
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
-    const [hasToken, setHasToken] = useState(false);
-
-    // Verificar se há token na URL (hash fragment ou query string)
-    useEffect(() => {
-        // Verificar hash fragment (Supabase usa #access_token=... ou #error=...)
-        const hash = window.location.hash;
-        const hasAccessToken = hash.includes('access_token=');
-        const hasTypeRecovery = hash.includes('type=recovery') || hash.includes('type%3Drecovery');
-        
-        // Verificar se há erros no hash fragment
-        const hasError = hash.includes('error=');
-        let errorMessage = '';
-        
-        if (hasError) {
-            // Extrair informações do erro do hash
-            const errorMatch = hash.match(/error=([^&]+)/);
-            const errorCodeMatch = hash.match(/error_code=([^&]+)/);
-            const errorDescMatch = hash.match(/error_description=([^&]+)/);
-            
-            const errorCode = errorCodeMatch ? decodeURIComponent(errorCodeMatch[1]) : '';
-            const errorDesc = errorDescMatch ? decodeURIComponent(errorDescMatch[1].replace(/\+/g, ' ')) : '';
-            
-            // Mapear erros comuns para mensagens amigáveis
-            if (errorCode === 'otp_expired' || errorDesc.includes('expired') || errorDesc.includes('expirado')) {
-                errorMessage = 'O link de recuperação expirou. Por favor, solicite um novo link.';
-            } else if (errorCode === 'access_denied' || errorDesc.includes('invalid') || errorDesc.includes('inválido')) {
-                errorMessage = 'Link de recuperação inválido. Por favor, solicite um novo link.';
-            } else {
-                errorMessage = 'Erro ao processar o link de recuperação. Por favor, solicite um novo link.';
-            }
-        }
-        
-        // Verificar query string também (fallback)
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        const type = urlParams.get('type');
-
-        // Se tiver access_token no hash OU token na query string, considerar válido
-        // O Supabase processará o token automaticamente
-        if ((hasAccessToken && hasTypeRecovery) || (token && type === 'recovery')) {
-            setHasToken(true);
-            // Limpar hash fragment após detectar (opcional, mas mantém URL limpa)
-            // Aguardar um pouco para o Supabase processar primeiro
-            setTimeout(() => {
-                if (window.location.hash && !hasError) {
-                    window.history.replaceState({}, '', window.location.pathname);
-                }
-            }, 1000);
-        } else if (hasError) {
-            // Se houver erro, mostrar mensagem de erro mas ainda permitir que a página seja exibida
-            setError(errorMessage);
-            setHasToken(false);
-        } else {
-            setError('Link de recuperação inválido ou expirado. Solicite um novo link.');
-            setHasToken(false);
-        }
-    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -116,45 +64,7 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSucces
         }
     };
 
-    // Se não tiver token válido, mostrar mensagem de erro mas ainda exibir a página
-    if (!hasToken) {
-        return (
-            <div className="w-full min-h-screen bg-ai-bg text-ai-text font-sans overflow-y-auto">
-                <div className="w-full max-w-md mx-auto px-4 py-6 sm:py-8 pb-12">
-                    {/* Logo Section */}
-                    <div className="flex flex-col items-center mb-6 sm:mb-8">
-                        <div className="p-2 sm:p-3 rounded-xl bg-ai-text text-white mb-3 sm:mb-4">
-                            <BrainCircuit size={24} className="sm:w-8 sm:h-8" />
-                        </div>
-                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">PecuarIA</h1>
-                        <p className="text-ai-subtext text-xs sm:text-sm mt-1 sm:mt-2">Gestão de precisão para sua fazenda</p>
-                    </div>
-
-                    {/* Error Card */}
-                    <div className="bg-white rounded-xl sm:rounded-2xl border border-ai-border shadow-sm p-4 sm:p-6 md:p-8">
-                        <div className="text-center">
-                            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
-                                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </div>
-                            <h2 className="text-base sm:text-lg font-semibold mb-2">Link inválido ou expirado</h2>
-                            <p className="text-[10px] sm:text-xs text-ai-subtext mb-6">
-                                {error || 'Este link de recuperação é inválido ou expirou. Por favor, solicite um novo link de recuperação.'}
-                            </p>
-                            <button
-                                onClick={onSuccess}
-                                className="w-full flex items-center justify-center gap-2 py-2.5 sm:py-3 px-4 bg-ai-text text-white rounded-lg hover:bg-black transition-colors font-medium text-xs sm:text-sm"
-                            >
-                                <span>Voltar ao login</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
+    // Tela de sucesso após redefinir a senha
     if (isSuccess) {
         return (
             <div className="w-full min-h-screen bg-ai-bg text-ai-text font-sans overflow-y-auto">

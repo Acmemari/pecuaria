@@ -80,12 +80,14 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
+  isPasswordRecovery: boolean;
   checkPermission: (feature: string) => boolean;
   checkLimit: (limit: keyof Plan['limits'], value: number) => boolean;
   upgradePlan: (planId: Plan['id']) => void;
   refreshProfile: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  clearPasswordRecovery: () => void;
 }
 
 export interface CattleScenario {

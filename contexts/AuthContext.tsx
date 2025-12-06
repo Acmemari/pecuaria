@@ -11,6 +11,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
     // Check for existing session
@@ -56,10 +57,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.id);
 
-      // Ignorar eventos de recovery - não fazer login automático
-      // O recovery token será usado apenas quando updatePassword for chamado
+      // Detectar evento de recovery - mostrar página de reset de senha
       if (event === 'PASSWORD_RECOVERY') {
-        console.log('Password recovery token detected, waiting for user to reset password');
+        console.log('Password recovery token detected, showing reset password page');
+        setIsPasswordRecovery(true);
         // Não definir user aqui - deixar na página de reset
         return;
       }
@@ -426,11 +427,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: errorMessage };
       }
 
+      // Sucesso - resetar estado de recovery
+      setIsPasswordRecovery(false);
       return { success: true };
     } catch (error: any) {
       console.error('Update password error:', error);
       return { success: false, error: error.message || 'Erro inesperado ao atualizar senha.' };
     }
+  };
+
+  // Função para limpar estado de recovery (quando usuário cancela ou volta ao login)
+  const clearPasswordRecovery = () => {
+    setIsPasswordRecovery(false);
   };
 
   return (
@@ -439,6 +447,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login,
       logout,
       isLoading,
+      isPasswordRecovery,
       checkPermission,
       checkLimit,
       upgradePlan,
@@ -446,7 +455,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signInWithOAuth,
       signup,
       resetPassword,
-      updatePassword
+      updatePassword,
+      clearPasswordRecovery
     } as AuthContextType & {
       signInWithOAuth: (provider: 'google') => Promise<any>;
       signup: (email: string, password: string, name: string, phone: string, organizationName?: string) => Promise<{ success: boolean; error?: string }>;
