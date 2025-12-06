@@ -12,6 +12,20 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap"
     rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  
+  <!-- Detectar hash fragment ANTES do React carregar -->
+  <script>
+    // Se houver hash fragment com access_token, garantir que estamos na raiz
+    (function() {
+      const hash = window.location.hash;
+      if (hash.includes('access_token=') && (hash.includes('type=recovery') || hash.includes('type%3Drecovery'))) {
+        // Se não estiver na raiz, redirecionar para raiz mantendo o hash
+        if (window.location.pathname !== '/') {
+          window.location.replace('/' + hash);
+        }
+      }
+    })();
+  </script>
 </head>
 
 <body>

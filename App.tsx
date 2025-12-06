@@ -154,9 +154,8 @@ const AppContent: React.FC = () => {
       
       if ((hasAccessToken && hasTypeRecovery) || (token && type === 'recovery')) {
         setAuthPage('reset-password');
-        // Clean URL mantendo apenas o path
-        const cleanUrl = window.location.pathname;
-        window.history.replaceState({}, '', cleanUrl);
+        // Não limpar o hash ainda - o Supabase precisa processar primeiro
+        // O hash será limpo após o Supabase processar o token
       }
     }
   }, [user, isLoading]);

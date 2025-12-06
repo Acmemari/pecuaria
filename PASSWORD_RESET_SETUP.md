@@ -130,12 +130,25 @@ O template HTML está em `lib/email-templates/reset-password.html` e pode ser pe
 
 ### Link não funciona / Erro 404
 
-1. **URL sem protocolo**: Se a URL no email estiver sem `https://` (ex: `pecuaria.ai/reset-password`), adicione o protocolo manualmente ou configure o Site URL no Supabase com `https://`
-2. **Verifique se a URL de redirecionamento está configurada corretamente** no Supabase Dashboard
-3. **Confirme que o token não expirou** (1 hora)
-4. **Verifique se a URL está na lista de Redirect URLs permitidas**
-5. **Hash fragment**: O Supabase usa hash fragments (`#access_token=...`) em vez de query strings. O código já está preparado para isso
+1. **Configuração do Servidor (CRÍTICO)**: O servidor precisa retornar `index.html` para todas as rotas. Verifique:
+   - **Vercel**: Arquivo `vercel.json` na raiz do projeto (já criado)
+   - **Netlify**: Arquivo `public/_redirects` (já criado)
+   - **Apache**: Arquivo `public/.htaccess` (já criado)
+   - **Nginx**: Configure `try_files $uri $uri/ /index.html;` no bloco `location /`
+
+2. **URL sem protocolo**: Se a URL no email estiver sem `https://` (ex: `pecuaria.ai/reset-password`), configure o Site URL no Supabase com `https://pecuaria.ai`
+
+3. **Verifique se a URL de redirecionamento está configurada corretamente** no Supabase Dashboard:
+   - Authentication > URL Configuration > Site URL: `https://pecuaria.ai`
+   - Authentication > URL Configuration > Redirect URLs: `https://pecuaria.ai` e `https://pecuaria.ai/**`
+
+4. **Confirme que o token não expirou** (1 hora)
+
+5. **Hash fragment**: O Supabase usa hash fragments (`#access_token=...`) em vez de query strings. O código já está preparado para isso e detecta automaticamente
+
 6. **Verifique o console do navegador** para ver se há erros de JavaScript
+
+7. **Script de detecção**: Um script no `index.html` detecta o hash fragment antes do React carregar e redireciona para a raiz se necessário
 
 ### Template não aparece
 
