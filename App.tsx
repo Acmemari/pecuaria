@@ -9,6 +9,10 @@ import { Agent } from './types';
 import { Menu, Construction, Loader2 } from 'lucide-react';
 import { ToastContainer, Toast } from './components/Toast';
 
+// Lazy load auth pages
+const ForgotPasswordPage = lazy(() => import('./components/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
+
 // Lazy load agents for code splitting
 const CattleProfitCalculator = lazy(() => import('./agents/CattleProfitCalculator'));
 const ChatAgent = lazy(() => import('./agents/ChatAgent'));
@@ -27,6 +31,7 @@ const AppContent: React.FC = () => {
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
+  const [authPage, setAuthPage] = useState<'login' | 'forgot-password' | 'reset-password'>('login');
   // Sidebar starts closed on mobile, open on desktop
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     // Check if we're on desktop (window width >= 768px)
@@ -134,6 +139,21 @@ const AppContent: React.FC = () => {
     }
   }, [user, activeAgentId, isLoading]);
 
+  // Handle password reset token from URL (must be before any conditional returns)
+  useEffect(() => {
+    if (!user && !isLoading) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+      const type = urlParams.get('type');
+      
+      if (token && type === 'recovery') {
+        setAuthPage('reset-password');
+        // Clean URL
+        window.history.replaceState({}, '', '/reset-password');
+      }
+    }
+  }, [user, isLoading]);
+
   if (isLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
@@ -143,7 +163,43 @@ const AppContent: React.FC = () => {
   }
 
   if (!user) {
-    return <LoginPage onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })} />;
+    // Render appropriate auth page
+    if (authPage === 'forgot-password') {
+      return (
+        <Suspense fallback={
+          <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
+            <Loader2 size={32} className="animate-spin" />
+          </div>
+        }>
+          <ForgotPasswordPage 
+            onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+            onBack={() => setAuthPage('login')}
+          />
+        </Suspense>
+      );
+    }
+
+    if (authPage === 'reset-password') {
+      return (
+        <Suspense fallback={
+          <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
+            <Loader2 size={32} className="animate-spin" />
+          </div>
+        }>
+          <ResetPasswordPage 
+            onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+            onSuccess={() => setAuthPage('login')}
+          />
+        </Suspense>
+      );
+    }
+
+    return (
+      <LoginPage 
+        onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+        onForgotPassword={() => setAuthPage('forgot-password')}
+      />
+    );
   }
 
   // If agents are not loaded yet, show loading

@@ -5,9 +5,10 @@ import { formatPhone, validatePhone } from '../lib/utils/phoneMask';
 
 interface LoginPageProps {
     onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
+    onForgotPassword?: () => void;
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onToast }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
     const { login, signInWithOAuth, signup } = useAuth() as any;
     const [isSignup, setIsSignup] = useState(false);
     const [email, setEmail] = useState('');
@@ -339,6 +340,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast }) => {
                             <p className="text-red-600 text-center text-sm font-medium bg-red-50 border border-red-200 rounded-lg py-3 px-4">
                                 {loginError}
                             </p>
+                        )}
+
+                        {/* Link Esqueci minha senha - apenas no modo login */}
+                        {!isSignup && onForgotPassword && (
+                            <div className="text-center mt-2">
+                                <button
+                                    type="button"
+                                    onClick={onForgotPassword}
+                                    className="text-[10px] sm:text-xs text-ai-subtext hover:text-ai-text font-medium transition-colors"
+                                >
+                                    Esqueci minha senha
+                                </button>
+                            </div>
                         )}
                     </form>
 

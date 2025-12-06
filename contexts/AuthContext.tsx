@@ -347,6 +347,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl
+      });
+
+      if (error) {
+        console.error('Reset password error:', error);
+        
+        // Map Supabase errors to user-friendly messages
+        let errorMessage = 'Erro ao enviar email de recuperação.';
+        const errorMsg = error.message.toLowerCase();
+        
+        if (errorMsg.includes('user not found') || errorMsg.includes('user_not_found')) {
+          errorMessage = 'Email não encontrado. Verifique se o email está correto.';
+        } else if (errorMsg.includes('invalid email')) {
+          errorMessage = 'Email inválido. Verifique o formato do email.';
+        } else if (errorMsg.includes('too many requests') || errorMsg.includes('rate limit')) {
+          errorMessage = 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+        }
+
+        return { success: false, error: errorMessage };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      return { success: false, error: error.message || 'Erro inesperado ao enviar email de recuperação.' };
+    }
+  };
+
+  const updatePassword = async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        console.error('Update password error:', error);
+        
+        // Map Supabase errors to user-friendly messages
+        let errorMessage = 'Erro ao atualizar senha.';
+        const errorMsg = error.message.toLowerCase();
+        
+        if (errorMsg.includes('password')) {
+          errorMessage = 'A senha não atende aos requisitos mínimos.';
+        } else if (errorMsg.includes('token') || errorMsg.includes('expired')) {
+          errorMessage = 'Link de recuperação expirado ou inválido. Solicite um novo link.';
+        }
+
+        return { success: false, error: errorMessage };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Update password error:', error);
+      return { success: false, error: error.message || 'Erro inesperado ao atualizar senha.' };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -358,7 +419,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       upgradePlan,
       refreshProfile,
       signInWithOAuth,
-      signup
+      signup,
+      resetPassword,
+      updatePassword
     } as AuthContextType & {
       signInWithOAuth: (provider: 'google') => Promise<any>;
       signup: (email: string, password: string, name: string, phone: string, organizationName?: string) => Promise<{ success: boolean; error?: string }>;

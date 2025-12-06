@@ -84,6 +84,8 @@ export interface AuthContextType {
   checkLimit: (limit: keyof Plan['limits'], value: number) => boolean;
   upgradePlan: (planId: Plan['id']) => void;
   refreshProfile: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface CattleScenario {
