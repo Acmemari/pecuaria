@@ -18,10 +18,33 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSucces
 
     // Verificar se há token na URL (hash fragment ou query string)
     useEffect(() => {
-        // Verificar hash fragment (Supabase usa #access_token=...)
+        // Verificar hash fragment (Supabase usa #access_token=... ou #error=...)
         const hash = window.location.hash;
         const hasAccessToken = hash.includes('access_token=');
         const hasTypeRecovery = hash.includes('type=recovery') || hash.includes('type%3Drecovery');
+        
+        // Verificar se há erros no hash fragment
+        const hasError = hash.includes('error=');
+        let errorMessage = '';
+        
+        if (hasError) {
+            // Extrair informações do erro do hash
+            const errorMatch = hash.match(/error=([^&]+)/);
+            const errorCodeMatch = hash.match(/error_code=([^&]+)/);
+            const errorDescMatch = hash.match(/error_description=([^&]+)/);
+            
+            const errorCode = errorCodeMatch ? decodeURIComponent(errorCodeMatch[1]) : '';
+            const errorDesc = errorDescMatch ? decodeURIComponent(errorDescMatch[1].replace(/\+/g, ' ')) : '';
+            
+            // Mapear erros comuns para mensagens amigáveis
+            if (errorCode === 'otp_expired' || errorDesc.includes('expired') || errorDesc.includes('expirado')) {
+                errorMessage = 'O link de recuperação expirou. Por favor, solicite um novo link.';
+            } else if (errorCode === 'access_denied' || errorDesc.includes('invalid') || errorDesc.includes('inválido')) {
+                errorMessage = 'Link de recuperação inválido. Por favor, solicite um novo link.';
+            } else {
+                errorMessage = 'Erro ao processar o link de recuperação. Por favor, solicite um novo link.';
+            }
+        }
         
         // Verificar query string também (fallback)
         const urlParams = new URLSearchParams(window.location.search);
@@ -35,12 +58,17 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSucces
             // Limpar hash fragment após detectar (opcional, mas mantém URL limpa)
             // Aguardar um pouco para o Supabase processar primeiro
             setTimeout(() => {
-                if (window.location.hash) {
+                if (window.location.hash && !hasError) {
                     window.history.replaceState({}, '', window.location.pathname);
                 }
             }, 1000);
+        } else if (hasError) {
+            // Se houver erro, mostrar mensagem de erro mas ainda permitir que a página seja exibida
+            setError(errorMessage);
+            setHasToken(false);
         } else {
             setError('Link de recuperação inválido ou expirado. Solicite um novo link.');
+            setHasToken(false);
         }
     }, []);
 
@@ -88,6 +116,7 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSucces
         }
     };
 
+    // Se não tiver token válido, mostrar mensagem de erro mas ainda exibir a página
     if (!hasToken) {
         return (
             <div className="w-full min-h-screen bg-ai-bg text-ai-text font-sans overflow-y-auto">
@@ -109,9 +138,9 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSucces
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </div>
-                            <h2 className="text-base sm:text-lg font-semibold mb-2">Link inválido</h2>
+                            <h2 className="text-base sm:text-lg font-semibold mb-2">Link inválido ou expirado</h2>
                             <p className="text-[10px] sm:text-xs text-ai-subtext mb-6">
-                                {error || 'Este link de recuperação é inválido ou expirou. Solicite um novo link de recuperação.'}
+                                {error || 'Este link de recuperação é inválido ou expirou. Por favor, solicite um novo link de recuperação.'}
                             </p>
                             <button
                                 onClick={onSuccess}

@@ -142,17 +142,27 @@ const AppContent: React.FC = () => {
   // Handle password reset token from URL (must be before any conditional returns)
   useEffect(() => {
     if (!user && !isLoading) {
-      // Verificar hash fragment (Supabase usa #access_token=...)
       const hash = window.location.hash;
+      const pathname = window.location.pathname;
+      
+      // Verificar se estamos na rota de reset-password OU se há hash fragment relacionado a recovery
+      const isResetPasswordPath = pathname === '/reset-password' || pathname.includes('reset-password');
+      
+      // Verificar hash fragment (Supabase usa #access_token=... ou #error=...)
       const hasAccessToken = hash.includes('access_token=');
       const hasTypeRecovery = hash.includes('type=recovery') || hash.includes('type%3Drecovery');
+      const hasRecoveryError = hash.includes('error') && (hash.includes('recovery') || hash.includes('otp') || hash.includes('expired'));
       
       // Verificar query string também (fallback)
       const urlParams = new URLSearchParams(window.location.search);
       const token = urlParams.get('token');
       const type = urlParams.get('type');
       
-      if ((hasAccessToken && hasTypeRecovery) || (token && type === 'recovery')) {
+      // Se estiver na rota de reset OU tiver token/erro de recovery, mostrar página de reset
+      if (isResetPasswordPath || 
+          (hasAccessToken && hasTypeRecovery) || 
+          hasRecoveryError || 
+          (token && type === 'recovery')) {
         setAuthPage('reset-password');
         // Não limpar o hash ainda - o Supabase precisa processar primeiro
         // O hash será limpo após o Supabase processar o token
