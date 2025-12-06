@@ -2,15 +2,14 @@
  * Service Worker para cache de recursos estáticos
  * Versão do cache - atualizar quando necessário invalidar cache
  */
-const CACHE_VERSION = 'v2-' + Date.now(); // Dynamic version to force update
+const CACHE_VERSION = 'v3-' + Date.now(); // Dynamic version to force update
 const CACHE_NAME = `pecuaria-cache-${CACHE_VERSION}`;
 
 // Recursos estáticos para cache
+// Reduced to minimal entry point to avoid 404s on hashed assets (index.css etc)
+// Dynamic caching in 'fetch' will handle the rest
 const STATIC_ASSETS = [
   '/', // Root
-  '/index.html', // App Entry
-  '/index.css',
-  // Note: /index.tsx is source and shouldn't be cached for prod, handled by vite build assets
 ];
 
 // ... (install/activate handlers remain, but let's replace fetch to be safe)

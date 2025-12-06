@@ -120,12 +120,12 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     // Only run if user is loaded (not loading)
     if (isLoading || !user) return;
-    
+
     if (activeAgentId === 'admin-dashboard' && user?.role !== 'admin') {
       setActiveAgentId('cattle-profit');
       return;
     }
-    
+
     // Redirect if trying to access locked agents (ask-antonio, market-trends)
     const lockedAgents = ['ask-antonio', 'market-trends'];
     if (lockedAgents.includes(activeAgentId)) {
@@ -143,7 +143,7 @@ const AppContent: React.FC = () => {
   }
 
   if (!user) {
-    return <LoginPage />;
+    return <LoginPage onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })} />;
   }
 
   // If agents are not loaded yet, show loading
@@ -188,7 +188,7 @@ const AppContent: React.FC = () => {
       case 'cattle-profit':
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <CattleProfitCalculator 
+            <CattleProfitCalculator
               initialInputs={calculatorInputs}
               onToast={addToast}
               onNavigateToSaved={() => setActiveAgentId('saved-scenarios')}

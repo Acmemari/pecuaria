@@ -50,7 +50,7 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onClose }) => {
 
   return (
     <div
-      className={`${colorClass} border rounded-lg shadow-lg p-4 flex items-start gap-3 min-w-[300px] max-w-[400px] animate-in slide-in-from-top-5 fade-in-0`}
+      className={`${colorClass} border rounded-lg shadow-lg p-4 flex items-start gap-3 min-w-[300px] max-w-[400px]`}
     >
       <Icon size={20} className={`${iconColorClass} flex-shrink-0 mt-0.5`} />
       <p className="flex-1 text-sm font-medium">{toast.message}</p>
@@ -74,7 +74,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onClose 
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
+    <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2">
       {toasts.map((toast) => (
         <ToastComponent key={toast.id} toast={toast} onClose={onClose} />
       ))}

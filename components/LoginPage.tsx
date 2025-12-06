@@ -3,7 +3,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { BrainCircuit, Lock, Mail, ArrowRight, Loader2, User, Building2, Phone } from 'lucide-react';
 import { formatPhone, validatePhone } from '../lib/utils/phoneMask';
 
-const LoginPage: React.FC = () => {
+interface LoginPageProps {
+    onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
+}
+
+const LoginPage: React.FC<LoginPageProps> = ({ onToast }) => {
     const { login, signInWithOAuth, signup } = useAuth() as any;
     const [isSignup, setIsSignup] = useState(false);
     const [email, setEmail] = useState('');
@@ -16,6 +20,14 @@ const LoginPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isOAuthLoading, setIsOAuthLoading] = useState<string | null>(null);
 
+    const showFeedback = (message: string, type: 'success' | 'error') => {
+        if (onToast) {
+            onToast(message, type);
+        } else {
+            setError(message);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -24,31 +36,31 @@ const LoginPage: React.FC = () => {
         if (isSignup) {
             // Signup flow
             if (password !== confirmPassword) {
-                setError('As senhas não coincidem.');
+                showFeedback('As senhas não coincidem.', 'error');
                 setIsSubmitting(false);
                 return;
             }
 
             if (password.length < 6) {
-                setError('A senha deve ter pelo menos 6 caracteres.');
+                showFeedback('A senha deve ter pelo menos 6 caracteres.', 'error');
                 setIsSubmitting(false);
                 return;
             }
 
             if (!name.trim()) {
-                setError('Por favor, informe seu nome.');
+                showFeedback('Por favor, informe seu nome.', 'error');
                 setIsSubmitting(false);
                 return;
             }
 
             if (!phone.trim()) {
-                setError('Por favor, informe seu telefone.');
+                showFeedback('Por favor, informe seu telefone.', 'error');
                 setIsSubmitting(false);
                 return;
             }
 
             if (!validatePhone(phone)) {
-                setError('Por favor, informe um telefone válido. Formato: (XX) XXXXX-XXXX');
+                showFeedback('Por favor, informe um telefone válido.', 'error');
                 setIsSubmitting(false);
                 return;
             }
@@ -56,11 +68,10 @@ const LoginPage: React.FC = () => {
             const result = await signup(email, password, name, phone, organizationName);
 
             if (!result.success) {
-                setError(result.error || 'Erro ao criar conta. Tente novamente.');
+                showFeedback(result.error || 'Erro ao criar conta. Tente novamente.', 'error');
                 setIsSubmitting(false);
             } else {
-                // Success - the AuthContext will update the user state
-                // and App component will automatically re-render to show dashboard
+                // Success
                 setIsSubmitting(false);
             }
         } else {
@@ -68,11 +79,11 @@ const LoginPage: React.FC = () => {
             const result = await login(email, password);
 
             if (!result.success) {
-                setError(result.error || 'Credenciais inválidas. Tente novamente.');
+                console.log('Login failed:', result.error);
+                showFeedback(result.error || 'Credenciais inválidas. Tente novamente.', 'error');
                 setIsSubmitting(false);
             } else {
-                // Success - the AuthContext will update the user state
-                // and App component will automatically re-render to show dashboard
+                // Success
                 setIsSubmitting(false);
             }
         }
@@ -84,7 +95,7 @@ const LoginPage: React.FC = () => {
             setError('');
             await signInWithOAuth(provider);
         } catch (err: any) {
-            setError(`Erro ao fazer login com ${provider}. Tente novamente.`);
+            showFeedback(`Erro ao fazer login com ${provider}. Tente novamente.`, 'error');
             setIsOAuthLoading(null);
         }
     };
@@ -133,8 +144,8 @@ const LoginPage: React.FC = () => {
                                 setOrganizationName('');
                             }}
                             className={`flex-1 py-2 px-3 sm:px-4 rounded-md text-[10px] sm:text-xs font-medium transition-colors ${!isSignup
-                                    ? 'bg-ai-text text-white'
-                                    : 'text-ai-subtext hover:text-ai-text'
+                                ? 'bg-ai-text text-white'
+                                : 'text-ai-subtext hover:text-ai-text'
                                 }`}
                         >
                             Entrar
@@ -148,8 +159,8 @@ const LoginPage: React.FC = () => {
                                 setConfirmPassword('');
                             }}
                             className={`flex-1 py-2 px-3 sm:px-4 rounded-md text-[10px] sm:text-xs font-medium transition-colors ${isSignup
-                                    ? 'bg-ai-text text-white'
-                                    : 'text-ai-subtext hover:text-ai-text'
+                                ? 'bg-ai-text text-white'
+                                : 'text-ai-subtext hover:text-ai-text'
                                 }`}
                         >
                             Cadastrar
@@ -217,10 +228,10 @@ const LoginPage: React.FC = () => {
                                             setPhone(formatted);
                                         }}
                                         className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text transition-all outline-none ${phone && !validatePhone(phone)
-                                                ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
-                                                : phone && validatePhone(phone)
-                                                    ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
-                                                    : 'border-ai-border focus:border-ai-text'
+                                            ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
+                                            : phone && validatePhone(phone)
+                                                ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
+                                                : 'border-ai-border focus:border-ai-text'
                                             }`}
                                         placeholder="Ex: (55) 99999-9999"
                                         maxLength={15}
@@ -246,8 +257,8 @@ const LoginPage: React.FC = () => {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text focus:border-ai-text transition-all outline-none ${isSignup && password && !passwordLengthValid
-                                            ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
-                                            : 'border-ai-border'
+                                        ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
+                                        : 'border-ai-border'
                                         }`}
                                     placeholder={isSignup ? "Mínimo 6 caracteres" : "••••••••"}
                                     minLength={isSignup ? 6 : undefined}
@@ -277,10 +288,10 @@ const LoginPage: React.FC = () => {
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
                                             className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text transition-all outline-none ${confirmPassword && !passwordsMatch
-                                                    ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
-                                                    : confirmPassword && passwordsMatch
-                                                        ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
-                                                        : 'border-ai-border focus:border-ai-text'
+                                                ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
+                                                : confirmPassword && passwordsMatch
+                                                    ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
+                                                    : 'border-ai-border focus:border-ai-text'
                                                 }`}
                                             placeholder="Digite a senha novamente"
                                         />
@@ -307,7 +318,7 @@ const LoginPage: React.FC = () => {
                             </>
                         )}
 
-                        {error && (
+                        {error && !onToast && (
                             <div className="p-2.5 sm:p-3 rounded-lg bg-rose-50 text-rose-600 text-[10px] sm:text-xs font-medium">
                                 {error}
                             </div>
