@@ -38,8 +38,8 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
 
       <div className={`
         fixed top-0 left-0 h-full bg-ai-surface border-r border-ai-border z-30 transition-all duration-300 ease-in-out flex flex-col shadow-lg
-        ${isOpen 
-          ? 'w-56 translate-x-0' 
+        ${isOpen
+          ? 'w-56 translate-x-0'
           : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden'
         }
       `}>
@@ -125,6 +125,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
 
           <div className="grid grid-cols-2 gap-1">
             <button
+              type="button"
               onClick={onSettingsClick}
               className="flex items-center justify-center p-2 text-ai-subtext hover:text-ai-text hover:bg-ai-surface2 rounded-md transition-colors"
               title="Configurações"
@@ -132,6 +133,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
               <Settings size={16} />
             </button>
             <button
+              type="button"
               onClick={onLogout}
               className="flex items-center justify-center p-2 text-ai-subtext hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
               title="Sair"

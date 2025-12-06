@@ -17,7 +17,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+
         if (error) {
           console.error('Error getting session:', error);
           setIsLoading(false);
@@ -40,26 +40,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.id);
-      
+
       if (event === 'SIGNED_IN' && session?.user) {
         // Wait a bit for trigger to create profile
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         // Try to load profile
         let userProfile = await loadUserProfile(session.user.id, 3, 1000);
-        
+
         // If profile still doesn't exist, try to create it
         if (!userProfile && session.user) {
           console.log('Profile not found, attempting to create using RPC...');
           const created = await createUserProfileIfMissing(session.user.id);
-          
+
           if (created) {
             // Wait a bit more and try loading again
             await new Promise(resolve => setTimeout(resolve, 1500));
             userProfile = await loadUserProfile(session.user.id, 3, 1000);
           }
         }
-        
+
         if (userProfile) {
           setUser(userProfile);
         } else {
@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -102,34 +102,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error('Login error:', error);
         setIsLoading(false);
-        return false;
+
+        // Map Supabase errors to user-friendly messages
+        let errorMessage = 'Erro ao realizar login.';
+        if (error.message === 'Invalid login credentials') {
+          errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Email não confirmado. Verifique sua caixa de entrada.';
+        }
+
+        return { success: false, error: errorMessage };
       }
 
       if (data.user) {
         console.log('Login successful, user ID:', data.user.id);
         // Wait a moment for the trigger to potentially create the profile
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         // Try to load the profile with retries
         let userProfile = await loadUserProfile(data.user.id, 3, 1000);
-        
+
         // If profile doesn't exist, try to create it
         if (!userProfile) {
           console.log('Profile not found after login, attempting to create...');
           const created = await createUserProfileIfMissing(data.user.id);
-          
+
           if (created) {
             // Wait a bit more and try loading again
             await new Promise(resolve => setTimeout(resolve, 1500));
             userProfile = await loadUserProfile(data.user.id, 3, 1000);
           }
         }
-        
+
         if (userProfile) {
           console.log('User profile loaded, setting user state');
           setUser(userProfile);
           setIsLoading(false);
-          return true;
+          return { success: true };
         } else {
           console.warn('Profile not found after login and creation attempt');
           // Create a temporary user object from auth data
@@ -144,23 +153,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             status: 'active'
           });
           setIsLoading(false);
-          return true;
+          return { success: true };
         }
       }
 
       setIsLoading(false);
-      return false;
-    } catch (error) {
+      return { success: false, error: 'Erro inesperado ao realizar login.' };
+    } catch (error: any) {
       console.error('Login error:', error);
       setIsLoading(false);
-      return false;
+      return { success: false, error: error.message || 'Erro inesperado ao realizar login.' };
     }
   };
 
   const logout = async () => {
+    // Clear user state immediately to ensure UI update
+    setUser(null);
     try {
       await supabase.auth.signOut();
-      setUser(null);
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -234,7 +244,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .from('user_profiles')
             .update({ phone: phone })
             .eq('id', data.user.id);
-          
+
           if (updateError) {
             console.warn('Could not update phone in profile:', updateError);
             // Continue anyway - phone might be set later
@@ -245,7 +255,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Wait a bit for the trigger to create the profile
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         // Try to load the profile with retries
         const userProfile = await loadUserProfile(data.user.id, 5, 800);
         if (userProfile) {
@@ -263,7 +273,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return { success: true };
           }
         }
-        
+
         setIsLoading(false);
         return { success: true }; // Return success even if profile not loaded yet - it will be created by trigger
       }
@@ -300,17 +310,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      login, 
-      logout, 
-      isLoading, 
-      checkPermission, 
-      checkLimit, 
+    <AuthContext.Provider value={{
+      user,
+      login,
+      logout,
+      isLoading,
+      checkPermission,
+      checkLimit,
       upgradePlan,
       signInWithOAuth,
       signup
-    } as AuthContextType & { 
+    } as AuthContextType & {
       signInWithOAuth: (provider: 'google') => Promise<any>;
       signup: (email: string, password: string, name: string, phone: string, organizationName?: string) => Promise<{ success: boolean; error?: string }>;
     }}>

@@ -2,56 +2,39 @@
  * Service Worker para cache de recursos estáticos
  * Versão do cache - atualizar quando necessário invalidar cache
  */
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2-' + Date.now(); // Dynamic version to force update
 const CACHE_NAME = `pecuaria-cache-${CACHE_VERSION}`;
 
-// Recursos estáticos para cache (cache-first strategy)
+// Recursos estáticos para cache
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
+  '/', // Root
+  '/index.html', // App Entry
   '/index.css',
-  '/index.tsx',
+  // Note: /index.tsx is source and shouldn't be cached for prod, handled by vite build assets
 ];
 
-// Instalar Service Worker
+// ... (install/activate handlers remain, but let's replace fetch to be safe)
+
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
-  
+  self.skipWaiting(); // Force waiting service worker to become active
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('[SW] Caching static assets');
-        return cache.addAll(STATIC_ASSETS);
-      })
-      .catch((error) => {
-        console.error('[SW] Error caching static assets:', error);
-      })
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS);
+    })
   );
-  
-  // Forçar ativação imediata
-  self.skipWaiting();
 });
 
-// Ativar Service Worker
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
-  
   event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames
-            .filter((name) => name !== CACHE_NAME)
-            .map((name) => {
-              console.log('[SW] Deleting old cache:', name);
-              return caches.delete(name);
-            })
-        );
-      })
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      );
+    })
   );
-  
-  // Tomar controle imediato de todas as páginas
-  return self.clients.claim();
+  self.clients.claim(); // Take control of all clients immediately
 });
 
 // Interceptar requisições
@@ -59,51 +42,59 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Ignorar requisições para APIs externas e CDNs
-  if (
-    url.origin !== self.location.origin &&
-    !url.href.includes('fonts.googleapis.com')
-  ) {
-    return; // Deixar passar sem cache
+  // Ignorar requisições para APIs externas (exceto fontes)
+  if (url.origin !== self.location.origin && !url.href.includes('fonts.googleapis.com')) {
+    return;
   }
 
-  // Estratégia: Cache-first para recursos estáticos
-  if (request.method === 'GET') {
+  // ESTRATÉGIA PARA HTML (Navegação): Network First -> Fallback Cache
+  // Garante que o usuário sempre receba o index.html mais recente se estiver online
+  if (request.mode === 'navigate' || request.destination === 'document' || url.pathname === '/index.html' || url.pathname === '/') {
     event.respondWith(
-      caches.match(request)
-        .then((cachedResponse) => {
-          // Se encontrou no cache, retornar
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-
-          // Se não encontrou, buscar na rede
-          return fetch(request)
-            .then((response) => {
-              // Verificar se a resposta é válida
-              if (!response || response.status !== 200 || response.type !== 'basic') {
-                return response;
-              }
-
-              // Clonar a resposta para cache
-              const responseToCache = response.clone();
-
-              // Adicionar ao cache
-              caches.open(CACHE_NAME)
-                .then((cache) => {
-                  cache.put(request, responseToCache);
-                });
-
-              return response;
-            })
-            .catch((error) => {
-              console.error('[SW] Fetch failed:', error);
-              // Em caso de erro, tentar retornar do cache mesmo assim
-              return caches.match(request);
-            });
+      fetch(request)
+        .then((response) => {
+          // Salva a nova versão no cache para uso offline futuro
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseClone);
+          });
+          return response;
+        })
+        .catch(() => {
+          // Se offline, usa o cache
+          return caches.match('/index.html');
         })
     );
+    return;
   }
+
+  // ESTRATÉGIA PARA OUTROS RECURSOS: Cache First -> Network Fallback
+  // CSS, JS, Imagens com hash no nome podem ser cacheados agressivamente
+  event.respondWith(
+    caches.match(request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      return fetch(request)
+        .then((response) => {
+          if (!response || response.status !== 200 || response.type !== 'basic') {
+            return response;
+          }
+
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, responseToCache);
+          });
+
+          return response;
+        })
+        .catch((error) => {
+          // Fallback opcional para imagens ou outros recursos
+          return null;
+        });
+    })
+  );
 });
 
 // Mensagens do cliente
