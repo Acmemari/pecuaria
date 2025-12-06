@@ -22,10 +22,10 @@ describe('Verificação de Recursos Estáticos', () => {
     it('deve detectar referências incorretas a CSS', () => {
       const correctPath = '/index.css';
       const incorrectPaths = ['/index.css:1', 'index.css', './index.css'];
-      
+
       // O caminho correto deve ser /index.css
       expect(correctPath).toBe('/index.css');
-      
+
       // Verificar que caminhos incorretos não são aceitos
       incorrectPaths.forEach(path => {
         expect(path).not.toBe('/index.css');
@@ -56,13 +56,7 @@ describe('Verificação de Recursos Estáticos', () => {
   });
 
   describe('CDN e Recursos Externos', () => {
-    it('deve verificar se Tailwind CDN está configurado', () => {
-      const tailwindScript = 'https://cdn.tailwindcss.com';
-      expect(tailwindScript).toContain('tailwindcss.com');
-      
-      // Em produção, isso deveria ser substituído por build local
-      // Mas para MVP, o CDN é aceitável
-    });
+
 
     it('deve verificar se Google Fonts está configurado', () => {
       const fontUrl = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap';

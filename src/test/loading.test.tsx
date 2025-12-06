@@ -54,7 +54,7 @@ describe('Carregamento de Recursos', () => {
     it('deve verificar se o link para index.css existe no head', () => {
       // Verificar se há link para index.css
       const cssLink = document.querySelector('link[rel="stylesheet"][href="/index.css"]');
-      
+
       // Se não existir, criar para o teste
       if (!cssLink) {
         const link = document.createElement('link');
@@ -70,7 +70,7 @@ describe('Carregamento de Recursos', () => {
 
     it('deve verificar se as fontes do Google estão carregadas', () => {
       const fontLink = document.querySelector('link[href*="fonts.googleapis.com"]');
-      
+
       // Se não existir, criar para o teste
       if (!fontLink) {
         const link = document.createElement('link');
@@ -87,7 +87,7 @@ describe('Carregamento de Recursos', () => {
   describe('Scripts e Import Maps', () => {
     it('deve verificar se o import map está configurado', () => {
       const importMap = document.querySelector('script[type="importmap"]');
-      
+
       // Se não existir, criar para o teste
       if (!importMap) {
         const script = document.createElement('script');
@@ -106,19 +106,7 @@ describe('Carregamento de Recursos', () => {
       expect(scriptElement).toBeTruthy();
     });
 
-    it('deve verificar se o script do Tailwind está presente', () => {
-      const tailwindScript = document.querySelector('script[src*="tailwindcss.com"]');
-      
-      // Se não existir, criar para o teste
-      if (!tailwindScript) {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.tailwindcss.com';
-        document.head.appendChild(script);
-      }
 
-      const scriptElement = document.querySelector('script[src*="tailwindcss.com"]');
-      expect(scriptElement).toBeTruthy();
-    });
   });
 
   describe('Inicialização do React', () => {
@@ -161,7 +149,7 @@ describe('Carregamento de Recursos', () => {
     it('deve verificar estrutura de recursos esperados', () => {
       const resources = {
         root: document.getElementById('root'),
-        tailwind: document.querySelector('script[src*="tailwindcss.com"]'),
+
         fonts: document.querySelector('link[href*="fonts.googleapis.com"]'),
         css: document.querySelector('link[rel="stylesheet"][href="/index.css"]'),
         importMap: document.querySelector('script[type="importmap"]'),
@@ -169,7 +157,7 @@ describe('Carregamento de Recursos', () => {
 
       // Root é obrigatório
       expect(resources.root).toBeTruthy();
-      
+
       // Outros recursos devem estar presentes ou serem criados
       expect(resources.css).toBeTruthy();
     });
@@ -179,7 +167,7 @@ describe('Carregamento de Recursos', () => {
 describe('Verificação de Erros de Carregamento', () => {
   it('deve detectar se index.css está faltando', () => {
     const cssLink = document.querySelector('link[rel="stylesheet"][href="/index.css"]');
-    
+
     // O link deve existir (criado nos testes anteriores ou no HTML)
     if (!cssLink) {
       const link = document.createElement('link');
@@ -190,7 +178,7 @@ describe('Verificação de Erros de Carregamento', () => {
 
     const linkElement = document.querySelector('link[rel="stylesheet"][href="/index.css"]');
     expect(linkElement).toBeTruthy();
-    
+
     // Verificar se o href está correto
     expect(linkElement?.getAttribute('href')).toBe('/index.css');
   });
@@ -198,7 +186,7 @@ describe('Verificação de Erros de Carregamento', () => {
   it('deve verificar se todos os recursos críticos estão presentes', () => {
     const criticalResources = [
       { selector: '#root', name: 'Root element' },
-      { selector: 'script[src*="tailwindcss.com"]', name: 'Tailwind CSS' },
+
       { selector: 'link[href*="fonts.googleapis.com"]', name: 'Google Fonts' },
       { selector: 'link[rel="stylesheet"][href="/index.css"]', name: 'Index CSS' },
     ];
@@ -213,7 +201,7 @@ describe('Verificação de Erros de Carregamento', () => {
           document.body.appendChild(div);
         }
       }
-      
+
       const found = document.querySelector(selector);
       expect(found).toBeTruthy();
     });
