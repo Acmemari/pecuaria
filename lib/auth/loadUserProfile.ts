@@ -12,8 +12,8 @@ import { createUserProfileIfMissing } from './createProfile';
  */
 export const loadUserProfile = async (
   userId: string,
-  retries = 5,
-  delay = 1000
+  retries = 3,
+  delay = 500
 ): Promise<User | null> => {
   for (let i = 0; i < retries; i++) {
     try {
@@ -30,7 +30,7 @@ export const loadUserProfile = async (
           details: error.details,
           hint: error.hint
         });
-        
+
         // If profile doesn't exist (PGRST116), try to create it
         if (error.code === 'PGRST116' || error.message?.includes('No rows')) {
           if (i === 0) {
@@ -44,14 +44,14 @@ export const loadUserProfile = async (
               continue;
             }
           }
-          
+
           if (i < retries - 1) {
             console.log(`Profile not found for user ${userId}, retrying... (${i + 1}/${retries})`);
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
           }
         }
-        
+
         // If it's a 500 error (server error), it might be RLS or trigger issue
         // Try again with more delay
         if (i < retries - 1 && (error.code === 'PGRST301' || error.message?.includes('500'))) {
@@ -59,7 +59,7 @@ export const loadUserProfile = async (
           await new Promise(resolve => setTimeout(resolve, delay * 2));
           continue;
         }
-        
+
         return null;
       }
 

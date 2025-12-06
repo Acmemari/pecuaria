@@ -15,21 +15,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Check for existing session
     const initAuth = async () => {
+      // Safety timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Auth timeout')), 10000)
+      );
+
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        await Promise.race([
+          (async () => {
+            const { data: { session }, error } = await supabase.auth.getSession();
 
-        if (error) {
-          console.error('Error getting session:', error);
-          setIsLoading(false);
-          return;
-        }
+            if (error) {
+              console.error('Error getting session:', error);
+              return;
+            }
 
-        if (session?.user) {
-          const userProfile = await loadUserProfile(session.user.id);
-          setUser(userProfile);
-        }
-      } catch (error) {
+            if (session?.user) {
+              const userProfile = await loadUserProfile(session.user.id);
+              setUser(userProfile);
+            }
+          })(),
+          timeoutPromise
+        ]);
+      } catch (error: any) {
         console.error('Error initializing auth:', error);
+        if (error.message === 'Auth timeout') {
+          console.warn('Authentication timed out. Forcing login screen.');
+          // Ensure we don't have a stale session if it timed out
+          await supabase.auth.signOut().catch(console.error);
+          setUser(null);
+        }
       } finally {
         setIsLoading(false);
       }
