@@ -17,7 +17,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initAuth = async () => {
       // Safety timeout to prevent infinite loading
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Auth timeout')), 10000)
+        setTimeout(() => reject(new Error('Auth timeout')), 30000)
       );
 
       try {
@@ -40,10 +40,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error: any) {
         console.error('Error initializing auth:', error);
         if (error.message === 'Auth timeout') {
-          console.warn('Authentication timed out. Forcing login screen.');
-          // Ensure we don't have a stale session if it timed out
-          await supabase.auth.signOut().catch(console.error);
-          setUser(null);
+          console.warn('Authentication initialization timed out. Checking if session was recovered by listener.');
+          // Do not force sign out, as onAuthStateChange might have succeeded
+          // await supabase.auth.signOut().catch(console.error);
+          // setUser(null);
         }
       } finally {
         setIsLoading(false);
