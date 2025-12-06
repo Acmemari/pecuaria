@@ -31,7 +31,22 @@ const AppContent: React.FC = () => {
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
-  const [authPage, setAuthPage] = useState<'login' | 'forgot-password' | 'reset-password'>('login');
+  // Detectar se estamos na rota de reset-password ANTES de qualquer outra lógica
+  const [authPage, setAuthPage] = useState<'login' | 'forgot-password' | 'reset-password'>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash;
+      const pathname = window.location.pathname;
+      const isResetPasswordPath = pathname === '/reset-password' || pathname.includes('reset-password');
+      const hasAccessToken = hash.includes('access_token=');
+      const hasTypeRecovery = hash.includes('type=recovery') || hash.includes('type%3Drecovery');
+      const hasRecoveryError = hash.includes('error') && (hash.includes('recovery') || hash.includes('otp') || hash.includes('expired'));
+      
+      if (isResetPasswordPath || (hasAccessToken && hasTypeRecovery) || hasRecoveryError) {
+        return 'reset-password';
+      }
+    }
+    return 'login';
+  });
   // Sidebar starts closed on mobile, open on desktop
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
     // Check if we're on desktop (window width >= 768px)
@@ -140,41 +155,56 @@ const AppContent: React.FC = () => {
   }, [user, activeAgentId, isLoading]);
 
   // Handle password reset token from URL (must be before any conditional returns)
+  // IMPORTANTE: Esta verificação deve rodar SEMPRE, mesmo se houver user, para prevenir login automático
   useEffect(() => {
-    if (!user && !isLoading) {
-      const hash = window.location.hash;
-      const pathname = window.location.pathname;
-      
-      // Verificar se estamos na rota de reset-password OU se há hash fragment relacionado a recovery
-      const isResetPasswordPath = pathname === '/reset-password' || pathname.includes('reset-password');
-      
-      // Verificar hash fragment (Supabase usa #access_token=... ou #error=...)
-      const hasAccessToken = hash.includes('access_token=');
-      const hasTypeRecovery = hash.includes('type=recovery') || hash.includes('type%3Drecovery');
-      const hasRecoveryError = hash.includes('error') && (hash.includes('recovery') || hash.includes('otp') || hash.includes('expired'));
-      
-      // Verificar query string também (fallback)
-      const urlParams = new URLSearchParams(window.location.search);
-      const token = urlParams.get('token');
-      const type = urlParams.get('type');
-      
-      // Se estiver na rota de reset OU tiver token/erro de recovery, mostrar página de reset
-      if (isResetPasswordPath || 
-          (hasAccessToken && hasTypeRecovery) || 
-          hasRecoveryError || 
-          (token && type === 'recovery')) {
-        setAuthPage('reset-password');
-        // Não limpar o hash ainda - o Supabase precisa processar primeiro
-        // O hash será limpo após o Supabase processar o token
-      }
+    const hash = window.location.hash;
+    const pathname = window.location.pathname;
+    
+    // Verificar se estamos na rota de reset-password OU se há hash fragment relacionado a recovery
+    const isResetPasswordPath = pathname === '/reset-password' || pathname.includes('reset-password');
+    
+    // Verificar hash fragment (Supabase usa #access_token=... ou #error=...)
+    const hasAccessToken = hash.includes('access_token=');
+    const hasTypeRecovery = hash.includes('type=recovery') || hash.includes('type%3Drecovery');
+    const hasRecoveryError = hash.includes('error') && (hash.includes('recovery') || hash.includes('otp') || hash.includes('expired'));
+    
+    // Verificar query string também (fallback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const type = urlParams.get('type');
+    
+    // Se estiver na rota de reset OU tiver token/erro de recovery, FORÇAR página de reset
+    // Isso previne que o Supabase faça login automático e redirecione para o dashboard
+    if (isResetPasswordPath || 
+        (hasAccessToken && hasTypeRecovery) || 
+        hasRecoveryError || 
+        (token && type === 'recovery')) {
+      setAuthPage('reset-password');
     }
-  }, [user, isLoading]);
+  }, []); // Rodar apenas uma vez ao montar o componente
 
   if (isLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
         <Loader2 size={32} className="animate-spin" />
       </div>
+    );
+  }
+
+  // Se estiver na página de reset, SEMPRE mostrar a página de reset, mesmo se houver user
+  // Isso previne que o Supabase faça login automático durante o recovery
+  if (authPage === 'reset-password') {
+    return (
+      <Suspense fallback={
+        <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
+          <Loader2 size={32} className="animate-spin" />
+        </div>
+      }>
+        <ResetPasswordPage 
+          onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+          onSuccess={() => setAuthPage('login')}
+        />
+      </Suspense>
     );
   }
 
@@ -195,20 +225,6 @@ const AppContent: React.FC = () => {
       );
     }
 
-    if (authPage === 'reset-password') {
-      return (
-        <Suspense fallback={
-          <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
-            <Loader2 size={32} className="animate-spin" />
-          </div>
-        }>
-          <ResetPasswordPage 
-            onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
-            onSuccess={() => setAuthPage('login')}
-          />
-        </Suspense>
-      );
-    }
 
     return (
       <LoginPage 

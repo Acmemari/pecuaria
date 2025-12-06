@@ -67,8 +67,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (event === 'SIGNED_IN' && session?.user) {
         // Verificar se é uma sessão de recovery (não deve fazer login completo)
         const hash = window.location.hash;
-        if (hash.includes('type=recovery') || hash.includes('type%3Drecovery')) {
-          console.log('Recovery session detected, not setting user');
+        const pathname = window.location.pathname;
+        const isResetPasswordPath = pathname === '/reset-password' || pathname.includes('reset-password');
+        const hasRecoveryToken = hash.includes('type=recovery') || hash.includes('type%3Drecovery') || hash.includes('access_token=');
+        
+        // Se estiver na rota de reset OU tiver token de recovery, NÃO fazer login automático
+        if (isResetPasswordPath || hasRecoveryToken) {
+          console.log('Recovery session detected, not setting user - user must reset password first');
           return;
         }
 
