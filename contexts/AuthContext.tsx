@@ -107,7 +107,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    setIsLoading(true);
+    // NÃO chamar setIsLoading(true) aqui para não causar re-montagem do LoginPage
+    // O LoginPage já tem seu próprio estado de loading (isSubmitting)
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -116,14 +117,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Login error:', error);
-        setIsLoading(false);
+        // NÃO chamar setIsLoading aqui - o LoginPage permanece montado e mantém o estado de erro
 
         // Map Supabase errors to user-friendly messages
         let errorMessage = 'Erro ao realizar login.';
-        if (error.message === 'Invalid login credentials') {
+        const errorMsg = error.message.toLowerCase();
+        
+        if (errorMsg === 'invalid login credentials' || errorMsg.includes('invalid login credentials')) {
           errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.';
-        } else if (error.message.includes('Email not confirmed')) {
+        } else if (errorMsg.includes('email not confirmed') || errorMsg.includes('email_not_confirmed')) {
           errorMessage = 'Email não confirmado. Verifique sua caixa de entrada.';
+        } else if (errorMsg.includes('user not found') || errorMsg.includes('user_not_found')) {
+          errorMessage = 'Email não encontrado. Verifique se o email está correto.';
+        } else if (errorMsg.includes('invalid email')) {
+          errorMessage = 'Email inválido. Verifique o formato do email.';
+        } else if (errorMsg.includes('too many requests') || errorMsg.includes('rate limit')) {
+          errorMessage = 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+        } else if (errorMsg.includes('password')) {
+          errorMessage = 'Senha incorreta. Verifique sua senha e tente novamente.';
         }
 
         return { success: false, error: errorMessage };
@@ -172,11 +183,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      setIsLoading(false);
+      // NÃO chamar setIsLoading aqui para manter o LoginPage montado
       return { success: false, error: 'Erro inesperado ao realizar login.' };
     } catch (error: any) {
       console.error('Login error:', error);
-      setIsLoading(false);
+      // NÃO chamar setIsLoading aqui para manter o LoginPage montado e preservar o erro
       return { success: false, error: error.message || 'Erro inesperado ao realizar login.' };
     }
   };

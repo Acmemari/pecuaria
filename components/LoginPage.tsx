@@ -16,51 +16,43 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast }) => {
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [organizationName, setOrganizationName] = useState('');
-    const [error, setError] = useState('');
+    const [loginError, setLoginError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isOAuthLoading, setIsOAuthLoading] = useState<string | null>(null);
 
-    const showFeedback = (message: string, type: 'success' | 'error') => {
-        if (onToast) {
-            onToast(message, type);
-        } else {
-            setError(message);
-        }
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
+        setLoginError('');
         setIsSubmitting(true);
 
         if (isSignup) {
             // Signup flow
             if (password !== confirmPassword) {
-                showFeedback('As senhas não coincidem.', 'error');
+                setLoginError('As senhas não coincidem.');
                 setIsSubmitting(false);
                 return;
             }
 
             if (password.length < 6) {
-                showFeedback('A senha deve ter pelo menos 6 caracteres.', 'error');
+                setLoginError('A senha deve ter pelo menos 6 caracteres.');
                 setIsSubmitting(false);
                 return;
             }
 
             if (!name.trim()) {
-                showFeedback('Por favor, informe seu nome.', 'error');
+                setLoginError('Por favor, informe seu nome.');
                 setIsSubmitting(false);
                 return;
             }
 
             if (!phone.trim()) {
-                showFeedback('Por favor, informe seu telefone.', 'error');
+                setLoginError('Por favor, informe seu telefone.');
                 setIsSubmitting(false);
                 return;
             }
 
             if (!validatePhone(phone)) {
-                showFeedback('Por favor, informe um telefone válido.', 'error');
+                setLoginError('Por favor, informe um telefone válido.');
                 setIsSubmitting(false);
                 return;
             }
@@ -68,34 +60,33 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast }) => {
             const result = await signup(email, password, name, phone, organizationName);
 
             if (!result.success) {
-                showFeedback(result.error || 'Erro ao criar conta. Tente novamente.', 'error');
+                setLoginError(result.error || 'Erro ao criar conta. Tente novamente.');
                 setIsSubmitting(false);
-            } else {
-                // Success
-                setIsSubmitting(false);
+                return;
             }
+            setIsSubmitting(false);
         } else {
-            // Login flow
+            // Login flow - SIMPLES
             const result = await login(email, password);
 
             if (!result.success) {
-                console.log('Login failed:', result.error);
-                showFeedback(result.error || 'Credenciais inválidas. Tente novamente.', 'error');
+                // DEFINIR ERRO E PARAR
+                setLoginError('Email ou senha incorretos. Verifique suas credenciais.');
                 setIsSubmitting(false);
-            } else {
-                // Success
-                setIsSubmitting(false);
+                return; // NÃO CONTINUA
             }
+            // Login bem sucedido - AuthContext vai redirecionar
+            setIsSubmitting(false);
         }
     };
 
     const handleOAuthLogin = async (provider: 'google') => {
         try {
             setIsOAuthLoading(provider);
-            setError('');
+            setLoginError('');
             await signInWithOAuth(provider);
         } catch (err: any) {
-            showFeedback(`Erro ao fazer login com ${provider}. Tente novamente.`, 'error');
+            setLoginError(`Erro ao fazer login com ${provider}. Tente novamente.`);
             setIsOAuthLoading(null);
         }
     };
@@ -136,7 +127,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast }) => {
                             type="button"
                             onClick={() => {
                                 setIsSignup(false);
-                                setError('');
+                                setLoginError('');
                                 setPassword('');
                                 setConfirmPassword('');
                                 setName('');
@@ -154,7 +145,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast }) => {
                             type="button"
                             onClick={() => {
                                 setIsSignup(true);
-                                setError('');
+                                setLoginError('');
                                 setPassword('');
                                 setConfirmPassword('');
                             }}
@@ -197,7 +188,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast }) => {
                                     type="email"
                                     required
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    onChange={(e) => {
+                                        setEmail(e.target.value);
+                                        if (loginError) setLoginError('');
+                                    }}
                                     className="block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border border-ai-border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text focus:border-ai-text transition-all outline-none"
                                     placeholder="exemplo@pecuaria.com"
                                 />
@@ -255,7 +249,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast }) => {
                                     type="password"
                                     required
                                     value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
+                                    onChange={(e) => {
+                                        setPassword(e.target.value);
+                                        if (loginError) setLoginError('');
+                                    }}
                                     className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text focus:border-ai-text transition-all outline-none ${isSignup && password && !passwordLengthValid
                                         ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
                                         : 'border-ai-border'
@@ -318,12 +315,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast }) => {
                             </>
                         )}
 
-                        {error && !onToast && (
-                            <div className="p-2.5 sm:p-3 rounded-lg bg-rose-50 text-rose-600 text-[10px] sm:text-xs font-medium">
-                                {error}
-                            </div>
-                        )}
-
                         <button
                             type="submit"
                             disabled={
@@ -342,6 +333,13 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast }) => {
                                 </>
                             )}
                         </button>
+
+                        {/* MENSAGEM DE ERRO - SIMPLES E DIRETO */}
+                        {loginError && (
+                            <p className="text-red-600 text-center text-sm font-medium bg-red-50 border border-red-200 rounded-lg py-3 px-4">
+                                {loginError}
+                            </p>
+                        )}
                     </form>
 
                     {!isSignup && (
