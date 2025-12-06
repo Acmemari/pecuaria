@@ -128,11 +128,14 @@ O template HTML está em `lib/email-templates/reset-password.html` e pode ser pe
 2. Verifique os logs em **Authentication** > **Logs**
 3. Confirme que o email do usuário está correto
 
-### Link não funciona
+### Link não funciona / Erro 404
 
-1. Verifique se a URL de redirecionamento está configurada corretamente
-2. Confirme que o token não expirou (1 hora)
-3. Verifique se a URL está na lista de Redirect URLs permitidas
+1. **URL sem protocolo**: Se a URL no email estiver sem `https://` (ex: `pecuaria.ai/reset-password`), adicione o protocolo manualmente ou configure o Site URL no Supabase com `https://`
+2. **Verifique se a URL de redirecionamento está configurada corretamente** no Supabase Dashboard
+3. **Confirme que o token não expirou** (1 hora)
+4. **Verifique se a URL está na lista de Redirect URLs permitidas**
+5. **Hash fragment**: O Supabase usa hash fragments (`#access_token=...`) em vez de query strings. O código já está preparado para isso
+6. **Verifique o console do navegador** para ver se há erros de JavaScript
 
 ### Template não aparece
 

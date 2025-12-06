@@ -142,14 +142,21 @@ const AppContent: React.FC = () => {
   // Handle password reset token from URL (must be before any conditional returns)
   useEffect(() => {
     if (!user && !isLoading) {
+      // Verificar hash fragment (Supabase usa #access_token=...)
+      const hash = window.location.hash;
+      const hasAccessToken = hash.includes('access_token=');
+      const hasTypeRecovery = hash.includes('type=recovery') || hash.includes('type%3Drecovery');
+      
+      // Verificar query string também (fallback)
       const urlParams = new URLSearchParams(window.location.search);
       const token = urlParams.get('token');
       const type = urlParams.get('type');
       
-      if (token && type === 'recovery') {
+      if ((hasAccessToken && hasTypeRecovery) || (token && type === 'recovery')) {
         setAuthPage('reset-password');
-        // Clean URL
-        window.history.replaceState({}, '', '/reset-password');
+        // Clean URL mantendo apenas o path
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
       }
     }
   }, [user, isLoading]);

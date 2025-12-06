@@ -16,13 +16,21 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSucces
     const [isSuccess, setIsSuccess] = useState(false);
     const [hasToken, setHasToken] = useState(false);
 
-    // Verificar se há token na URL
+    // Verificar se há token na URL (hash fragment ou query string)
     useEffect(() => {
+        // Verificar hash fragment (Supabase usa #access_token=...)
+        const hash = window.location.hash;
+        const hasAccessToken = hash.includes('access_token=');
+        const hasTypeRecovery = hash.includes('type=recovery') || hash.includes('type%3Drecovery');
+        
+        // Verificar query string também (fallback)
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const type = urlParams.get('type');
 
-        if (token && type === 'recovery') {
+        // Se tiver access_token no hash OU token na query string, considerar válido
+        // O Supabase processará o token automaticamente
+        if ((hasAccessToken && hasTypeRecovery) || (token && type === 'recovery')) {
             setHasToken(true);
         } else {
             setError('Link de recuperação inválido ou expirado. Solicite um novo link.');

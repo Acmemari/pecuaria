@@ -56,7 +56,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.id);
 
+      // Ignorar eventos de recovery - não fazer login automático
+      // O recovery token será usado apenas quando updatePassword for chamado
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('Password recovery token detected, waiting for user to reset password');
+        // Não definir user aqui - deixar na página de reset
+        return;
+      }
+
       if (event === 'SIGNED_IN' && session?.user) {
+        // Verificar se é uma sessão de recovery (não deve fazer login completo)
+        const hash = window.location.hash;
+        if (hash.includes('type=recovery') || hash.includes('type%3Drecovery')) {
+          console.log('Recovery session detected, not setting user');
+          return;
+        }
+
         // Wait a bit for trigger to create profile
         await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -349,7 +364,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const redirectUrl = `${window.location.origin}/reset-password`;
+      // Garantir que a URL use o protocolo correto (https em produção)
+      const origin = window.location.origin || (window.location.protocol + '//' + window.location.host);
+      const redirectUrl = `${origin}/reset-password`;
+      
+      console.log('Sending password reset email with redirect URL:', redirectUrl);
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl
       });
