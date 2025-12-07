@@ -95,7 +95,7 @@ const AppContent: React.FC = () => {
           description: 'Consultor virtual especialista.',
           icon: 'nutrition',
           category: 'consultoria',
-          status: 'active'
+          status: 'locked'
         },
         {
           id: 'market-trends',
