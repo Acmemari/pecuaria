@@ -51,6 +51,11 @@
   - Melhorado tratamento de status diferentes (failed, cancelled, etc)
   - Adicionada ordenação desc na busca de mensagens
   - Mensagens de erro mais descritivas para facilitar debug
+- **Loading infinito em produção:**
+  - Adicionado timeout de segurança no AuthContext (10s) para garantir que isLoading sempre se torne false
+  - Adicionado timeout de segurança no App.tsx (5s) para evitar loading infinito quando agents não carregam
+  - Adicionado tratamento de erro no useMemo dos agents para evitar falhas silenciosas
+  - Melhorado tratamento de erros no carregamento de perfil do usuário
 
 ### Modificado
 - `index.html` - Removido CDN do Tailwind e scripts inline de configuração

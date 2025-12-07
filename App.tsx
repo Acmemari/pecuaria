@@ -69,55 +69,78 @@ const AppContent: React.FC = () => {
       return [];
     }
 
-    const baseAgents: Agent[] = [
-      {
-        id: 'cattle-profit',
-        name: 'Lucro do Boi',
-        description: 'Análise econômica completa.',
-        icon: 'calculator',
-        category: 'financeiro',
-        status: checkPermission('Calculadora') ? 'active' : 'locked'
-      },
-      {
-        id: 'saved-scenarios',
-        name: 'Meus Salvos',
-        description: 'Cenários e simulações salvos.',
-        icon: 'save',
-        category: 'financeiro',
-        status: checkPermission('Calculadora') ? 'active' : 'locked'
-      },
-      {
-        id: 'ask-antonio',
-        name: 'Pergunte p/ Antonio',
-        description: 'Consultor virtual especialista.',
-        icon: 'nutrition',
-        category: 'consultoria',
-        status: 'active'
-      },
-      {
-        id: 'market-trends',
-        name: 'Tendências',
-        description: 'Ciclo pecuário e reposição.',
-        icon: 'chart',
-        category: 'mercado',
-        status: checkPermission('Tendências') ? 'active' : 'locked'
-      }
-    ];
-
-    // Dynamically add Admin tools if user is admin
-    return user?.role === 'admin'
-      ? [
-        ...baseAgents,
+    try {
+      const baseAgents: Agent[] = [
         {
-          id: 'admin-dashboard',
-          name: 'Gestão de Clientes',
-          description: 'Painel mestre administrativo',
-          icon: 'users',
-          category: 'admin',
+          id: 'cattle-profit',
+          name: 'Lucro do Boi',
+          description: 'Análise econômica completa.',
+          icon: 'calculator',
+          category: 'financeiro',
+          status: checkPermission('Calculadora') ? 'active' : 'locked'
+        },
+        {
+          id: 'saved-scenarios',
+          name: 'Meus Salvos',
+          description: 'Cenários e simulações salvos.',
+          icon: 'save',
+          category: 'financeiro',
+          status: checkPermission('Calculadora') ? 'active' : 'locked'
+        },
+        {
+          id: 'ask-antonio',
+          name: 'Pergunte p/ Antonio',
+          description: 'Consultor virtual especialista.',
+          icon: 'nutrition',
+          category: 'consultoria',
           status: 'active'
-        } as Agent
-      ]
-      : baseAgents;
+        },
+        {
+          id: 'market-trends',
+          name: 'Tendências',
+          description: 'Ciclo pecuário e reposição.',
+          icon: 'chart',
+          category: 'mercado',
+          status: checkPermission('Tendências') ? 'active' : 'locked'
+        }
+      ];
+
+      // Dynamically add Admin tools if user is admin
+      return user?.role === 'admin'
+        ? [
+            ...baseAgents,
+            {
+              id: 'admin-dashboard',
+              name: 'Gestão de Clientes',
+              description: 'Painel mestre administrativo',
+              icon: 'users',
+              category: 'admin',
+              status: 'active'
+            } as Agent
+          ]
+        : baseAgents;
+    } catch (error) {
+      console.error('Erro ao calcular agents:', error);
+      // Retornar pelo menos os agents básicos em caso de erro
+      return [
+        {
+          id: 'cattle-profit',
+          name: 'Lucro do Boi',
+          description: 'Análise econômica completa.',
+          icon: 'calculator',
+          category: 'financeiro',
+          status: 'active'
+        },
+        {
+          id: 'ask-antonio',
+          name: 'Pergunte p/ Antonio',
+          description: 'Consultor virtual especialista.',
+          icon: 'nutrition',
+          category: 'consultoria',
+          status: 'active'
+        }
+      ];
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoading]);
 
@@ -191,10 +214,51 @@ const AppContent: React.FC = () => {
   }
 
   // If agents are not loaded yet, show loading
-  if (agents.length === 0) {
+  // Mas adicionar timeout de segurança para evitar loading infinito
+  const [agentsLoadTimeout, setAgentsLoadTimeout] = useState(false);
+  
+  useEffect(() => {
+    if (agents.length === 0 && !isLoading && user) {
+      // Se após 5 segundos ainda não tiver agents, forçar renderização
+      const timeout = setTimeout(() => {
+        console.warn('Agents não carregaram após 5 segundos, forçando renderização');
+        setAgentsLoadTimeout(true);
+      }, 5000);
+      return () => clearTimeout(timeout);
+    } else {
+      setAgentsLoadTimeout(false);
+    }
+  }, [agents.length, isLoading, user]);
+
+  if (agents.length === 0 && !agentsLoadTimeout) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
         <Loader2 size={32} className="animate-spin" />
+      </div>
+    );
+  }
+
+  // Se timeout ocorreu, tentar renderizar mesmo sem agents (fallback)
+  if (agents.length === 0 && agentsLoadTimeout) {
+    console.error('Erro: agents não carregaram. Renderizando fallback.');
+    // Retornar pelo menos um agente básico para evitar tela branca
+    const fallbackAgents: Agent[] = [
+      {
+        id: 'cattle-profit',
+        name: 'Lucro do Boi',
+        description: 'Análise econômica completa.',
+        icon: 'calculator',
+        category: 'financeiro',
+        status: 'active'
+      }
+    ];
+    // Usar fallback temporariamente
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
+        <div className="text-center">
+          <Loader2 size={32} className="animate-spin mx-auto mb-4" />
+          <p className="text-sm text-ai-subtext">Carregando aplicação...</p>
+        </div>
       </div>
     );
   }

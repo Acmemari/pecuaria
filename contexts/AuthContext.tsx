@@ -14,6 +14,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
+    // Timeout de segurança para garantir que isLoading sempre se torne false
+    const safetyTimeout = setTimeout(() => {
+      console.warn('Auth initialization timeout - forçando isLoading = false');
+      setIsLoading(false);
+    }, 10000); // 10 segundos máximo
+
     // Check for existing session
     const initAuth = async () => {
       try {
@@ -37,16 +43,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Load full profile in background
           loadUserProfile(session.user.id).then(profile => {
             if (profile) setUser(profile);
+          }).catch(err => {
+            console.error('Error loading user profile:', err);
           });
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
+        clearTimeout(safetyTimeout);
         setIsLoading(false);
       }
     };
 
     initAuth();
+
+    return () => {
+      clearTimeout(safetyTimeout);
+    };
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
