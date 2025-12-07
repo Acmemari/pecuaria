@@ -27,6 +27,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (error) {
           console.error('Error getting session:', error);
+          // Mesmo com erro, definir isLoading como false para não travar a aplicação
+          setIsLoading(false);
         } else if (session?.user) {
           // Optimistically set user from session metadata specific to Supabase Auth
           // This allows immediate rendering while we fetch the full profile

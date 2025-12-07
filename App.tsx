@@ -40,6 +40,8 @@ const AppContent: React.FC = () => {
     }
     return true; // Default to open for SSR
   });
+  // Timeout de segurança para evitar loading infinito quando agents não carregam
+  const [agentsLoadTimeout, setAgentsLoadTimeout] = useState(false);
 
   // Handle window resize to adjust sidebar state
   useEffect(() => {
@@ -162,6 +164,20 @@ const AppContent: React.FC = () => {
     }
   }, [user, activeAgentId, isLoading]);
 
+  // Timeout de segurança para agents não carregarem
+  useEffect(() => {
+    if (agents.length === 0 && !isLoading && user) {
+      // Se após 5 segundos ainda não tiver agents, forçar renderização
+      const timeout = setTimeout(() => {
+        console.warn('Agents não carregaram após 5 segundos, forçando renderização');
+        setAgentsLoadTimeout(true);
+      }, 5000);
+      return () => clearTimeout(timeout);
+    } else {
+      setAgentsLoadTimeout(false);
+    }
+  }, [agents.length, isLoading, user]);
+
   if (isLoading) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
@@ -214,22 +230,6 @@ const AppContent: React.FC = () => {
   }
 
   // If agents are not loaded yet, show loading
-  // Mas adicionar timeout de segurança para evitar loading infinito
-  const [agentsLoadTimeout, setAgentsLoadTimeout] = useState(false);
-  
-  useEffect(() => {
-    if (agents.length === 0 && !isLoading && user) {
-      // Se após 5 segundos ainda não tiver agents, forçar renderização
-      const timeout = setTimeout(() => {
-        console.warn('Agents não carregaram após 5 segundos, forçando renderização');
-        setAgentsLoadTimeout(true);
-      }, 5000);
-      return () => clearTimeout(timeout);
-    } else {
-      setAgentsLoadTimeout(false);
-    }
-  }, [agents.length, isLoading, user]);
-
   if (agents.length === 0 && !agentsLoadTimeout) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">

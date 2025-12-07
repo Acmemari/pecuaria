@@ -24,12 +24,17 @@ export const loadUserProfile = async (
         .single();
 
       if (error) {
-        console.error(`Error loading user profile (attempt ${i + 1}/${retries}):`, {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
+        // Não logar erro completo em produção para evitar poluição do console
+        if (process.env.NODE_ENV === 'development') {
+          console.error(`Error loading user profile (attempt ${i + 1}/${retries}):`, {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+          });
+        } else {
+          console.warn(`Error loading user profile (attempt ${i + 1}/${retries}):`, error.message);
+        }
 
         // If profile doesn't exist (PGRST116), try to create it
         if (error.code === 'PGRST116' || error.message?.includes('No rows')) {
