@@ -43,6 +43,14 @@
   - Plano Básico: limite de 10 mensagens por dia
   - Planos Pro e Enterprise: chat ilimitado
   - Admins têm acesso ilimitado
+- **Erro HTTP 500 no chat OpenAI Assistant:**
+  - Adicionado tratamento robusto de erros com logs detalhados
+  - Implementado timeout de 60 segundos e limite de tentativas
+  - Melhorado parsing da resposta para suportar diferentes formatos da API
+  - Adicionadas validações antes de acessar propriedades da resposta
+  - Melhorado tratamento de status diferentes (failed, cancelled, etc)
+  - Adicionada ordenação desc na busca de mensagens
+  - Mensagens de erro mais descritivas para facilitar debug
 
 ### Modificado
 - `index.html` - Removido CDN do Tailwind e scripts inline de configuração

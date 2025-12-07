@@ -12,6 +12,8 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
+    "test:assistant": "vitest run src/test/api/openai-assistant.test.ts",
+    "test:assistant:manual": "tsx scripts/test-assistant.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed"
@@ -37,6 +39,7 @@
     "autoprefixer": "^10.4.22",
     "concurrently": "^9.2.1",
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "jsdom": "^27.2.0",
     "postcss": "^8.5.6",
