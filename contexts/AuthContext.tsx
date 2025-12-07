@@ -16,36 +16,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Check for existing session
     const initAuth = async () => {
-      // Safety timeout to prevent infinite loading
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Auth timeout')), 30000)
-      );
-
       try {
-        await Promise.race([
-          (async () => {
-            const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-            if (error) {
-              console.error('Error getting session:', error);
-              return;
-            }
+        if (error) {
+          console.error('Error getting session:', error);
+        } else if (session?.user) {
+          // Optimistically set user from session metadata specific to Supabase Auth
+          // This allows immediate rendering while we fetch the full profile
+          setUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name || session.user.user_metadata?.full_name || 'Usuário',
+            role: (session.user.user_metadata?.role as 'admin' | 'client') || 'client',
+            plan: (session.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
+            avatar: session.user.user_metadata?.avatar || (session.user.email?.[0].toUpperCase() || 'U'),
+            status: 'active'
+          });
 
-            if (session?.user) {
-              const userProfile = await loadUserProfile(session.user.id);
-              setUser(userProfile);
-            }
-          })(),
-          timeoutPromise
-        ]);
-      } catch (error: any) {
-        console.error('Error initializing auth:', error);
-        if (error.message === 'Auth timeout') {
-          console.warn('Authentication initialization timed out. Checking if session was recovered by listener.');
-          // Do not force sign out, as onAuthStateChange might have succeeded
-          // await supabase.auth.signOut().catch(console.error);
-          // setUser(null);
+          // Load full profile in background
+          loadUserProfile(session.user.id).then(profile => {
+            if (profile) setUser(profile);
+          });
         }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
       } finally {
         setIsLoading(false);
       }
