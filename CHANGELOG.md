@@ -63,6 +63,13 @@
   - Adicionada verificação para evitar mensagens duplicadas de limite
   - Mensagens diferentes para limite real vs erro de conexão
   - Melhorado tratamento de erros de rede (ERR_CONNECTION_CLOSED, ERR_HTTP2_PROTOCOL_ERROR)
+- **Segurança e configuração:**
+  - Adicionado `.env` e `.env.local` ao `.gitignore` para proteger chaves de API
+  - Removido arquivo `.env` do tracking do git (mantido localmente)
+  - Melhorada validação da OPENAI_API_KEY com mensagens de erro mais claras
+  - Adicionada verificação prévia da API key na API antes de processar requisições
+  - Melhorado tratamento de erros HTTP com códigos específicos (401, 500, 504)
+  - Mensagens de erro mais descritivas quando API key não está configurada no Vercel
 
 ### Modificado
 - `index.html` - Removido CDN do Tailwind e scripts inline de configuração

@@ -16,10 +16,19 @@ const ASSISTANT_ID = "asst_pxFD2qiuUYJOt5abVw8IWwUf";
  */
 function getOpenAIApiKey(): string {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY não definida nas variáveis de ambiente do servidor");
+  if (!apiKey || apiKey.trim() === '') {
+    const errorMsg = "OPENAI_API_KEY não definida nas variáveis de ambiente do servidor. " +
+      "Configure a variável OPENAI_API_KEY no painel do Vercel (Settings > Environment Variables).";
+    console.error('[OpenAI Assistant]', errorMsg);
+    throw new Error(errorMsg);
   }
-  return apiKey;
+  
+  // Validar formato básico da API key
+  if (!apiKey.startsWith('sk-')) {
+    console.warn('[OpenAI Assistant] API key não parece ter o formato correto (deve começar com "sk-")');
+  }
+  
+  return apiKey.trim();
 }
 
 /**
