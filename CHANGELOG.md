@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Adicionado
+- **Integração OpenAI Assistant:**
+  - Substituída integração do Google Gemini pelo OpenAI Assistant no ChatAgent
+  - Criado `api/ask-assistant.ts` - Serverless function do Vercel para processar perguntas
+  - Criado `lib/server/openai/assistantClient.ts` - Cliente para comunicação com API OpenAI
+  - Adicionada dependência `@vercel/node` para tipos TypeScript de serverless functions
+  - Assistent ID configurado: `asst_pxFD2qiuUYJOt5abVw8IWwUf`
+- **Configuração de ambiente:**
+  - Adicionada variável `OPENAI_API_KEY` para uso no servidor (Vercel)
+  - Mantida `GEMINI_API_KEY` como opcional para compatibilidade
 - Arquivo `index.css` para corrigir erro 404 de carregamento
 - Testes unitários para verificação de carregamento de recursos:
   - `src/test/loading.test.tsx` - Testes de carregamento HTML, CSS e JS
@@ -34,6 +43,14 @@
 - `index.html` - Removido CDN do Tailwind e scripts inline de configuração
 - `index.tsx` - Adicionado import do CSS e registro do Service Worker
 - `index.css` - Atualizado com diretivas Tailwind e estilos customizados migrados
+- `agents/ChatAgent.tsx` - Substituída lógica do Gemini pela chamada à API `/api/ask-assistant`
+  - Removido import do `@google/genai`
+  - Implementada integração com OpenAI Assistant via serverless function
+  - Mantida funcionalidade de histórico e salvamento no Supabase
+  - Mantida UI de anexos (funcionalidade em desenvolvimento)
+- `App.tsx` - Chat "Pergunte p/ Antonio" desbloqueado
+  - Status alterado de 'locked' para 'active'
+  - Removido bloqueio de acesso no useEffect
 
 ### Documentação
 - Atualizado README.md com:
@@ -42,6 +59,8 @@
   - Configuração do Tailwind CSS
   - Informações sobre Service Worker
   - Scripts disponíveis
+  - Configuração de variáveis de ambiente (incluindo `OPENAI_API_KEY`)
+  - Informações sobre integração do OpenAI Assistant
 
 ## Notas Técnicas
 

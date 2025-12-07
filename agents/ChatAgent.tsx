@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, User, Bot, Loader2, Eraser, Paperclip, X, FileText } from 'lucide-react';
 import { ChatMessage } from '../types';
-import { GoogleGenAI } from "@google/genai";
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { PLANS } from '../constants';
@@ -146,7 +145,31 @@ const ChatAgent: React.FC = () => {
   };
 
   const handleSend = async () => {
+    // Verificar limites antes de enviar
+    if (user && !checkLimit()) {
+      const limitMessage: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'model',
+        text: "Você atingiu seu limite de mensagens. Faça upgrade do plano para continuar.",
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, limitMessage]);
+      return;
+    }
+
     if ((!inputText.trim() && !attachment) || isLoading) return;
+
+    // Preparar mensagem do usuário
+    // Nota: anexos não são enviados ao assistente inicialmente (conforme plano)
+    // A funcionalidade de anexo permanece na UI para futura implementação
+    const questionText = attachment 
+      ? `${inputText || ''} [Nota: Arquivo anexado: ${attachment.name} - funcionalidade em desenvolvimento]`.trim()
+      : inputText.trim();
+
+    if (!questionText) {
+      // Se não há texto e não há anexo válido, não enviar
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -165,66 +188,26 @@ const ChatAgent: React.FC = () => {
     await saveMessage(userMessage, currentAttachment?.name, currentAttachment?.mimeType);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      const systemInstruction = `
-        Você é o Antonio Chaker, renomado zootecnista e consultor de gestão pecuária no Brasil.
-        
-        SUA PERSONALIDADE:
-        - Pragmático, direto e focado em resultados financeiros.
-        - Você usa termos técnicos do setor (GMD, Lotação, Desembolso Cabeça/Mês, Margem sobre Venda, R$/@).
-        - Você fala "na língua do pecuarista", usando expressões como "companheiro", "o boi é o caixa", "fazenda é empresa a céu aberto".
-        - Você valoriza dados: "Quem não mede não gerencia".
-        
-        INSTRUÇÃO SOBRE ARQUIVOS:
-        - Se o usuário enviar um arquivo (PDF, Imagem, Texto), analise-o profundamente.
-        - Use os dados do arquivo como a verdade absoluta para a resposta.
-        - Se for um manual de regras (como o PDF de Identidade do Agente), siga as fórmulas contidas nele estritamente.
-      `;
-
-      // Build history for context (ignoring previous attachments to save tokens/complexity in this demo, 
-      // but keeping text history)
-      const history = messages.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.text }]
-      }));
-
-      const chat = ai.chats.create({
-        model: 'gemini-2.5-flash',
-        config: {
-          systemInstruction: systemInstruction,
-          temperature: 0.5, 
+      // Chamar API do assistente OpenAI
+      const response = await fetch('/api/ask-assistant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        history: history
+        body: JSON.stringify({ question: questionText }),
       });
 
-      // Prepare contents
-      let messageContent;
-      if (currentAttachment) {
-          messageContent = {
-              parts: [
-                  { text: inputText || "Analise este arquivo anexado." },
-                  {
-                      inlineData: {
-                          mimeType: currentAttachment.mimeType,
-                          data: currentAttachment.data
-                      }
-                  }
-              ]
-          };
-      } else {
-          messageContent = {
-              parts: [{ text: inputText }]
-          };
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
       }
 
-      // @ts-ignore - The types definition might be slightly stricter than the actual API allow for 'message' param overload
-      const result = await chat.sendMessage(messageContent);
+      const data = await response.json();
       
       const modelMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'model',
-        text: result.text,
+        text: data.answer || 'Sem resposta do assistente.',
         timestamp: new Date()
       };
 
@@ -233,12 +216,14 @@ const ChatAgent: React.FC = () => {
       // Save model response
       await saveMessage(modelMessage);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro na API:", error);
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'model',
-        text: "Tive um problema ao processar sua solicitação. Se enviou um arquivo muito grande, tente um menor.",
+        text: error.message 
+          ? `Erro ao processar sua solicitação: ${error.message}` 
+          : "Tive um problema ao processar sua solicitação. Por favor, tente novamente.",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);

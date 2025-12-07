@@ -92,7 +92,7 @@ const AppContent: React.FC = () => {
         description: 'Consultor virtual especialista.',
         icon: 'nutrition',
         category: 'consultoria',
-        status: 'locked'
+        status: 'active'
       },
       {
         id: 'market-trends',
@@ -131,8 +131,8 @@ const AppContent: React.FC = () => {
       return;
     }
 
-    // Redirect if trying to access locked agents (ask-antonio, market-trends)
-    const lockedAgents = ['ask-antonio', 'market-trends'];
+    // Redirect if trying to access locked agents (market-trends)
+    const lockedAgents = ['market-trends'];
     if (lockedAgents.includes(activeAgentId)) {
       setActiveAgentId('cattle-profit');
       return;

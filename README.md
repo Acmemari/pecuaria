@@ -15,7 +15,10 @@ View your app in AI Studio: https://ai.studio/apps/drive/1DqXzbKOjJ6Jc2P_jAFLhwU
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Configure environment variables in `.env.local`:
+   - `VITE_SUPABASE_URL` - URL do projeto Supabase
+   - `VITE_SUPABASE_ANON_KEY` - Chave anônima do Supabase
+   - `OPENAI_API_KEY` - Chave da API OpenAI (usada no servidor via Vercel Serverless Functions)
 3. Run the app:
    `npm run dev`
 
@@ -89,6 +92,29 @@ Arquivos de teste:
 - `src/test/e2e/app.spec.ts` - Testes E2E de funcionalidade básica
 
 ## Configuração
+
+### Variáveis de Ambiente
+
+O projeto utiliza as seguintes variáveis de ambiente:
+
+- **Frontend (Vite):**
+  - `VITE_SUPABASE_URL` - URL do projeto Supabase (obrigatória)
+  - `VITE_SUPABASE_ANON_KEY` - Chave anônima do Supabase (obrigatória)
+  - `GEMINI_API_KEY` - Chave da API Gemini (opcional, mantida para compatibilidade)
+
+- **Backend (Vercel Serverless Functions):**
+  - `OPENAI_API_KEY` - Chave da API OpenAI (obrigatória para o chat)
+  
+**Importante:** Configure `OPENAI_API_KEY` nas variáveis de ambiente do Vercel para que o chat funcione em produção.
+
+### OpenAI Assistant
+
+O chat utiliza o OpenAI Assistant API através de uma serverless function:
+- `api/ask-assistant.ts` - Endpoint serverless do Vercel
+- `lib/server/openai/assistantClient.ts` - Cliente para comunicação com a API OpenAI
+- `agents/ChatAgent.tsx` - Componente React que consome a API
+
+O assistente configurado possui o ID: `asst_pxFD2qiuUYJOt5abVw8IWwUf`
 
 ### Tailwind CSS
 
