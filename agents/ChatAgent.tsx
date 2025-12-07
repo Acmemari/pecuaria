@@ -144,16 +144,21 @@ const ChatAgent: React.FC = () => {
     setAttachment(null);
   };
 
+  // Cache da verificação de limite (cache por 30 segundos)
+  const limitCheckCache = useRef<{ result: boolean; timestamp: number } | null>(null);
+  const CACHE_DURATION = 30000; // 30 segundos
+
   /**
    * Verifica se o usuário pode enviar mensagens
    * - Planos Pro e Enterprise: chat ilimitado
    * - Plano Basic: máximo 10 mensagens por dia
+   * - Em caso de erro de conexão: permite envio (fallback permissivo)
    */
-  const checkChatLimit = async (): Promise<boolean> => {
-    if (!user) return false;
+  const checkChatLimit = async (): Promise<{ canSend: boolean; reason?: string }> => {
+    if (!user) return { canSend: false, reason: 'Usuário não autenticado' };
     
     // Admins têm acesso ilimitado
-    if (user.role === 'admin') return true;
+    if (user.role === 'admin') return { canSend: true };
     
     const userPlan = PLANS.find(p => p.id === user.plan) || PLANS[0];
     
@@ -163,44 +168,131 @@ const ChatAgent: React.FC = () => {
     );
     
     if (hasUnlimitedChat) {
-      return true; // Chat ilimitado para Pro e Enterprise
+      return { canSend: true }; // Chat ilimitado para Pro e Enterprise
     }
     
-    // Para plano Basic, contar mensagens do dia
+    // Verificar cache (últimas 30 segundos)
+    const now = Date.now();
+    if (limitCheckCache.current && (now - limitCheckCache.current.timestamp) < CACHE_DURATION) {
+      return { canSend: limitCheckCache.current.result };
+    }
+    
+    // Para plano Basic, contar mensagens do dia com retry
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const { count, error } = await supabase
-      .from('chat_messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('role', 'user') // Contar apenas mensagens do usuário
-      .gte('created_at', today.toISOString());
+    const MAX_RETRIES = 2;
+    let lastError: any = null;
     
-    if (error) {
-      console.error('Erro ao verificar limite de mensagens:', error);
-      return false; // Em caso de erro, bloqueia por segurança
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const { count, error } = await supabase
+          .from('chat_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('role', 'user') // Contar apenas mensagens do usuário
+          .gte('created_at', today.toISOString());
+        
+        if (error) {
+          lastError = error;
+          
+          // Se for erro de conexão/rede, tentar novamente
+          if (attempt < MAX_RETRIES && (
+            error.message?.includes('Failed to fetch') ||
+            error.message?.includes('network') ||
+            error.code === 'PGRST301' ||
+            error.message?.includes('connection')
+          )) {
+            console.warn(`Erro de conexão ao verificar limite (tentativa ${attempt + 1}/${MAX_RETRIES + 1}), tentando novamente...`);
+            await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1))); // Backoff exponencial
+            continue;
+          }
+          
+          // Em caso de erro persistente, usar fallback permissivo (permitir envio)
+          console.warn('Erro ao verificar limite de mensagens, permitindo envio como fallback:', error.message);
+          const result = { canSend: true, reason: 'Erro de conexão - limite não verificado' };
+          limitCheckCache.current = { result: true, timestamp: now };
+          return result;
+        }
+        
+        // Sucesso na verificação
+        const MESSAGES_LIMIT_BASIC = 10;
+        const canSend = (count || 0) < MESSAGES_LIMIT_BASIC;
+        
+        // Atualizar cache
+        limitCheckCache.current = { result: canSend, timestamp: now };
+        
+        if (!canSend) {
+          return { 
+            canSend: false, 
+            reason: `Limite atingido: ${count || 0}/${MESSAGES_LIMIT_BASIC} mensagens hoje` 
+          };
+        }
+        
+        return { canSend: true };
+        
+      } catch (error: any) {
+        lastError = error;
+        if (attempt < MAX_RETRIES) {
+          console.warn(`Exceção ao verificar limite (tentativa ${attempt + 1}/${MAX_RETRIES + 1}), tentando novamente...`);
+          await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+          continue;
+        }
+        
+        // Em caso de exceção, usar fallback permissivo
+        console.warn('Exceção ao verificar limite de mensagens, permitindo envio como fallback:', error);
+        const result = { canSend: true, reason: 'Erro temporário - limite não verificado' };
+        limitCheckCache.current = { result: true, timestamp: now };
+        return result;
+      }
     }
     
-    const MESSAGES_LIMIT_BASIC = 10;
-    return (count || 0) < MESSAGES_LIMIT_BASIC;
+    // Se chegou aqui, todas as tentativas falharam - fallback permissivo
+    console.warn('Falha em todas as tentativas de verificar limite, permitindo envio');
+    const result = { canSend: true, reason: 'Erro de conexão - limite não verificado' };
+    limitCheckCache.current = { result: true, timestamp: now };
+    return result;
   };
 
   const handleSend = async () => {
-    // Verificar limites antes de enviar
-    const canSend = await checkChatLimit();
-    if (!canSend) {
-      const limitMessage: ChatMessage = {
-        id: Date.now().toString(),
-        role: 'model',
-        text: "Você atingiu seu limite de mensagens (10 mensagens/dia no plano básico). Faça upgrade do plano para continuar.",
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, limitMessage]);
-      return;
-    }
-
     if ((!inputText.trim() && !attachment) || isLoading) return;
+
+    // Verificar limites antes de enviar
+    const limitCheck = await checkChatLimit();
+    
+    if (!limitCheck.canSend) {
+      // Verificar se a última mensagem já é uma mensagem de limite para evitar duplicatas
+      const lastMessage = messages[messages.length - 1];
+      const isLastMessageLimit = lastMessage && 
+        lastMessage.role === 'model' && 
+        lastMessage.text.includes('limite de mensagens');
+      
+      if (!isLastMessageLimit) {
+        let limitMessageText = "Você atingiu seu limite de mensagens (10 mensagens/dia no plano básico). Faça upgrade do plano para continuar.";
+        
+        // Mensagem diferente se for erro de conexão
+        if (limitCheck.reason?.includes('Erro de conexão') || limitCheck.reason?.includes('Erro temporário')) {
+          limitMessageText = "Não foi possível verificar seu limite de mensagens. A mensagem será enviada. Se atingir o limite, você será notificado.";
+        } else if (limitCheck.reason?.includes('Limite atingido')) {
+          limitMessageText = `Você atingiu seu limite de mensagens (10 mensagens/dia no plano básico). Faça upgrade do plano para continuar.`;
+        }
+        
+        const limitMessage: ChatMessage = {
+          id: Date.now().toString(),
+          role: 'model',
+          text: limitMessageText,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, limitMessage]);
+      }
+      
+      // Se for realmente limite atingido, bloquear envio
+      if (limitCheck.reason?.includes('Limite atingido')) {
+        return;
+      }
+      
+      // Se for erro de conexão, permitir envio com aviso (já adicionado acima)
+    }
 
     // Preparar mensagem do usuário
     // Nota: anexos não são enviados ao assistente inicialmente (conforme plano)

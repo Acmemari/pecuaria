@@ -56,6 +56,13 @@
   - Adicionado timeout de segurança no App.tsx (5s) para evitar loading infinito quando agents não carregam
   - Adicionado tratamento de erro no useMemo dos agents para evitar falhas silenciosas
   - Melhorado tratamento de erros no carregamento de perfil do usuário
+- **Verificação de limite de mensagens bloqueando incorretamente:**
+  - Implementado fallback permissivo: em caso de erro de conexão, permite envio ao invés de bloquear
+  - Adicionado cache de 30 segundos para evitar múltiplas verificações desnecessárias
+  - Implementado retry logic (até 2 tentativas) para erros de conexão temporários
+  - Adicionada verificação para evitar mensagens duplicadas de limite
+  - Mensagens diferentes para limite real vs erro de conexão
+  - Melhorado tratamento de erros de rede (ERR_CONNECTION_CLOSED, ERR_HTTP2_PROTOCOL_ERROR)
 
 ### Modificado
 - `index.html` - Removido CDN do Tailwind e scripts inline de configuração
