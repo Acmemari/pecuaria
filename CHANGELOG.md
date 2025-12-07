@@ -38,6 +38,11 @@
 - Validação de estrutura HTML e recursos críticos através de testes
 - **Aviso do console sobre Tailwind CDN** - Migrado para build local
 - **Performance:** CSS agora é gerado e otimizado durante o build
+- **Chat bloqueado incorretamente:** Corrigida verificação de limite de mensagens no ChatAgent
+  - Implementado sistema de contagem de mensagens diárias
+  - Plano Básico: limite de 10 mensagens por dia
+  - Planos Pro e Enterprise: chat ilimitado
+  - Admins têm acesso ilimitado
 
 ### Modificado
 - `index.html` - Removido CDN do Tailwind e scripts inline de configuração
@@ -48,9 +53,12 @@
   - Implementada integração com OpenAI Assistant via serverless function
   - Mantida funcionalidade de histórico e salvamento no Supabase
   - Mantida UI de anexos (funcionalidade em desenvolvimento)
+  - Implementado sistema de verificação de limite de mensagens com contagem diária
+  - Criada função `checkChatLimit()` para verificar limites por plano
 - `App.tsx` - Chat "Pergunte p/ Antonio" desbloqueado
   - Status alterado de 'locked' para 'active'
   - Removido bloqueio de acesso no useEffect
+  - Gestão de Clientes (AdminDashboard) permanece disponível para usuários admin
 
 ### Documentação
 - Atualizado README.md com:

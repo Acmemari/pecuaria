@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { PLANS } from '../constants';
 
 const ChatAgent: React.FC = () => {
-  const { user, checkLimit } = useAuth();
+  const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -144,13 +144,56 @@ const ChatAgent: React.FC = () => {
     setAttachment(null);
   };
 
+  /**
+   * Verifica se o usuário pode enviar mensagens
+   * - Planos Pro e Enterprise: chat ilimitado
+   * - Plano Basic: máximo 10 mensagens por dia
+   */
+  const checkChatLimit = async (): Promise<boolean> => {
+    if (!user) return false;
+    
+    // Admins têm acesso ilimitado
+    if (user.role === 'admin') return true;
+    
+    const userPlan = PLANS.find(p => p.id === user.plan) || PLANS[0];
+    
+    // Verificar se o plano tem chat ilimitado
+    const hasUnlimitedChat = userPlan.features.some(f => 
+      f.toLowerCase().includes('chat ilimitado')
+    );
+    
+    if (hasUnlimitedChat) {
+      return true; // Chat ilimitado para Pro e Enterprise
+    }
+    
+    // Para plano Basic, contar mensagens do dia
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const { count, error } = await supabase
+      .from('chat_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('role', 'user') // Contar apenas mensagens do usuário
+      .gte('created_at', today.toISOString());
+    
+    if (error) {
+      console.error('Erro ao verificar limite de mensagens:', error);
+      return false; // Em caso de erro, bloqueia por segurança
+    }
+    
+    const MESSAGES_LIMIT_BASIC = 10;
+    return (count || 0) < MESSAGES_LIMIT_BASIC;
+  };
+
   const handleSend = async () => {
     // Verificar limites antes de enviar
-    if (user && !checkLimit()) {
+    const canSend = await checkChatLimit();
+    if (!canSend) {
       const limitMessage: ChatMessage = {
         id: Date.now().toString(),
         role: 'model',
-        text: "Você atingiu seu limite de mensagens. Faça upgrade do plano para continuar.",
+        text: "Você atingiu seu limite de mensagens (10 mensagens/dia no plano básico). Faça upgrade do plano para continuar.",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, limitMessage]);
