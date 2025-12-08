@@ -57,10 +57,10 @@ const Slider: React.FC<SliderProps> = ({
   });
 
   return (
-    <div className={`bg-gray-50 p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative ${sliderClass}`}>
+    <div className={`bg-gray-50 p-2 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative ${sliderClass}`}>
       
       {/* Cabeçalho: Label + Info + Valor */}
-      <div className="flex justify-between items-start mb-3">
+      <div className="flex justify-between items-start mb-2">
         
         {/* Lado Esquerdo: Label e Info */}
         <div className="flex items-center gap-1.5 relative" ref={infoRef}>

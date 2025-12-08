@@ -186,7 +186,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             )}
           </div>
 
-          <div className="flex flex-col md:flex-1 md:justify-between overflow-y-auto md:pr-1 pb-1 space-y-1.5 md:space-y-2">
+          <div className="flex flex-col md:flex-1 overflow-y-auto md:overflow-visible md:pr-1 pb-1 gap-1.5">
             <Slider index={1} label="Peso de Compra" value={inputs.pesoCompra} min={150} max={420} step={1} unit="kg" onChange={(v) => handleInputChange('pesoCompra', v)} />
             <Slider index={2} label="Valor de Compra" value={inputs.valorCompra} min={11} max={18} step={0.05} unit="R$/kg" onChange={(v) => handleInputChange('valorCompra', v)} />
             <Slider index={3} label="Peso Vivo Abate" value={inputs.pesoAbate} min={Math.max(390, inputs.pesoCompra + 10)} max={630} step={1} unit="kg" onChange={(v) => handleInputChange('pesoAbate', v)} />
