@@ -14,7 +14,6 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
-    mrr: 0,
   });
 
   useEffect(() => {
@@ -85,15 +84,10 @@ const AdminDashboard: React.FC = () => {
           
           // Calculate stats
           const active = mappedClients.filter(c => c.status === 'active').length;
-          const mrr = mappedClients.reduce((sum, c) => {
-            const planPrice = c.plan === 'enterprise' ? 299 : c.plan === 'pro' ? 97 : 0;
-            return sum + planPrice;
-          }, 0);
           
           setStats({
             total: mappedClients.length,
             active,
-            mrr,
           });
           
           setIsLoading(false);
@@ -101,7 +95,7 @@ const AdminDashboard: React.FC = () => {
         } else {
           console.log('[AdminDashboard] No data returned from query');
           setClients([]);
-          setStats({ total: 0, active: 0, mrr: 0 });
+          setStats({ total: 0, active: 0 });
         }
       } catch (error: any) {
         console.error('[AdminDashboard] Exception loading clients:', error);
@@ -176,7 +170,7 @@ const AdminDashboard: React.FC = () => {
     <div className="h-full flex flex-col gap-6 p-2">
       
       {/* Top Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-xl border border-ai-border shadow-sm">
             <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Users size={18} /></div>
@@ -192,14 +186,6 @@ const AdminDashboard: React.FC = () => {
             </div>
             <div className="text-2xl font-mono font-bold text-ai-text">{stats.active}</div>
             <div className="text-xs text-ai-subtext font-medium mt-1">Clientes ativos</div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-ai-border shadow-sm">
-            <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><Shield size={18} /></div>
-                <span className="text-xs font-bold text-ai-subtext uppercase">Receita (MRR)</span>
-            </div>
-            <div className="text-2xl font-mono font-bold text-ai-text">R$ {stats.mrr.toLocaleString('pt-BR')}</div>
-            <div className="text-xs text-emerald-600 font-medium mt-1">Receita mensal recorrente</div>
         </div>
       </div>
 
@@ -227,7 +213,6 @@ const AdminDashboard: React.FC = () => {
                 <thead className="bg-ai-surface sticky top-0 z-10">
                     <tr>
                         <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Cliente</th>
-                        <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Plano</th>
                         <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Status</th>
                         <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Último Acesso</th>
                         <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border text-right">Ações</th>
@@ -253,16 +238,6 @@ const AdminDashboard: React.FC = () => {
                                             <div className="text-xs text-ai-subtext">{client.email}</div>
                                         </div>
                                     </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className={`
-                                        inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border
-                                        ${client.plan === 'enterprise' ? 'bg-purple-50 text-purple-700 border-purple-200' : 
-                                          client.plan === 'pro' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
-                                          'bg-gray-50 text-gray-600 border-gray-200'}
-                                    `}>
-                                        {client.plan === 'enterprise' ? 'Enterprise' : client.plan === 'pro' ? 'Pro' : 'Básico'}
-                                    </span>
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center">

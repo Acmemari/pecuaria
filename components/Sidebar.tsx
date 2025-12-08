@@ -118,7 +118,9 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
               </div>
               <div className="flex-1 overflow-hidden">
                 <p className="text-xs font-bold text-ai-text truncate">{user.name}</p>
-                <p className="text-[10px] text-ai-subtext truncate capitalize">{user.role === 'admin' ? 'Administrador' : (user.plan ? `Plano ${user.plan}` : 'Plano Gratuito')}</p>
+                {user.role === 'admin' && (
+                  <p className="text-[10px] text-ai-subtext truncate capitalize">Administrador</p>
+                )}
               </div>
             </div>
           )}

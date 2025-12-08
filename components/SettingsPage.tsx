@@ -345,29 +345,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           {isSaving ? 'Salvando...' : 'Salvar Alterações'}
         </button>
       </div>
-
-      {/* Current Plan Info */}
-      <div className="border-t border-ai-border pt-6">
-        <h3 className="text-lg font-semibold text-ai-text mb-4">Plano Atual</h3>
-        <div className="p-4 bg-ai-surface rounded-lg border border-ai-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-ai-text capitalize">
-                {user.plan === 'basic' ? 'Básico' : user.plan === 'pro' ? 'Profissional' : user.plan === 'enterprise' ? 'Enterprise' : 'Gratuito'}
-              </p>
-              <p className="text-sm text-ai-subtext mt-1">
-                {user.plan === 'basic' ? 'Plano gratuito com recursos limitados' :
-                  user.plan === 'pro' ? 'Acesso completo a todos os recursos' :
-                    user.plan === 'enterprise' ? 'Solução empresarial completa' :
-                      'Plano padrão'}
-              </p>
-            </div>
-            <span className="px-3 py-1 bg-ai-accent/10 text-ai-accent text-xs font-medium rounded-full border border-ai-accent/20">
-              Ativo
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 
