@@ -109,7 +109,13 @@ export const saveScenario = async (
       throw new Error('Funcionalidade de salvar cenários ainda não está disponível. A tabela precisa ser criada no banco de dados.');
     }
     
-    throw new Error('Erro ao salvar cenário');
+    // Check for RLS policy violation
+    if (error.code === '42501' || error.message?.includes('policy')) {
+      throw new Error('Erro de permissão ao salvar cenário. Verifique suas credenciais.');
+    }
+    
+    // Include the actual error message for debugging
+    throw new Error(error.message || 'Erro ao salvar cenário');
   }
 
   return {
