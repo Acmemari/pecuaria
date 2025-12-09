@@ -116,7 +116,7 @@ const AppContent: React.FC = () => {
               id: 'agent-training',
               name: 'Treinar Antonio',
               description: 'Configurar e treinar o agente',
-              icon: 'nutrition',
+              icon: 'brain',
               category: 'admin',
               status: 'active'
             } as Agent,

@@ -10,7 +10,8 @@ import {
   LogOut,
   Users,
   X,
-  Save
+  Save,
+  Brain
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -96,6 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                     {agent.icon === 'chart' && <TrendingUp size={16} />}
                     {agent.icon === 'nutrition' && <Sprout size={16} />}
                     {agent.icon === 'users' && <Users size={16} />}
+                    {agent.icon === 'brain' && <Brain size={16} />}
                   </div>
 
                   <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
