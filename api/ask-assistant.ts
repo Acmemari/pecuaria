@@ -4,7 +4,7 @@
  * Endpoint: POST /api/ask-assistant
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { callAssistant } from '../lib/server/openai/assistantClient';
+import { callAssistant } from './assistantClient';
 
 export default async function handler(
   req: VercelRequest,
