@@ -19,6 +19,7 @@ const ChatAgent = lazy(() => import('./agents/ChatAgent'));
 const AdminDashboard = lazy(() => import('./agents/AdminDashboard'));
 const MarketTrends = lazy(() => import('./agents/MarketTrends'));
 const SavedScenarios = lazy(() => import('./agents/SavedScenarios'));
+const AgentTrainingAdmin = lazy(() => import('./agents/AgentTrainingAdmin'));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full">
@@ -95,7 +96,7 @@ const AppContent: React.FC = () => {
           description: 'Consultor virtual especialista.',
           icon: 'nutrition',
           category: 'consultoria',
-          status: 'locked'
+          status: 'active'
         },
         {
           id: 'market-trends',
@@ -111,6 +112,14 @@ const AppContent: React.FC = () => {
       return user?.role === 'admin'
         ? [
             ...baseAgents,
+            {
+              id: 'agent-training',
+              name: 'Treinar Antonio',
+              description: 'Configurar e treinar o agente',
+              icon: 'nutrition',
+              category: 'admin',
+              status: 'active'
+            } as Agent,
             {
               id: 'admin-dashboard',
               name: 'Gestão de Clientes',
@@ -327,6 +336,14 @@ const AppContent: React.FC = () => {
           <Suspense fallback={<LoadingFallback />}>
             <MarketTrends />
           </Suspense>
+        );
+      case 'agent-training':
+        return user.role === 'admin' ? (
+          <Suspense fallback={<LoadingFallback />}>
+            <AgentTrainingAdmin />
+          </Suspense>
+        ) : (
+          <div>Acesso negado.</div>
         );
       case 'admin-dashboard':
         return user.role === 'admin' ? (

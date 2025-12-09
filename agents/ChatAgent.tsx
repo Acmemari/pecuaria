@@ -7,6 +7,8 @@ import { PLANS } from '../constants';
 
 const ChatAgent: React.FC = () => {
   const { user } = useAuth();
+  const [isAgentEnabled, setIsAgentEnabled] = useState(true);
+  const [isCheckingAgent, setIsCheckingAgent] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -29,6 +31,33 @@ const ChatAgent: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Check if agent is enabled
+  useEffect(() => {
+    const checkAgentStatus = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('agent_config')
+          .select('is_enabled')
+          .eq('agent_id', 'ask-antonio')
+          .single();
+
+        if (error) {
+          console.error('Error checking agent status:', error);
+          setIsAgentEnabled(true); // Fallback to enabled on error
+        } else {
+          setIsAgentEnabled(data?.is_enabled || false);
+        }
+      } catch (error) {
+        console.error('Error checking agent status:', error);
+        setIsAgentEnabled(true); // Fallback to enabled on error
+      } finally {
+        setIsCheckingAgent(false);
+      }
+    };
+
+    checkAgentStatus();
+  }, []);
 
   // Load chat history on mount
   useEffect(() => {
@@ -402,6 +431,35 @@ const ChatAgent: React.FC = () => {
       }]);
       setAttachment(null);
   };
+
+  // Show loading while checking agent status
+  if (isCheckingAgent) {
+    return (
+      <div className="flex flex-col h-full bg-white rounded-lg border border-ai-border shadow-sm overflow-hidden items-center justify-center">
+        <Loader2 size={32} className="animate-spin text-ai-subtext" />
+      </div>
+    );
+  }
+
+  // Show disabled message if agent is not enabled
+  if (!isAgentEnabled) {
+    return (
+      <div className="flex flex-col h-full bg-white rounded-lg border border-ai-border shadow-sm overflow-hidden items-center justify-center p-8">
+        <div className="text-center max-w-md">
+          <Bot size={64} className="mx-auto mb-4 text-ai-subtext opacity-50" />
+          <h3 className="text-lg font-bold text-ai-text mb-2">Agente Desabilitado</h3>
+          <p className="text-sm text-ai-subtext mb-4">
+            O Consultor Antonio está temporariamente desabilitado. Entre em contato com o administrador para mais informações.
+          </p>
+          {user?.role === 'admin' && (
+            <p className="text-xs text-ai-accent">
+              Como administrador, você pode habilitar o agente na seção "Treinar Antonio".
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-white rounded-lg border border-ai-border shadow-sm overflow-hidden">
