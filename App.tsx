@@ -72,6 +72,8 @@ const AppContent: React.FC = () => {
       return [];
     }
 
+    console.log('[App] Current user:', { id: user.id, email: user.email, role: user.role });
+
     try {
       const baseAgents: Agent[] = [
         {
@@ -109,7 +111,10 @@ const AppContent: React.FC = () => {
       ];
 
       // Dynamically add Admin tools if user is admin
-      return user?.role === 'admin'
+      const isAdmin = user?.role === 'admin';
+      console.log('[App] Is admin?', isAdmin, 'User role:', user?.role);
+      
+      return isAdmin
         ? [
             ...baseAgents,
             {
