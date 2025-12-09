@@ -358,7 +358,10 @@ const ChatAgent: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ question: questionText }),
+        body: JSON.stringify({ 
+          question: questionText,
+          userId: user?.id // Enviar userId para rastreamento de tokens
+        }),
       });
 
       if (!response.ok) {

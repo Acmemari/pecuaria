@@ -39,11 +39,24 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Chama o assistente da OpenAI com uma pergunta e retorna a resposta
- * @param question Pergunta do usuário
- * @returns Resposta do assistente
+ * Interface para retornar resposta e uso de tokens
  */
-export async function callAssistant(question: string): Promise<string> {
+export interface AssistantResponse {
+  answer: string;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  model?: string;
+}
+
+/**
+ * Chama o assistente da OpenAI com uma pergunta e retorna a resposta com uso de tokens
+ * @param question Pergunta do usuário
+ * @returns Resposta do assistente com informações de uso
+ */
+export async function callAssistant(question: string): Promise<AssistantResponse> {
   const OPENAI_API_KEY = getOpenAIApiKey();
   
   console.log('[OpenAI Assistant] Iniciando chamada para assistente:', ASSISTANT_ID);
@@ -146,6 +159,33 @@ export async function callAssistant(question: string): Promise<string> {
       throw new Error(`Run finalizou com status: ${status}. Verifique os logs para mais detalhes.`);
     }
 
+    // Buscar usage final do run (caso não tenha sido capturado antes)
+    let finalUsage = null;
+    let finalModel = null;
+    try {
+      const finalRunRes = await fetch(
+        `https://api.openai.com/v1/threads/${threadId}/runs/${runId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+            "OpenAI-Beta": "assistants=v2",
+          },
+        }
+      );
+      if (finalRunRes.ok) {
+        const finalRunData = await finalRunRes.json();
+        if (finalRunData.usage) {
+          finalUsage = finalRunData.usage;
+          finalModel = finalRunData.model || 'unknown';
+          console.log('[OpenAI Assistant] Usage final capturado:', finalUsage);
+        }
+      }
+    } catch (err) {
+      console.warn('[OpenAI Assistant] Erro ao buscar usage final (não crítico):', err);
+    }
+
     console.log('[OpenAI Assistant] Run completado, buscando mensagens...');
 
     // 3) Buscar a última resposta (mensagem do assistente)
@@ -209,7 +249,17 @@ export async function callAssistant(question: string): Promise<string> {
     }
 
     console.log('[OpenAI Assistant] Resposta extraída com sucesso:', answer.substring(0, 100) + '...');
-    return answer;
+    
+    // Retornar resposta com usage
+    return {
+      answer,
+      usage: finalUsage ? {
+        prompt_tokens: finalUsage.prompt_tokens || 0,
+        completion_tokens: finalUsage.completion_tokens || 0,
+        total_tokens: finalUsage.total_tokens || 0,
+      } : undefined,
+      model: finalModel || undefined,
+    };
     
   } catch (error: any) {
     console.error('[OpenAI Assistant] Erro completo:', error);

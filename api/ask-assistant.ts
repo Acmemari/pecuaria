@@ -39,11 +39,40 @@ export default async function handler(
     }
 
     console.log('[API] Chamando callAssistant...');
-    const answer = await callAssistant(question.trim());
-    console.log('[API] Resposta recebida com sucesso, tamanho:', answer.length);
+    const result = await callAssistant(question.trim());
+    console.log('[API] Resposta recebida com sucesso, tamanho:', result.answer.length);
+    
+    // Salvar uso de tokens no banco de dados (se disponível)
+    if (result.usage && req.body.userId) {
+      try {
+        // Usar Supabase client com service role para inserir dados
+        const { createClient } = require('@supabase/supabase-js');
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        
+        if (supabaseUrl && supabaseServiceKey) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey);
+          
+          await supabase.from('ai_token_usage').insert({
+            user_id: req.body.userId,
+            tokens_input: result.usage.prompt_tokens || 0,
+            tokens_output: result.usage.completion_tokens || 0,
+            total_tokens: result.usage.total_tokens || 0,
+            model: result.model || 'unknown',
+          });
+          
+          console.log('[API] Uso de tokens salvo:', result.usage);
+        } else {
+          console.warn('[API] Variáveis do Supabase não configuradas, pulando salvamento de tokens');
+        }
+      } catch (tokenError: any) {
+        // Não falhar a requisição se houver erro ao salvar tokens
+        console.error('[API] Erro ao salvar uso de tokens (não crítico):', tokenError);
+      }
+    }
 
     return res.status(200).json({
-      answer,
+      answer: result.answer,
     });
   } catch (err: any) {
     console.error('[API] Erro completo no assistente:', {

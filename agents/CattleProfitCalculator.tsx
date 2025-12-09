@@ -33,7 +33,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     initialInputs || {
       pesoCompra: 200,        // 1. Peso de compra (kg)
       valorCompra: 14.50,     // 2. Valor de compra (R$/kg)
-      pesoAbate: 550,         // 3. Peso vivo ao abate (kg)
+      pesoAbate: 360,         // 3. Peso vivo ao abate (kg)
       rendimentoCarcaca: 54.5,  // 4. Rendimento de carcaça (%)
       valorVenda: 300,        // 5. Valor de venda (R$ por arroba)
       gmd: 0.65,              // 6. Ganho médio diário – GMD (kg/dia)
@@ -189,7 +189,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           <div className="flex flex-col md:flex-1 overflow-y-auto md:overflow-visible md:pr-1 pb-1 gap-1.5">
             <Slider index={1} label="Peso de Compra" value={inputs.pesoCompra} min={150} max={420} step={1} unit="kg" onChange={(v) => handleInputChange('pesoCompra', v)} />
             <Slider index={2} label="Valor de Compra" value={inputs.valorCompra} min={11} max={18} step={0.05} unit="R$/kg" onChange={(v) => handleInputChange('valorCompra', v)} />
-            <Slider index={3} label="Peso Vivo Abate" value={inputs.pesoAbate} min={Math.max(390, inputs.pesoCompra + 10)} max={630} step={1} unit="kg" onChange={(v) => handleInputChange('pesoAbate', v)} />
+            <Slider index={3} label="Peso Vivo Abate" value={inputs.pesoAbate} min={Math.max(350, inputs.pesoCompra + 10)} max={630} step={1} unit="kg" onChange={(v) => handleInputChange('pesoAbate', v)} />
             <Slider index={4} label="Rend. Carcaça" value={inputs.rendimentoCarcaca} min={46} max={58} step={0.5} unit="%" onChange={(v) => handleInputChange('rendimentoCarcaca', v)} />
             <Slider index={5} label="Valor Venda" value={inputs.valorVenda} min={250} max={350} step={1} unit="R$/@" onChange={(v) => handleInputChange('valorVenda', v)} />
             <Slider index={6} label="GMD" value={inputs.gmd} min={0.38} max={1.1} step={0.01} unit="kg/dia" onChange={(v) => handleInputChange('gmd', v)} />
