@@ -4,7 +4,7 @@
  * Endpoint: POST /api/ask-assistant
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { callAssistant } from './assistantClient';
+import { callAssistant } from './geminiClient';
 
 export default async function handler(
   req: VercelRequest,
@@ -13,10 +13,10 @@ export default async function handler(
   console.log('[API] Requisição recebida:', req.method, req.url);
   
   // Verificar API key antes de processar
-  if (!process.env.OPENAI_API_KEY) {
-    console.error('[API] OPENAI_API_KEY não configurada no Vercel');
+  if (!process.env.GEMINI_API_KEY) {
+    console.error('[API] GEMINI_API_KEY não configurada no Vercel');
     return res.status(500).json({
-      error: 'Configuração de servidor incompleta: OPENAI_API_KEY não está configurada. Configure nas variáveis de ambiente do Vercel.',
+      error: 'Configuração de servidor incompleta: GEMINI_API_KEY não está configurada. Configure nas variáveis de ambiente do Vercel.',
       code: 'MISSING_API_KEY'
     });
   }
@@ -79,8 +79,8 @@ export default async function handler(
       message: err.message,
       stack: err.stack,
       name: err.name,
-      apiKeyPresent: !!process.env.OPENAI_API_KEY,
-      apiKeyPrefix: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.substring(0, 7) + '...' : 'não configurada'
+      apiKeyPresent: !!process.env.GEMINI_API_KEY,
+      apiKeyPrefix: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 7) + '...' : 'não configurada'
     });
     
     // Identificar tipo de erro
@@ -88,14 +88,18 @@ export default async function handler(
     let errorMessage = err.message || 'Erro interno no assistente.';
     let errorCode = 'UNKNOWN_ERROR';
     
-    if (err.message?.includes('OPENAI_API_KEY não definida')) {
+    if (err.message?.includes('GEMINI_API_KEY não definida')) {
       statusCode = 500;
       errorCode = 'MISSING_API_KEY';
-      errorMessage = 'Configuração incompleta: OPENAI_API_KEY não está configurada no servidor.';
-    } else if (err.message?.includes('Erro ao criar run') || err.message?.includes('401') || err.message?.includes('Unauthorized')) {
+      errorMessage = 'Configuração incompleta: GEMINI_API_KEY não está configurada no servidor.';
+    } else if (err.message?.includes('autenticação') || err.message?.includes('401') || err.message?.includes('Unauthorized')) {
       statusCode = 401;
-      errorCode = 'OPENAI_AUTH_ERROR';
-      errorMessage = 'Erro de autenticação com OpenAI. Verifique se a API key está correta.';
+      errorCode = 'GEMINI_AUTH_ERROR';
+      errorMessage = 'Erro de autenticação com Gemini. Verifique se a API key está correta.';
+    } else if (err.message?.includes('quota') || err.message?.includes('rate limit')) {
+      statusCode = 429;
+      errorCode = 'RATE_LIMIT';
+      errorMessage = 'Limite de quota atingido. Verifique sua conta Google AI Studio.';
     } else if (err.message?.includes('Timeout') || err.message?.includes('timeout')) {
       statusCode = 504;
       errorCode = 'TIMEOUT';

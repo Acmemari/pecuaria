@@ -3,6 +3,7 @@
 // Execute: tsx server-dev.mjs (em paralelo com npm run dev)
 // OU use: npm run dev:all (para rodar ambos juntos)
 
+import 'dotenv/config'; // Carrega variáveis do .env
 import express from 'express';
 import cors from 'cors';
 

@@ -44,6 +44,9 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
   const [results, setResults] = useState<CalculationResults | null>(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Rastrear se algum dos indicadores interdependentes foi alterado
+  const [isInterdependentChanged, setIsInterdependentChanged] = useState(false);
 
   // Update inputs when initialInputs changes
   useEffect(() => {
@@ -58,6 +61,14 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
   const handleInputChange = (key: keyof CattleCalculatorInputs, value: number) => {
     setInputs(prev => ({ ...prev, [key]: value }));
+    
+    // Se alterar pesoCompra, valorCompra ou gmd, marcar como interdependente alterado
+    // Se alterar qualquer outro indicador, voltar ao estado original (borda azul)
+    if (key === 'pesoCompra' || key === 'valorCompra' || key === 'gmd') {
+      setIsInterdependentChanged(true);
+    } else {
+      setIsInterdependentChanged(false);
+    }
   };
 
   useEffect(() => {
@@ -187,12 +198,12 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           </div>
 
           <div className="flex flex-col md:flex-1 overflow-y-auto md:overflow-visible md:pr-1 pb-1 gap-1.5">
-            <Slider index={1} label="Peso de Compra" value={inputs.pesoCompra} min={150} max={420} step={1} unit="kg" onChange={(v) => handleInputChange('pesoCompra', v)} />
-            <Slider index={2} label="Valor de Compra" value={inputs.valorCompra} min={11} max={18} step={0.05} unit="R$/kg" onChange={(v) => handleInputChange('valorCompra', v)} />
+            <Slider index={1} label="Peso de Compra" value={inputs.pesoCompra} min={150} max={420} step={1} unit="kg" onChange={(v) => handleInputChange('pesoCompra', v)} highlightBorder={isInterdependentChanged} />
+            <Slider index={2} label="Valor de Compra" value={inputs.valorCompra} min={11} max={18} step={0.05} unit="R$/kg" onChange={(v) => handleInputChange('valorCompra', v)} highlightBorder={isInterdependentChanged} />
             <Slider index={3} label="Peso Vivo Abate" value={inputs.pesoAbate} min={Math.max(350, inputs.pesoCompra + 10)} max={630} step={1} unit="kg" onChange={(v) => handleInputChange('pesoAbate', v)} />
             <Slider index={4} label="Rend. Carcaça" value={inputs.rendimentoCarcaca} min={46} max={58} step={0.5} unit="%" onChange={(v) => handleInputChange('rendimentoCarcaca', v)} />
             <Slider index={5} label="Valor Venda" value={inputs.valorVenda} min={250} max={350} step={1} unit="R$/@" onChange={(v) => handleInputChange('valorVenda', v)} />
-            <Slider index={6} label="GMD" value={inputs.gmd} min={0.38} max={1.1} step={0.01} unit="kg/dia" onChange={(v) => handleInputChange('gmd', v)} />
+            <Slider index={6} label="GMD" value={inputs.gmd} min={0.38} max={1.1} step={0.01} unit="kg/dia" onChange={(v) => handleInputChange('gmd', v)} highlightBorder={isInterdependentChanged} />
             <Slider index={7} label="Custo Mensal" value={inputs.custoMensal} min={50} max={220} step={1} unit="R$" onChange={(v) => handleInputChange('custoMensal', v)} />
           </div>
         </div>
