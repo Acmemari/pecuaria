@@ -54,23 +54,23 @@ const ResultCard: React.FC<ResultCardProps> = ({
   const bgClass = highlight ? 'bg-white' : 'bg-white';
 
   return (
-    <div className={`p-2.5 md:p-3 rounded-lg border ${borderClass} ${bgClass} flex flex-col justify-between h-full min-h-[80px] relative`}>
-      <div className="mb-1">
-        <div className="text-ai-subtext text-[10px] font-bold uppercase tracking-wider leading-tight truncate">
+    <div className={`p-1.5 md:p-2 rounded-lg border ${borderClass} ${bgClass} flex flex-col justify-between h-full min-h-[56px] relative`}>
+      <div className="mb-0.5">
+        <div className="text-ai-subtext text-[8px] font-bold uppercase tracking-wider leading-tight truncate">
           {label}
         </div>
         {subLabel && (
-          <div className="text-ai-subtext/70 text-[8px] font-semibold uppercase tracking-wider leading-tight">
+          <div className="text-ai-subtext/70 text-[7px] font-semibold uppercase tracking-wider leading-tight">
             {subLabel}
           </div>
         )}
       </div>
       <div>
-        <div className={`text-lg md:text-xl font-mono font-medium tracking-tight ${valueColor[color]}`}>
+        <div className={`text-sm md:text-base font-mono font-medium tracking-tight ${valueColor[color]}`}>
             {value}
         </div>
         {subValue && (
-            <div className="text-ai-subtext text-[10px] mt-0.5 font-medium truncate">
+            <div className="text-ai-subtext text-[8px] mt-0.5 font-medium truncate">
             {subValue}
             </div>
         )}
