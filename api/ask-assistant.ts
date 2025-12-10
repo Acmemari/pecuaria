@@ -73,6 +73,7 @@ export default async function handler(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'auth': process.env.N8N_WEBHOOK_AUTH || '1234', // Header de autenticação n8n
       },
       body: JSON.stringify(requestPayload),
       signal: controller.signal,
