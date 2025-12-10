@@ -434,10 +434,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
         </div>
 
         {/* Right Column: Dashboard Grid */}
-        <div className="flex-1 flex flex-col md:h-full overflow-auto min-h-0 gap-4">
+        <div className="flex-1 flex flex-col md:h-full overflow-auto min-h-0 gap-3">
 
-          {/* KPI Cards Grid - 4 colunas no desktop, 2 no tablet, 1 no mobile */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* KPI Cards Grid - 4 colunas sempre que possível */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
             {/* Linha 1 - Rentabilidade */}
             <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={results.resultadoPorBoi >= 0 ? 'positive' : 'negative'} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
@@ -459,7 +459,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           </div>
 
           {/* Área de Gráficos - 2 colunas de largura igual */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-[250px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1 min-h-[200px]">
             {/* Coluna Esquerda: Matriz de Sensibilidade */}
             <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative overflow-hidden">
               <div className="flex items-center justify-between mb-2 shrink-0">
