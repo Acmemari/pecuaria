@@ -462,37 +462,37 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           <div className="flex-1 flex flex-col md:grid md:grid-cols-2 gap-1.5 md:gap-2 min-h-[300px] md:min-h-0">
             {/* Matriz de Sensibilidade */}
             <div className="bg-white rounded-lg border border-ai-border/60 p-2 flex flex-col relative min-h-[180px] md:min-h-0 overflow-hidden">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-1">
-                  <Grid3X3 size={12} className="text-ai-subtext" />
-                  <span className="text-[8px] font-bold uppercase text-ai-subtext">Sensibilidade - Resultado (R$/Cab)</span>
-                </div>
+              <div className="flex items-center justify-between mb-1.5 shrink-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[6px] text-rose-400">● Prejuízo</span>
-                  <span className="text-[6px] text-emerald-500">● Lucro</span>
+                  <Grid3X3 size={14} className="text-ai-subtext" />
+                  <span className="text-[9px] font-bold uppercase text-ai-subtext">Sensibilidade - Resultado (R$/Cab)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] text-rose-400">● Prejuízo</span>
+                  <span className="text-[8px] text-emerald-500">● Lucro</span>
                   <button
                     onClick={() => setIsMatrixExpanded(true)}
-                    className="p-0.5 text-gray-400 hover:text-blue-500 transition-colors"
+                    className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
                     title="Expandir matriz"
                   >
-                    <Maximize2 size={10} />
+                    <Maximize2 size={12} />
                   </button>
                 </div>
               </div>
               
               {/* Tabela da Matriz */}
               <div className="flex-1 overflow-auto">
-                <table className="w-full text-[8px] border-collapse">
+                <table className="w-full border-collapse">
                   <thead>
                     <tr>
-                      <th className="p-0.5 text-left text-[6px] text-gray-500 font-normal border-b border-gray-100">
+                      <th className="px-0.5 py-0.5 text-left text-[6px] text-gray-500 font-normal border-b border-gray-200">
                         <div className="leading-none">VL. VENDA →</div>
                         <div className="leading-none">VL. COMPRA ↓</div>
                       </th>
                       {sensitivityMatrix.cols.map((col, i) => (
-                        <th key={i} className={`p-0.5 text-center border-b border-gray-100 ${col.variation === 0 ? 'bg-blue-50' : ''}`}>
+                        <th key={i} className={`px-0.5 py-0.5 text-center border-b border-gray-200 ${col.variation === 0 ? 'bg-blue-50' : ''}`}>
                           <div className="text-[5px] text-gray-400 leading-none">{col.label}</div>
-                          <div className={`font-semibold text-[7px] leading-tight ${col.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                          <div className={`font-bold text-[9px] leading-tight ${col.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
                             {col.value}
                           </div>
                         </th>
@@ -502,9 +502,9 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                   <tbody>
                     {sensitivityMatrix.rows.map((row, rowIdx) => (
                       <tr key={rowIdx}>
-                        <td className={`p-0.5 border-r border-gray-100 ${row.variation === 0 ? 'bg-blue-50' : ''}`}>
+                        <td className={`px-0.5 py-0.5 border-r border-gray-200 ${row.variation === 0 ? 'bg-blue-50' : ''}`}>
                           <div className="text-[5px] text-gray-400 leading-none">{row.label}</div>
-                          <div className={`font-semibold text-[7px] leading-tight ${row.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                          <div className={`font-bold text-[9px] leading-tight ${row.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
                             {row.valorCompra.toFixed(1)}
                           </div>
                         </td>
@@ -514,12 +514,12 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                           return (
                             <td 
                               key={colIdx} 
-                              className={`p-0.5 text-center font-semibold text-[7px] ${
-                                isBase ? 'ring-1 ring-blue-500 ring-inset' : ''
+                              className={`px-0.5 py-[3px] text-center font-bold text-[10px] ${
+                                isBase ? 'ring-2 ring-blue-500 ring-inset' : ''
                               } ${
                                 isProfit 
-                                  ? 'bg-emerald-50 text-emerald-700' 
-                                  : 'bg-rose-50 text-rose-600'
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'bg-rose-100 text-rose-600'
                               }`}
                             >
                               {cell.toLocaleString('pt-BR')}
