@@ -235,27 +235,27 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     });
   }, [inputs]);
 
-  // Matriz de Sensibilidade: Valor de Compra (colunas) x Valor de Venda (linhas)
+  // Matriz de Sensibilidade: Valor de Venda (colunas) x Valor de Compra (linhas)
   const sensitivityMatrix = useMemo(() => {
     if (!results) return { rows: [], cols: [] };
     
     // Variações: -10%, -5%, Base, +5%, +10%
     const variations = [-0.10, -0.05, 0, 0.05, 0.10];
     
-    // Colunas: Valor de Compra (variações sobre a premissa 2) - 1 casa decimal
+    // Colunas: Valor de Venda (variações sobre a premissa 5)
     const cols = variations.map(v => ({
       variation: v,
-      value: (inputs.valorCompra * (1 + v)).toFixed(1),
+      value: Math.round(inputs.valorVenda * (1 + v)),
       label: v === 0 ? 'Base' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(0)}%`
     }));
     
-    // Linhas: Valor de Venda (variações sobre a premissa 5) - 0 casas decimais
-    const rows = variations.map(vVenda => {
-      const valorVendaVar = Math.round(inputs.valorVenda * (1 + vVenda));
+    // Linhas: Valor de Compra (variações sobre a premissa 2)
+    const rows = variations.map(vCompra => {
+      const valorCompraVar = inputs.valorCompra * (1 + vCompra);
       
-      // Calcular resultado para cada combinação de Valor de Compra
-      const cells = variations.map(vCompra => {
-        const valorCompraVar = inputs.valorCompra * (1 + vCompra);
+      // Calcular resultado para cada combinação
+      const cells = variations.map(vVenda => {
+        const valorVendaVar = inputs.valorVenda * (1 + vVenda);
         
         // Recalcular com os novos valores
         const custoCompraVar = inputs.pesoCompra * valorCompraVar;
@@ -266,9 +266,9 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
       });
       
       return {
-        variation: vVenda,
-        valorVenda: valorVendaVar,
-        label: vVenda === 0 ? 'Base' : `${vVenda > 0 ? '+' : ''}${(vVenda * 100).toFixed(0)}%`,
+        variation: vCompra,
+        valorCompra: valorCompraVar,
+        label: vCompra === 0 ? 'Base' : `${vCompra > 0 ? '+' : ''}${(vCompra * 100).toFixed(0)}%`,
         cells
       };
     });
@@ -436,8 +436,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
         {/* Right Column: Dashboard Grid */}
         <div className="flex-1 flex flex-col md:h-full overflow-hidden min-h-0">
 
-          {/* Results Grid - Responsive: 2 col mobile, 3 col tablet, 6 col desktop */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1 md:gap-1.5 mb-2">
+          {/* Results Grid - Responsive: 1 col mobile, 2 col tablet, 4 col desktop */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3 auto-rows-fr md:h-[60%] mb-2 md:mb-3">
 
             {/* Row 1 - Profit Metrics */}
             <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={results.resultadoPorBoi >= 0 ? 'positive' : 'negative'} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
@@ -482,17 +482,17 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               
               {/* Tabela da Matriz */}
               <div className="flex-1 overflow-auto">
-                <table className="w-full text-[8px] border-collapse">
+                <table className="w-full text-[9px] border-collapse">
                   <thead>
                     <tr>
-                      <th className="p-0.5 text-left text-[7px] text-gray-500 font-normal border-b border-gray-100">
+                      <th className="p-1 text-left text-[8px] text-gray-500 font-normal border-b border-gray-100">
                         <div className="leading-tight">VALOR DE VENDA →</div>
                         <div className="leading-tight">VALOR DE COMPRA ↓</div>
                       </th>
                       {sensitivityMatrix.cols.map((col, i) => (
-                        <th key={i} className={`p-0.5 text-center border-b border-gray-100 ${col.variation === 0 ? 'bg-blue-50' : ''}`}>
-                          <div className="text-[6px] text-gray-400">{col.label}</div>
-                          <div className={`font-semibold text-[8px] ${col.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                        <th key={i} className={`p-1 text-center border-b border-gray-100 ${col.variation === 0 ? 'bg-blue-50' : ''}`}>
+                          <div className="text-[7px] text-gray-400">{col.label}</div>
+                          <div className={`font-semibold ${col.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
                             R$ {col.value}
                           </div>
                         </th>
@@ -502,10 +502,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                   <tbody>
                     {sensitivityMatrix.rows.map((row, rowIdx) => (
                       <tr key={rowIdx}>
-                        <td className={`p-0.5 border-r border-gray-100 ${row.variation === 0 ? 'bg-blue-50' : ''}`}>
-                          <div className="text-[6px] text-gray-400">{row.label}</div>
-                          <div className={`font-semibold text-[8px] ${row.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
-                            R$ {row.valorVenda}
+                        <td className={`p-1 border-r border-gray-100 ${row.variation === 0 ? 'bg-blue-50' : ''}`}>
+                          <div className="text-[7px] text-gray-400">{row.label}</div>
+                          <div className={`font-semibold ${row.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                            R$ {row.valorCompra.toFixed(1)}
                           </div>
                         </td>
                         {row.cells.map((cell, colIdx) => {
@@ -514,8 +514,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                           return (
                             <td 
                               key={colIdx} 
-                              className={`p-0.5 text-center font-semibold text-[8px] ${
-                                isBase ? 'ring-1 ring-blue-500 ring-inset' : ''
+                              className={`p-1 text-center font-semibold ${
+                                isBase ? 'ring-2 ring-blue-500 ring-inset' : ''
                               } ${
                                 isProfit 
                                   ? 'bg-emerald-50 text-emerald-700' 
@@ -555,87 +555,6 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
         </div>
       </div>
-
-      {/* Modal de Matriz Expandida */}
-      {isMatrixExpanded && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Grid3X3 size={20} className="text-blue-600" />
-                <span className="text-lg font-bold text-gray-800">Matriz de Sensibilidade - Resultado (R$/Cabeça)</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-rose-500">● Prejuízo</span>
-                <span className="text-sm text-emerald-500">● Lucro</span>
-                <button
-                  onClick={() => setIsMatrixExpanded(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6">
-              <table className="w-full text-sm border-collapse">
-                <thead>
-                  <tr>
-                    <th className="p-3 text-left text-xs text-gray-500 font-medium border-b-2 border-gray-200">
-                      <div className="leading-tight">VALOR DE VENDA →</div>
-                      <div className="leading-tight">VALOR DE COMPRA ↓</div>
-                    </th>
-                    {sensitivityMatrix.cols.map((col, i) => (
-                      <th key={i} className={`p-3 text-center border-b-2 border-gray-200 ${col.variation === 0 ? 'bg-blue-50' : ''}`}>
-                        <div className="text-xs text-gray-400 mb-1">{col.label}</div>
-                        <div className={`font-bold text-base ${col.variation === 0 ? 'text-blue-600 border-b-2 border-blue-500 pb-1' : 'text-gray-700'}`}>
-                          R$ {col.value}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {sensitivityMatrix.rows.map((row, rowIdx) => (
-                    <tr key={rowIdx}>
-                      <td className={`p-3 border-r-2 border-gray-200 ${row.variation === 0 ? 'bg-blue-50' : ''}`}>
-                        <div className="text-xs text-gray-400 mb-1">{row.label}</div>
-                        <div className={`font-bold text-base ${row.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
-                          R$ {row.valorVenda}
-                        </div>
-                      </td>
-                      {row.cells.map((cell, colIdx) => {
-                        const isBase = row.variation === 0 && sensitivityMatrix.cols[colIdx].variation === 0;
-                        const isProfit = cell >= 0;
-                        // Intensidade da cor baseada no valor
-                        const maxVal = Math.max(...sensitivityMatrix.rows.flatMap(r => r.cells.map(Math.abs)));
-                        const intensity = Math.min(Math.abs(cell) / maxVal, 1);
-                        
-                        return (
-                          <td 
-                            key={colIdx} 
-                            className={`p-3 text-center font-bold text-lg ${
-                              isBase ? 'ring-2 ring-blue-500 ring-inset' : ''
-                            }`}
-                            style={{
-                              backgroundColor: isProfit 
-                                ? `rgba(16, 185, 129, ${0.15 + intensity * 0.35})` 
-                                : `rgba(239, 68, 68, ${0.1 + intensity * 0.2})`,
-                              color: isProfit ? '#065f46' : '#b91c1c'
-                            }}
-                          >
-                            {cell.toLocaleString('pt-BR')}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Save Modal */}
       {user && (
