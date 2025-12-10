@@ -2,16 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Slider from '../components/Slider';
 import ResultCard from '../components/ResultCard';
 import { CattleCalculatorInputs, CalculationResults } from '../types';
-import {
-  ResponsiveContainer,
-  Tooltip,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid
-} from 'recharts';
-import { SlidersHorizontal, BarChart3, Save, Grid3X3, Maximize2, X } from 'lucide-react';
+import { SlidersHorizontal, Save, Grid3X3 } from 'lucide-react';
 import SaveScenarioModal from '../components/SaveScenarioModal';
 import { saveScenario } from '../lib/scenarios';
 import { useAuth } from '../contexts/AuthContext';
@@ -151,8 +142,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
   // Rastrear se GMD foi alterado (para destacar Desembolso)
   const [isGmdChanged, setIsGmdChanged] = useState(false);
   
-  // Estado para matriz de sensibilidade expandida
-  const [isMatrixExpanded, setIsMatrixExpanded] = useState(false);
+  // Estado para métrica selecionada na matriz de sensibilidade
+  const [selectedMetric, setSelectedMetric] = useState<'resultado' | 'tirMensal' | 'tirAnual' | 'margem'>('resultado');
 
   // Update inputs when initialInputs changes
   useEffect(() => {
@@ -237,7 +228,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
   // Matriz de Sensibilidade: Valor de Venda (colunas) x Valor de Compra (linhas)
   const sensitivityMatrix = useMemo(() => {
-    if (!results) return { rows: [], cols: [] };
+    if (!results) return { rows: [], cols: [], min: 0, max: 0 };
     
     // Variações: -10%, -5%, Base, +5%, +10%
     const variations = [-0.10, -0.05, 0, 0.05, 0.10];
@@ -248,6 +239,9 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
       value: Math.round(inputs.valorVenda * (1 + v)),
       label: v === 0 ? 'Base' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(0)}%`
     }));
+    
+    // Coletar todos os valores para calcular min/max
+    const allValues: number[] = [];
     
     // Linhas: Valor de Compra (variações sobre a premissa 2)
     const rows = variations.map(vCompra => {
@@ -262,7 +256,40 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
         const valorBoiVar = results.pesoFinalArrobas * valorVendaVar;
         const resultadoVar = valorBoiVar - custoCompraVar - results.custoOperacional;
         
-        return Math.round(resultadoVar);
+        let metricValue: number;
+        
+        switch (selectedMetric) {
+          case 'resultado':
+            metricValue = resultadoVar;
+            break;
+          case 'tirMensal':
+            metricValue = calculateLivestockIRR(
+              inputs.pesoCompra,
+              valorCompraVar,
+              inputs.custoMensal,
+              valorBoiVar,
+              results.mesesPermanencia
+            );
+            break;
+          case 'tirAnual':
+            const tirMensal = calculateLivestockIRR(
+              inputs.pesoCompra,
+              valorCompraVar,
+              inputs.custoMensal,
+              valorBoiVar,
+              results.mesesPermanencia
+            );
+            metricValue = convertMonthlyToAnnualRate(tirMensal);
+            break;
+          case 'margem':
+            metricValue = valorBoiVar > 0 ? (resultadoVar / valorBoiVar) * 100 : 0;
+            break;
+          default:
+            metricValue = resultadoVar;
+        }
+        
+        allValues.push(metricValue);
+        return metricValue;
       });
       
       return {
@@ -273,8 +300,56 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
       };
     });
     
-    return { rows, cols };
-  }, [inputs, results]);
+    const min = Math.min(...allValues);
+    const max = Math.max(...allValues);
+    
+    return { rows, cols, min, max };
+  }, [inputs, results, selectedMetric]);
+
+  // Função para formatar o valor baseado na métrica selecionada
+  const formatCellValue = (value: number): string => {
+    switch (selectedMetric) {
+      case 'resultado':
+        return value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+      case 'tirMensal':
+        return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+      case 'tirAnual':
+        return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+      case 'margem':
+        return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+      default:
+        return value.toLocaleString('pt-BR');
+    }
+  };
+
+  // Função para determinar a cor baseada na intensidade do valor (tons leves)
+  const getCellColor = (value: number, min: number, max: number, isBase: boolean): string => {
+    if (isBase) {
+      return 'ring-2 ring-blue-500 ring-inset bg-blue-50';
+    }
+    
+    if (value >= 0) {
+      // Gradiente verde leve para valores positivos
+      const range = max;
+      if (range === 0) return 'bg-emerald-50 text-emerald-700';
+      const ratio = value / range;
+      if (ratio >= 0.8) return 'bg-emerald-200 text-emerald-800';
+      if (ratio >= 0.6) return 'bg-emerald-100 text-emerald-700';
+      if (ratio >= 0.4) return 'bg-emerald-50 text-emerald-700';
+      if (ratio >= 0.2) return 'bg-emerald-50/80 text-emerald-600';
+      return 'bg-emerald-50/50 text-emerald-600';
+    } else {
+      // Gradiente vermelho leve para valores negativos
+      const range = Math.abs(min);
+      if (range === 0) return 'bg-rose-50 text-rose-600';
+      const ratio = Math.abs(value) / range;
+      if (ratio >= 0.8) return 'bg-rose-200 text-rose-800';
+      if (ratio >= 0.6) return 'bg-rose-100 text-rose-700';
+      if (ratio >= 0.4) return 'bg-rose-50 text-rose-700';
+      if (ratio >= 0.2) return 'bg-rose-50/80 text-rose-600';
+      return 'bg-rose-50/50 text-rose-600';
+    }
+  };
 
   const sensitivityData = useMemo(() => {
     if (!results) return [];
@@ -434,94 +509,99 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
         </div>
 
         {/* Right Column: Dashboard Grid - Main Results Container */}
-        <div className="flex-1 grid grid-cols-4 gap-4 md:h-full overflow-auto min-h-0 auto-rows-min content-start">
+        <div className="flex-1 flex flex-col md:h-full overflow-hidden min-h-0">
+          {/* KPI Cards Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 shrink-0 mb-3 md:mb-4">
 
           {/* ═══════════════════════════════════════════════════════════════════
               ROW 1: PROFITABILITY METRICS (4 cards)
               ═══════════════════════════════════════════════════════════════════ */}
-          <div className="h-full">
-            <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
+          <div>
+            <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
           </div>
-          <div className="h-full">
-            <ResultCard label="2. TIR Mensal" value={`${results.resultadoMensal.toFixed(2)}% a.m.`} description="Taxa Interna de Retorno mensal. Indica o rendimento percentual do capital investido por mês de operação." />
+          <div>
+            <ResultCard label="2. TIR Mensal" value={`${results.resultadoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.m.`} description="Taxa Interna de Retorno mensal. Indica o rendimento percentual do capital investido por mês de operação." />
           </div>
-          <div className="h-full">
-            <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toFixed(2)}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
+          <div>
+            <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
           </div>
-          <div className="h-full">
-            <ResultCard label="4. Margem %" value={`${results.margemVenda.toFixed(2)}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
+          <div>
+            <ResultCard label="4. Margem %" value={`${results.margemVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════════
               ROW 2: FINANCIAL METRICS (4 cards)
               ═══════════════════════════════════════════════════════════════════ */}
-          <div className="h-full">
-            <ResultCard label="5. Valor de Venda" value={`R$ ${results.valorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} highlight color="neutral" description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
+          <div>
+            <ResultCard label="5. Valor de Venda" value={`R$ ${results.valorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
           </div>
-          <div className="h-full">
+          <div>
             <ResultCard label="6. Desemb. Total" value={`R$ ${results.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
           </div>
-          <div className="h-full">
+          <div>
             <ResultCard label="7. Desemb./@ Produzida" value={`R$ ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Custo operacional dividido pelas arrobas produzidas. Indica a eficiência na produção de carne." />
           </div>
-          <div className="h-full">
+          <div>
             <ResultCard label="8. Desemb./@ Final" value={`R$ ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Desembolso total dividido pelo peso final em arrobas. É o custo médio por arroba do animal pronto." />
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════════
               ROW 3: ZOOTECHNICAL METRICS (4 cards)
               ═══════════════════════════════════════════════════════════════════ */}
-          <div className="h-full">
+          <div>
             <ResultCard label="9. Peso Final" subLabel="arrobas" value={`${results.pesoFinalArrobas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @`} description="Peso do animal ao abate convertido em arrobas, considerando o rendimento de carcaça." />
           </div>
-          <div className="h-full">
+          <div>
             <ResultCard label="10. Arrobas Produzidas" value={`${results.arrobasProduzidas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @`} description="Diferença entre o peso final e o peso de entrada, ambos em arrobas. Representa a produção de carne." />
           </div>
-          <div className="h-full">
+          <div>
             <ResultCard label="11. Permanência" subLabel="dias" value={`${results.diasPermanencia.toFixed(0)} dias`} description="Tempo necessário para o animal ganhar o peso desejado, calculado com base no GMD." />
           </div>
-          <div className="h-full">
+          <div>
             <ResultCard label="12. Permanência" subLabel="meses" value={`${results.mesesPermanencia.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses`} description="Tempo de permanência convertido em meses para facilitar o planejamento do ciclo produtivo." />
           </div>
 
-          {/* ═══════════════════════════════════════════════════════════════════
-              ROW 4: CHARTS SECTION (spans full width: 2 + 2 columns)
-              ═══════════════════════════════════════════════════════════════════ */}
-          
-          {/* Left Column: Sensitivity Matrix (col-span-2) */}
-          <div className="col-span-2 h-[220px] bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative overflow-hidden">
-              <div className="flex items-center justify-between mb-2 shrink-0">
+          </div>
+
+          {/* Charts Section - Expands to fill remaining space */}
+          <div className="flex-1 min-h-0">
+            {/* Sensitivity Matrix - Full Width */}
+            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative overflow-hidden h-full">
+              <div className="flex items-center justify-between mb-3 shrink-0">
                 <div className="flex items-center gap-2">
-                  <Grid3X3 size={14} className="text-ai-subtext" />
-                  <span className="text-[10px] font-bold uppercase text-ai-subtext">Matriz de Sensibilidade - Resultado (R$/Cabeça)</span>
+                  <Grid3X3 size={16} className="text-ai-subtext" />
+                  <span className="text-sm font-bold uppercase text-ai-subtext">Matriz de Sensibilidade</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-[8px] text-rose-400">● Prejuízo</span>
-                  <span className="text-[8px] text-emerald-500">● Lucro</span>
-                  <button
-                    onClick={() => setIsMatrixExpanded(true)}
-                    className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
-                    title="Expandir matriz"
+                  <select
+                    value={selectedMetric}
+                    onChange={(e) => setSelectedMetric(e.target.value as 'resultado' | 'tirMensal' | 'tirAnual' | 'margem')}
+                    className="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <Maximize2 size={14} />
-                  </button>
+                    <option value="resultado">Resultado/Boi (R$)</option>
+                    <option value="tirMensal">TIR Mensal (%)</option>
+                    <option value="tirAnual">Resultado/Ano (%)</option>
+                    <option value="margem">Margem Final (%)</option>
+                  </select>
+                  <span className="text-xs text-rose-400">● Prejuízo</span>
+                  <span className="text-xs text-emerald-500">● Lucro</span>
                 </div>
               </div>
               
               {/* Tabela da Matriz */}
-              <div className="flex-1 overflow-auto">
-                <table className="w-full border-collapse">
+              <div className="flex-1 overflow-hidden">
+                <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
                   <thead>
                     <tr>
-                      <th className="px-0.5 py-0.5 text-left text-[6px] text-gray-500 font-normal border-b border-gray-200">
-                        <div className="leading-none">VL. VENDA →</div>
-                        <div className="leading-none">VL. COMPRA ↓</div>
+                      <th className="px-1.5 text-left text-[8px] text-gray-500 font-medium border-b border-gray-200 bg-gray-50" style={{ paddingTop: '0.2625rem', paddingBottom: '0.2625rem' }}>
+                        <div className="leading-tight whitespace-nowrap">VENDA (R$/@) →</div>
+                        <div className="leading-tight text-gray-400 whitespace-nowrap">COMPRA (R$/KG) ↓</div>
                       </th>
                       {sensitivityMatrix.cols.map((col, i) => (
-                        <th key={i} className={`px-0.5 py-0.5 text-center border-b border-gray-200 ${col.variation === 0 ? 'bg-blue-50' : ''}`}>
-                          <div className="text-[5px] text-gray-400 leading-none">{col.label}</div>
-                          <div className={`font-bold text-[9px] leading-tight ${col.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
-                            {col.value}
+                        <th key={i} className={`px-1 text-center border-b border-gray-200 ${col.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{ paddingTop: '0.2625rem', paddingBottom: '0.2625rem' }}>
+                          <div className="text-[8px] text-gray-400 leading-tight mb-0.5">{col.label}</div>
+                          <div className={`font-bold text-xs ${col.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`} style={{ fontSize: '0.75rem', lineHeight: '1.05rem' }}>
+                            <span className="text-[0.7em]">R$</span> {col.value}
                           </div>
                         </th>
                       ))}
@@ -530,27 +610,24 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                   <tbody>
                     {sensitivityMatrix.rows.map((row, rowIdx) => (
                       <tr key={rowIdx}>
-                        <td className={`px-0.5 py-0.5 border-r border-gray-200 ${row.variation === 0 ? 'bg-blue-50' : ''}`}>
-                          <div className="text-[5px] text-gray-400 leading-none">{row.label}</div>
-                          <div className={`font-bold text-[9px] leading-tight ${row.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
-                            {row.valorCompra.toFixed(1)}
+                        <td className={`px-1.5 border-r border-gray-200 ${row.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{ paddingTop: '0.2625rem', paddingBottom: '0.2625rem' }}>
+                          <div className="text-[8px] text-gray-400 leading-tight mb-0.5">{row.label}</div>
+                          <div className={`font-bold text-xs ${row.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`} style={{ fontSize: '0.75rem', lineHeight: '1.05rem' }}>
+                            <span style={{ fontSize: '0.7em' }}>R$</span> {row.valorCompra.toFixed(1)}<span style={{ fontSize: '0.7em' }}>/kg</span>
                           </div>
                         </td>
                         {row.cells.map((cell, colIdx) => {
                           const isBase = row.variation === 0 && sensitivityMatrix.cols[colIdx].variation === 0;
-                          const isProfit = cell >= 0;
+                          const colorClass = getCellColor(cell, sensitivityMatrix.min, sensitivityMatrix.max, isBase);
                           return (
                             <td 
                               key={colIdx} 
-                              className={`px-0.5 py-[3px] text-center font-bold text-[10px] ${
-                                isBase ? 'ring-2 ring-blue-500 ring-inset' : ''
-                              } ${
-                                isProfit 
-                                  ? 'bg-emerald-100 text-emerald-700' 
-                                  : 'bg-rose-100 text-rose-600'
-                              }`}
+                              className={`px-1.5 text-center font-bold text-xs ${colorClass}`}
+                              style={{ fontSize: '0.75rem', lineHeight: '1.05rem', paddingTop: '0.2625rem', paddingBottom: '0.2625rem' }}
                             >
-                              {cell.toLocaleString('pt-BR')}
+                              <div className="whitespace-nowrap">
+                                {formatCellValue(cell)}
+                              </div>
                             </td>
                           );
                         })}
@@ -560,26 +637,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                 </table>
               </div>
             </div>
-
-          {/* Right Column: Sensitivity Chart GMD (col-span-2) */}
-          <div className="col-span-2 h-[220px] bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative">
-            <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
-              <BarChart3 size={14} className="text-ai-subtext" />
-              <span className="text-[10px] font-bold uppercase text-ai-subtext">Sensibilidade (GMD)</span>
-            </div>
-            <div className="flex-1 w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={sensitivityData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                  <XAxis dataKey="name" stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} />
-                  <YAxis fontSize={10} stroke="#9CA3AF" tickLine={false} axisLine={false} />
-                  <Tooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ fontSize: '12px' }} />
-                  <Bar dataKey="lucro" fill="#1A73E8" radius={[2, 2, 0, 0]} barSize={20} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
           </div>
-
         </div>
       </div>
 
@@ -594,222 +652,6 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
         />
       )}
 
-      {/* Modal Expandido da Matriz de Sensibilidade */}
-      {isMatrixExpanded && (
-        <div 
-          className="fixed inset-0 bg-black/60 transition-opacity z-40 flex items-center justify-center p-4"
-          onClick={() => setIsMatrixExpanded(false)}
-        >
-          <div 
-            className="bg-white rounded-xl shadow-2xl overflow-hidden z-50 w-full max-w-6xl max-h-[90vh] relative flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header do Modal */}
-            <div className="flex justify-between items-center p-4 border-b border-gray-200 shrink-0">
-              <div className="flex items-center gap-3">
-                <Grid3X3 size={20} className="text-ai-subtext" />
-                <h2 className="text-lg font-bold text-gray-800">Matriz de Sensibilidade - Resultado (R$/Cabeça)</h2>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="text-xs text-rose-400 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-rose-400"></span> Prejuízo
-                </span>
-                <span className="text-xs text-emerald-500 flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Lucro
-                </span>
-                <button 
-                  onClick={() => setIsMatrixExpanded(false)} 
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Fechar"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-
-            {/* Conteúdo do Modal - Sidebar + Tabela */}
-            <div className="flex-1 flex overflow-hidden">
-              {/* Sidebar com Premissas */}
-              <div className="w-72 bg-gray-50 border-r border-gray-200 p-4 overflow-y-auto shrink-0">
-                <div className="flex items-center gap-2 mb-4">
-                  <SlidersHorizontal size={16} className="text-gray-500" />
-                  <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Premissas</h3>
-                </div>
-                <p className="text-xs text-gray-500 mb-4">Ajuste os valores abaixo e veja a matriz atualizar em tempo real.</p>
-                
-                <div className="space-y-4">
-                  {/* Slider: Valor de Compra */}
-                  <Slider
-                    index={2}
-                    label="Valor Compra"
-                    value={inputs.valorCompra}
-                    min={10}
-                    max={25}
-                    step={0.1}
-                    unit="R$/@"
-                    onChange={(val) => setInputs({ ...inputs, valorCompra: val })}
-                    description="O preço de compra por Arroba (@ = 15kg de carcaça)."
-                  />
-                  
-                  {/* Slider: Valor de Venda */}
-                  <Slider
-                    index={5}
-                    label="Valor Venda"
-                    value={inputs.valorVenda}
-                    min={250}
-                    max={350}
-                    step={1}
-                    unit="R$/@"
-                    onChange={(val) => setInputs({ ...inputs, valorVenda: val })}
-                    description="O preço de venda por Arroba (@ = 15kg de carcaça)."
-                  />
-
-                  {/* Divider */}
-                  <div className="border-t border-gray-200 pt-4 mt-4">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-3">Outras Premissas</p>
-                    
-                    {/* Slider: Peso de Compra */}
-                    <Slider
-                      index={1}
-                      label="Peso Compra"
-                      value={inputs.pesoCompra}
-                      min={150}
-                      max={300}
-                      step={5}
-                      unit="kg"
-                      onChange={(val) => setInputs({ ...inputs, pesoCompra: val })}
-                      description="Peso do animal no momento da compra."
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Slider: Peso Vivo Abate */}
-                    <Slider
-                      index={3}
-                      label="Peso Vivo Abate"
-                      value={inputs.pesoAbate}
-                      min={Math.max(350, inputs.pesoCompra + 10)}
-                      max={630}
-                      step={1}
-                      unit="kg"
-                      onChange={(val) => setInputs({ ...inputs, pesoAbate: val })}
-                      description="Peso do animal no momento do abate."
-                    />
-
-                    {/* Slider: Rendimento de Carcaça */}
-                    <Slider
-                      index={4}
-                      label="Rend. Carcaça"
-                      value={inputs.rendimentoCarcaca}
-                      min={50}
-                      max={58}
-                      step={0.5}
-                      unit="%"
-                      onChange={(val) => setInputs({ ...inputs, rendimentoCarcaca: val })}
-                      description="Percentual do peso vivo que se transforma em carcaça."
-                    />
-
-                    {/* Slider: GMD */}
-                    <Slider
-                      index={6}
-                      label="GMD"
-                      value={inputs.gmd}
-                      min={0.38}
-                      max={1.1}
-                      step={0.01}
-                      unit="kg/dia"
-                      onChange={(val) => {
-                        setInputs({ ...inputs, gmd: val });
-                        setIsGmdChanged(true);
-                        setTimeout(() => setIsGmdChanged(false), 2000);
-                      }}
-                      description="Ganho Médio Diário. Indica quantos quilos o animal engorda por dia."
-                    />
-
-                    {/* Slider: Custo Mensal */}
-                    <Slider
-                      index={7}
-                      label="Desemb./Cab/Mês"
-                      value={inputs.custoMensal}
-                      min={50}
-                      max={220}
-                      step={1}
-                      unit="R$/mês"
-                      onChange={(val) => setInputs({ ...inputs, custoMensal: val })}
-                      description="Desembolso total por cabeça/mês."
-                      highlightBorder={isGmdChanged}
-                      highlightColor="#DAA520"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Tabela Expandida */}
-              <div className="flex-1 p-6 overflow-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="px-3 py-3 text-left text-xs text-gray-500 font-medium border-b-2 border-gray-200 bg-gray-50">
-                        <div className="leading-tight">VL. VENDA →</div>
-                        <div className="leading-tight text-gray-400">VL. COMPRA ↓</div>
-                      </th>
-                      {sensitivityMatrix.cols.map((col, i) => (
-                        <th key={i} className={`px-3 py-3 text-center border-b-2 border-gray-200 ${col.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
-                          <div className="text-[10px] text-gray-400 leading-tight mb-1">{col.label}</div>
-                          <div className={`font-bold text-base ${col.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
-                            {col.value}
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sensitivityMatrix.rows.map((row, rowIdx) => (
-                      <tr key={rowIdx}>
-                        <td className={`px-3 py-3 border-r-2 border-gray-200 ${row.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
-                          <div className="text-[10px] text-gray-400 leading-tight mb-1">{row.label}</div>
-                          <div className={`font-bold text-base ${row.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
-                            {row.valorCompra.toFixed(1)}
-                          </div>
-                        </td>
-                        {row.cells.map((cell, colIdx) => {
-                          const isBase = row.variation === 0 && sensitivityMatrix.cols[colIdx].variation === 0;
-                          const isProfit = cell >= 0;
-                          return (
-                            <td 
-                              key={colIdx} 
-                              className={`px-3 py-4 text-center font-bold text-lg ${
-                                isBase ? 'ring-2 ring-blue-500 ring-inset' : ''
-                              } ${
-                                isProfit 
-                                  ? 'bg-emerald-100 text-emerald-700' 
-                                  : 'bg-rose-100 text-rose-600'
-                              }`}
-                            >
-                              {cell.toLocaleString('pt-BR')}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {/* Legenda adicional */}
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">
-                    <strong>Linha:</strong> Variação do Valor de Compra (R$/@) | 
-                    <strong className="ml-2">Coluna:</strong> Variação do Valor de Venda (R$/@)
-                  </p>
-                  <p className="text-xs text-gray-400 mt-2">
-                    Célula destacada em azul representa o cenário base (valores atuais das premissas).
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };
