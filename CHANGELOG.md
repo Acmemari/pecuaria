@@ -3,15 +3,17 @@
 ## [Unreleased]
 
 ### Adicionado
-- **Integração OpenAI Assistant:**
-  - Substituída integração do Google Gemini pelo OpenAI Assistant no ChatAgent
-  - Criado `api/ask-assistant.ts` - Serverless function do Vercel para processar perguntas
-  - Criado `lib/server/openai/assistantClient.ts` - Cliente para comunicação com API OpenAI
-  - Adicionada dependência `@vercel/node` para tipos TypeScript de serverless functions
-  - Assistent ID configurado: `asst_pxFD2qiuUYJOt5abVw8IWwUf`
+- **Integração n8n Webhook:**
+  - Substituída integração direta OpenAI/Gemini por webhook n8n
+  - Atualizado `api/ask-assistant.ts` - Serverless function que chama webhook n8n
+  - Webhook URL: `https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio`
+  - Processamento de mensagens agora gerenciado pelo n8n
+  - Timeout de 60 segundos para chamadas ao webhook
+  - Tratamento robusto de erros e diferentes formatos de resposta
 - **Configuração de ambiente:**
-  - Adicionada variável `OPENAI_API_KEY` para uso no servidor (Vercel)
-  - Mantida `GEMINI_API_KEY` como opcional para compatibilidade
+  - Adicionada variável `N8N_WEBHOOK_URL` para configuração do webhook (obrigatória)
+  - Alternativa `WEBHOOK_URL` para desenvolvimento local
+  - Removida dependência de `OPENAI_API_KEY` e `GEMINI_API_KEY` do servidor
 - Arquivo `index.css` para corrigir erro 404 de carregamento
 - Testes unitários para verificação de carregamento de recursos:
   - `src/test/loading.test.tsx` - Testes de carregamento HTML, CSS e JS
@@ -72,12 +74,23 @@
   - Mensagens de erro mais descritivas quando API key não está configurada no Vercel
 
 ### Modificado
+- `package.json` - Faixa de engines ajustada para `>=20 <25`, evitando aviso EBADENGINE em ambientes com Node 24.
+- **Documentação atualizada:**
+  - `README.md` - Atualizado com informações sobre integração n8n webhook
+  - `docs/ENVIRONMENT.md` - Atualizado com variável `N8N_WEBHOOK_URL`
+  - Adicionadas instruções de configuração no Vercel
 - `index.html` - Removido CDN do Tailwind e scripts inline de configuração
 - `index.tsx` - Adicionado import do CSS e registro do Service Worker
 - `index.css` - Atualizado com diretivas Tailwind e estilos customizados migrados
-- `agents/ChatAgent.tsx` - Substituída lógica do Gemini pela chamada à API `/api/ask-assistant`
-  - Removido import do `@google/genai`
-  - Implementada integração com OpenAI Assistant via serverless function
+- **`api/ask-assistant.ts` - Refatorado para integração com webhook n8n:**
+  - Removida lógica de chamada direta ao OpenAI/Gemini
+  - Implementada chamada HTTP POST ao webhook n8n
+  - Suporte para múltiplos formatos de resposta do webhook
+  - Timeout configurável (60s)
+  - Tratamento de erros específicos (timeout, rede, webhook)
+- `agents/ChatAgent.tsx` - Mantida chamada à API `/api/ask-assistant`
+  - Endpoint continua o mesmo (`/api/ask-assistant`)
+  - Frontend não sofre alterações (compatibilidade mantida)
   - Mantida funcionalidade de histórico e salvamento no Supabase
   - Mantida UI de anexos (funcionalidade em desenvolvimento)
   - Implementado sistema de verificação de limite de mensagens com contagem diária

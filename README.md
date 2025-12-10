@@ -10,15 +10,15 @@ View your app in AI Studio: https://ai.studio/apps/drive/1DqXzbKOjJ6Jc2P_jAFLhwU
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisitos:** Node.js 20 (LTS) ou superior. Testado com Node 24. Se precisar alternar versões no Windows, use [nvm-windows](https://github.com/coreybutler/nvm-windows).
 
 1. Install dependencies:
    `npm install`
-2. Configure environment variables in `.env.local`:
-   - `VITE_SUPABASE_URL` - URL do projeto Supabase
-   - `VITE_SUPABASE_ANON_KEY` - Chave anônima do Supabase
+2. Configure as variáveis de ambiente em `.env.local` (veja `docs/ENVIRONMENT.md` para um exemplo completo):
+   - `VITE_SUPABASE_URL` - URL do projeto Supabase (obrigatória)
+   - `VITE_SUPABASE_ANON_KEY` - Chave anônima do Supabase (obrigatória)
    - `OPENAI_API_KEY` - Chave da API OpenAI (usada no servidor via Vercel Serverless Functions)
+   - `GEMINI_API_KEY` - Opcional, mantida para compatibilidade
 3. Run the app:
    `npm run dev`
 
@@ -100,21 +100,26 @@ O projeto utiliza as seguintes variáveis de ambiente:
 - **Frontend (Vite):**
   - `VITE_SUPABASE_URL` - URL do projeto Supabase (obrigatória)
   - `VITE_SUPABASE_ANON_KEY` - Chave anônima do Supabase (obrigatória)
-  - `GEMINI_API_KEY` - Chave da API Gemini (opcional, mantida para compatibilidade)
 
 - **Backend (Vercel Serverless Functions):**
-  - `OPENAI_API_KEY` - Chave da API OpenAI (obrigatória para o chat)
+  - `N8N_WEBHOOK_URL` - URL do webhook n8n para processamento do chat (obrigatória)
   
-**Importante:** Configure `OPENAI_API_KEY` nas variáveis de ambiente do Vercel para que o chat funcione em produção.
+**Importante:** Configure `N8N_WEBHOOK_URL` nas variáveis de ambiente do Vercel para que o chat funcione em produção.
 
-### OpenAI Assistant
+### Integração n8n Webhook
 
-O chat utiliza o OpenAI Assistant API através de uma serverless function:
-- `api/ask-assistant.ts` - Endpoint serverless do Vercel
-- `lib/server/openai/assistantClient.ts` - Cliente para comunicação com a API OpenAI
+O chat utiliza uma automação n8n através de um webhook:
+- **Webhook URL:** `https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio`
+- `api/ask-assistant.ts` - Endpoint serverless do Vercel que chama o webhook
 - `agents/ChatAgent.tsx` - Componente React que consome a API
 
-O assistente configurado possui o ID: `asst_pxFD2qiuUYJOt5abVw8IWwUf`
+**Fluxo de processamento:**
+1. Usuário envia mensagem no chat
+2. Frontend chama `/api/ask-assistant`
+3. Serverless function envia pergunta para webhook n8n
+4. n8n processa a mensagem (IA, regras de negócio, etc.)
+5. n8n retorna resposta
+6. Resposta é exibida no chat
 
 ### Tailwind CSS
 
