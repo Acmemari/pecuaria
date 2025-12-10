@@ -21,7 +21,9 @@ const ResultCard: React.FC<ResultCardProps> = ({
   description
 }) => {
   const [showInfo, setShowInfo] = useState(false);
+  const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
   const infoRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Fechar popover ao clicar fora
   useEffect(() => {
@@ -78,20 +80,33 @@ const ResultCard: React.FC<ResultCardProps> = ({
       {description && (
         <div className="absolute bottom-1.5 right-1.5" ref={infoRef}>
           <button 
+            ref={buttonRef}
             type="button"
-            onClick={() => setShowInfo(!showInfo)}
+            onClick={() => {
+              if (buttonRef.current) {
+                const rect = buttonRef.current.getBoundingClientRect();
+                setPopoverPosition({
+                  top: rect.top - 90,
+                  left: Math.max(10, rect.left - 230),
+                });
+              }
+              setShowInfo(!showInfo);
+            }}
             className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
             aria-label="Mais informações"
           >
             <Info size={10} />
           </button>
 
-          {/* Popover Flutuante */}
+          {/* Popover Flutuante - Posição fixa calculada */}
           {showInfo && (
-            <div className="absolute right-0 bottom-5 z-50 w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-100 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200">
-              {/* Seta do Popover */}
-              <div className="absolute -bottom-1.5 right-2 w-3 h-3 bg-white border-b border-r border-gray-100 transform rotate-45"></div>
-              
+            <div 
+              className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+              style={{
+                top: popoverPosition.top,
+                left: popoverPosition.left,
+              }}
+            >
               <p className="font-medium text-gray-800 mb-1">{label}</p>
               <p className="text-[10px]">{description}</p>
             </div>
