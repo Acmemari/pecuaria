@@ -526,7 +526,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
           </div>
           <div>
-            <ResultCard label="4. Margem %" value={`${results.margemVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
+            <ResultCard label="4. MARGEM/CAB. %" value={`${results.margemVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════════
