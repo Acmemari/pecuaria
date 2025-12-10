@@ -301,20 +301,21 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
             {/* Row 1 - Profit Metrics */}
             <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} highlight color={results.resultadoPorBoi >= 0 ? 'positive' : 'negative'} />
-            <ResultCard label="2. Res. Mensal" value={`${results.resultadoMensal.toFixed(2)}% a.m.`} />
-            <ResultCard label="3. Res. Anualizado" value={`${results.resultadoAnual.toFixed(2)}% a.a.`} />
+            <ResultCard label="2. TIR Mensal" value={`${results.resultadoMensal.toFixed(2)}% a.m.`} />
+            <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toFixed(2)}% a.a.`} />
             <ResultCard label="4. Margem %" value={`${results.margemVenda.toFixed(2)}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} />
 
             {/* Row 2 - Value and Costs */}
-            <ResultCard label="5. Valor do Boi" value={`R$ ${results.valorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} highlight color="neutral" />
-            <ResultCard label="6. Custo Total" value={`R$ ${results.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
-            <ResultCard label="7. Custo/@ Produzida" value={`R$ ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
-            <ResultCard label="8. Custo/@ Final" value={`R$ ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
+            <ResultCard label="5. Valor de Venda" value={`R$ ${results.valorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} highlight color="neutral" />
+            <ResultCard label="6. Desemb. Total" value={`R$ ${results.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
+            <ResultCard label="7. Desemb./@ Produzida" value={`R$ ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
+            <ResultCard label="8. Desemb./@ Final" value={`R$ ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
 
             {/* Row 3 - Physical Metrics */}
             <ResultCard label="9. Peso Final (arrobas)" value={`${results.pesoFinalArrobas.toFixed(2)} @`} />
             <ResultCard label="10. Arrobas Produzidas" value={`${results.arrobasProduzidas.toFixed(2)} @`} />
-            <ResultCard label="11. Permanência" value={`${results.diasPermanencia.toFixed(0)} dias`} subValue={`${results.mesesPermanencia.toFixed(1)} meses`} />
+            <ResultCard label="11. Permanência (dias)" value={`${results.diasPermanencia.toFixed(0)} dias`} />
+            <ResultCard label="12. Permanência (meses)" value={`${results.mesesPermanencia.toFixed(1)} meses`} />
           </div>
 
           {/* Charts Row - Stack vertical on mobile, horizontal on desktop */}
