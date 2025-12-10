@@ -433,35 +433,63 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           </div>
         </div>
 
-        {/* Right Column: Dashboard Grid */}
-        <div className="flex-1 flex flex-col md:h-full overflow-auto min-h-0 gap-3">
+        {/* Right Column: Dashboard Grid - Main Results Container */}
+        <div className="flex-1 grid grid-cols-4 gap-4 md:h-full overflow-auto min-h-0 auto-rows-min content-start">
 
-          {/* KPI Cards Grid - 4 colunas sempre que possível */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-
-            {/* Linha 1 - Rentabilidade */}
+          {/* ═══════════════════════════════════════════════════════════════════
+              ROW 1: PROFITABILITY METRICS (4 cards)
+              ═══════════════════════════════════════════════════════════════════ */}
+          <div className="h-full">
             <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={results.resultadoPorBoi >= 0 ? 'positive' : 'negative'} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
+          </div>
+          <div className="h-full">
             <ResultCard label="2. TIR Mensal" value={`${results.resultadoMensal.toFixed(2)}% a.m.`} description="Taxa Interna de Retorno mensal. Indica o rendimento percentual do capital investido por mês de operação." />
+          </div>
+          <div className="h-full">
             <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toFixed(2)}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
+          </div>
+          <div className="h-full">
             <ResultCard label="4. Margem %" value={`${results.margemVenda.toFixed(2)}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
+          </div>
 
-            {/* Linha 2 - Financeiro */}
+          {/* ═══════════════════════════════════════════════════════════════════
+              ROW 2: FINANCIAL METRICS (4 cards)
+              ═══════════════════════════════════════════════════════════════════ */}
+          <div className="h-full">
             <ResultCard label="5. Valor de Venda" value={`R$ ${results.valorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} highlight color="neutral" description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
+          </div>
+          <div className="h-full">
             <ResultCard label="6. Desemb. Total" value={`R$ ${results.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
+          </div>
+          <div className="h-full">
             <ResultCard label="7. Desemb./@ Produzida" value={`R$ ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} description="Custo operacional dividido pelas arrobas produzidas. Indica a eficiência na produção de carne." />
+          </div>
+          <div className="h-full">
             <ResultCard label="8. Desemb./@ Final" value={`R$ ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} description="Desembolso total dividido pelo peso final em arrobas. É o custo médio por arroba do animal pronto." />
+          </div>
 
-            {/* Linha 3 - Zootécnico */}
+          {/* ═══════════════════════════════════════════════════════════════════
+              ROW 3: ZOOTECHNICAL METRICS (4 cards)
+              ═══════════════════════════════════════════════════════════════════ */}
+          <div className="h-full">
             <ResultCard label="9. Peso Final" subLabel="arrobas" value={`${results.pesoFinalArrobas.toFixed(2)} @`} description="Peso do animal ao abate convertido em arrobas, considerando o rendimento de carcaça." />
+          </div>
+          <div className="h-full">
             <ResultCard label="10. Arrobas Produzidas" value={`${results.arrobasProduzidas.toFixed(2)} @`} description="Diferença entre o peso final e o peso de entrada, ambos em arrobas. Representa a produção de carne." />
+          </div>
+          <div className="h-full">
             <ResultCard label="11. Permanência" subLabel="dias" value={`${results.diasPermanencia.toFixed(0)} dias`} description="Tempo necessário para o animal ganhar o peso desejado, calculado com base no GMD." />
+          </div>
+          <div className="h-full">
             <ResultCard label="12. Permanência" subLabel="meses" value={`${results.mesesPermanencia.toFixed(1)} meses`} description="Tempo de permanência convertido em meses para facilitar o planejamento do ciclo produtivo." />
           </div>
 
-          {/* Área de Gráficos - 2 colunas de largura igual */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 flex-1 min-h-[200px]">
-            {/* Coluna Esquerda: Matriz de Sensibilidade */}
-            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative overflow-hidden">
+          {/* ═══════════════════════════════════════════════════════════════════
+              ROW 4: CHARTS SECTION (spans full width: 2 + 2 columns)
+              ═══════════════════════════════════════════════════════════════════ */}
+          
+          {/* Left Column: Sensitivity Matrix (col-span-2) */}
+          <div className="col-span-2 h-[220px] bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative overflow-hidden">
               <div className="flex items-center justify-between mb-2 shrink-0">
                 <div className="flex items-center gap-2">
                   <Grid3X3 size={14} className="text-ai-subtext" />
@@ -533,23 +561,22 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               </div>
             </div>
 
-            {/* Coluna Direita: Gráfico de Sensibilidade (GMD) */}
-            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative">
-              <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
-                <BarChart3 size={14} className="text-ai-subtext" />
-                <span className="text-[10px] font-bold uppercase text-ai-subtext">Sensibilidade (GMD)</span>
-              </div>
-              <div className="flex-1 w-full mt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sensitivityData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                    <XAxis dataKey="name" stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={10} stroke="#9CA3AF" tickLine={false} axisLine={false} />
-                    <Tooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ fontSize: '12px' }} />
-                    <Bar dataKey="lucro" fill="#1A73E8" radius={[2, 2, 0, 0]} barSize={20} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+          {/* Right Column: Sensitivity Chart GMD (col-span-2) */}
+          <div className="col-span-2 h-[220px] bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative">
+            <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
+              <BarChart3 size={14} className="text-ai-subtext" />
+              <span className="text-[10px] font-bold uppercase text-ai-subtext">Sensibilidade (GMD)</span>
+            </div>
+            <div className="flex-1 w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={sensitivityData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis fontSize={10} stroke="#9CA3AF" tickLine={false} axisLine={false} />
+                  <Tooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ fontSize: '12px' }} />
+                  <Bar dataKey="lucro" fill="#1A73E8" radius={[2, 2, 0, 0]} barSize={20} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
