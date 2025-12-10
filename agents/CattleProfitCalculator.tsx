@@ -3,9 +3,6 @@ import Slider from '../components/Slider';
 import ResultCard from '../components/ResultCard';
 import { CattleCalculatorInputs, CalculationResults } from '../types';
 import {
-  PieChart,
-  Pie,
-  Cell,
   ResponsiveContainer,
   Tooltip,
   BarChart,
@@ -14,7 +11,7 @@ import {
   YAxis,
   CartesianGrid
 } from 'recharts';
-import { SlidersHorizontal, PieChart as PieIcon, BarChart3, Save } from 'lucide-react';
+import { SlidersHorizontal, BarChart3, Save, Grid3X3, Maximize2, X } from 'lucide-react';
 import SaveScenarioModal from '../components/SaveScenarioModal';
 import { saveScenario } from '../lib/scenarios';
 import { useAuth } from '../contexts/AuthContext';
@@ -153,6 +150,9 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
   
   // Rastrear se GMD foi alterado (para destacar Desembolso)
   const [isGmdChanged, setIsGmdChanged] = useState(false);
+  
+  // Estado para matriz de sensibilidade expandida
+  const [isMatrixExpanded, setIsMatrixExpanded] = useState(false);
 
   // Update inputs when initialInputs changes
   useEffect(() => {
@@ -235,14 +235,46 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     });
   }, [inputs]);
 
-  const costBreakdownData = useMemo(() => {
-    if (!results) return [];
-    return [
-      { name: 'Compra', value: results.custoCompra, color: '#9CA3AF' },
-      { name: 'Operacional', value: results.custoOperacional, color: '#4B5563' },
-      { name: 'Lucro', value: Math.max(0, results.resultadoPorBoi), color: '#1A73E8' }
-    ];
-  }, [results]);
+  // Matriz de Sensibilidade: Valor de Venda (colunas) x Valor de Compra (linhas)
+  const sensitivityMatrix = useMemo(() => {
+    if (!results) return { rows: [], cols: [] };
+    
+    // Variações: -10%, -5%, Base, +5%, +10%
+    const variations = [-0.10, -0.05, 0, 0.05, 0.10];
+    
+    // Colunas: Valor de Venda (variações sobre a premissa 5)
+    const cols = variations.map(v => ({
+      variation: v,
+      value: Math.round(inputs.valorVenda * (1 + v)),
+      label: v === 0 ? 'Base' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(0)}%`
+    }));
+    
+    // Linhas: Valor de Compra (variações sobre a premissa 2)
+    const rows = variations.map(vCompra => {
+      const valorCompraVar = inputs.valorCompra * (1 + vCompra);
+      
+      // Calcular resultado para cada combinação
+      const cells = variations.map(vVenda => {
+        const valorVendaVar = inputs.valorVenda * (1 + vVenda);
+        
+        // Recalcular com os novos valores
+        const custoCompraVar = inputs.pesoCompra * valorCompraVar;
+        const valorBoiVar = results.pesoFinalArrobas * valorVendaVar;
+        const resultadoVar = valorBoiVar - custoCompraVar - results.custoOperacional;
+        
+        return Math.round(resultadoVar);
+      });
+      
+      return {
+        variation: vCompra,
+        valorCompra: valorCompraVar,
+        label: vCompra === 0 ? 'Base' : `${vCompra > 0 ? '+' : ''}${(vCompra * 100).toFixed(0)}%`,
+        cells
+      };
+    });
+    
+    return { rows, cols };
+  }, [inputs, results]);
 
   const sensitivityData = useMemo(() => {
     if (!results) return [];
@@ -408,7 +440,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3 auto-rows-fr md:h-[60%] mb-2 md:mb-3">
 
             {/* Row 1 - Profit Metrics */}
-            <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} highlight color={results.resultadoPorBoi >= 0 ? 'positive' : 'negative'} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
+            <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={results.resultadoPorBoi >= 0 ? 'positive' : 'negative'} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
             <ResultCard label="2. TIR Mensal" value={`${results.resultadoMensal.toFixed(2)}% a.m.`} description="Taxa Interna de Retorno mensal. Indica o rendimento percentual do capital investido por mês de operação." />
             <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toFixed(2)}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
             <ResultCard label="4. Margem %" value={`${results.margemVenda.toFixed(2)}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
@@ -428,26 +460,76 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
           {/* Charts Row - Stack vertical on mobile, horizontal on desktop */}
           <div className="flex-1 flex flex-col md:grid md:grid-cols-2 gap-2 md:gap-3 min-h-[400px] md:min-h-0">
-            {/* Chart 1: Breakdown */}
-            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col sm:flex-row items-center relative min-h-[200px] md:min-h-0">
-              <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
-                <PieIcon size={14} className="text-ai-subtext" />
-                <span className="text-[10px] font-bold uppercase text-ai-subtext">Composição</span>
+            {/* Matriz de Sensibilidade */}
+            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative min-h-[200px] md:min-h-0 overflow-hidden">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Grid3X3 size={14} className="text-ai-subtext" />
+                  <span className="text-[10px] font-bold uppercase text-ai-subtext">Matriz de Sensibilidade - Resultado (R$/Cabeça)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[8px] text-rose-400">● Prejuízo</span>
+                  <span className="text-[8px] text-emerald-500">● Lucro</span>
+                  <button
+                    onClick={() => setIsMatrixExpanded(true)}
+                    className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                    title="Expandir matriz"
+                  >
+                    <Maximize2 size={12} />
+                  </button>
+                </div>
               </div>
-              <div className="w-full sm:w-1/2 h-full mt-6 sm:mt-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={costBreakdownData} cx="50%" cy="50%" innerRadius={35} outerRadius={50} paddingAngle={2} dataKey="value" stroke="none">
-                      {costBreakdownData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`} contentStyle={{ fontSize: '12px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="w-full sm:w-1/2 flex flex-row sm:flex-col justify-center gap-2 sm:gap-2 text-[10px] text-ai-subtext mt-2 sm:mt-0">
-                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-400"></div>Compra</div>
-                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-600"></div>Operacional</div>
-                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-600"></div>Lucro</div>
+              
+              {/* Tabela da Matriz */}
+              <div className="flex-1 overflow-auto">
+                <table className="w-full text-[9px] border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="p-1 text-left text-[8px] text-gray-500 font-normal border-b border-gray-100">
+                        <div className="leading-tight">VALOR DE VENDA →</div>
+                        <div className="leading-tight">VALOR DE COMPRA ↓</div>
+                      </th>
+                      {sensitivityMatrix.cols.map((col, i) => (
+                        <th key={i} className={`p-1 text-center border-b border-gray-100 ${col.variation === 0 ? 'bg-blue-50' : ''}`}>
+                          <div className="text-[7px] text-gray-400">{col.label}</div>
+                          <div className={`font-semibold ${col.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                            R$ {col.value}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sensitivityMatrix.rows.map((row, rowIdx) => (
+                      <tr key={rowIdx}>
+                        <td className={`p-1 border-r border-gray-100 ${row.variation === 0 ? 'bg-blue-50' : ''}`}>
+                          <div className="text-[7px] text-gray-400">{row.label}</div>
+                          <div className={`font-semibold ${row.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                            R$ {row.valorCompra.toFixed(1)}
+                          </div>
+                        </td>
+                        {row.cells.map((cell, colIdx) => {
+                          const isBase = row.variation === 0 && sensitivityMatrix.cols[colIdx].variation === 0;
+                          const isProfit = cell >= 0;
+                          return (
+                            <td 
+                              key={colIdx} 
+                              className={`p-1 text-center font-semibold ${
+                                isBase ? 'ring-2 ring-blue-500 ring-inset' : ''
+                              } ${
+                                isProfit 
+                                  ? 'bg-emerald-50 text-emerald-700' 
+                                  : 'bg-rose-50 text-rose-600'
+                              }`}
+                            >
+                              {cell.toLocaleString('pt-BR')}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
 
