@@ -63,36 +63,14 @@ const Slider: React.FC<SliderProps> = ({
   return (
     <div className={`bg-gray-50 p-2 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative ${sliderClass}`}>
       
-      {/* Cabeçalho: Label + Info + Valor */}
+      {/* Cabeçalho: Label + Valor */}
       <div className="flex justify-between items-start mb-2">
         
-        {/* Lado Esquerdo: Label e Info */}
-        <div className="flex items-center gap-1.5 relative" ref={infoRef}>
-          <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1">
-            {index && <span className="opacity-70">{index}.</span>}
-            {label}
-          </label>
-          
-          <button 
-            type="button"
-            onClick={() => setShowInfo(!showInfo)}
-            className="text-gray-400 hover:text-blue-600 transition-colors focus:outline-none"
-            aria-label="Mais informações"
-          >
-            <Info size={14} />
-          </button>
-
-          {/* Popover Flutuante */}
-          {showInfo && (
-            <div className="absolute left-0 top-6 z-50 w-64 p-3 bg-white rounded-lg shadow-2xl border border-gray-100 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200">
-              {/* Seta do Popover */}
-              <div className="absolute -top-1.5 left-6 w-3 h-3 bg-white border-t border-l border-gray-100 transform rotate-45"></div>
-              
-              <p className="font-medium text-gray-800 mb-1">{label}</p>
-              <p>{description || "Ajuste este valor conforme as premissas do seu cenário."}</p>
-            </div>
-          )}
-        </div>
+        {/* Lado Esquerdo: Label */}
+        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1">
+          {index && <span className="opacity-70">{index}.</span>}
+          {label}
+        </label>
 
         {/* Lado Direito: Valor e Unidade */}
         <div className="text-right flex items-baseline justify-end gap-1">
@@ -134,6 +112,29 @@ const Slider: React.FC<SliderProps> = ({
             borderColor: highlightBorder ? highlightColor : '#2563eb'
           }}
         />
+      </div>
+
+      {/* Info Button - Abaixo do slider, alinhado à direita */}
+      <div className="flex justify-end mt-1 relative" ref={infoRef}>
+        <button 
+          type="button"
+          onClick={() => setShowInfo(!showInfo)}
+          className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
+          aria-label="Mais informações"
+        >
+          <Info size={12} />
+        </button>
+
+        {/* Popover Flutuante */}
+        {showInfo && (
+          <div className="absolute right-0 top-5 z-50 w-64 p-3 bg-white rounded-lg shadow-2xl border border-gray-100 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200">
+            {/* Seta do Popover */}
+            <div className="absolute -top-1.5 right-2 w-3 h-3 bg-white border-t border-l border-gray-100 transform rotate-45"></div>
+            
+            <p className="font-medium text-gray-800 mb-1">{label}</p>
+            <p>{description || "Ajuste este valor conforme as premissas do seu cenário."}</p>
+          </div>
+        )}
       </div>
 
       <style>{`
