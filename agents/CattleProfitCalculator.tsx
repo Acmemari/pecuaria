@@ -148,7 +148,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
       const opCost = months * inputs.custoMensal;
       const totalC = results.custoCompra + opCost;
       const profit = results.valorBoi - totalC;
-      return { name: gmdSim.toFixed(2), lucro: profit };
+      return { name: gmdSim.toFixed(2), lucro: Math.round(profit) };
     });
   }, [inputs, results]);
 
@@ -312,10 +312,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             <ResultCard label="8. Desemb./@ Final" value={`R$ ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
 
             {/* Row 3 - Physical Metrics */}
-            <ResultCard label="9. Peso Final (arrobas)" value={`${results.pesoFinalArrobas.toFixed(2)} @`} />
+            <ResultCard label="9. Peso Final" subLabel="arrobas" value={`${results.pesoFinalArrobas.toFixed(2)} @`} />
             <ResultCard label="10. Arrobas Produzidas" value={`${results.arrobasProduzidas.toFixed(2)} @`} />
-            <ResultCard label="11. Permanência (dias)" value={`${results.diasPermanencia.toFixed(0)} dias`} />
-            <ResultCard label="12. Permanência (meses)" value={`${results.mesesPermanencia.toFixed(1)} meses`} />
+            <ResultCard label="11. Permanência" subLabel="dias" value={`${results.diasPermanencia.toFixed(0)} dias`} />
+            <ResultCard label="12. Permanência" subLabel="meses" value={`${results.mesesPermanencia.toFixed(1)} meses`} />
           </div>
 
           {/* Charts Row - Stack vertical on mobile, horizontal on desktop */}

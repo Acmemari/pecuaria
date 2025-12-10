@@ -2,6 +2,7 @@ import React from 'react';
 
 interface ResultCardProps {
   label: string;
+  subLabel?: string; // Texto secundário abaixo do label (ex: unidade de medida)
   value: string | number;
   subValue?: string;
   highlight?: boolean;
@@ -10,6 +11,7 @@ interface ResultCardProps {
 
 const ResultCard: React.FC<ResultCardProps> = ({ 
   label, 
+  subLabel,
   value, 
   subValue, 
   highlight = false,
@@ -29,8 +31,15 @@ const ResultCard: React.FC<ResultCardProps> = ({
 
   return (
     <div className={`p-2.5 md:p-3 rounded-lg border ${borderClass} ${bgClass} flex flex-col justify-between h-full min-h-[80px]`}>
-      <div className="text-ai-subtext text-[10px] font-bold uppercase tracking-wider leading-tight mb-1 truncate">
-        {label}
+      <div className="mb-1">
+        <div className="text-ai-subtext text-[10px] font-bold uppercase tracking-wider leading-tight truncate">
+          {label}
+        </div>
+        {subLabel && (
+          <div className="text-ai-subtext/70 text-[8px] font-semibold uppercase tracking-wider leading-tight">
+            {subLabel}
+          </div>
+        )}
       </div>
       <div>
         <div className={`text-lg md:text-xl font-mono font-medium tracking-tight ${valueColor[color]}`}>
