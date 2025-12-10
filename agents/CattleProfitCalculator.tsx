@@ -434,40 +434,40 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
         </div>
 
         {/* Right Column: Dashboard Grid */}
-        <div className="flex-1 flex flex-col md:h-full overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col md:h-full overflow-auto min-h-0 gap-4">
 
-          {/* Results Grid - Responsive: 1 col mobile, 2 col tablet, 4 col desktop */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-2 auto-rows-fr md:h-[55%] mb-1.5 md:mb-2">
+          {/* KPI Cards Grid - 4 colunas no desktop, 2 no tablet, 1 no mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-            {/* Row 1 - Profit Metrics */}
+            {/* Linha 1 - Rentabilidade */}
             <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={results.resultadoPorBoi >= 0 ? 'positive' : 'negative'} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
             <ResultCard label="2. TIR Mensal" value={`${results.resultadoMensal.toFixed(2)}% a.m.`} description="Taxa Interna de Retorno mensal. Indica o rendimento percentual do capital investido por mês de operação." />
             <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toFixed(2)}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
             <ResultCard label="4. Margem %" value={`${results.margemVenda.toFixed(2)}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
 
-            {/* Row 2 - Value and Costs */}
+            {/* Linha 2 - Financeiro */}
             <ResultCard label="5. Valor de Venda" value={`R$ ${results.valorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} highlight color="neutral" description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
             <ResultCard label="6. Desemb. Total" value={`R$ ${results.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
             <ResultCard label="7. Desemb./@ Produzida" value={`R$ ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} description="Custo operacional dividido pelas arrobas produzidas. Indica a eficiência na produção de carne." />
             <ResultCard label="8. Desemb./@ Final" value={`R$ ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} description="Desembolso total dividido pelo peso final em arrobas. É o custo médio por arroba do animal pronto." />
 
-            {/* Row 3 - Physical Metrics */}
+            {/* Linha 3 - Zootécnico */}
             <ResultCard label="9. Peso Final" subLabel="arrobas" value={`${results.pesoFinalArrobas.toFixed(2)} @`} description="Peso do animal ao abate convertido em arrobas, considerando o rendimento de carcaça." />
             <ResultCard label="10. Arrobas Produzidas" value={`${results.arrobasProduzidas.toFixed(2)} @`} description="Diferença entre o peso final e o peso de entrada, ambos em arrobas. Representa a produção de carne." />
             <ResultCard label="11. Permanência" subLabel="dias" value={`${results.diasPermanencia.toFixed(0)} dias`} description="Tempo necessário para o animal ganhar o peso desejado, calculado com base no GMD." />
             <ResultCard label="12. Permanência" subLabel="meses" value={`${results.mesesPermanencia.toFixed(1)} meses`} description="Tempo de permanência convertido em meses para facilitar o planejamento do ciclo produtivo." />
           </div>
 
-          {/* Charts Row - Stack vertical on mobile, horizontal on desktop */}
-          <div className="flex-1 flex flex-col md:grid md:grid-cols-2 gap-1.5 md:gap-2 min-h-[300px] md:min-h-0">
-            {/* Matriz de Sensibilidade */}
-            <div className="bg-white rounded-lg border border-ai-border/60 p-2 flex flex-col relative min-h-[180px] md:min-h-0 overflow-hidden">
-              <div className="flex items-center justify-between mb-1.5 shrink-0">
-                <div className="flex items-center gap-1.5">
-                  <Grid3X3 size={14} className="text-ai-subtext" />
-                  <span className="text-[9px] font-bold uppercase text-ai-subtext">Sensibilidade - Resultado (R$/Cab)</span>
-                </div>
+          {/* Área de Gráficos - 2 colunas de largura igual */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-[250px]">
+            {/* Coluna Esquerda: Matriz de Sensibilidade */}
+            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative overflow-hidden">
+              <div className="flex items-center justify-between mb-2 shrink-0">
                 <div className="flex items-center gap-2">
+                  <Grid3X3 size={14} className="text-ai-subtext" />
+                  <span className="text-[10px] font-bold uppercase text-ai-subtext">Matriz de Sensibilidade - Resultado (R$/Cabeça)</span>
+                </div>
+                <div className="flex items-center gap-3">
                   <span className="text-[8px] text-rose-400">● Prejuízo</span>
                   <span className="text-[8px] text-emerald-500">● Lucro</span>
                   <button
@@ -475,7 +475,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                     className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
                     title="Expandir matriz"
                   >
-                    <Maximize2 size={12} />
+                    <Maximize2 size={14} />
                   </button>
                 </div>
               </div>
@@ -533,8 +533,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               </div>
             </div>
 
-            {/* Chart 2: Sensitivity */}
-            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative min-h-[200px] md:min-h-0">
+            {/* Coluna Direita: Gráfico de Sensibilidade (GMD) */}
+            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative">
               <div className="absolute top-3 left-3 flex items-center gap-2 z-10">
                 <BarChart3 size={14} className="text-ai-subtext" />
                 <span className="text-[10px] font-bold uppercase text-ai-subtext">Sensibilidade (GMD)</span>
