@@ -11,7 +11,8 @@ interface SliderProps {
   onChange: (val: number) => void;
   description?: string;
   index?: number;
-  highlightBorder?: boolean; // Se true, usa borda amarelo palha
+  highlightBorder?: boolean; // Se true, usa borda colorida
+  highlightColor?: string; // Cor customizada para highlight (default: #F5DEB3 amarelo palha)
 }
 
 const Slider: React.FC<SliderProps> = ({ 
@@ -24,7 +25,8 @@ const Slider: React.FC<SliderProps> = ({
   onChange,
   description,
   index,
-  highlightBorder = false
+  highlightBorder = false,
+  highlightColor = '#F5DEB3' // amarelo palha padrão
 }) => {
   const [showInfo, setShowInfo] = useState(false);
   const infoRef = useRef<HTMLDivElement>(null);
@@ -125,12 +127,11 @@ const Slider: React.FC<SliderProps> = ({
 
         {/* Visual Thumb - Segue o input real via CSS calc ou JS */}
         <div 
-          className={`absolute h-4 w-4 bg-white border-[2px] rounded-full shadow-md z-10 pointer-events-none transition-all duration-75 ease-out ${
-            highlightBorder ? 'border-[#F5DEB3]' : 'border-blue-600'
-          }`}
+          className="absolute h-4 w-4 bg-white border-[2px] rounded-full shadow-md z-10 pointer-events-none transition-all duration-75 ease-out"
           style={{ 
             left: `calc(${percentage}% + (${8 - percentage * 0.15}px))`, // Ajuste fino para centralizar
-            transform: 'translateX(-50%)'
+            transform: 'translateX(-50%)',
+            borderColor: highlightBorder ? highlightColor : '#2563eb'
           }}
         />
       </div>
@@ -154,7 +155,7 @@ const Slider: React.FC<SliderProps> = ({
           width: 16px;
           border-radius: 50%;
           background: #ffffff;
-          border: 2px solid ${highlightBorder ? '#F5DEB3' : '#2563eb'}; /* amarelo palha ou blue-600 */
+          border: 2px solid ${highlightBorder ? highlightColor : '#2563eb'}; /* cor highlight ou blue-600 */
           cursor: pointer;
           margin-top: -4px; /* Ajuste para alinhar com o track visual se necessário */
           box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
@@ -173,7 +174,7 @@ const Slider: React.FC<SliderProps> = ({
         .${sliderClass} input[type=range]::-moz-range-thumb {
           height: 16px;
           width: 16px;
-          border: 2px solid ${highlightBorder ? '#F5DEB3' : '#2563eb'};
+          border: 2px solid ${highlightBorder ? highlightColor : '#2563eb'};
           border-radius: 50%;
           background: #ffffff;
           cursor: pointer;

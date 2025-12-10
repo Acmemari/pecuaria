@@ -47,6 +47,9 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
   
   // Rastrear se algum dos indicadores interdependentes foi alterado
   const [isInterdependentChanged, setIsInterdependentChanged] = useState(false);
+  
+  // Rastrear se GMD foi alterado (para destacar Desembolso)
+  const [isGmdChanged, setIsGmdChanged] = useState(false);
 
   // Update inputs when initialInputs changes
   useEffect(() => {
@@ -68,6 +71,13 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
       setIsInterdependentChanged(true);
     } else {
       setIsInterdependentChanged(false);
+    }
+    
+    // Se alterar GMD, destacar também o Desembolso com cor diferente
+    if (key === 'gmd') {
+      setIsGmdChanged(true);
+    } else {
+      setIsGmdChanged(false);
     }
   };
 
@@ -276,6 +286,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               step={1} 
               unit="R$/mês" 
               onChange={(v) => handleInputChange('custoMensal', v)}
+              highlightBorder={isGmdChanged}
+              highlightColor="#DAA520"
               description="O que é: É o desembolso total (custeios + investimentos) por cabeça/mês. Inclui nutrição (pasto/suplemento/ração), sanidade, mão de obra e custos fixos rateados. Apenas valor de aquisição do animal e pagamento de financiamentos não entram na conta. É utilizado o desembolso para que o foco seja na capacidade de geração de caixa e não no lucro contábil."
             />
           </div>
