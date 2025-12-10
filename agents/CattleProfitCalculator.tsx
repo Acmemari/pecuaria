@@ -110,6 +110,25 @@ function calculateLivestockIRR(
   return rate * 100;
 }
 
+/**
+ * Converte uma taxa mensal percentual para uma taxa anual percentual.
+ * Utiliza regime de juros compostos (taxa efetiva).
+ * @param monthlyRatePercent - A taxa mensal em formato percentual (ex: 0.74 para 0.74%)
+ * @returns A taxa anual em formato percentual (ex: 9.26 para 9.26%)
+ */
+function convertMonthlyToAnnualRate(monthlyRatePercent: number): number {
+  if (monthlyRatePercent === 0) return 0;
+  
+  // 1. Converte de porcentagem para decimal (ex: 0.74 -> 0.0074)
+  const decimalRate = monthlyRatePercent / 100;
+  
+  // 2. Aplica a fórmula de juros compostos: (1 + i)^12 - 1
+  const annualDecimal = Math.pow(1 + decimalRate, 12) - 1;
+  
+  // 3. Converte de volta para porcentagem
+  return annualDecimal * 100;
+}
+
 const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initialInputs, onToast, onNavigateToSaved }) => {
   const { user } = useAuth();
   // Initial state based on the PDF Page 8 Ranges
@@ -191,10 +210,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
       mesesPermanencia
     );
 
-    // TIR Anualizada: (1 + TIR_mensal)^12 - 1
-    const resultadoAnual = mesesPermanencia > 0 
-      ? (Math.pow(1 + resultadoMensal / 100, 12) - 1) * 100 
-      : 0;
+    // TIR Anualizada usando juros compostos: (1 + i)^12 - 1
+    const resultadoAnual = convertMonthlyToAnnualRate(resultadoMensal);
 
     const custoPorArrobaProduzida = arrobasProduzidas > 0 ? custoOperacional / arrobasProduzidas : 0;
     const custoPorArrobaFinal = pesoFinalArrobas > 0 ? custoTotal / pesoFinalArrobas : 0;
@@ -393,7 +410,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             {/* Row 1 - Profit Metrics */}
             <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} highlight color={results.resultadoPorBoi >= 0 ? 'positive' : 'negative'} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
             <ResultCard label="2. TIR Mensal" value={`${results.resultadoMensal.toFixed(2)}% a.m.`} description="Taxa Interna de Retorno mensal. Indica o rendimento percentual do capital investido por mês de operação." />
-            <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toFixed(2)}% a.a.`} description="Resultado anualizado. É a TIR mensal multiplicada por 12, permitindo comparar com outras aplicações financeiras." />
+            <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toFixed(2)}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
             <ResultCard label="4. Margem %" value={`${results.margemVenda.toFixed(2)}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
 
             {/* Row 2 - Value and Costs */}
