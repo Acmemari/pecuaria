@@ -60,7 +60,7 @@ export default async function handler(
     console.log('[API] Chamando webhook n8n:', webhookUrl);
 
     const requestPayload = {
-      question: question.trim(),
+      message: question.trim(), // n8n espera 'message', não 'question'
       userId: userId || null,
       timestamp: new Date().toISOString(),
     };
