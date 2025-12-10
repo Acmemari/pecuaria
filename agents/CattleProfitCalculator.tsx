@@ -510,6 +510,11 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
         {/* Right Column: Dashboard Grid - Main Results Container */}
         <div className="flex-1 flex flex-col md:h-full overflow-hidden min-h-0">
+          <div className="mb-2 md:mb-3 flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-ai-text">Resultados</h2>
+            </div>
+          </div>
           {/* KPI Cards Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 shrink-0 mb-3 md:mb-4">
 
