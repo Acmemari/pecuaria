@@ -437,7 +437,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
         <div className="flex-1 flex flex-col md:h-full overflow-hidden min-h-0">
 
           {/* Results Grid - Responsive: 1 col mobile, 2 col tablet, 4 col desktop */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3 auto-rows-fr md:h-[60%] mb-2 md:mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 md:gap-2 auto-rows-fr md:h-[55%] mb-1.5 md:mb-2">
 
             {/* Row 1 - Profit Metrics */}
             <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={results.resultadoPorBoi >= 0 ? 'positive' : 'negative'} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
@@ -459,41 +459,41 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           </div>
 
           {/* Charts Row - Stack vertical on mobile, horizontal on desktop */}
-          <div className="flex-1 flex flex-col md:grid md:grid-cols-2 gap-2 md:gap-3 min-h-[400px] md:min-h-0">
+          <div className="flex-1 flex flex-col md:grid md:grid-cols-2 gap-1.5 md:gap-2 min-h-[300px] md:min-h-0">
             {/* Matriz de Sensibilidade */}
-            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative min-h-[200px] md:min-h-0 overflow-hidden">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Grid3X3 size={14} className="text-ai-subtext" />
-                  <span className="text-[10px] font-bold uppercase text-ai-subtext">Matriz de Sensibilidade - Resultado (R$/Cabeça)</span>
+            <div className="bg-white rounded-lg border border-ai-border/60 p-2 flex flex-col relative min-h-[180px] md:min-h-0 overflow-hidden">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-1">
+                  <Grid3X3 size={12} className="text-ai-subtext" />
+                  <span className="text-[8px] font-bold uppercase text-ai-subtext">Sensibilidade - Resultado (R$/Cab)</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[8px] text-rose-400">● Prejuízo</span>
-                  <span className="text-[8px] text-emerald-500">● Lucro</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[6px] text-rose-400">● Prejuízo</span>
+                  <span className="text-[6px] text-emerald-500">● Lucro</span>
                   <button
                     onClick={() => setIsMatrixExpanded(true)}
-                    className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                    className="p-0.5 text-gray-400 hover:text-blue-500 transition-colors"
                     title="Expandir matriz"
                   >
-                    <Maximize2 size={12} />
+                    <Maximize2 size={10} />
                   </button>
                 </div>
               </div>
               
               {/* Tabela da Matriz */}
               <div className="flex-1 overflow-auto">
-                <table className="w-full text-[9px] border-collapse">
+                <table className="w-full text-[8px] border-collapse">
                   <thead>
                     <tr>
-                      <th className="p-1 text-left text-[8px] text-gray-500 font-normal border-b border-gray-100">
-                        <div className="leading-tight">VALOR DE VENDA →</div>
-                        <div className="leading-tight">VALOR DE COMPRA ↓</div>
+                      <th className="p-0.5 text-left text-[6px] text-gray-500 font-normal border-b border-gray-100">
+                        <div className="leading-none">VL. VENDA →</div>
+                        <div className="leading-none">VL. COMPRA ↓</div>
                       </th>
                       {sensitivityMatrix.cols.map((col, i) => (
-                        <th key={i} className={`p-1 text-center border-b border-gray-100 ${col.variation === 0 ? 'bg-blue-50' : ''}`}>
-                          <div className="text-[7px] text-gray-400">{col.label}</div>
-                          <div className={`font-semibold ${col.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
-                            R$ {col.value}
+                        <th key={i} className={`p-0.5 text-center border-b border-gray-100 ${col.variation === 0 ? 'bg-blue-50' : ''}`}>
+                          <div className="text-[5px] text-gray-400 leading-none">{col.label}</div>
+                          <div className={`font-semibold text-[7px] leading-tight ${col.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                            {col.value}
                           </div>
                         </th>
                       ))}
@@ -502,10 +502,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                   <tbody>
                     {sensitivityMatrix.rows.map((row, rowIdx) => (
                       <tr key={rowIdx}>
-                        <td className={`p-1 border-r border-gray-100 ${row.variation === 0 ? 'bg-blue-50' : ''}`}>
-                          <div className="text-[7px] text-gray-400">{row.label}</div>
-                          <div className={`font-semibold ${row.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
-                            R$ {row.valorCompra.toFixed(1)}
+                        <td className={`p-0.5 border-r border-gray-100 ${row.variation === 0 ? 'bg-blue-50' : ''}`}>
+                          <div className="text-[5px] text-gray-400 leading-none">{row.label}</div>
+                          <div className={`font-semibold text-[7px] leading-tight ${row.variation === 0 ? 'text-blue-600' : 'text-gray-600'}`}>
+                            {row.valorCompra.toFixed(1)}
                           </div>
                         </td>
                         {row.cells.map((cell, colIdx) => {
@@ -514,8 +514,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                           return (
                             <td 
                               key={colIdx} 
-                              className={`p-1 text-center font-semibold ${
-                                isBase ? 'ring-2 ring-blue-500 ring-inset' : ''
+                              className={`p-0.5 text-center font-semibold text-[7px] ${
+                                isBase ? 'ring-1 ring-blue-500 ring-inset' : ''
                               } ${
                                 isProfit 
                                   ? 'bg-emerald-50 text-emerald-700' 
