@@ -26,6 +26,90 @@ interface CattleProfitCalculatorProps {
   onNavigateToSaved?: () => void;
 }
 
+/**
+ * Calcula a TIR Mensal (Taxa Interna de Retorno) usando Newton-Raphson
+ * para suportar períodos fracionados e fluxos mensais constantes.
+ */
+function calculateLivestockIRR(
+  purchaseWeight: number,
+  purchasePrice: number,
+  monthlyCost: number,
+  salesValue: number,
+  permanenceMonths: number
+): number {
+  
+  const investment = purchaseWeight * purchasePrice; // Saída no t=0
+  const totalRevenue = salesValue; // Entrada no final
+  
+  // Se não há período de permanência, retorna 0
+  if (permanenceMonths <= 0) return 0;
+  
+  // Função de VPL (NPV) para uma dada taxa r
+  const npv = (rate: number) => {
+    let value = -investment;
+    
+    // Deduzir custos mensais trazidos a valor presente
+    // Assumindo custos pagos ao final de cada mês completo e fração no final
+    for (let t = 1; t <= Math.floor(permanenceMonths); t++) {
+      value -= monthlyCost / Math.pow(1 + rate, t);
+    }
+    
+    // Custo do período fracionado final (se houver)
+    const fraction = permanenceMonths - Math.floor(permanenceMonths);
+    if (fraction > 0) {
+       // Custo proporcional ao tempo restante, descontado no tempo final
+       value -= (monthlyCost * fraction) / Math.pow(1 + rate, permanenceMonths);
+    }
+
+    // Adicionar Receita Final trazida a valor presente
+    value += totalRevenue / Math.pow(1 + rate, permanenceMonths);
+    
+    return value;
+  };
+
+  // Derivada do VPL para Newton-Raphson (dVPL/dr)
+  const dNpv = (rate: number) => {
+    let derivative = 0;
+    
+    // Derivada do termo constante (investimento) é 0, calculamos os fluxos:
+    // d/dr [C * (1+r)^-t] = C * -t * (1+r)^(-t-1)
+    
+    for (let t = 1; t <= Math.floor(permanenceMonths); t++) {
+      derivative -= (-t * monthlyCost) / Math.pow(1 + rate, t + 1);
+    }
+    
+    const fraction = permanenceMonths - Math.floor(permanenceMonths);
+    if (fraction > 0) {
+        derivative -= (-(permanenceMonths) * (monthlyCost * fraction)) / Math.pow(1 + rate, permanenceMonths + 1);
+    }
+
+    derivative += (-(permanenceMonths) * totalRevenue) / Math.pow(1 + rate, permanenceMonths + 1);
+    
+    return derivative;
+  };
+
+  // Execução do Método de Newton-Raphson
+  let rate = 0.01; // Chute inicial (1% a.m)
+  const maxIterations = 100;
+  const tolerance = 1e-6;
+
+  for (let i = 0; i < maxIterations; i++) {
+    const y = npv(rate);
+    const yPrime = dNpv(rate);
+
+    if (Math.abs(yPrime) < tolerance) break; // Evitar divisão por zero
+
+    const newRate = rate - y / yPrime;
+    
+    if (Math.abs(newRate - rate) < tolerance) {
+      return newRate * 100; // Retorna em porcentagem (ex: 1.5 para 1.5%)
+    }
+    rate = newRate;
+  }
+  
+  return rate * 100;
+}
+
 const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initialInputs, onToast, onNavigateToSaved }) => {
   const { user } = useAuth();
   // Initial state based on the PDF Page 8 Ranges
@@ -98,12 +182,19 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
     const margemVenda = valorBoi > 0 ? (resultadoPorBoi / valorBoi) * 100 : 0;
 
-    const capitalInvestidoCompra = custoCompra;
-    const resultadoMensal = mesesPermanencia > 0 && capitalInvestidoCompra > 0
-      ? ((resultadoPorBoi / capitalInvestidoCompra) / mesesPermanencia) * 100
-      : 0;
+    // Cálculo da TIR Mensal usando Newton-Raphson
+    const resultadoMensal = calculateLivestockIRR(
+      inputs.pesoCompra,
+      inputs.valorCompra,
+      inputs.custoMensal,
+      valorBoi,
+      mesesPermanencia
+    );
 
-    const resultadoAnual = resultadoMensal * 12;
+    // TIR Anualizada: (1 + TIR_mensal)^12 - 1
+    const resultadoAnual = mesesPermanencia > 0 
+      ? (Math.pow(1 + resultadoMensal / 100, 12) - 1) * 100 
+      : 0;
 
     const custoPorArrobaProduzida = arrobasProduzidas > 0 ? custoOperacional / arrobasProduzidas : 0;
     const custoPorArrobaFinal = pesoFinalArrobas > 0 ? custoTotal / pesoFinalArrobas : 0;
