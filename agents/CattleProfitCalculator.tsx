@@ -440,7 +440,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               ROW 1: PROFITABILITY METRICS (4 cards)
               ═══════════════════════════════════════════════════════════════════ */}
           <div className="h-full">
-            <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} color={results.resultadoPorBoi >= 0 ? 'positive' : 'negative'} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
+            <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
           </div>
           <div className="h-full">
             <ResultCard label="2. TIR Mensal" value={`${results.resultadoMensal.toFixed(2)}% a.m.`} description="Taxa Interna de Retorno mensal. Indica o rendimento percentual do capital investido por mês de operação." />
@@ -456,32 +456,32 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               ROW 2: FINANCIAL METRICS (4 cards)
               ═══════════════════════════════════════════════════════════════════ */}
           <div className="h-full">
-            <ResultCard label="5. Valor de Venda" value={`R$ ${results.valorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} highlight color="neutral" description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
+            <ResultCard label="5. Valor de Venda" value={`R$ ${results.valorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} highlight color="neutral" description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
           </div>
           <div className="h-full">
-            <ResultCard label="6. Desemb. Total" value={`R$ ${results.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
+            <ResultCard label="6. Desemb. Total" value={`R$ ${results.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
           </div>
           <div className="h-full">
-            <ResultCard label="7. Desemb./@ Produzida" value={`R$ ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} description="Custo operacional dividido pelas arrobas produzidas. Indica a eficiência na produção de carne." />
+            <ResultCard label="7. Desemb./@ Produzida" value={`R$ ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Custo operacional dividido pelas arrobas produzidas. Indica a eficiência na produção de carne." />
           </div>
           <div className="h-full">
-            <ResultCard label="8. Desemb./@ Final" value={`R$ ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} description="Desembolso total dividido pelo peso final em arrobas. É o custo médio por arroba do animal pronto." />
+            <ResultCard label="8. Desemb./@ Final" value={`R$ ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Desembolso total dividido pelo peso final em arrobas. É o custo médio por arroba do animal pronto." />
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════════
               ROW 3: ZOOTECHNICAL METRICS (4 cards)
               ═══════════════════════════════════════════════════════════════════ */}
           <div className="h-full">
-            <ResultCard label="9. Peso Final" subLabel="arrobas" value={`${results.pesoFinalArrobas.toFixed(2)} @`} description="Peso do animal ao abate convertido em arrobas, considerando o rendimento de carcaça." />
+            <ResultCard label="9. Peso Final" subLabel="arrobas" value={`${results.pesoFinalArrobas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @`} description="Peso do animal ao abate convertido em arrobas, considerando o rendimento de carcaça." />
           </div>
           <div className="h-full">
-            <ResultCard label="10. Arrobas Produzidas" value={`${results.arrobasProduzidas.toFixed(2)} @`} description="Diferença entre o peso final e o peso de entrada, ambos em arrobas. Representa a produção de carne." />
+            <ResultCard label="10. Arrobas Produzidas" value={`${results.arrobasProduzidas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @`} description="Diferença entre o peso final e o peso de entrada, ambos em arrobas. Representa a produção de carne." />
           </div>
           <div className="h-full">
             <ResultCard label="11. Permanência" subLabel="dias" value={`${results.diasPermanencia.toFixed(0)} dias`} description="Tempo necessário para o animal ganhar o peso desejado, calculado com base no GMD." />
           </div>
           <div className="h-full">
-            <ResultCard label="12. Permanência" subLabel="meses" value={`${results.mesesPermanencia.toFixed(1)} meses`} description="Tempo de permanência convertido em meses para facilitar o planejamento do ciclo produtivo." />
+            <ResultCard label="12. Permanência" subLabel="meses" value={`${results.mesesPermanencia.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses`} description="Tempo de permanência convertido em meses para facilitar o planejamento do ciclo produtivo." />
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════════
@@ -592,6 +592,223 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           inputs={inputs}
           isLoading={isSaving}
         />
+      )}
+
+      {/* Modal Expandido da Matriz de Sensibilidade */}
+      {isMatrixExpanded && (
+        <div 
+          className="fixed inset-0 bg-black/60 transition-opacity z-40 flex items-center justify-center p-4"
+          onClick={() => setIsMatrixExpanded(false)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl overflow-hidden z-50 w-full max-w-6xl max-h-[90vh] relative flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header do Modal */}
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 shrink-0">
+              <div className="flex items-center gap-3">
+                <Grid3X3 size={20} className="text-ai-subtext" />
+                <h2 className="text-lg font-bold text-gray-800">Matriz de Sensibilidade - Resultado (R$/Cabeça)</h2>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-rose-400 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-rose-400"></span> Prejuízo
+                </span>
+                <span className="text-xs text-emerald-500 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Lucro
+                </span>
+                <button 
+                  onClick={() => setIsMatrixExpanded(false)} 
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Fechar"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Conteúdo do Modal - Sidebar + Tabela */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Sidebar com Premissas */}
+              <div className="w-72 bg-gray-50 border-r border-gray-200 p-4 overflow-y-auto shrink-0">
+                <div className="flex items-center gap-2 mb-4">
+                  <SlidersHorizontal size={16} className="text-gray-500" />
+                  <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide">Premissas</h3>
+                </div>
+                <p className="text-xs text-gray-500 mb-4">Ajuste os valores abaixo e veja a matriz atualizar em tempo real.</p>
+                
+                <div className="space-y-4">
+                  {/* Slider: Valor de Compra */}
+                  <Slider
+                    index={2}
+                    label="Valor Compra"
+                    value={inputs.valorCompra}
+                    min={10}
+                    max={25}
+                    step={0.1}
+                    unit="R$/@"
+                    onChange={(val) => setInputs({ ...inputs, valorCompra: val })}
+                    description="O preço de compra por Arroba (@ = 15kg de carcaça)."
+                  />
+                  
+                  {/* Slider: Valor de Venda */}
+                  <Slider
+                    index={5}
+                    label="Valor Venda"
+                    value={inputs.valorVenda}
+                    min={250}
+                    max={350}
+                    step={1}
+                    unit="R$/@"
+                    onChange={(val) => setInputs({ ...inputs, valorVenda: val })}
+                    description="O preço de venda por Arroba (@ = 15kg de carcaça)."
+                  />
+
+                  {/* Divider */}
+                  <div className="border-t border-gray-200 pt-4 mt-4">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-3">Outras Premissas</p>
+                    
+                    {/* Slider: Peso de Compra */}
+                    <Slider
+                      index={1}
+                      label="Peso Compra"
+                      value={inputs.pesoCompra}
+                      min={150}
+                      max={300}
+                      step={5}
+                      unit="kg"
+                      onChange={(val) => setInputs({ ...inputs, pesoCompra: val })}
+                      description="Peso do animal no momento da compra."
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Slider: Peso Vivo Abate */}
+                    <Slider
+                      index={3}
+                      label="Peso Vivo Abate"
+                      value={inputs.pesoAbate}
+                      min={Math.max(350, inputs.pesoCompra + 10)}
+                      max={630}
+                      step={1}
+                      unit="kg"
+                      onChange={(val) => setInputs({ ...inputs, pesoAbate: val })}
+                      description="Peso do animal no momento do abate."
+                    />
+
+                    {/* Slider: Rendimento de Carcaça */}
+                    <Slider
+                      index={4}
+                      label="Rend. Carcaça"
+                      value={inputs.rendimentoCarcaca}
+                      min={50}
+                      max={58}
+                      step={0.5}
+                      unit="%"
+                      onChange={(val) => setInputs({ ...inputs, rendimentoCarcaca: val })}
+                      description="Percentual do peso vivo que se transforma em carcaça."
+                    />
+
+                    {/* Slider: GMD */}
+                    <Slider
+                      index={6}
+                      label="GMD"
+                      value={inputs.gmd}
+                      min={0.38}
+                      max={1.1}
+                      step={0.01}
+                      unit="kg/dia"
+                      onChange={(val) => {
+                        setInputs({ ...inputs, gmd: val });
+                        setIsGmdChanged(true);
+                        setTimeout(() => setIsGmdChanged(false), 2000);
+                      }}
+                      description="Ganho Médio Diário. Indica quantos quilos o animal engorda por dia."
+                    />
+
+                    {/* Slider: Custo Mensal */}
+                    <Slider
+                      index={7}
+                      label="Desemb./Cab/Mês"
+                      value={inputs.custoMensal}
+                      min={50}
+                      max={220}
+                      step={1}
+                      unit="R$/mês"
+                      onChange={(val) => setInputs({ ...inputs, custoMensal: val })}
+                      description="Desembolso total por cabeça/mês."
+                      highlightBorder={isGmdChanged}
+                      highlightColor="#DAA520"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabela Expandida */}
+              <div className="flex-1 p-6 overflow-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="px-3 py-3 text-left text-xs text-gray-500 font-medium border-b-2 border-gray-200 bg-gray-50">
+                        <div className="leading-tight">VL. VENDA →</div>
+                        <div className="leading-tight text-gray-400">VL. COMPRA ↓</div>
+                      </th>
+                      {sensitivityMatrix.cols.map((col, i) => (
+                        <th key={i} className={`px-3 py-3 text-center border-b-2 border-gray-200 ${col.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                          <div className="text-[10px] text-gray-400 leading-tight mb-1">{col.label}</div>
+                          <div className={`font-bold text-base ${col.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
+                            {col.value}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sensitivityMatrix.rows.map((row, rowIdx) => (
+                      <tr key={rowIdx}>
+                        <td className={`px-3 py-3 border-r-2 border-gray-200 ${row.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                          <div className="text-[10px] text-gray-400 leading-tight mb-1">{row.label}</div>
+                          <div className={`font-bold text-base ${row.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
+                            {row.valorCompra.toFixed(1)}
+                          </div>
+                        </td>
+                        {row.cells.map((cell, colIdx) => {
+                          const isBase = row.variation === 0 && sensitivityMatrix.cols[colIdx].variation === 0;
+                          const isProfit = cell >= 0;
+                          return (
+                            <td 
+                              key={colIdx} 
+                              className={`px-3 py-4 text-center font-bold text-lg ${
+                                isBase ? 'ring-2 ring-blue-500 ring-inset' : ''
+                              } ${
+                                isProfit 
+                                  ? 'bg-emerald-100 text-emerald-700' 
+                                  : 'bg-rose-100 text-rose-600'
+                              }`}
+                            >
+                              {cell.toLocaleString('pt-BR')}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                
+                {/* Legenda adicional */}
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">
+                    <strong>Linha:</strong> Variação do Valor de Compra (R$/@) | 
+                    <strong className="ml-2">Coluna:</strong> Variação do Valor de Venda (R$/@)
+                  </p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Célula destacada em azul representa o cenário base (valores atuais das premissas).
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
