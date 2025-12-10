@@ -198,13 +198,86 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           </div>
 
           <div className="flex flex-col md:flex-1 overflow-y-auto md:overflow-visible md:pr-1 pb-1 gap-1.5">
-            <Slider index={1} label="Peso de Compra" value={inputs.pesoCompra} min={150} max={420} step={1} unit="kg" onChange={(v) => handleInputChange('pesoCompra', v)} highlightBorder={isInterdependentChanged} />
-            <Slider index={2} label="Valor de Compra" value={inputs.valorCompra} min={11} max={18} step={0.05} unit="R$/kg" onChange={(v) => handleInputChange('valorCompra', v)} highlightBorder={isInterdependentChanged} />
-            <Slider index={3} label="Peso Vivo Abate" value={inputs.pesoAbate} min={Math.max(350, inputs.pesoCompra + 10)} max={630} step={1} unit="kg" onChange={(v) => handleInputChange('pesoAbate', v)} />
-            <Slider index={4} label="Rend. Carcaça" value={inputs.rendimentoCarcaca} min={46} max={58} step={0.5} unit="%" onChange={(v) => handleInputChange('rendimentoCarcaca', v)} />
-            <Slider index={5} label="Valor Venda" value={inputs.valorVenda} min={250} max={350} step={1} unit="R$/@" onChange={(v) => handleInputChange('valorVenda', v)} />
-            <Slider index={6} label="GMD" value={inputs.gmd} min={0.38} max={1.1} step={0.01} unit="kg/dia" onChange={(v) => handleInputChange('gmd', v)} highlightBorder={isInterdependentChanged} />
-            <Slider index={7} label="Custo Mensal" value={inputs.custoMensal} min={50} max={220} step={1} unit="R$" onChange={(v) => handleInputChange('custoMensal', v)} />
+            <Slider 
+              index={1} 
+              label="Peso de Compra" 
+              value={inputs.pesoCompra} 
+              min={150} 
+              max={420} 
+              step={1} 
+              unit="kg" 
+              onChange={(v) => handleInputChange('pesoCompra', v)} 
+              highlightBorder={isInterdependentChanged}
+              description="O que é: É o peso de entrada do animal no sistema (Bezerro(a), garrote, novilha, boi magro). Refere-se ao peso vivo do animal no momento da aquisição ou início do ciclo produtivo."
+            />
+            <Slider 
+              index={2} 
+              label="Valor de Compra" 
+              value={inputs.valorCompra} 
+              min={11} 
+              max={18} 
+              step={0.05} 
+              unit="R$/kg" 
+              onChange={(v) => handleInputChange('valorCompra', v)} 
+              highlightBorder={isInterdependentChanged}
+              description="O que é: O custo de aquisição por quilograma de peso vivo. Define o investimento inicial necessário para comprar o gado já incluindo frete e comissão."
+            />
+            <Slider 
+              index={3} 
+              label="Peso Vivo Abate" 
+              value={inputs.pesoAbate} 
+              min={Math.max(350, inputs.pesoCompra + 10)} 
+              max={630} 
+              step={1} 
+              unit="kg" 
+              onChange={(v) => handleInputChange('pesoAbate', v)}
+              description="O que é: A meta de peso final do animal vivo no momento da saída da fazenda para o frigorífico."
+            />
+            <Slider 
+              index={4} 
+              label="Rend. Carcaça" 
+              value={inputs.rendimentoCarcaca} 
+              min={46} 
+              max={58} 
+              step={0.5} 
+              unit="%" 
+              onChange={(v) => handleInputChange('rendimentoCarcaca', v)}
+              description="O que é: O Rendimento de Carcaça é a eficiência industrial. Representa a porcentagem do peso vivo que efetivamente se converte em carne (carcaça) após o abate e limpeza do animal."
+            />
+            <Slider 
+              index={5} 
+              label="Valor Venda" 
+              value={inputs.valorVenda} 
+              min={250} 
+              max={350} 
+              step={1} 
+              unit="R$/@" 
+              onChange={(v) => handleInputChange('valorVenda', v)}
+              description="O que é: O preço de venda por Arroba (@ = 15kg de carcaça)."
+            />
+            <Slider 
+              index={6} 
+              label="GMD (Ganho Médio Diário)" 
+              value={inputs.gmd} 
+              min={0.38} 
+              max={1.1} 
+              step={0.01} 
+              unit="kg/dia" 
+              onChange={(v) => handleInputChange('gmd', v)} 
+              highlightBorder={isInterdependentChanged}
+              description="O que é: Ganho Médio Diário. É a velocidade de ganho de peso. Indica quantos quilos o animal engorda por dia na média de todo o período."
+            />
+            <Slider 
+              index={7} 
+              label="Desembolso/Cab/Mês" 
+              value={inputs.custoMensal} 
+              min={50} 
+              max={220} 
+              step={1} 
+              unit="R$/mês" 
+              onChange={(v) => handleInputChange('custoMensal', v)}
+              description="O que é: É o desembolso total (custeios + investimentos) por cabeça/mês. Inclui nutrição (pasto/suplemento/ração), sanidade, mão de obra e custos fixos rateados. Apenas valor de aquisição do animal e pagamento de financiamentos não entram na conta. É utilizado o desembolso para que o foco seja na capacidade de geração de caixa e não no lucro contábil."
+            />
           </div>
         </div>
 
