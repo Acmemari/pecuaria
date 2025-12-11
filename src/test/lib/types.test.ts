@@ -20,6 +20,7 @@ describe('Types - Interface Validation', () => {
         valorVenda: 280,
         gmd: 0.85,
         custoMensal: 135,
+        lotacao: 2.0,
       };
 
       expect(validInput.pesoCompra).toBe(300);
@@ -46,6 +47,10 @@ describe('Types - Interface Validation', () => {
         resultadoAnual: -14.04,
         custoPorArrobaProduzida: 144.67,
         custoPorArrobaFinal: 308.75,
+        giroEstoque: 145.75,
+        producaoArrobaPorHa: 12.5,
+        resultadoPorArrobaFinal: -28.75,
+        resultadoPorHectareAno: -359.38,
       };
 
       expect(typeof validResults.resultadoPorBoi).toBe('number');

@@ -32,6 +32,22 @@ function calculateCattleProfit(inputs: CattleCalculatorInputs): CalculationResul
   const custoPorArrobaProduzida = arrobasProduzidas > 0 ? custoOperacional / arrobasProduzidas : 0;
   const custoPorArrobaFinal = pesoFinalArrobas > 0 ? custoTotal / pesoFinalArrobas : 0;
 
+  // Indicador 13: Giro de estoque
+  const giroEstoque = mesesPermanencia > 0 ? (12 / mesesPermanencia) * 100 : 0;
+
+  // Indicador 14: Produção @/ha
+  const pesoMedio = (inputs.pesoCompra + inputs.pesoAbate) / 2;
+  const lotacaoCabecas = pesoMedio > 0 ? (450 * inputs.lotacao) / pesoMedio : 0;
+  const producaoArrobaPorHa = mesesPermanencia > 0 
+    ? (arrobasProduzidas / mesesPermanencia) * 12 * lotacaoCabecas 
+    : 0;
+
+  // Indicador 15: Resultado por @ final
+  const resultadoPorArrobaFinal = inputs.valorVenda - custoPorArrobaFinal;
+
+  // Indicador 16: Resultado por hectare ano
+  const resultadoPorHectareAno = resultadoPorArrobaFinal * producaoArrobaPorHa;
+
   return {
     pesoCompraArrobas,
     pesoFinalArrobas,
@@ -47,7 +63,11 @@ function calculateCattleProfit(inputs: CattleCalculatorInputs): CalculationResul
     resultadoMensal,
     resultadoAnual,
     custoPorArrobaProduzida,
-    custoPorArrobaFinal
+    custoPorArrobaFinal,
+    giroEstoque,
+    producaoArrobaPorHa,
+    resultadoPorArrobaFinal,
+    resultadoPorHectareAno
   };
 }
 
@@ -60,6 +80,7 @@ describe('Cattle Profit Calculations', () => {
     valorVenda: 280,
     gmd: 0.85,
     custoMensal: 135,
+    lotacao: 2.0,
   };
 
   it('should calculate pesoCompraArrobas correctly', () => {

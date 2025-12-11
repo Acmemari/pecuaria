@@ -61,31 +61,31 @@ const Slider: React.FC<SliderProps> = ({
   });
 
   return (
-    <div className={`bg-gray-50 p-2 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative ${sliderClass}`}>
+    <div className={`bg-gray-50 p-[0.45rem] rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative ${sliderClass}`}>
       
       {/* Cabeçalho: Label + Valor */}
-      <div className="flex justify-between items-start mb-2">
+      <div className="flex justify-between items-start mb-[0.45rem]">
         
         {/* Lado Esquerdo: Label */}
-        <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1">
+        <label className="text-[0.675rem] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1">
           {index && <span className="opacity-70">{index}.</span>}
           {label}
         </label>
 
         {/* Lado Direito: Valor e Unidade */}
         <div className="text-right flex items-baseline justify-end gap-1">
-          {isCurrency && <span className="text-xs text-gray-400 font-medium">R$</span>}
-          <span className="text-base font-bold text-blue-600 tabular-nums leading-none">
+          {isCurrency && <span className="text-[0.675rem] text-gray-400 font-medium">R$</span>}
+          <span className="text-[0.9rem] font-bold text-blue-600 tabular-nums leading-none">
             {formattedValue}
           </span>
-          {cleanUnit && <span className="text-xs text-gray-400 font-medium self-end mb-0.5">{cleanUnit}</span>}
+          {cleanUnit && <span className="text-[0.675rem] text-gray-400 font-medium self-end mb-0.5">{cleanUnit}</span>}
         </div>
       </div>
 
       {/* Slider + Info Button na mesma linha */}
       <div className="flex items-center gap-2">
         {/* Slider Customizado */}
-        <div className="relative h-6 flex items-center flex-1">
+        <div className="relative h-[1.35rem] flex items-center flex-1">
           <input
             type="range"
             min={min}
@@ -97,7 +97,7 @@ const Slider: React.FC<SliderProps> = ({
           />
           
           {/* Visual Track */}
-          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative z-10 pointer-events-none">
+          <div className="w-full h-[0.45rem] bg-gray-200 rounded-full overflow-hidden relative z-10 pointer-events-none">
             {/* Progress Bar (Opcional, mas melhora UX) */}
             <div 
               className="h-full bg-blue-200/50 absolute left-0 top-0 transition-all duration-75"
@@ -107,7 +107,7 @@ const Slider: React.FC<SliderProps> = ({
 
           {/* Visual Thumb - Segue o input real via CSS calc ou JS */}
           <div 
-            className="absolute h-4 w-4 bg-white border-[2px] rounded-full shadow-md z-10 pointer-events-none transition-all duration-75 ease-out"
+            className="absolute h-[0.9rem] w-[0.9rem] bg-white border-[2px] rounded-full shadow-md z-10 pointer-events-none transition-all duration-75 ease-out"
             style={{ 
               left: `calc(${percentage}% + (${8 - percentage * 0.15}px))`, // Ajuste fino para centralizar
               transform: 'translateX(-50%)',
@@ -124,14 +124,14 @@ const Slider: React.FC<SliderProps> = ({
             className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
             aria-label="Mais informações"
           >
-            <Info size={11} />
+            <Info size={10} />
           </button>
 
           {/* Popover Flutuante */}
           {showInfo && (
-            <div className="absolute right-0 top-5 z-50 w-64 p-3 bg-white rounded-lg shadow-2xl border border-gray-100 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200">
+            <div className="absolute right-0 bottom-5 z-50 w-64 p-3 bg-white rounded-lg shadow-2xl border border-gray-100 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200">
               {/* Seta do Popover */}
-              <div className="absolute -top-1.5 right-2 w-3 h-3 bg-white border-t border-l border-gray-100 transform rotate-45"></div>
+              <div className="absolute -bottom-1.5 right-2 w-3 h-3 bg-white border-b border-r border-gray-100 transform rotate-45"></div>
               
               <p className="font-medium text-gray-800 mb-1">{label}</p>
               <p>{description || "Ajuste este valor conforme as premissas do seu cenário."}</p>
@@ -155,20 +155,20 @@ const Slider: React.FC<SliderProps> = ({
         /* Webkit Slider Thumb (Chrome, Safari, Edge) */
         .${sliderClass} input[type=range]::-webkit-slider-thumb {
           -webkit-appearance: none;
-          height: 16px;
-          width: 16px;
+          height: 14.4px;
+          width: 14.4px;
           border-radius: 50%;
           background: #ffffff;
           border: 2px solid ${highlightBorder ? highlightColor : '#2563eb'}; /* cor highlight ou blue-600 */
           cursor: pointer;
-          margin-top: -4px; /* Ajuste para alinhar com o track visual se necessário */
+          margin-top: -3.6px; /* Ajuste para alinhar com o track visual se necessário */
           box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
         }
 
         /* Webkit Slider Runnable Track */
         .${sliderClass} input[type=range]::-webkit-slider-runnable-track {
           width: 100%;
-          height: 8px;
+          height: 7.2px;
           cursor: pointer;
           background: transparent;
           border-radius: 9999px;
@@ -176,8 +176,8 @@ const Slider: React.FC<SliderProps> = ({
 
         /* Firefox Thumb */
         .${sliderClass} input[type=range]::-moz-range-thumb {
-          height: 16px;
-          width: 16px;
+          height: 14.4px;
+          width: 14.4px;
           border: 2px solid ${highlightBorder ? highlightColor : '#2563eb'};
           border-radius: 50%;
           background: #ffffff;
@@ -188,7 +188,7 @@ const Slider: React.FC<SliderProps> = ({
         /* Firefox Track */
         .${sliderClass} input[type=range]::-moz-range-track {
           width: 100%;
-          height: 8px;
+          height: 7.2px;
           cursor: pointer;
           background: transparent;
           border-radius: 9999px;

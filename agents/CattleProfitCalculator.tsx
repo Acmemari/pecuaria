@@ -128,7 +128,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
       rendimentoCarcaca: 54.5,  // 4. Rendimento de carcaça (%)
       valorVenda: 300,        // 5. Valor de venda (R$ por arroba)
       gmd: 0.65,              // 6. Ganho médio diário – GMD (kg/dia)
-      custoMensal: 135        // 7. Desembolso por cabeça ao mês (R$/cab/mês)
+      custoMensal: 135,       // 7. Desembolso por cabeça ao mês (R$/cab/mês)
+      lotacao: 1.5            // 8. Lotação (UA/HA)
     }
   );
 
@@ -143,7 +144,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
   const [isGmdChanged, setIsGmdChanged] = useState(false);
   
   // Estado para métrica selecionada na matriz de sensibilidade
-  const [selectedMetric, setSelectedMetric] = useState<'resultado' | 'tirMensal' | 'tirAnual' | 'margem'>('resultado');
+  const [selectedMetric, setSelectedMetric] = useState<'resultado' | 'tirMensal' | 'tirAnual' | 'margem' | 'resultadoPorHectareAno'>('resultado');
 
   // Update inputs when initialInputs changes
   useEffect(() => {
@@ -207,6 +208,25 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     const custoPorArrobaProduzida = arrobasProduzidas > 0 ? custoOperacional / arrobasProduzidas : 0;
     const custoPorArrobaFinal = pesoFinalArrobas > 0 ? custoTotal / pesoFinalArrobas : 0;
 
+    // Indicador 13: Giro de estoque
+    const giroEstoque = mesesPermanencia > 0 ? (12 / mesesPermanencia) * 100 : 0;
+
+    // Indicador 14: Produção @/ha
+    // Passo 1: Peso médio
+    const pesoMedio = (inputs.pesoCompra + inputs.pesoAbate) / 2;
+    // Passo 2: Lotação em cabeça
+    const lotacaoCabecas = pesoMedio > 0 ? (450 * inputs.lotacao) / pesoMedio : 0;
+    // Passo 3: Produção @/ha
+    const producaoArrobaPorHa = mesesPermanencia > 0 
+      ? (arrobasProduzidas / mesesPermanencia) * 12 * lotacaoCabecas 
+      : 0;
+
+    // Indicador 15: Resultado por @ final
+    const resultadoPorArrobaFinal = inputs.valorVenda - custoPorArrobaFinal;
+
+    // Indicador 16: Resultado por hectare ano
+    const resultadoPorHectareAno = resultadoPorArrobaFinal * producaoArrobaPorHa;
+
     setResults({
       pesoCompraArrobas,
       pesoFinalArrobas,
@@ -222,7 +242,11 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
       resultadoMensal,
       resultadoAnual,
       custoPorArrobaProduzida,
-      custoPorArrobaFinal
+      custoPorArrobaFinal,
+      giroEstoque,
+      producaoArrobaPorHa,
+      resultadoPorArrobaFinal,
+      resultadoPorHectareAno
     });
   }, [inputs]);
 
@@ -284,6 +308,15 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           case 'margem':
             metricValue = valorBoiVar > 0 ? (resultadoVar / valorBoiVar) * 100 : 0;
             break;
+          case 'resultadoPorHectareAno':
+            // Calcular resultado por @ final com as variações
+            const custoPorArrobaFinalVar = results.pesoFinalArrobas > 0 
+              ? (custoCompraVar + results.custoOperacional) / results.pesoFinalArrobas 
+              : 0;
+            const resultadoPorArrobaFinalVar = valorVendaVar - custoPorArrobaFinalVar;
+            // Produção @/ha permanece a mesma (não varia com valor de compra/venda)
+            metricValue = resultadoPorArrobaFinalVar * results.producaoArrobaPorHa;
+            break;
           default:
             metricValue = resultadoVar;
         }
@@ -317,6 +350,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
         return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
       case 'margem':
         return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+      case 'resultadoPorHectareAno':
+        return value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
       default:
         return value.toLocaleString('pt-BR');
     }
@@ -505,18 +540,24 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               highlightColor="#DAA520"
               description="O que é: É o desembolso total (custeios + investimentos) por cabeça/mês. Inclui nutrição (pasto/suplemento/ração), sanidade, mão de obra e custos fixos rateados. Apenas valor de aquisição do animal e pagamento de financiamentos não entram na conta. É utilizado o desembolso para que o foco seja na capacidade de geração de caixa e não no lucro contábil."
             />
+            <Slider 
+              index={8} 
+              label="LOTAÇÃO" 
+              value={inputs.lotacao} 
+              min={0.7} 
+              max={4.5} 
+              step={0.1} 
+              unit="UA/HA" 
+              onChange={(v) => handleInputChange('lotacao', v)}
+              description="Lotação em UA/ha é a relação entre o número de Unidades Animais (UA) presentes por hectare (ha) de área útil na fazenda. Cada UA representa 450 kg de peso vivo. Apesar de existirem fazendas com mais de 4,5 UA/ha de lotação, nossa aplicação manterá a faixa mais presentes nas fazendas monitoradas pela Inttegra."
+            />
           </div>
         </div>
 
         {/* Right Column: Dashboard Grid - Main Results Container */}
         <div className="flex-1 flex flex-col md:h-full overflow-hidden min-h-0">
-          <div className="mb-2 md:mb-3 flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-ai-text">Resultados</h2>
-            </div>
-          </div>
           {/* KPI Cards Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 shrink-0 mb-3 md:mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 shrink-0 mb-2 md:mb-3">
 
           {/* ═══════════════════════════════════════════════════════════════════
               ROW 1: PROFITABILITY METRICS (4 cards)
@@ -531,7 +572,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
           </div>
           <div>
-            <ResultCard label="4. MARGEM/CAB. %" value={`${results.margemVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
+            <ResultCard label="4. Margem %" value={`${results.margemVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════════
@@ -566,47 +607,72 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             <ResultCard label="12. Permanência" subLabel="meses" value={`${results.mesesPermanencia.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses`} description="Tempo de permanência convertido em meses para facilitar o planejamento do ciclo produtivo." />
           </div>
 
+          {/* ═══════════════════════════════════════════════════════════════════
+              ROW 4: NEW METRICS (4 cards)
+              ═══════════════════════════════════════════════════════════════════ */}
+          <div>
+            <ResultCard label="13. Giro de Estoque" value={`${results.giroEstoque.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} description="Indica quantas vezes o estoque de animais gira por ano. Calculado como 12 meses dividido pelo tempo de permanência em meses." />
+          </div>
+          <div>
+            <ResultCard label="14. Produção @/ha" value={`${results.producaoArrobaPorHa.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @/ha`} description="Produção de arrobas por hectare por ano. Considera a lotação, peso médio dos animais e arrobas produzidas." />
+          </div>
+          <div>
+            <ResultCard label="15. Resultado por @ Final" value={`R$ ${results.resultadoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Lucro ou prejuízo por arroba final. Diferença entre o valor de venda por arroba e o desembolso por arroba final." />
+          </div>
+          <div>
+            <ResultCard label="16. Resultado por Hectare/Ano" value={`R$ ${results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Resultado financeiro por hectare por ano. Multiplica o resultado por arroba final pela produção de arrobas por hectare." />
+          </div>
+
           </div>
 
           {/* Charts Section - Expands to fill remaining space */}
           <div className="flex-1 min-h-0">
             {/* Sensitivity Matrix - Full Width */}
-            <div className="bg-white rounded-lg border border-ai-border/60 p-3 flex flex-col relative overflow-hidden h-full">
-              <div className="flex items-center justify-between mb-3 shrink-0">
-                <div className="flex items-center gap-2">
-                  <Grid3X3 size={16} className="text-ai-subtext" />
-                  <span className="text-sm font-bold uppercase text-ai-subtext">Matriz de Sensibilidade</span>
+            <div className="bg-white rounded-lg border border-ai-border/60 p-2 flex flex-col relative overflow-hidden h-full">
+              <div className="flex items-center justify-between mb-2 shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <Grid3X3 size={14} className="text-ai-subtext" />
+                  <span className="text-xs font-bold uppercase text-ai-subtext">Matriz de Sensibilidade</span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   <select
                     value={selectedMetric}
-                    onChange={(e) => setSelectedMetric(e.target.value as 'resultado' | 'tirMensal' | 'tirAnual' | 'margem')}
-                    className="text-xs border border-gray-300 rounded px-2 py-1 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => setSelectedMetric(e.target.value as 'resultado' | 'tirMensal' | 'tirAnual' | 'margem' | 'resultadoPorHectareAno')}
+                    className="text-[10px] border border-gray-300 rounded px-1.5 py-0.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="resultado">Resultado/Boi (R$)</option>
                     <option value="tirMensal">TIR Mensal (%)</option>
                     <option value="tirAnual">Resultado/Ano (%)</option>
                     <option value="margem">Margem Final (%)</option>
+                    <option value="resultadoPorHectareAno">Resultado por Hectare/Ano (R$)</option>
                   </select>
-                  <span className="text-xs text-rose-400">● Prejuízo</span>
-                  <span className="text-xs text-emerald-500">● Lucro</span>
+                  <span className="text-[10px] text-rose-400">● Prejuízo</span>
+                  <span className="text-[10px] text-emerald-500">● Lucro</span>
                 </div>
               </div>
               
               {/* Tabela da Matriz */}
               <div className="flex-1 overflow-hidden">
-                <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+                <table className="w-full border-collapse text-[10px] table-fixed">
+                  <colgroup>
+                    <col style={{ width: '80px' }} />
+                    <col style={{ width: '60px' }} />
+                    <col style={{ width: '60px' }} />
+                    <col style={{ width: '60px' }} />
+                    <col style={{ width: '60px' }} />
+                    <col style={{ width: '60px' }} />
+                  </colgroup>
                   <thead>
                     <tr>
-                      <th className="px-1.5 text-left text-[8px] text-gray-500 font-medium border-b border-gray-200 bg-gray-50" style={{ paddingTop: '0.2625rem', paddingBottom: '0.2625rem' }}>
-                        <div className="leading-tight whitespace-nowrap">VENDA (R$/@) →</div>
-                        <div className="leading-tight text-gray-400 whitespace-nowrap">COMPRA (R$/KG) ↓</div>
+                      <th className="px-1 py-[0.297rem] text-left text-[10px] text-gray-500 font-medium border-b border-gray-200 bg-gray-50">
+                        <div className="leading-tight">VL. VENDA →</div>
+                        <div className="leading-tight text-gray-400">VL. COMPRA ↓</div>
                       </th>
                       {sensitivityMatrix.cols.map((col, i) => (
-                        <th key={i} className={`px-1 text-center border-b border-gray-200 ${col.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{ paddingTop: '0.2625rem', paddingBottom: '0.2625rem' }}>
-                          <div className="text-[8px] text-gray-400 leading-tight mb-0.5">{col.label}</div>
-                          <div className={`font-bold text-xs ${col.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`} style={{ fontSize: '0.75rem', lineHeight: '1.05rem' }}>
-                            <span className="text-[0.7em]">R$</span> {col.value}
+                        <th key={i} className={`px-1 py-[0.297rem] text-center border-b border-gray-200 ${col.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                          <div className="text-[9px] text-gray-400 leading-tight">{col.label}</div>
+                          <div className={`font-bold text-[10px] ${col.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
+                            {col.value}
                           </div>
                         </th>
                       ))}
@@ -615,10 +681,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                   <tbody>
                     {sensitivityMatrix.rows.map((row, rowIdx) => (
                       <tr key={rowIdx}>
-                        <td className={`px-1.5 border-r border-gray-200 ${row.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`} style={{ paddingTop: '0.2625rem', paddingBottom: '0.2625rem' }}>
-                          <div className="text-[8px] text-gray-400 leading-tight mb-0.5">{row.label}</div>
-                          <div className={`font-bold text-xs ${row.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`} style={{ fontSize: '0.75rem', lineHeight: '1.05rem' }}>
-                            <span style={{ fontSize: '0.7em' }}>R$</span> {row.valorCompra.toFixed(1)}<span style={{ fontSize: '0.7em' }}>/kg</span>
+                        <td className={`px-1 py-[0.297rem] border-r border-gray-200 text-[10px] ${row.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                          <div className="text-[9px] text-gray-400 leading-tight">{row.label}</div>
+                          <div className={`font-bold text-[10px] ${row.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
+                            {row.valorCompra.toFixed(1)}
                           </div>
                         </td>
                         {row.cells.map((cell, colIdx) => {
@@ -627,12 +693,15 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                           return (
                             <td 
                               key={colIdx} 
-                              className={`px-1.5 text-center font-bold text-xs ${colorClass}`}
-                              style={{ fontSize: '0.75rem', lineHeight: '1.05rem', paddingTop: '0.2625rem', paddingBottom: '0.2625rem' }}
+                              className={`px-1 py-[0.297rem] text-center font-bold text-[10px] ${colorClass}`}
                             >
-                              <div className="whitespace-nowrap">
-                                {formatCellValue(cell)}
-                              </div>
+                              {selectedMetric === 'resultado' || selectedMetric === 'resultadoPorHectareAno' ? (
+                                <>
+                                  <span className="text-[0.65em]">R$</span> {formatCellValue(cell)}
+                                </>
+                              ) : (
+                                formatCellValue(cell)
+                              )}
                             </td>
                           );
                         })}

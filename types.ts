@@ -6,6 +6,7 @@ export interface CattleCalculatorInputs {
   valorVenda: number;      // R$/@
   gmd: number;             // kg/dia
   custoMensal: number;     // R$/cab/mês
+  lotacao: number;         // UA/HA
 }
 
 export interface CalculationResults {
@@ -24,6 +25,10 @@ export interface CalculationResults {
   resultadoAnual: number;   // %
   custoPorArrobaProduzida: number;
   custoPorArrobaFinal: number;
+  giroEstoque: number;      // % - Indicador 13
+  producaoArrobaPorHa: number; // @/ha - Indicador 14
+  resultadoPorArrobaFinal: number; // R$ - Indicador 15
+  resultadoPorHectareAno: number; // R$ - Indicador 16
 }
 
 export interface Agent {
