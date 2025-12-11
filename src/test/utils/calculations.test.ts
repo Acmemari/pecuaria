@@ -12,7 +12,7 @@ function calculateCattleProfit(inputs: CattleCalculatorInputs): CalculationResul
 
   const weightGainNeeded = inputs.pesoAbate - inputs.pesoCompra;
   const diasPermanencia = weightGainNeeded > 0 ? weightGainNeeded / inputs.gmd : 0;
-  const mesesPermanencia = diasPermanencia / 30;
+  const mesesPermanencia = diasPermanencia / 30.41667;
 
   const valorBoi = pesoFinalArrobas * inputs.valorVenda;
   const custoCompra = inputs.pesoCompra * inputs.valorCompra;
@@ -109,8 +109,8 @@ describe('Cattle Profit Calculations', () => {
 
   it('should calculate mesesPermanencia correctly', () => {
     const result = calculateCattleProfit(baseInputs);
-    // diasPermanencia / 30 = 247.06 / 30 = 8.24
-    expect(result.mesesPermanencia).toBeCloseTo(8.24, 2);
+    // diasPermanencia / 30.41667 = 247.06 / 30.41667 = 8.12
+    expect(result.mesesPermanencia).toBeCloseTo(8.12, 2);
   });
 
   it('should calculate valorBoi correctly', () => {

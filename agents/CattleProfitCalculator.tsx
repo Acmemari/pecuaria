@@ -183,7 +183,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
     const weightGainNeeded = inputs.pesoAbate - inputs.pesoCompra;
     const diasPermanencia = weightGainNeeded > 0 ? weightGainNeeded / inputs.gmd : 0;
-    const mesesPermanencia = diasPermanencia / 30;
+    const mesesPermanencia = diasPermanencia / 30.41667;
 
     const valorBoi = pesoFinalArrobas * inputs.valorVenda;
     const custoCompra = inputs.pesoCompra * inputs.valorCompra;
@@ -394,7 +394,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
       if (gmdSim <= 0) return { gmd: 'N/A', lucro: 0 };
       const wGain = inputs.pesoAbate - inputs.pesoCompra;
       const days = wGain / gmdSim;
-      const months = days / 30;
+      const months = days / 30.41667;
       const opCost = months * inputs.custoMensal;
       const totalC = results.custoCompra + opCost;
       const profit = results.valorBoi - totalC;
@@ -579,10 +579,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               ROW 2: FINANCIAL METRICS (4 cards)
               ═══════════════════════════════════════════════════════════════════ */}
           <div>
-            <ResultCard label="5. Valor de Venda" value={`R$ ${results.valorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
+            <ResultCard label="5. Valor de Venda" value={`R$ ${Math.round(results.valorBoi).toLocaleString('pt-BR')}`} description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
           </div>
           <div>
-            <ResultCard label="6. Desemb. Total" value={`R$ ${results.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
+            <ResultCard label="6. Desemb. Total" value={`R$ ${Math.round(results.custoTotal).toLocaleString('pt-BR')}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
           </div>
           <div>
             <ResultCard label="7. Desemb./@ Produzida" value={`R$ ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Custo operacional dividido pelas arrobas produzidas. Indica a eficiência na produção de carne." />
@@ -671,8 +671,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                       {sensitivityMatrix.cols.map((col, i) => (
                         <th key={i} className={`px-1 py-[0.297rem] text-center border-b border-gray-200 ${col.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
                           <div className="text-[9px] text-gray-400 leading-tight">{col.label}</div>
-                          <div className={`font-bold text-[10px] ${col.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
-                            {col.value}
+                          <div className={`font-bold ${col.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
+                            <span className="text-[10.35px]">R$</span> <span className="text-[12.65px]">{col.value}</span>
                           </div>
                         </th>
                       ))}
@@ -683,8 +683,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                       <tr key={rowIdx}>
                         <td className={`px-1 py-[0.297rem] border-r border-gray-200 text-[10px] ${row.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
                           <div className="text-[9px] text-gray-400 leading-tight">{row.label}</div>
-                          <div className={`font-bold text-[10px] ${row.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
-                            {row.valorCompra.toFixed(1)}
+                          <div className={`font-bold ${row.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
+                            <span className="text-[10px]">R$</span> <span className="text-[11px]">{row.valorCompra.toFixed(1)}</span><span className="text-[10px]">/kg</span>
                           </div>
                         </td>
                         {row.cells.map((cell, colIdx) => {
@@ -693,15 +693,9 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                           return (
                             <td 
                               key={colIdx} 
-                              className={`px-1 py-[0.297rem] text-center font-bold text-[10px] ${colorClass}`}
+                              className={`px-1 py-[0.297rem] text-center font-bold text-[11px] ${colorClass}`}
                             >
-                              {selectedMetric === 'resultado' || selectedMetric === 'resultadoPorHectareAno' ? (
-                                <>
-                                  <span className="text-[0.65em]">R$</span> {formatCellValue(cell)}
-                                </>
-                              ) : (
-                                formatCellValue(cell)
-                              )}
+                              {formatCellValue(cell)}
                             </td>
                           );
                         })}
