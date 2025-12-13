@@ -9,6 +9,19 @@ interface PDFReportData {
   userName?: string;
 }
 
+export interface ComparatorScenario {
+  id: 'A' | 'B' | 'C';
+  name: string;
+  inputs: CattleCalculatorInputs;
+  results: CalculationResults;
+}
+
+export interface ComparatorPDFData {
+  scenarios: ComparatorScenario[];
+  userName?: string;
+  createdAt?: string;
+}
+
 export function generateReportPDF(data: PDFReportData): void {
   const { inputs, results, scenarioName, createdAt, userName } = data;
   const doc = new jsPDF({
@@ -309,6 +322,385 @@ export function generateReportPDF(data: PDFReportData): void {
   const fileName = scenarioName 
     ? `relatorio-${scenarioName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.pdf`
     : `relatorio-${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(fileName);
+}
+
+/**
+ * Generate PDF report for Comparator (3 scenarios comparison)
+ */
+export function generateComparatorPDF(data: ComparatorPDFData): void {
+  const { scenarios, userName, createdAt } = data;
+  
+  if (scenarios.length !== 3) {
+    throw new Error('É necessário ter exatamente 3 cenários para gerar o relatório comparativo');
+  }
+
+  const scenarioA = scenarios.find(s => s.id === 'A');
+  const scenarioB = scenarios.find(s => s.id === 'B');
+  const scenarioC = scenarios.find(s => s.id === 'C');
+
+  if (!scenarioA || !scenarioB || !scenarioC) {
+    throw new Error('Cenários A, B e C são obrigatórios');
+  }
+
+  // Determine winning scenario (based on resultadoPorHectareAno)
+  const winningScenario = [scenarioA, scenarioB, scenarioC].reduce((prev, curr) => 
+    curr.results.resultadoPorHectareAno > prev.results.resultadoPorHectareAno ? curr : prev
+  );
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  const margin = 10;
+  const contentWidth = pageWidth - (margin * 2);
+  let yPos = margin;
+
+  // Helper functions
+  const addText = (text: string, x: number, y: number, fontSize: number = 10, isBold: boolean = false, maxWidth?: number, align: 'left' | 'center' | 'right' = 'left') => {
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+    if (maxWidth) {
+      const lines = doc.splitTextToSize(text, maxWidth);
+      doc.text(lines, x, y, { align });
+      return lines.length * (fontSize * 0.4);
+    } else {
+      doc.text(text, x, y, { align });
+      return fontSize * 0.4;
+    }
+  };
+
+  const formatCurrency = (value: number): string => {
+    return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatPercent = (value: number): string => {
+    return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  };
+
+  // 1. Header
+  addText('Calculadora de Resultado Pecuário - Análise de Cenários', pageWidth / 2, yPos, 14, true, contentWidth, 'center');
+  yPos += 8;
+
+  if (userName) {
+    addText(`Gerado por: ${userName}`, margin, yPos, 10);
+    yPos += 5;
+  }
+
+  const dateStr = createdAt 
+    ? new Date(createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  addText(`Data: ${dateStr}`, margin, yPos, 10);
+  yPos += 8;
+
+  // 2. Winning Scenario Cards (4 cards)
+  if (yPos > pageHeight - 60) {
+    doc.addPage();
+    yPos = margin;
+  }
+
+  addText('CENÁRIO VENCEDOR', pageWidth / 2, yPos, 12, true, contentWidth, 'center');
+  yPos += 6;
+  addText(winningScenario.name, pageWidth / 2, yPos, 11, true, contentWidth, 'center');
+  yPos += 7;
+
+  const cardWidth = (contentWidth - 15) / 4;
+  const cardHeight = 28;
+  const cardSpacing = 5;
+
+  // Calculate percentage increase compared to base scenario (A)
+  const baseValue = scenarioA.results.resultadoPorHectareAno;
+  const winningValue = winningScenario.results.resultadoPorHectareAno;
+  const percentIncrease = baseValue > 0 
+    ? ((winningValue / baseValue - 1) * 100).toFixed(0)
+    : '0';
+
+  const winningCards = [
+    { 
+      label: 'LUCRO/HA', 
+      value: formatCurrency(winningScenario.results.resultadoPorHectareAno),
+      subValue: `+${percentIncrease}%`
+    },
+    { 
+      label: 'MARGEM LÍQUIDA', 
+      value: formatPercent(winningScenario.results.margemVenda)
+    },
+    { 
+      label: 'ROI MENSAL', 
+      value: formatPercent(winningScenario.results.resultadoMensal)
+    },
+    { 
+      label: 'GMD (GANHO)', 
+      value: `${winningScenario.inputs.gmd.toFixed(2)} kg/dia`
+    }
+  ];
+
+  winningCards.forEach((card, index) => {
+    const x = margin + (index * (cardWidth + cardSpacing));
+    const y = yPos;
+
+    // Card background
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.rect(x, y, cardWidth, cardHeight);
+
+    // Label - centered
+    addText(card.label, x + cardWidth / 2, y + 7, 8, false, cardWidth - 6, 'center');
+    
+    // Value - centered and larger
+    doc.setTextColor(34, 139, 34);
+    addText(card.value, x + cardWidth / 2, y + 16, 11, true, cardWidth - 6, 'center');
+    
+    // Sub value (if exists) - centered
+    if (card.subValue) {
+      doc.setTextColor(0, 100, 0);
+      addText(card.subValue, x + cardWidth / 2, y + 23, 8, false, cardWidth - 6, 'center');
+    }
+    
+    doc.setTextColor(0, 0, 0);
+  });
+
+  yPos += cardHeight + 10;
+
+  // 3. Premises Table
+  if (yPos > pageHeight - 100) {
+    doc.addPage();
+    yPos = margin;
+  }
+
+  addText('MATRIZ DE PREMISSAS E RESULTADOS COMPARATIVOS', pageWidth / 2, yPos, 11, true, contentWidth, 'center');
+  yPos += 7;
+
+  const tableStartY = yPos;
+  const colWidth = (contentWidth - 20) / 4;
+  const rowHeight = 6;
+  const headerHeight = 10;
+
+  // Table headers
+  doc.setFillColor(240, 240, 240);
+  doc.rect(margin, tableStartY, colWidth, headerHeight, 'F');
+  doc.setDrawColor(200, 200, 200);
+  doc.rect(margin, tableStartY, colWidth, headerHeight);
+  doc.setTextColor(0, 0, 0);
+  addText('ITEM', margin + colWidth / 2, tableStartY + 7, 8, true, colWidth - 4, 'center');
+  
+  doc.setFillColor(240, 240, 240);
+  doc.rect(margin + colWidth, tableStartY, colWidth, headerHeight, 'F');
+  doc.setDrawColor(200, 200, 200);
+  doc.rect(margin + colWidth, tableStartY, colWidth, headerHeight);
+  doc.setTextColor(0, 0, 0);
+  addText(scenarioA.name, margin + colWidth + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
+  
+  doc.setFillColor(240, 240, 240);
+  doc.rect(margin + (colWidth * 2), tableStartY, colWidth, headerHeight, 'F');
+  doc.setDrawColor(200, 200, 200);
+  doc.rect(margin + (colWidth * 2), tableStartY, colWidth, headerHeight);
+  doc.setTextColor(0, 0, 0);
+  addText(scenarioB.name, margin + (colWidth * 2) + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
+  
+  doc.setFillColor(240, 240, 240);
+  doc.rect(margin + (colWidth * 3), tableStartY, colWidth, headerHeight, 'F');
+  doc.setDrawColor(200, 200, 200);
+  doc.rect(margin + (colWidth * 3), tableStartY, colWidth, headerHeight);
+  doc.setTextColor(0, 0, 0);
+  addText(scenarioC.name, margin + (colWidth * 3) + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
+
+  yPos = tableStartY + headerHeight;
+
+  // Premises rows
+  const premissasItems = [
+    { label: 'Peso Compra (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoCompra}` },
+    { label: 'Valor Compra (R$/kg)', getValue: (s: ComparatorScenario) => s.inputs.valorCompra.toFixed(2) },
+    { label: 'Peso Vivo Abate (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoAbate}` },
+    { label: 'Rend. Carcaça (%)', getValue: (s: ComparatorScenario) => s.inputs.rendimentoCarcaca.toFixed(2) },
+    { label: 'Valor Venda (R$/@)', getValue: (s: ComparatorScenario) => `${s.inputs.valorVenda}` },
+    { label: 'GMD (kg/dia)', getValue: (s: ComparatorScenario) => s.inputs.gmd.toFixed(2) },
+    { label: 'Desembolso/Mês (R$)', getValue: (s: ComparatorScenario) => `${s.inputs.custoMensal}` },
+    { label: 'Lotação (UA/ha)', getValue: (s: ComparatorScenario) => s.inputs.lotacao.toFixed(2) }
+  ];
+
+  // Results rows
+  const resultadosItems = [
+    { label: 'Lucro/Boi (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorBoi) },
+    { label: 'Retorno Mensal (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.resultadoMensal) },
+    { label: 'Margem Líquida (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.margemVenda) },
+    { label: 'Resultado/Ha (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorHectareAno) }
+  ];
+
+  // Draw premises table
+  [...premissasItems, ...resultadosItems].forEach((item, index) => {
+    if (yPos > pageHeight - 20) {
+      doc.addPage();
+      yPos = margin;
+    }
+
+    const rowY = yPos;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.2);
+
+    // Item column - with background
+    doc.setFillColor(255, 255, 255);
+    doc.rect(margin, rowY, colWidth, rowHeight, 'F');
+    doc.rect(margin, rowY, colWidth, rowHeight);
+    doc.setTextColor(0, 0, 0);
+    addText(item.label, margin + colWidth / 2, rowY + 4.5, 7, false, colWidth - 4, 'center');
+
+    // Scenario A - with background
+    doc.setFillColor(255, 255, 255);
+    doc.rect(margin + colWidth, rowY, colWidth, rowHeight, 'F');
+    doc.rect(margin + colWidth, rowY, colWidth, rowHeight);
+    doc.setTextColor(0, 0, 0);
+    addText(item.getValue(scenarioA), margin + colWidth + colWidth / 2, rowY + 4.5, 7, true, colWidth - 4, 'center');
+
+    // Scenario B - with background
+    doc.setFillColor(255, 255, 255);
+    doc.rect(margin + (colWidth * 2), rowY, colWidth, rowHeight, 'F');
+    doc.rect(margin + (colWidth * 2), rowY, colWidth, rowHeight);
+    doc.setTextColor(0, 0, 0);
+    addText(item.getValue(scenarioB), margin + (colWidth * 2) + colWidth / 2, rowY + 4.5, 7, true, colWidth - 4, 'center');
+
+    // Scenario C - with background
+    doc.setFillColor(255, 255, 255);
+    doc.rect(margin + (colWidth * 3), rowY, colWidth, rowHeight, 'F');
+    doc.rect(margin + (colWidth * 3), rowY, colWidth, rowHeight);
+    doc.setTextColor(0, 0, 0);
+    addText(item.getValue(scenarioC), margin + (colWidth * 3) + colWidth / 2, rowY + 4.5, 7, true, colWidth - 4, 'center');
+
+    yPos += rowHeight;
+  });
+
+  yPos += 5;
+
+  // 4. Charts (4 bar charts comparing results) - Increased height by 30%
+  const chartWidth = (contentWidth - 20) / 2;
+  const chartHeight = 45.5; // 35 * 1.3 = 45.5
+  const chartSpacing = 8;
+
+  const charts = [
+    { 
+      title: 'MARGEM LÍQUIDA (%)', 
+      getValue: (s: ComparatorScenario) => s.results.margemVenda,
+      format: (v: number) => formatPercent(v),
+      maxValue: Math.max(scenarioA.results.margemVenda, scenarioB.results.margemVenda, scenarioC.results.margemVenda) * 1.1
+    },
+    { 
+      title: 'RESULTADO POR HECTARE (R$)', 
+      getValue: (s: ComparatorScenario) => s.results.resultadoPorHectareAno,
+      format: (v: number) => formatCurrency(v),
+      maxValue: Math.max(scenarioA.results.resultadoPorHectareAno, scenarioB.results.resultadoPorHectareAno, scenarioC.results.resultadoPorHectareAno) * 1.1
+    },
+    { 
+      title: 'LUCRO POR BOI (R$)', 
+      getValue: (s: ComparatorScenario) => s.results.resultadoPorBoi,
+      format: (v: number) => formatCurrency(v),
+      maxValue: Math.max(scenarioA.results.resultadoPorBoi, scenarioB.results.resultadoPorBoi, scenarioC.results.resultadoPorBoi) * 1.1
+    },
+    { 
+      title: 'RETORNO MENSAL (%)', 
+      getValue: (s: ComparatorScenario) => s.results.resultadoMensal,
+      format: (v: number) => formatPercent(v),
+      maxValue: Math.max(scenarioA.results.resultadoMensal, scenarioB.results.resultadoMensal, scenarioC.results.resultadoMensal) * 1.1
+    }
+  ];
+
+  // Draw charts in 2x2 grid
+  let firstRowY = yPos;
+  let secondRowY = firstRowY + chartHeight + chartSpacing;
+
+  // Check if we need a new page for charts (with margin for footer)
+  if (secondRowY + chartHeight > pageHeight - 15) {
+    doc.addPage();
+    firstRowY = margin;
+    secondRowY = firstRowY + chartHeight + chartSpacing;
+  }
+
+  charts.forEach((chart, chartIndex) => {
+    const isSecondRow = chartIndex >= 2;
+    const chartY = isSecondRow ? secondRowY : firstRowY;
+    const chartX = margin + ((chartIndex % 2) * (chartWidth + chartSpacing));
+
+    // Chart title
+    addText(chart.title, chartX + chartWidth / 2, chartY, 8, true, chartWidth, 'center');
+    const titleY = chartY + 5;
+
+    // Chart area - reduced to fit margins
+    const yAxisWidth = 18; // Reduced width
+    const barWidth = (chartWidth - yAxisWidth - 10) / 3;
+    const barSpacing = 4;
+    const chartAreaHeight = chartHeight - 25; // More space for labels
+    const chartAreaY = titleY + 5;
+    const chartAreaX = chartX + yAxisWidth;
+
+    // Y-axis with intermediate values - closer to the chart
+    const yAxisX = chartAreaX - 2; // Very close to the chart
+    const numYLabels = 5; // 0, 25%, 50%, 75%, 100%
+    
+    for (let i = 0; i <= numYLabels; i++) {
+      const ratio = i / numYLabels;
+      const value = chart.maxValue * ratio;
+      const labelY = chartAreaY + chartAreaHeight - (ratio * chartAreaHeight);
+      const valueStr = i === 0 ? '0' : chart.format(value);
+      addText(valueStr, yAxisX, labelY + 1.5, 5, false, 12, 'right');
+    }
+
+    // Y-axis line - right next to the chart
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineWidth(0.3);
+    doc.line(chartAreaX, chartAreaY, chartAreaX, chartAreaY + chartAreaHeight);
+
+    // Bars
+    const chartScenarios = [scenarioA, scenarioB, scenarioC];
+    const colors = [[59, 130, 246], [34, 197, 94], [249, 115, 22]]; // Blue, Green, Orange
+
+    chartScenarios.forEach((scenario, barIndex) => {
+      const value = chart.getValue(scenario);
+      const barHeight = (value / chart.maxValue) * chartAreaHeight;
+      const barX = chartAreaX + 2 + (barIndex * (barWidth + barSpacing));
+      const barY = chartAreaY + chartAreaHeight - barHeight;
+
+      // Draw bar
+      doc.setFillColor(colors[barIndex][0], colors[barIndex][1], colors[barIndex][2]);
+      doc.rect(barX, barY, barWidth, barHeight, 'F');
+
+      // Bar value label - always show above the bar
+      doc.setTextColor(0, 0, 0);
+      const valueStr = chart.format(value);
+      addText(valueStr, barX + barWidth / 2, barY - 2, 6, true, barWidth, 'center');
+    });
+
+    // X-axis line
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineWidth(0.3);
+    const xAxisStartX = chartAreaX + 2;
+    const xAxisEndX = xAxisStartX + (3 * (barWidth + barSpacing)) - barSpacing;
+    doc.line(xAxisStartX, chartAreaY + chartAreaHeight, xAxisEndX, chartAreaY + chartAreaHeight);
+
+    // X-axis labels - scenario names only (values are shown above bars)
+    chartScenarios.forEach((scenario, barIndex) => {
+      const barX = chartAreaX + 2 + (barIndex * (barWidth + barSpacing));
+      
+      const scenarioLabel = scenario.name.includes('(') 
+        ? scenario.name.split('(')[1]?.replace(')', '') || scenario.id
+        : scenario.name.split(' ')[1] || scenario.id;
+      
+      // Show scenario name below x-axis line
+      const labelY = chartAreaY + chartAreaHeight + 5;
+      addText(scenarioLabel, barX + barWidth / 2, labelY, 5, false, barWidth, 'center');
+    });
+  });
+
+  // Footer
+  const footerY = pageHeight - margin - 5;
+  doc.setFontSize(8);
+  doc.setTextColor(128, 128, 128);
+  doc.text('Gerado por PecuarIA - Calculadora de Resultado Pecuário', pageWidth / 2, footerY, { align: 'center' });
+
+  // Save PDF
+  const fileName = `comparativo-cenarios-${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(fileName);
 }
 

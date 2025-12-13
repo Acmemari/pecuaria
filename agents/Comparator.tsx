@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Slider from '../components/Slider';
 import { CattleCalculatorInputs, CalculationResults } from '../types';
-import { Save, Edit2, Check, X, TrendingUp } from 'lucide-react';
+import { Save, Edit2, Check, X, TrendingUp, FileText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Toast } from '../components/Toast';
 import { saveScenario } from '../lib/scenarios';
+import { generateComparatorPDF } from '../lib/generateReportPDF';
 
 interface ComparatorProps {
   onToast?: (toast: Toast) => void;
@@ -272,6 +273,46 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
     setIsSaveModalOpen(true);
   };
 
+  const handleGeneratePDF = () => {
+    try {
+      if (scenarios.length !== 3) {
+        onToast?.({ id: Date.now().toString(), message: 'É necessário ter 3 cenários para gerar o relatório', type: 'error' });
+        return;
+      }
+
+      const scenarioA = scenarios.find(s => s.id === 'A');
+      const scenarioB = scenarios.find(s => s.id === 'B');
+      const scenarioC = scenarios.find(s => s.id === 'C');
+
+      if (!scenarioA || !scenarioB || !scenarioC || !scenarioA.results || !scenarioB.results || !scenarioC.results) {
+        onToast?.({ id: Date.now().toString(), message: 'Todos os cenários devem ter resultados calculados', type: 'error' });
+        return;
+      }
+
+      generateComparatorPDF({
+        scenarios: [
+          { id: 'A', name: scenarioA.name, inputs: scenarioA.inputs, results: scenarioA.results },
+          { id: 'B', name: scenarioB.name, inputs: scenarioB.inputs, results: scenarioB.results },
+          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results }
+        ],
+        userName: user?.name || user?.email || undefined,
+        createdAt: new Date().toISOString()
+      });
+
+      onToast?.({
+        id: Date.now().toString(),
+        message: 'Relatório PDF gerado com sucesso!',
+        type: 'success'
+      });
+    } catch (error: any) {
+      onToast?.({
+        id: Date.now().toString(),
+        message: error.message || 'Erro ao gerar relatório PDF',
+        type: 'error'
+      });
+    }
+  };
+
   const handleSave = async () => {
     if (!user || !saveName.trim()) {
       onToast?.({ id: Date.now().toString(), message: 'Informe um nome para o comparativo', type: 'error' });
@@ -370,8 +411,16 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
 
   return (
     <div className="h-full flex flex-col gap-1 overflow-visible p-1.5 comparator-container">
-      {/* Header with Save button */}
-      <div className="flex items-center justify-end shrink-0 mb-0.5">
+      {/* Header with Save and PDF buttons */}
+      <div className="flex items-center justify-end gap-2 shrink-0 mb-0.5">
+        <button
+          onClick={handleGeneratePDF}
+          className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors flex items-center gap-1"
+          title="Gerar relatório PDF"
+        >
+          <FileText size={12} />
+          PDF
+        </button>
         {user && (
           <button
             onClick={handleSaveClick}
