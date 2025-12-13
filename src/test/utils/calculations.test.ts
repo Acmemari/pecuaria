@@ -46,7 +46,11 @@ function calculateCattleProfit(inputs: CattleCalculatorInputs): CalculationResul
   const resultadoPorArrobaFinal = inputs.valorVenda - custoPorArrobaFinal;
 
   // Indicador 16: Resultado por hectare ano
-  const resultadoPorHectareAno = resultadoPorArrobaFinal * producaoArrobaPorHa;
+  // Usar 5 casas decimais para o tempo de permanência em meses
+  const mesesPermanenciaArredondado = Math.round(mesesPermanencia * 100000) / 100000;
+  const resultadoPorHectareAno = mesesPermanenciaArredondado > 0 
+    ? (resultadoPorBoi / mesesPermanenciaArredondado) * 12 * lotacaoCabecas 
+    : 0;
 
   return {
     pesoCompraArrobas,

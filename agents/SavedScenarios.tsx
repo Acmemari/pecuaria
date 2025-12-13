@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save } from 'lucide-react';
+import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, FileText } from 'lucide-react';
 import { CattleScenario } from '../types';
 import { getSavedScenarios, deleteScenario, getScenario } from '../lib/scenarios';
 import { useAuth } from '../contexts/AuthContext';
 import EditScenarioNameModal from '../components/EditScenarioNameModal';
 import { updateScenario } from '../lib/scenarios';
 import { CattleCalculatorInputs, CalculationResults } from '../types';
+import { generateReportPDF } from '../lib/generateReportPDF';
 
 interface SavedScenariosProps {
   onLoadScenario: (inputs: CattleCalculatorInputs) => void;
@@ -96,6 +97,26 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({ onLoadScenario, onNavig
       alert(err.message || 'Erro ao atualizar cenário');
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleDownloadReport = async (scenario: CattleScenario) => {
+    if (!scenario.results) {
+      alert('Este cenário não possui resultados para gerar o relatório. Visualize o cenário primeiro.');
+      return;
+    }
+
+    try {
+      generateReportPDF({
+        inputs: scenario.inputs,
+        results: scenario.results,
+        scenarioName: scenario.name,
+        createdAt: scenario.created_at,
+        userName: user?.name
+      });
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      alert('Erro ao gerar relatório PDF: ' + (err.message || 'Erro desconhecido'));
     }
   };
 
@@ -193,6 +214,14 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({ onLoadScenario, onNavig
                       title="Visualizar"
                     >
                       <Eye size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDownloadReport(scenario)}
+                      disabled={!scenario.results}
+                      className="p-1.5 text-ai-subtext hover:text-purple-600 hover:bg-ai-surface rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Download Relatório PDF"
+                    >
+                      <FileText size={16} />
                     </button>
                     <button
                       onClick={() => handleEdit(scenario)}

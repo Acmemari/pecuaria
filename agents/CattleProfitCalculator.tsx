@@ -124,7 +124,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     initialInputs || {
       pesoCompra: 200,        // 1. Peso de compra (kg)
       valorCompra: 14.50,     // 2. Valor de compra (R$/kg)
-      pesoAbate: 360,         // 3. Peso vivo ao abate (kg)
+      pesoAbate: 530,         // 3. Peso vivo ao abate (kg)
       rendimentoCarcaca: 54.5,  // 4. Rendimento de carcaça (%)
       valorVenda: 300,        // 5. Valor de venda (R$ por arroba)
       gmd: 0.65,              // 6. Ganho médio diário – GMD (kg/dia)
@@ -225,7 +225,11 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     const resultadoPorArrobaFinal = inputs.valorVenda - custoPorArrobaFinal;
 
     // Indicador 16: Resultado por hectare ano
-    const resultadoPorHectareAno = resultadoPorArrobaFinal * producaoArrobaPorHa;
+    // Usar 5 casas decimais para o tempo de permanência em meses
+    const mesesPermanenciaArredondado = Math.round(mesesPermanencia * 100000) / 100000;
+    const resultadoPorHectareAno = mesesPermanenciaArredondado > 0 
+      ? (resultadoPorBoi / mesesPermanenciaArredondado) * 12 * lotacaoCabecas 
+      : 0;
 
     setResults({
       pesoCompraArrobas,
@@ -437,10 +441,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
   return (
     <>
-      <div className="h-full flex flex-col md:flex-row gap-2 md:gap-4">
+      <div className="min-h-full flex flex-col md:flex-row gap-2 md:gap-4">
 
         {/* Left Column: Inputs - Full width on mobile, fixed width on desktop */}
-        <div className="w-full md:w-[300px] flex flex-col shrink-0 md:h-full overflow-hidden">
+        <div className="w-full md:w-[300px] flex flex-col shrink-0 md:h-full md:overflow-hidden overflow-visible">
           <div className="mb-2 md:mb-3 flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={18} className="text-ai-subtext" />
@@ -555,74 +559,25 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
         </div>
 
         {/* Right Column: Dashboard Grid - Main Results Container */}
-        <div className="flex-1 flex flex-col md:h-full overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col md:h-full md:overflow-hidden overflow-visible min-h-0">
           {/* KPI Cards Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 shrink-0 mb-2 md:mb-3">
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              ROW 1: PROFITABILITY METRICS (4 cards)
-              ═══════════════════════════════════════════════════════════════════ */}
-          <div>
             <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
-          </div>
-          <div>
             <ResultCard label="2. TIR Mensal" value={`${results.resultadoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.m.`} description="Taxa Interna de Retorno mensal. Indica o rendimento percentual do capital investido por mês de operação." />
-          </div>
-          <div>
             <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
-          </div>
-          <div>
             <ResultCard label="4. Margem %" value={`${results.margemVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              ROW 2: FINANCIAL METRICS (4 cards)
-              ═══════════════════════════════════════════════════════════════════ */}
-          <div>
             <ResultCard label="5. Valor de Venda" value={`R$ ${Math.round(results.valorBoi).toLocaleString('pt-BR')}`} description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
-          </div>
-          <div>
             <ResultCard label="6. Desemb. Total" value={`R$ ${Math.round(results.custoTotal).toLocaleString('pt-BR')}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
-          </div>
-          <div>
             <ResultCard label="7. Desemb./@ Produzida" value={`R$ ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Custo operacional dividido pelas arrobas produzidas. Indica a eficiência na produção de carne." />
-          </div>
-          <div>
             <ResultCard label="8. Desemb./@ Final" value={`R$ ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Desembolso total dividido pelo peso final em arrobas. É o custo médio por arroba do animal pronto." />
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              ROW 3: ZOOTECHNICAL METRICS (4 cards)
-              ═══════════════════════════════════════════════════════════════════ */}
-          <div>
             <ResultCard label="9. Peso Final" subLabel="arrobas" value={`${results.pesoFinalArrobas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @`} description="Peso do animal ao abate convertido em arrobas, considerando o rendimento de carcaça." />
-          </div>
-          <div>
             <ResultCard label="10. Arrobas Produzidas" value={`${results.arrobasProduzidas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @`} description="Diferença entre o peso final e o peso de entrada, ambos em arrobas. Representa a produção de carne." />
-          </div>
-          <div>
             <ResultCard label="11. Permanência" subLabel="dias" value={`${results.diasPermanencia.toFixed(0)} dias`} description="Tempo necessário para o animal ganhar o peso desejado, calculado com base no GMD." />
-          </div>
-          <div>
             <ResultCard label="12. Permanência" subLabel="meses" value={`${results.mesesPermanencia.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses`} description="Tempo de permanência convertido em meses para facilitar o planejamento do ciclo produtivo." />
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              ROW 4: NEW METRICS (4 cards)
-              ═══════════════════════════════════════════════════════════════════ */}
-          <div>
             <ResultCard label="13. Giro de Estoque" value={`${results.giroEstoque.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} description="Indica quantas vezes o estoque de animais gira por ano. Calculado como 12 meses dividido pelo tempo de permanência em meses." />
-          </div>
-          <div>
             <ResultCard label="14. Produção @/ha" value={`${results.producaoArrobaPorHa.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @/ha`} description="Produção de arrobas por hectare por ano. Considera a lotação, peso médio dos animais e arrobas produzidas." />
-          </div>
-          <div>
             <ResultCard label="15. Resultado por @ Final" value={`R$ ${results.resultadoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Lucro ou prejuízo por arroba final. Diferença entre o valor de venda por arroba e o desembolso por arroba final." />
-          </div>
-          <div>
-            <ResultCard label="16. Resultado por Hectare/Ano" value={`R$ ${results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Resultado financeiro por hectare por ano. Multiplica o resultado por arroba final pela produção de arrobas por hectare." />
-          </div>
-
+            <ResultCard label="16. Resultado por Hectare/Ano" value={`R$ ${results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Resultado financeiro por hectare por ano. Calculado como: (Resultado por Boi / Tempo de Permanência em Meses) × 12 × Lotação em Cabeças." />
           </div>
 
           {/* Charts Section - Expands to fill remaining space */}

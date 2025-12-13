@@ -6,7 +6,7 @@ import SettingsPage from './components/SettingsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Agent } from './types';
-import { Menu, Construction, Loader2 } from 'lucide-react';
+import { Menu, Construction, Loader2, Grid3X3, ArrowLeftRight } from 'lucide-react';
 import { ToastContainer, Toast } from './components/Toast';
 
 // Lazy load auth pages
@@ -15,6 +15,7 @@ const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
 
 // Lazy load agents for code splitting
 const CattleProfitCalculator = lazy(() => import('./agents/CattleProfitCalculator'));
+const Comparator = lazy(() => import('./agents/Comparator'));
 const ChatAgent = lazy(() => import('./agents/ChatAgent'));
 const AdminDashboard = lazy(() => import('./agents/AdminDashboard'));
 const MarketTrends = lazy(() => import('./agents/MarketTrends'));
@@ -30,6 +31,7 @@ const LoadingFallback: React.FC = () => (
 const AppContent: React.FC = () => {
   const { user, isLoading, logout, checkPermission, upgradePlan, isPasswordRecovery, clearPasswordRecovery } = useAuth() as any;
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
+  const [viewMode, setViewMode] = useState<'simulator' | 'comparator'>('simulator');
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
   const [authPage, setAuthPage] = useState<'login' | 'forgot-password'>('login');
@@ -303,6 +305,13 @@ const AppContent: React.FC = () => {
 
     switch (activeAgentId) {
       case 'cattle-profit':
+        if (viewMode === 'comparator') {
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <Comparator onToast={addToast} />
+            </Suspense>
+          );
+        }
         return (
           <Suspense fallback={<LoadingFallback />}>
             <CattleProfitCalculator
@@ -400,6 +409,32 @@ const AppContent: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2">
+            {activeAgentId === 'cattle-profit' && (
+              <div className="flex items-center gap-2 mr-4">
+                <button
+                  onClick={() => setViewMode('simulator')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                    viewMode === 'simulator'
+                      ? 'bg-ai-surface text-ai-text'
+                      : 'bg-white border border-ai-border text-ai-subtext hover:bg-ai-surface'
+                  }`}
+                >
+                  <Grid3X3 size={14} />
+                  Simulador
+                </button>
+                <button
+                  onClick={() => setViewMode('comparator')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                    viewMode === 'comparator'
+                      ? 'bg-ai-accent text-white'
+                      : 'bg-white border border-ai-border text-ai-subtext hover:bg-ai-surface'
+                  }`}
+                >
+                  <ArrowLeftRight size={14} />
+                  Comparador
+                </button>
+              </div>
+            )}
             <div className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-ai-surface2 text-ai-subtext border border-ai-border">
               v1.3 SaaS
             </div>
