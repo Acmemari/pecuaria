@@ -320,7 +320,7 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 
 ### 5. Admin Dashboard
 - **Acesso:** Apenas role 'admin'
-- **Funcionalidades:** Gestão de clientes, uso de tokens
+- **Funcionalidades:** Gestão de usuários, uso de tokens
 
 ### 6. Treinar Antonio
 - **Acesso:** Apenas role 'admin'

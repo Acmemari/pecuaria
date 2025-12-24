@@ -124,7 +124,7 @@ const AppContent: React.FC = () => {
             } as Agent,
             {
               id: 'admin-dashboard',
-              name: 'Gestão de Clientes',
+              name: 'Gestão de Usuários',
               description: 'Painel mestre administrativo',
               icon: 'users',
               category: 'admin',

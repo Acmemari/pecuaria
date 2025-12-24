@@ -98,7 +98,7 @@
 - `App.tsx` - Chat "Pergunte p/ Antonio" desbloqueado
   - Status alterado de 'locked' para 'active'
   - Removido bloqueio de acesso no useEffect
-  - Gestão de Clientes (AdminDashboard) permanece disponível para usuários admin
+  - Gestão de Usuários (AdminDashboard) permanece disponível para usuários admin
 
 ### Documentação
 - Atualizado README.md com:

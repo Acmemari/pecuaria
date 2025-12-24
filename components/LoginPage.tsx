@@ -118,7 +118,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
                         <p className="text-[10px] sm:text-xs text-ai-subtext mt-1">
                             {isSignup
                                 ? 'Preencha os dados abaixo para começar.'
-                                : 'Entre com suas credenciais de cliente ou administrador.'}
+                                : 'Entre com suas credenciais de usuário ou administrador.'}
                         </p>
                     </div>
 

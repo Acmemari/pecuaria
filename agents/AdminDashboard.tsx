@@ -24,19 +24,42 @@ const AdminDashboard: React.FC = () => {
     email: string;
     qualification: 'visitante' | 'cliente' | 'analista';
     status: 'active' | 'inactive';
+    organizationId?: string | null;
   } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [isLoadingOrganizations, setIsLoadingOrganizations] = useState(false);
   const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   useEffect(() => {
     // Verify admin permission before loading
     if (currentUser?.role === 'admin') {
       loadClients();
+      loadOrganizations();
     } else if (currentUser && currentUser.role !== 'admin') {
       setError('Acesso negado. Apenas administradores podem visualizar esta página.');
       setIsLoading(false);
     }
   }, [currentUser]);
+
+  const loadOrganizations = async () => {
+    setIsLoadingOrganizations(true);
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('id, name, status')
+        .eq('status', 'active')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setOrganizations(data || []);
+    } catch (error: any) {
+      console.error('[AdminDashboard] Error loading organizations:', error);
+      // Não mostrar erro ao usuário, apenas log
+    } finally {
+      setIsLoadingOrganizations(false);
+    }
+  };
 
   const loadClients = async (retries = 3, delay = 1000) => {
     // Verify admin permission
@@ -81,7 +104,7 @@ const AdminDashboard: React.FC = () => {
             continue;
           }
 
-          setError(`Erro ao carregar clientes: ${queryError.message || 'Erro desconhecido'}`);
+          setError(`Erro ao carregar usuários: ${queryError.message || 'Erro desconhecido'}`);
           setIsLoading(false);
           return;
         }
@@ -137,7 +160,7 @@ const AdminDashboard: React.FC = () => {
           continue;
         }
         
-        setError(`Erro inesperado ao carregar clientes: ${error.message || 'Erro desconhecido'}`);
+        setError(`Erro inesperado ao carregar usuários: ${error.message || 'Erro desconhecido'}`);
       } finally {
         if (attempt === retries - 1) {
           setIsLoading(false);
@@ -200,15 +223,25 @@ const AdminDashboard: React.FC = () => {
         status: editingClientData.status
       });
 
+      const updatePayload: any = {
+        qualification: editingClientData.qualification,
+        status: editingClientData.status,
+        updated_at: new Date().toISOString()
+      };
+
+      // Se for analista, incluir organization_id; caso contrário, limpar
+      if (editingClientData.qualification === 'analista') {
+        updatePayload.organization_id = editingClientData.organizationId || null;
+      } else {
+        // Se mudou de analista para outra qualificação, remover vínculo
+        updatePayload.organization_id = null;
+      }
+
       const { data: updateData, error } = await supabase
         .from('user_profiles')
-        .update({
-          qualification: editingClientData.qualification,
-          status: editingClientData.status,
-          updated_at: new Date().toISOString()
-        })
+        .update(updatePayload)
         .eq('id', editingClientId)
-        .select('id, qualification, status');
+        .select('id, qualification, status, organization_id');
 
       if (error) {
         console.error('[AdminDashboard] Update error:', error);
@@ -230,7 +263,7 @@ const AdminDashboard: React.FC = () => {
       setEditingClientId(null);
       setEditingClientData(null);
       
-      alert('Cliente atualizado com sucesso!');
+      alert('Usuário atualizado com sucesso!');
     } catch (error: any) {
       console.error('[AdminDashboard] Error saving client:', error);
       alert('Erro ao salvar alterações: ' + (error.message || 'Erro desconhecido'));
@@ -343,7 +376,7 @@ const AdminDashboard: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-ai-text">Editar Cliente</h3>
+              <h3 className="text-lg font-semibold text-ai-text">Editar Usuário</h3>
               <button
                 onClick={() => {
                   setEditingClientId(null);
@@ -385,10 +418,15 @@ const AdminDashboard: React.FC = () => {
                 </label>
                 <select
                   value={editingClientData.qualification || 'visitante'}
-                  onChange={(e) => setEditingClientData(prev => prev ? {
-                    ...prev,
-                    qualification: e.target.value as 'visitante' | 'cliente' | 'analista'
-                  } : null)}
+                  onChange={(e) => {
+                    const newQualification = e.target.value as 'visitante' | 'cliente' | 'analista';
+                    setEditingClientData(prev => prev ? {
+                      ...prev,
+                      qualification: newQualification,
+                      // Limpar organizationId se mudar de analista para outra qualificação
+                      organizationId: newQualification === 'analista' ? prev.organizationId : null
+                    } : null);
+                  }}
                   className="w-full px-3 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                   disabled={isSaving}
                 >
@@ -414,6 +452,39 @@ const AdminDashboard: React.FC = () => {
                   <option value="inactive">Inativo</option>
                 </select>
               </div>
+
+              {/* Empresa (apenas para analistas) */}
+              {editingClientData.qualification === 'analista' && (
+                <div>
+                  <label className="block text-sm font-medium text-ai-text mb-1">
+                    Empresa Vinculada
+                  </label>
+                  <select
+                    value={editingClientData.organizationId || ''}
+                    onChange={(e) => setEditingClientData(prev => prev ? {
+                      ...prev,
+                      organizationId: e.target.value || null
+                    } : null)}
+                    className="w-full px-3 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                    disabled={isSaving || isLoadingOrganizations}
+                  >
+                    <option value="">Nenhuma empresa (sem vínculo)</option>
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                  {isLoadingOrganizations && (
+                    <p className="text-xs text-ai-subtext mt-1">Carregando empresas...</p>
+                  )}
+                  {!isLoadingOrganizations && organizations.length === 0 && (
+                    <p className="text-xs text-ai-subtext mt-1">
+                      Nenhuma empresa cadastrada. Cadastre empresas em Configurações → Cadastro de Empresa.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             
             <div className="flex gap-3 mt-6">
@@ -503,10 +574,10 @@ const AdminDashboard: React.FC = () => {
         <div className="bg-white p-4 rounded-xl border border-ai-border shadow-sm">
             <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Users size={18} /></div>
-                <span className="text-xs font-bold text-ai-subtext uppercase">Total Clientes</span>
+                <span className="text-xs font-bold text-ai-subtext uppercase">Total Usuários</span>
             </div>
             <div className="text-2xl font-mono font-bold text-ai-text">{stats.total}</div>
-            <div className="text-xs text-emerald-600 font-medium mt-1">Clientes cadastrados</div>
+            <div className="text-xs text-emerald-600 font-medium mt-1">Usuários cadastrados</div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-ai-border shadow-sm">
             <div className="flex items-center gap-3 mb-2">
@@ -514,7 +585,7 @@ const AdminDashboard: React.FC = () => {
                 <span className="text-xs font-bold text-ai-subtext uppercase">Ativos</span>
             </div>
             <div className="text-2xl font-mono font-bold text-ai-text">{stats.active}</div>
-            <div className="text-xs text-ai-subtext font-medium mt-1">Clientes ativos</div>
+            <div className="text-xs text-ai-subtext font-medium mt-1">Usuários ativos</div>
         </div>
       </div>
 
@@ -523,12 +594,12 @@ const AdminDashboard: React.FC = () => {
          
          {/* Table Header / Toolbar */}
          <div className="p-4 border-b border-ai-border flex justify-between items-center">
-            <h2 className="text-sm font-bold text-ai-text">Base de Clientes</h2>
+            <h2 className="text-sm font-bold text-ai-text">Base de Usuários</h2>
             <div className="relative w-64">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ai-subtext" />
                 <input 
                     type="text" 
-                    placeholder="Buscar cliente..." 
+                    placeholder="Buscar usuário..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-9 pr-3 py-1.5 text-xs border border-ai-border rounded-md bg-ai-surface focus:outline-none focus:border-ai-text transition-colors"
@@ -541,7 +612,7 @@ const AdminDashboard: React.FC = () => {
             <table className="w-full text-left border-collapse">
                 <thead className="bg-ai-surface sticky top-0 z-10">
                     <tr>
-                        <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Cliente</th>
+                        <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Usuário</th>
                         <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Qualificação</th>
                         <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Status</th>
                         <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Último Acesso</th>
@@ -552,7 +623,7 @@ const AdminDashboard: React.FC = () => {
                     {filteredClients.length === 0 ? (
                         <tr>
                             <td colSpan={5} className="px-6 py-8 text-center text-ai-subtext">
-                                {searchTerm ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
+                                {searchTerm ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
                             </td>
                         </tr>
                     ) : (
@@ -607,14 +678,15 @@ const AdminDashboard: React.FC = () => {
                                                 <div className="py-1">
                                                     <button
                                                         onClick={() => {
-                                                            setEditingClientId(client.id);
-                                                            setEditingClientData({
-                                                              name: client.name,
-                                                              email: client.email,
-                                                              qualification: client.qualification || 'visitante',
-                                                              status: client.status || 'active'
-                                                            });
-                                                            setOpenMenuId(null);
+                                                    setEditingClientId(client.id);
+                                                    setEditingClientData({
+                                                      name: client.name,
+                                                      email: client.email,
+                                                      qualification: client.qualification || 'visitante',
+                                                      status: client.status || 'active',
+                                                      organizationId: client.organizationId || null
+                                                    });
+                                                    setOpenMenuId(null);
                                                         }}
                                                         className="w-full px-4 py-2 text-left text-sm text-ai-text hover:bg-ai-surface2 flex items-center gap-2 transition-colors"
                                                     >
@@ -644,7 +716,7 @@ const AdminDashboard: React.FC = () => {
          </div>
          
          <div className="p-3 border-t border-ai-border bg-ai-surface/30 text-xs text-ai-subtext text-center">
-            Mostrando {filteredClients.length} de {stats.total} clientes
+            Mostrando {filteredClients.length} de {stats.total} usuários
          </div>
       </div>
     </div>
