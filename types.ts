@@ -105,3 +105,17 @@ export interface CattleScenario {
   created_at: string;
   updated_at: string;
 }
+
+export interface Farm {
+  id: string;
+  name: string;
+  country: string;
+  state: string;
+  city: string;
+  propertyType: 'Própria' | 'Arrendada' | 'Parceria';
+  weightMetric: 'Arroba (@)' | 'Quilograma (Kg)';
+  commercializesGenetics: boolean;
+  productionSystem: 'Cria' | 'Recria-Engorda' | 'Ciclo Completo';
+  createdAt: string;
+  updatedAt: string;
+}

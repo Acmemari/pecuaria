@@ -50,7 +50,9 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onClose }) => {
 
   return (
     <div
-      className={`${colorClass} border rounded-lg shadow-lg p-4 flex items-start gap-3 min-w-[300px] max-w-[400px]`}
+      className={`${colorClass} border rounded-lg shadow-lg p-4 flex items-start gap-3 min-w-[300px] max-w-[400px] ${
+        toast.type === 'success' ? 'animate-bounce' : ''
+      }`}
     >
       <Icon size={20} className={`${iconColorClass} flex-shrink-0 mt-0.5`} />
       <p className="flex-1 text-sm font-medium">{toast.message}</p>

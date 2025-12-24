@@ -512,7 +512,22 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-      setCompanies(data || []);
+      
+      // Remove duplicates by name (case-insensitive) - keep the most recent one
+      if (data && data.length > 0) {
+        const uniqueCompanies = data.filter((company, index, self) => {
+          const firstIndex = self.findIndex((c) => 
+            c.name.toLowerCase().trim() === company.name.toLowerCase().trim()
+          );
+          // Keep only the first occurrence (most recent due to order by created_at desc)
+          return index === firstIndex;
+        });
+        
+        console.log('[SettingsPage] Loaded companies:', uniqueCompanies.length, 'unique companies (from', data.length, 'total)');
+        setCompanies(uniqueCompanies);
+      } else {
+        setCompanies([]);
+      }
     } catch (error: any) {
       console.error('Error loading companies:', error);
       onToast('Erro ao carregar empresas', 'error');
@@ -557,8 +572,26 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
 
     setIsSaving(true);
     try {
+      const companyName = companyForm.name.trim();
+      
+      // Check for duplicate name (case-insensitive) when creating new company
+      if (!editingCompany) {
+        const { data: existingCompanies, error: checkError } = await supabase
+          .from('organizations')
+          .select('id, name')
+          .ilike('name', companyName);
+        
+        if (checkError) throw checkError;
+        
+        if (existingCompanies && existingCompanies.length > 0) {
+          onToast('Já existe uma empresa com este nome', 'error');
+          setIsSaving(false);
+          return;
+        }
+      }
+
       const companyData = {
-        name: companyForm.name.trim(),
+        name: companyName,
         phone: companyForm.phone ? companyForm.phone.replace(/\D/g, '') : null,
         address: companyForm.address.trim() || null,
         city: companyForm.city.trim() || null,

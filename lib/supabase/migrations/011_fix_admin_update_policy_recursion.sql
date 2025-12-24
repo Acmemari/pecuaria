@@ -34,3 +34,5 @@ GRANT EXECUTE ON FUNCTION public.is_admin() TO anon;
 
 COMMENT ON FUNCTION public.is_admin IS 'Checks if the current authenticated user is an admin. Uses SECURITY DEFINER to avoid RLS recursion.';
 
+
+

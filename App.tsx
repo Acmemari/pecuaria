@@ -21,6 +21,7 @@ const AdminDashboard = lazy(() => import('./agents/AdminDashboard'));
 const MarketTrends = lazy(() => import('./agents/MarketTrends'));
 const SavedScenarios = lazy(() => import('./agents/SavedScenarios'));
 const AgentTrainingAdmin = lazy(() => import('./agents/AgentTrainingAdmin'));
+const FarmManagement = lazy(() => import('./agents/FarmManagement'));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full">
@@ -107,6 +108,14 @@ const AppContent: React.FC = () => {
           icon: 'chart',
           category: 'mercado',
           status: checkPermission('Tendências') ? 'active' : 'locked'
+        },
+        {
+          id: 'farm-management',
+          name: 'Cadastro de Fazendas',
+          description: 'Gerenciar propriedades rurais.',
+          icon: 'farm',
+          category: 'zootecnico',
+          status: 'active'
         }
       ];
 
@@ -344,6 +353,14 @@ const AppContent: React.FC = () => {
         return (
           <Suspense fallback={<LoadingFallback />}>
             <MarketTrends />
+          </Suspense>
+        );
+      case 'farm-management':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <FarmManagement
+              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+            />
           </Suspense>
         );
       case 'agent-training':

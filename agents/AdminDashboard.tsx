@@ -52,7 +52,17 @@ const AdminDashboard: React.FC = () => {
         .order('name', { ascending: true });
 
       if (error) throw error;
-      setOrganizations(data || []);
+      
+      // Remove duplicates by name (case-insensitive) - keep the first occurrence
+      if (data && data.length > 0) {
+        const uniqueOrgs = data.filter((org, index, self) => 
+          index === self.findIndex((o) => o.name.toLowerCase() === org.name.toLowerCase())
+        );
+        console.log('[AdminDashboard] Loaded organizations:', uniqueOrgs.length, 'unique organizations');
+        setOrganizations(uniqueOrgs);
+      } else {
+        setOrganizations([]);
+      }
     } catch (error: any) {
       console.error('[AdminDashboard] Error loading organizations:', error);
       // Não mostrar erro ao usuário, apenas log
