@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import {
   User as UserIcon,
   Lock,
-  Bell,
+  Building2,
   Palette,
   Shield,
   HelpCircle,
@@ -21,7 +21,10 @@ import {
   Globe,
   Moon,
   Sun,
-  Monitor
+  Monitor,
+  Plus,
+  Edit,
+  Search
 } from 'lucide-react';
 
 interface SettingsPageProps {
@@ -31,7 +34,7 @@ interface SettingsPageProps {
   onLogout: () => void;
 }
 
-type TabId = 'profile' | 'account' | 'notifications' | 'appearance' | 'privacy' | 'support';
+type TabId = 'profile' | 'account' | 'company' | 'appearance' | 'privacy' | 'support';
 
 interface Tab {
   id: TabId;
@@ -69,12 +72,22 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Notifications state
-  const [notifications, setNotifications] = useState({
-    email: true,
-    push: false,
-    weeklySummary: true,
-    securityAlerts: true
+  // Company state
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
+  const [showCompanyForm, setShowCompanyForm] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [companyForm, setCompanyForm] = useState({
+    name: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    description: '',
+    plan: 'basic' as 'basic' | 'pro' | 'enterprise',
+    status: 'active' as 'active' | 'inactive' | 'pending'
   });
 
   // Appearance state
@@ -94,7 +107,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const tabs: Tab[] = [
     { id: 'profile', label: 'Perfil', icon: <UserIcon size={18} /> },
     { id: 'account', label: 'Conta', icon: <Lock size={18} /> },
-    { id: 'notifications', label: 'Notificações', icon: <Bell size={18} /> },
+    { id: 'company', label: 'Cadastro de Empresa', icon: <Building2 size={18} /> },
     { id: 'appearance', label: 'Aparência', icon: <Palette size={18} /> },
     { id: 'privacy', label: 'Privacidade', icon: <Shield size={18} /> },
     { id: 'support', label: 'Suporte', icon: <HelpCircle size={18} /> }
@@ -112,7 +125,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
 
     // Load user profile data
     loadUserProfile();
-  }, []);
+    
+    // Load companies if on company tab
+    if (activeTab === 'company') {
+      loadCompanies();
+    }
+  }, [activeTab]);
 
   const loadUserProfile = async () => {
     try {
@@ -479,34 +497,449 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     </div>
   );
 
-  const renderNotificationsTab = () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-ai-text mb-4">Preferências de Notificação</h3>
+  const loadCompanies = async () => {
+    setIsLoadingCompanies(true);
+    try {
+      // Admins can see all companies, regular users see only their own
+      let query = supabase
+        .from('organizations')
+        .select('*');
 
-      {[
-        { key: 'email', label: 'Notificações por Email', description: 'Receba notificações importantes por email' },
-        { key: 'push', label: 'Notificações Push', description: 'Receba notificações no navegador' },
-        { key: 'weeklySummary', label: 'Resumo Semanal', description: 'Receba um resumo semanal das suas atividades' },
-        { key: 'securityAlerts', label: 'Alertas de Segurança', description: 'Sempre ativo para proteger sua conta', disabled: true }
-      ].map((item) => (
-        <div key={item.key} className="flex items-center justify-between p-4 bg-ai-surface rounded-lg border border-ai-border">
-          <div>
-            <p className="font-medium text-ai-text">{item.label}</p>
-            <p className="text-sm text-ai-subtext mt-1">{item.description}</p>
-          </div>
+      if (user.role !== 'admin') {
+        query = query.eq('owner_id', user.id);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setCompanies(data || []);
+    } catch (error: any) {
+      console.error('Error loading companies:', error);
+      onToast('Erro ao carregar empresas', 'error');
+    } finally {
+      setIsLoadingCompanies(false);
+    }
+  };
+
+  const handleCompanyFormChange = (field: string, value: string) => {
+    setCompanyForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const formatPhone = (phone: string): string => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length === 11) {
+      return cleanPhone.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+    } else if (cleanPhone.length === 10) {
+      return cleanPhone.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
+    }
+    return phone;
+  };
+
+  const formatCEP = (cep: string): string => {
+    const cleanCEP = cep.replace(/\D/g, '');
+    if (cleanCEP.length === 8) {
+      return cleanCEP.replace(/^(\d{5})(\d{3})$/, '$1-$2');
+    }
+    return cep;
+  };
+
+  const handleSaveCompany = async () => {
+    if (!companyForm.name.trim()) {
+      onToast('Nome da empresa é obrigatório', 'error');
+      return;
+    }
+
+    // Only admins can create companies
+    if (user.role !== 'admin') {
+      onToast('Apenas administradores podem cadastrar empresas', 'error');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const companyData = {
+        name: companyForm.name.trim(),
+        phone: companyForm.phone ? companyForm.phone.replace(/\D/g, '') : null,
+        address: companyForm.address.trim() || null,
+        city: companyForm.city.trim() || null,
+        state: companyForm.state.trim().toUpperCase() || null,
+        zip_code: companyForm.zip_code ? companyForm.zip_code.replace(/\D/g, '') : null,
+        description: companyForm.description.trim() || null,
+        plan: companyForm.plan,
+        status: companyForm.status,
+        owner_id: user.id,
+        updated_at: new Date().toISOString()
+      };
+
+      if (editingCompany) {
+        // Update existing company
+        const { error } = await supabase
+          .from('organizations')
+          .update(companyData)
+          .eq('id', editingCompany.id);
+
+        if (error) throw error;
+        onToast('Empresa atualizada com sucesso!', 'success');
+      } else {
+        // Create new company
+        const { error } = await supabase
+          .from('organizations')
+          .insert(companyData);
+
+        if (error) throw error;
+        onToast('Empresa cadastrada com sucesso!', 'success');
+      }
+
+      setShowCompanyForm(false);
+      setEditingCompany(null);
+      resetCompanyForm();
+      await loadCompanies();
+    } catch (error: any) {
+      console.error('Error saving company:', error);
+      onToast(error.message || 'Erro ao salvar empresa', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditCompany = (company: any) => {
+    // Only admins can edit companies
+    if (user.role !== 'admin') {
+      onToast('Apenas administradores podem editar empresas', 'error');
+      return;
+    }
+    setEditingCompany(company);
+    setCompanyForm({
+      name: company.name || '',
+      phone: company.phone ? formatPhone(company.phone) : '',
+      address: company.address || '',
+      city: company.city || '',
+      state: company.state || '',
+      zip_code: company.zip_code ? formatCEP(company.zip_code) : '',
+      description: company.description || '',
+      plan: company.plan || 'basic',
+      status: company.status || 'active'
+    });
+    setShowCompanyForm(true);
+  };
+
+  const handleDeleteCompany = async (companyId: string) => {
+    // Only admins can delete companies
+    if (user.role !== 'admin') {
+      onToast('Apenas administradores podem excluir empresas', 'error');
+      return;
+    }
+
+    if (!confirm('Tem certeza que deseja excluir esta empresa? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .delete()
+        .eq('id', companyId);
+
+      if (error) throw error;
+      onToast('Empresa excluída com sucesso!', 'success');
+      await loadCompanies();
+    } catch (error: any) {
+      console.error('Error deleting company:', error);
+      onToast(error.message || 'Erro ao excluir empresa', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const resetCompanyForm = () => {
+    setCompanyForm({
+      name: '',
+      phone: '',
+      address: '',
+      city: '',
+      state: '',
+      zip_code: '',
+      description: '',
+      plan: 'basic',
+      status: 'active'
+    });
+    setEditingCompany(null);
+  };
+
+  const filteredCompanies = companies.filter(company =>
+    company.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const renderCompanyTab = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-ai-text">Cadastro de Empresas</h3>
+        {user.role === 'admin' && (
           <button
-            onClick={() => !item.disabled && setNotifications(prev => ({ ...prev, [item.key]: !prev[item.key as keyof typeof notifications] }))}
-            disabled={item.disabled}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notifications[item.key as keyof typeof notifications] ? 'bg-ai-accent' : 'bg-gray-300'
-              } ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => {
+              resetCompanyForm();
+              setShowCompanyForm(true);
+            }}
+            className="px-4 py-2 bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors flex items-center gap-2"
           >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${notifications[item.key as keyof typeof notifications] ? 'translate-x-6' : 'translate-x-1'
-                }`}
-            />
+            <Plus size={16} />
+            Nova Empresa
           </button>
+        )}
+      </div>
+
+      {/* Company Form Modal */}
+      {showCompanyForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-ai-text">
+                {editingCompany ? 'Editar Empresa' : 'Nova Empresa'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCompanyForm(false);
+                  resetCompanyForm();
+                }}
+                className="text-ai-subtext hover:text-ai-text"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-ai-text mb-2">
+                  Nome da Empresa <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={companyForm.name}
+                  onChange={(e) => handleCompanyFormChange('name', e.target.value)}
+                  className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                  placeholder="Nome da empresa"
+                  required
+                />
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-medium text-ai-text mb-2">Telefone</label>
+                <input
+                  type="text"
+                  value={companyForm.phone}
+                  onChange={(e) => {
+                    const formatted = formatPhone(e.target.value);
+                    handleCompanyFormChange('phone', formatted);
+                  }}
+                  className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                  placeholder="(00) 00000-0000"
+                  maxLength={15}
+                />
+              </div>
+
+              {/* Address */}
+              <div>
+                <label className="block text-sm font-medium text-ai-text mb-2">Endereço</label>
+                <input
+                  type="text"
+                  value={companyForm.address}
+                  onChange={(e) => handleCompanyFormChange('address', e.target.value)}
+                  className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                  placeholder="Rua, número, complemento"
+                />
+              </div>
+
+              {/* City, State, ZIP Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-ai-text mb-2">Cidade</label>
+                  <input
+                    type="text"
+                    value={companyForm.city}
+                    onChange={(e) => handleCompanyFormChange('city', e.target.value)}
+                    className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                    placeholder="Cidade"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ai-text mb-2">UF</label>
+                  <input
+                    type="text"
+                    value={companyForm.state}
+                    onChange={(e) => handleCompanyFormChange('state', e.target.value.toUpperCase())}
+                    className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                    placeholder="UF"
+                    maxLength={2}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ai-text mb-2">CEP</label>
+                <input
+                  type="text"
+                  value={companyForm.zip_code}
+                  onChange={(e) => {
+                    const formatted = formatCEP(e.target.value);
+                    handleCompanyFormChange('zip_code', formatted);
+                  }}
+                  className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                  placeholder="00000-000"
+                  maxLength={9}
+                />
+              </div>
+
+              {/* Plan and Status Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-ai-text mb-2">Plano</label>
+                  <select
+                    value={companyForm.plan}
+                    onChange={(e) => handleCompanyFormChange('plan', e.target.value)}
+                    className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                  >
+                    <option value="basic">Básico</option>
+                    <option value="pro">Profissional</option>
+                    <option value="enterprise">Enterprise</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ai-text mb-2">Status</label>
+                  <select
+                    value={companyForm.status}
+                    onChange={(e) => handleCompanyFormChange('status', e.target.value)}
+                    className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                  >
+                    <option value="active">Ativo</option>
+                    <option value="inactive">Inativo</option>
+                    <option value="pending">Pendente</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-ai-text mb-2">Descrição</label>
+                <textarea
+                  value={companyForm.description}
+                  onChange={(e) => handleCompanyFormChange('description', e.target.value)}
+                  className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                  placeholder="Descrição da empresa ou atividade principal"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowCompanyForm(false);
+                  resetCompanyForm();
+                }}
+                className="flex-1 px-4 py-2 border border-ai-border text-ai-text rounded-lg font-medium hover:bg-ai-surface2 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveCompany}
+                disabled={isSaving}
+                className="flex-1 px-4 py-2 bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <Save size={16} />
+                {isSaving ? 'Salvando...' : editingCompany ? 'Atualizar' : 'Cadastrar'}
+              </button>
+            </div>
+          </div>
         </div>
-      ))}
+      )}
+
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ai-subtext" size={18} />
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+          placeholder="Buscar empresas por nome..."
+        />
+      </div>
+
+      {/* Companies Table */}
+      {isLoadingCompanies ? (
+        <div className="text-center py-8 text-ai-subtext">Carregando empresas...</div>
+      ) : filteredCompanies.length === 0 ? (
+        <div className="text-center py-8 text-ai-subtext">
+          {searchTerm ? 'Nenhuma empresa encontrada' : user.role === 'admin' 
+            ? 'Nenhuma empresa cadastrada. Clique em "Nova Empresa" para começar.'
+            : 'Nenhuma empresa cadastrada.'}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-ai-surface border-b border-ai-border">
+                <th className="px-4 py-3 text-left text-sm font-semibold text-ai-text">Nome</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-ai-text">Plano</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-ai-text">Status</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-ai-text">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredCompanies.map((company) => (
+                <tr key={company.id} className="border-b border-ai-border hover:bg-ai-surface/50">
+                  <td className="px-4 py-3 text-sm text-ai-text">{company.name}</td>
+                  <td className="px-4 py-3 text-sm text-ai-subtext">
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      company.plan === 'enterprise' ? 'bg-purple-100 text-purple-700' :
+                      company.plan === 'pro' ? 'bg-blue-100 text-blue-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {company.plan === 'enterprise' ? 'Enterprise' :
+                       company.plan === 'pro' ? 'Profissional' : 'Básico'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-ai-subtext">
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      company.status === 'active' ? 'bg-green-100 text-green-700' :
+                      company.status === 'inactive' ? 'bg-red-100 text-red-700' :
+                      'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {company.status === 'active' ? 'Ativo' :
+                       company.status === 'inactive' ? 'Inativo' : 'Pendente'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {user.role === 'admin' && (
+                        <>
+                          <button
+                            onClick={() => handleEditCompany(company)}
+                            className="p-2 text-ai-accent hover:bg-ai-surface2 rounded transition-colors"
+                            title="Editar"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCompany(company.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 
@@ -700,8 +1133,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         return renderProfileTab();
       case 'account':
         return renderAccountTab();
-      case 'notifications':
-        return renderNotificationsTab();
+      case 'company':
+        return renderCompanyTab();
       case 'appearance':
         return renderAppearanceTab();
       case 'privacy':
