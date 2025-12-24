@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Users, Activity, Search, MoreHorizontal, CheckCircle2, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { User, Shield, Users, Activity, Search, MoreHorizontal, CheckCircle2, XCircle, Loader2, AlertCircle, Edit2, Save, X } from 'lucide-react';
 import { User as UserType } from '../types';
 import { supabase } from '../lib/supabase';
 import { mapUserProfile } from '../lib/auth/mapUserProfile';
@@ -15,6 +15,8 @@ const AdminDashboard: React.FC = () => {
     total: 0,
     active: 0,
   });
+  const [editingQualification, setEditingQualification] = useState<string | null>(null);
+  const [updatingQualification, setUpdatingQualification] = useState<string | null>(null);
 
   useEffect(() => {
     // Verify admin permission before loading
@@ -134,6 +136,58 @@ const AdminDashboard: React.FC = () => {
     return date.toLocaleDateString('pt-BR');
   };
 
+  const getQualificationLabel = (qualification?: string) => {
+    switch (qualification) {
+      case 'cliente':
+        return 'Cliente';
+      case 'analista':
+        return 'Analista';
+      case 'visitante':
+      default:
+        return 'Visitante';
+    }
+  };
+
+  const getQualificationColor = (qualification?: string) => {
+    switch (qualification) {
+      case 'cliente':
+        return 'bg-blue-100 text-blue-700';
+      case 'analista':
+        return 'bg-purple-100 text-purple-700';
+      case 'visitante':
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const handleUpdateQualification = async (clientId: string, newQualification: 'visitante' | 'cliente' | 'analista') => {
+    setUpdatingQualification(clientId);
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ qualification: newQualification })
+        .eq('id', clientId);
+
+      if (error) throw error;
+
+      // Update local state
+      setClients(prevClients =>
+        prevClients.map(client =>
+          client.id === clientId
+            ? { ...client, qualification: newQualification }
+            : client
+        )
+      );
+
+      setEditingQualification(null);
+    } catch (error: any) {
+      console.error('Error updating qualification:', error);
+      alert('Erro ao atualizar qualificação: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setUpdatingQualification(null);
+    }
+  };
+
   // Show loading state
   if (isLoading) {
     return (
@@ -213,6 +267,7 @@ const AdminDashboard: React.FC = () => {
                 <thead className="bg-ai-surface sticky top-0 z-10">
                     <tr>
                         <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Cliente</th>
+                        <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Qualificação</th>
                         <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Status</th>
                         <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Último Acesso</th>
                         <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border text-right">Ações</th>
@@ -238,6 +293,46 @@ const AdminDashboard: React.FC = () => {
                                             <div className="text-xs text-ai-subtext">{client.email}</div>
                                         </div>
                                     </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    {editingQualification === client.id ? (
+                                        <div className="flex items-center gap-2">
+                                            <select
+                                                value={client.qualification || 'visitante'}
+                                                onChange={(e) => {
+                                                    const newQual = e.target.value as 'visitante' | 'cliente' | 'analista';
+                                                    handleUpdateQualification(client.id, newQual);
+                                                }}
+                                                disabled={updatingQualification === client.id}
+                                                className="text-xs px-2 py-1 border border-ai-border rounded bg-white text-ai-text focus:outline-none focus:ring-1 focus:ring-ai-accent"
+                                                autoFocus
+                                            >
+                                                <option value="visitante">Visitante</option>
+                                                <option value="cliente">Cliente</option>
+                                                <option value="analista">Analista</option>
+                                            </select>
+                                            <button
+                                                onClick={() => setEditingQualification(null)}
+                                                className="text-ai-subtext hover:text-ai-text p-1"
+                                                disabled={updatingQualification === client.id}
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <span className={`px-2 py-1 rounded text-xs ${getQualificationColor(client.qualification)}`}>
+                                                {getQualificationLabel(client.qualification)}
+                                            </span>
+                                            <button
+                                                onClick={() => setEditingQualification(client.id)}
+                                                className="text-ai-subtext hover:text-ai-accent p-1 rounded hover:bg-ai-surface transition-colors"
+                                                title="Editar qualificação"
+                                            >
+                                                <Edit2 size={12} />
+                                            </button>
+                                        </div>
+                                    )}
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center">

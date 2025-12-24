@@ -58,6 +58,7 @@ export interface User {
   lastLogin?: string;
   organizationId?: string;
   phone?: string;
+  qualification?: 'visitante' | 'cliente' | 'analista';
 }
 
 export interface Plan {

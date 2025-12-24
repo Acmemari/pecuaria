@@ -90,6 +90,18 @@ export const mapUserProfile = (profile: any): User | null => {
   // Processamento de phone (opcional)
   const phone = profile.phone && typeof profile.phone === 'string' ? profile.phone : undefined;
 
+  // Processamento de qualification (opcional, default 'visitante')
+  const validQualifications = ['visitante', 'cliente', 'analista'];
+  let qualification: 'visitante' | 'cliente' | 'analista' | undefined = 'visitante';
+  if (profile.qualification) {
+    if (validQualifications.includes(profile.qualification)) {
+      qualification = profile.qualification as 'visitante' | 'cliente' | 'analista';
+    } else {
+      console.warn('[mapUserProfile] Invalid qualification value, defaulting to visitante', { qualification: profile.qualification });
+      qualification = 'visitante';
+    }
+  }
+
   const mappedUser: User = {
     id: String(profile.id),
     name,
@@ -100,7 +112,8 @@ export const mapUserProfile = (profile: any): User | null => {
     status,
     lastLogin,
     organizationId,
-    phone
+    phone,
+    qualification
   };
 
   return mappedUser;
