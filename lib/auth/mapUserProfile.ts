@@ -92,14 +92,20 @@ export const mapUserProfile = (profile: any): User | null => {
 
   // Processamento de qualification (opcional, default 'visitante')
   const validQualifications = ['visitante', 'cliente', 'analista'];
-  let qualification: 'visitante' | 'cliente' | 'analista' | undefined = 'visitante';
-  if (profile.qualification) {
-    if (validQualifications.includes(profile.qualification)) {
-      qualification = profile.qualification as 'visitante' | 'cliente' | 'analista';
+  let qualification: 'visitante' | 'cliente' | 'analista' | undefined = undefined;
+  
+  // Verificar explicitamente se o campo existe no objeto (não apenas se é truthy)
+  if (profile.qualification !== null && profile.qualification !== undefined) {
+    const qualValue = String(profile.qualification).trim();
+    if (validQualifications.includes(qualValue)) {
+      qualification = qualValue as 'visitante' | 'cliente' | 'analista';
     } else {
       console.warn('[mapUserProfile] Invalid qualification value, defaulting to visitante', { qualification: profile.qualification });
       qualification = 'visitante';
     }
+  } else {
+    // Se não existe no banco, usar default apenas neste caso
+    qualification = 'visitante';
   }
 
   const mappedUser: User = {

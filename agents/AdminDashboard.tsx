@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { User, Shield, Users, Activity, Search, MoreHorizontal, CheckCircle2, XCircle, Loader2, AlertCircle, Edit2, Save, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Shield, Users, Activity, Search, MoreHorizontal, CheckCircle2, XCircle, Loader2, AlertCircle, Edit2, Save, X, Trash2 } from 'lucide-react';
 import { User as UserType } from '../types';
 import { supabase } from '../lib/supabase';
 import { mapUserProfile } from '../lib/auth/mapUserProfile';
@@ -15,8 +15,18 @@ const AdminDashboard: React.FC = () => {
     total: 0,
     active: 0,
   });
-  const [editingQualification, setEditingQualification] = useState<string | null>(null);
-  const [updatingQualification, setUpdatingQualification] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [editingClientData, setEditingClientData] = useState<{
+    name: string;
+    email: string;
+    qualification: 'visitante' | 'cliente' | 'analista';
+    status: 'active' | 'inactive';
+  } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   useEffect(() => {
     // Verify admin permission before loading
@@ -45,7 +55,7 @@ const AdminDashboard: React.FC = () => {
         
         const { data, error: queryError } = await supabase
           .from('user_profiles')
-          .select('*')
+          .select('id, name, email, role, avatar, plan, status, last_login, organization_id, phone, qualification, created_at, updated_at')
           .eq('role', 'client')
           .order('created_at', { ascending: false });
 
@@ -79,8 +89,27 @@ const AdminDashboard: React.FC = () => {
         if (data) {
           console.log(`[AdminDashboard] Loaded ${data.length} client profiles from database`);
           
+          // Log raw data para debug
+          if (data.length > 0) {
+            console.log('[AdminDashboard] Sample raw profile:', {
+              id: data[0].id,
+              name: data[0].name,
+              qualification: data[0].qualification,
+              qualificationType: typeof data[0].qualification
+            });
+          }
+          
           const mappedClients = data.map(mapUserProfile).filter(Boolean) as UserType[];
           console.log(`[AdminDashboard] Successfully mapped ${mappedClients.length} clients`);
+          
+          // Log mapped data para debug
+          if (mappedClients.length > 0) {
+            console.log('[AdminDashboard] Sample mapped client:', {
+              id: mappedClients[0].id,
+              name: mappedClients[0].name,
+              qualification: mappedClients[0].qualification
+            });
+          }
           
           setClients(mappedClients);
           
@@ -160,31 +189,118 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleUpdateQualification = async (clientId: string, newQualification: 'visitante' | 'cliente' | 'analista') => {
-    setUpdatingQualification(clientId);
+  const handleSaveClient = async () => {
+    if (!editingClientId || !editingClientData) return;
+    
+    setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ qualification: newQualification })
-        .eq('id', clientId);
+      console.log('[AdminDashboard] Saving client:', {
+        id: editingClientId,
+        qualification: editingClientData.qualification,
+        status: editingClientData.status
+      });
 
-      if (error) throw error;
+      const { data: updateData, error } = await supabase
+        .from('user_profiles')
+        .update({
+          qualification: editingClientData.qualification,
+          status: editingClientData.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingClientId)
+        .select('id, qualification, status');
+
+      if (error) {
+        console.error('[AdminDashboard] Update error:', error);
+        throw error;
+      }
+
+      console.log('[AdminDashboard] Update successful:', updateData);
+
+      // Verificar se o update retornou dados
+      if (updateData && updateData.length > 0) {
+        console.log('[AdminDashboard] Updated qualification:', updateData[0].qualification);
+        console.log('[AdminDashboard] Updated status:', updateData[0].status);
+      }
+
+      // Recarregar dados do banco para garantir sincronização
+      await loadClients();
+
+      // Fechar modal
+      setEditingClientId(null);
+      setEditingClientData(null);
+      
+      alert('Cliente atualizado com sucesso!');
+    } catch (error: any) {
+      console.error('[AdminDashboard] Error saving client:', error);
+      alert('Erro ao salvar alterações: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMenuId && menuRefs.current[openMenuId]) {
+        if (!menuRefs.current[openMenuId]?.contains(event.target as Node)) {
+          setOpenMenuId(null);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openMenuId]);
+
+  const handleDeleteUser = async (userId: string) => {
+    setDeletingUserId(userId);
+    setShowDeleteConfirm(null);
+    setOpenMenuId(null);
+
+    try {
+      // Use the database function to delete user completely
+      // This function deletes all related data including auth.users
+      const { error } = await supabase.rpc('delete_user_completely', {
+        user_id_to_delete: userId
+      });
+
+      if (error) {
+        // If RPC fails, try manual deletion as fallback
+        console.warn('RPC delete_user_completely failed, trying manual deletion:', error);
+        
+        // Manual deletion fallback
+        await supabase.from('cattle_scenarios').delete().eq('user_id', userId);
+        await supabase.from('ai_token_usage').delete().eq('user_id', userId);
+        await supabase.from('calculations').delete().eq('user_id', userId);
+        await supabase.from('chat_messages').delete().eq('user_id', userId);
+        await supabase.from('organizations').delete().eq('owner_id', userId);
+        
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .delete()
+          .eq('id', userId);
+        
+        if (profileError) throw profileError;
+      }
 
       // Update local state
-      setClients(prevClients =>
-        prevClients.map(client =>
-          client.id === clientId
-            ? { ...client, qualification: newQualification }
-            : client
-        )
-      );
+      setClients(prevClients => prevClients.filter(client => client.id !== userId));
+      
+      // Update stats
+      setStats(prev => ({
+        total: prev.total - 1,
+        active: prev.active - (clients.find(c => c.id === userId)?.status === 'active' ? 1 : 0)
+      }));
 
-      setEditingQualification(null);
+      alert('Usuário e todos os dados relacionados foram excluídos com sucesso!');
     } catch (error: any) {
-      console.error('Error updating qualification:', error);
-      alert('Erro ao atualizar qualificação: ' + (error.message || 'Erro desconhecido'));
+      console.error('Error deleting user:', error);
+      alert('Erro ao excluir usuário: ' + (error.message || 'Erro desconhecido'));
     } finally {
-      setUpdatingQualification(null);
+      setDeletingUserId(null);
     }
   };
 
@@ -222,6 +338,165 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col gap-6 p-2">
+      {/* Edit Client Modal */}
+      {editingClientId && editingClientData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-ai-text">Editar Cliente</h3>
+              <button
+                onClick={() => {
+                  setEditingClientId(null);
+                  setEditingClientData(null);
+                }}
+                className="text-ai-subtext hover:text-ai-text"
+                disabled={isSaving}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Nome e Email (readonly) */}
+              <div>
+                <label className="block text-sm font-medium text-ai-text mb-1">Nome</label>
+                <input
+                  type="text"
+                  value={editingClientData.name || ''}
+                  disabled
+                  className="w-full px-3 py-2 border border-ai-border rounded-lg bg-gray-50 text-ai-text"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-ai-text mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editingClientData.email || ''}
+                  disabled
+                  className="w-full px-3 py-2 border border-ai-border rounded-lg bg-gray-50 text-ai-text"
+                />
+              </div>
+              
+              {/* Qualificação */}
+              <div>
+                <label className="block text-sm font-medium text-ai-text mb-1">
+                  Qualificação <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={editingClientData.qualification || 'visitante'}
+                  onChange={(e) => setEditingClientData(prev => prev ? {
+                    ...prev,
+                    qualification: e.target.value as 'visitante' | 'cliente' | 'analista'
+                  } : null)}
+                  className="w-full px-3 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                  disabled={isSaving}
+                >
+                  <option value="visitante">Visitante</option>
+                  <option value="cliente">Cliente</option>
+                  <option value="analista">Analista</option>
+                </select>
+              </div>
+              
+              {/* Status */}
+              <div>
+                <label className="block text-sm font-medium text-ai-text mb-1">Status</label>
+                <select
+                  value={editingClientData.status || 'active'}
+                  onChange={(e) => setEditingClientData(prev => prev ? {
+                    ...prev,
+                    status: e.target.value as 'active' | 'inactive'
+                  } : null)}
+                  className="w-full px-3 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                  disabled={isSaving}
+                >
+                  <option value="active">Ativo</option>
+                  <option value="inactive">Inativo</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setEditingClientId(null);
+                  setEditingClientData(null);
+                }}
+                className="flex-1 px-4 py-2 border border-ai-border text-ai-text rounded-lg font-medium hover:bg-ai-surface2 transition-colors"
+                disabled={isSaving}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveClient}
+                disabled={isSaving}
+                className="flex-1 px-4 py-2 bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={16} />
+                    Salvar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-red-600 mb-2">Confirmar Exclusão</h3>
+            <p className="text-sm text-ai-subtext mb-4">
+              Tem certeza que deseja excluir este usuário? Esta ação é permanente e não pode ser desfeita.
+            </p>
+            <p className="text-xs text-ai-subtext mb-6 bg-red-50 p-3 rounded border border-red-200">
+              <strong>Atenção:</strong> Todos os dados relacionados serão excluídos, incluindo:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Perfil do usuário</li>
+                <li>Mensagens de chat</li>
+                <li>Cenários salvos</li>
+                <li>Cálculos realizados</li>
+                <li>Organizações (se for proprietário)</li>
+                <li>Histórico de uso de tokens</li>
+              </ul>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 px-4 py-2 border border-ai-border text-ai-text rounded-lg font-medium hover:bg-ai-surface2 transition-colors"
+                disabled={deletingUserId !== null}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleDeleteUser(showDeleteConfirm)}
+                disabled={deletingUserId !== null}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {deletingUserId ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Excluindo...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    Excluir
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Top Stats */}
       <div className="grid grid-cols-2 gap-4">
@@ -295,44 +570,9 @@ const AdminDashboard: React.FC = () => {
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    {editingQualification === client.id ? (
-                                        <div className="flex items-center gap-2">
-                                            <select
-                                                value={client.qualification || 'visitante'}
-                                                onChange={(e) => {
-                                                    const newQual = e.target.value as 'visitante' | 'cliente' | 'analista';
-                                                    handleUpdateQualification(client.id, newQual);
-                                                }}
-                                                disabled={updatingQualification === client.id}
-                                                className="text-xs px-2 py-1 border border-ai-border rounded bg-white text-ai-text focus:outline-none focus:ring-1 focus:ring-ai-accent"
-                                                autoFocus
-                                            >
-                                                <option value="visitante">Visitante</option>
-                                                <option value="cliente">Cliente</option>
-                                                <option value="analista">Analista</option>
-                                            </select>
-                                            <button
-                                                onClick={() => setEditingQualification(null)}
-                                                className="text-ai-subtext hover:text-ai-text p-1"
-                                                disabled={updatingQualification === client.id}
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2">
-                                            <span className={`px-2 py-1 rounded text-xs ${getQualificationColor(client.qualification)}`}>
-                                                {getQualificationLabel(client.qualification)}
-                                            </span>
-                                            <button
-                                                onClick={() => setEditingQualification(client.id)}
-                                                className="text-ai-subtext hover:text-ai-accent p-1 rounded hover:bg-ai-surface transition-colors"
-                                                title="Editar qualificação"
-                                            >
-                                                <Edit2 size={12} />
-                                            </button>
-                                        </div>
-                                    )}
+                                    <span className={`px-2 py-1 rounded text-xs ${getQualificationColor(client.qualification)}`}>
+                                        {getQualificationLabel(client.qualification)}
+                                    </span>
                                 </td>
                                 <td className="px-6 py-4">
                                     <div className="flex items-center">
@@ -349,9 +589,52 @@ const AdminDashboard: React.FC = () => {
                                     {formatLastLogin(client.lastLogin)}
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <button className="text-ai-subtext hover:text-ai-text p-1 rounded hover:bg-ai-border/50 transition-colors">
-                                        <MoreHorizontal size={16} />
-                                    </button>
+                                    <div className="relative inline-block" ref={(el) => { menuRefs.current[client.id] = el; }}>
+                                        <button
+                                            onClick={() => setOpenMenuId(openMenuId === client.id ? null : client.id)}
+                                            className="text-ai-subtext hover:text-ai-text p-1 rounded hover:bg-ai-border/50 transition-colors"
+                                            disabled={deletingUserId === client.id}
+                                        >
+                                            {deletingUserId === client.id ? (
+                                                <Loader2 size={16} className="animate-spin" />
+                                            ) : (
+                                                <MoreHorizontal size={16} />
+                                            )}
+                                        </button>
+                                        
+                                        {openMenuId === client.id && (
+                                            <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg border border-ai-border shadow-lg z-50">
+                                                <div className="py-1">
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditingClientId(client.id);
+                                                            setEditingClientData({
+                                                              name: client.name,
+                                                              email: client.email,
+                                                              qualification: client.qualification || 'visitante',
+                                                              status: client.status || 'active'
+                                                            });
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        className="w-full px-4 py-2 text-left text-sm text-ai-text hover:bg-ai-surface2 flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <Edit2 size={14} />
+                                                        Editar
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowDeleteConfirm(client.id);
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                        Excluir Usuário
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </td>
                             </tr>
                         ))
