@@ -43,8 +43,20 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     country: 'Brasil',
     state: '',
     city: '',
+    // Dimensões
+    totalArea: '',
+    pastureArea: '',
+    agricultureArea: '',
+    otherCrops: '',
+    infrastructure: '',
+    reserveAndAPP: '',
+    propertyValue: '',
+    // Dados da propriedade
     propertyType: 'Própria' as Farm['propertyType'],
     weightMetric: 'Arroba (@)' as Farm['weightMetric'],
+    // Dados do rebanho
+    averageHerd: '',
+    herdValue: '',
     commercializesGenetics: false,
     productionSystem: '' as Farm['productionSystem'] | ''
   });
@@ -56,6 +68,142 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const isStateRequired = formData.country === 'Brasil';
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Helper function to format number with thousands separator (.) and 2 decimals (,)
+  const formatNumberWithDecimals = (value: string): string => {
+    if (!value) return '';
+    
+    // Remove all non-numeric characters except comma and dot
+    let cleaned = value.replace(/[^\d,.]/g, '');
+    
+    // Check if value originally had a comma (user is typing decimal separator)
+    const hasComma = cleaned.includes(',');
+    
+    // If there's both comma and dot, determine which is decimal separator
+    if (cleaned.includes(',') && cleaned.includes('.')) {
+      const lastComma = cleaned.lastIndexOf(',');
+      const lastDot = cleaned.lastIndexOf('.');
+      if (lastComma > lastDot) {
+        // Comma is decimal separator, remove all dots (they are thousands separators being typed)
+        cleaned = cleaned.replace(/\./g, '');
+      } else {
+        // Dot is decimal separator, convert to comma
+        cleaned = cleaned.replace(/,/g, '');
+        cleaned = cleaned.replace('.', ',');
+      }
+    } else if (cleaned.includes('.')) {
+      // Only dot - could be decimal separator or thousands separator
+      // If it's near the end (last 3 chars), assume decimal separator
+      if (cleaned.length - cleaned.indexOf('.') <= 3) {
+        cleaned = cleaned.replace('.', ',');
+      } else {
+        // Otherwise assume it's thousands separator and remove it
+        cleaned = cleaned.replace(/\./g, '');
+      }
+    }
+    
+    // Split by comma to separate integer and decimal parts
+    const parts = cleaned.split(',');
+    let integerPart = parts[0] || '';
+    let decimalPart = parts[1] || '';
+    
+    // Limit decimal part to 2 digits
+    decimalPart = decimalPart.slice(0, 2);
+    
+    // Add thousands separator (.) to integer part (from right to left, every 3 digits)
+    if (integerPart) {
+      // Remove existing dots first
+      integerPart = integerPart.replace(/\./g, '');
+      // Add thousands separator
+      integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    
+    // Combine parts - preserve comma if user typed it (hasComma) or if decimal part exists
+    if (hasComma || decimalPart) {
+      return `${integerPart},${decimalPart}`;
+    }
+    return integerPart;
+  };
+
+  // Helper function to parse number from formatted string
+  const parseNumber = (value: string): number | undefined => {
+    if (!value || value.trim() === '') return undefined;
+    // Remove thousands separators (.) and replace comma with dot for decimal
+    const cleaned = value.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? undefined : num;
+  };
+
+  // Handle numeric input change (for hectare fields)
+  const handleNumericChange = (field: string, value: string) => {
+    const formatted = formatNumberWithDecimals(value);
+    setFormData({ ...formData, [field]: formatted });
+  };
+
+  // Handle blur event to ensure 2 decimals are always shown
+  const handleNumericBlur = (field: string) => {
+    const currentValue = formData[field as keyof typeof formData] as string;
+    if (!currentValue) return;
+    
+    const numValue = parseNumber(currentValue);
+    if (numValue !== undefined) {
+      const formatted = formatNumberForDisplay(numValue);
+      setFormData({ ...formData, [field]: formatted });
+    }
+  };
+
+  // Calculate sum of all partial areas
+  const calculateTotalAreaSum = (): number => {
+    const pasture = parseNumber(formData.pastureArea) || 0;
+    const agriculture = parseNumber(formData.agricultureArea) || 0;
+    const otherCrops = parseNumber(formData.otherCrops) || 0;
+    const infrastructure = parseNumber(formData.infrastructure) || 0;
+    const reserve = parseNumber(formData.reserveAndAPP) || 0;
+    return pasture + agriculture + otherCrops + infrastructure + reserve;
+  };
+
+  // Check if total area matches the sum of partial areas
+  const isTotalAreaValid = (): boolean => {
+    const totalAreaValue = parseNumber(formData.totalArea);
+    const calculatedSum = calculateTotalAreaSum();
+    
+    if (totalAreaValue === undefined) return false;
+    
+    // Compare with tolerance for rounding (0.01 ha)
+    const difference = Math.abs(totalAreaValue - calculatedSum);
+    return difference < 0.01;
+  };
+
+  // Handle currency input change (without decimals, only thousands separator)
+  const handleCurrencyChange = (field: string, value: string) => {
+    // Remove all non-numeric characters and remove "R$"
+    const cleaned = value.replace(/[^\d]/g, '').replace('R$', '').trim();
+    
+    // Format with thousands separator (.) only, no decimals
+    if (cleaned) {
+      const formatted = cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      setFormData({ ...formData, [field]: formatted });
+    } else {
+      setFormData({ ...formData, [field]: '' });
+    }
+  };
+
+  // Format integer number for display (with thousands separator, no decimals)
+  const formatIntegerForDisplay = (value: number | undefined): string => {
+    if (value === undefined || value === null || isNaN(value)) return '';
+    // Convert to integer and format with thousands separator
+    const integerValue = Math.floor(value);
+    return integerValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  // Parse integer from formatted string (removes thousands separator)
+  const parseInteger = (value: string): number | undefined => {
+    if (!value || value.trim() === '') return undefined;
+    // Remove thousands separators (.)
+    const cleaned = value.replace(/\./g, '');
+    const num = parseInt(cleaned, 10);
+    return isNaN(num) ? undefined : num;
+  };
 
   // Load farms from localStorage
   useEffect(() => {
@@ -157,27 +305,46 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     const now = new Date().toISOString();
     let updatedFarms: Farm[];
 
+    // Prepare farm data with parsed numeric values
+    const farmData: Partial<Farm> = {
+      name: formData.name,
+      country: formData.country,
+      state: formData.state,
+      city: formData.city,
+      totalArea: parseNumber(formData.totalArea),
+      pastureArea: parseNumber(formData.pastureArea),
+      agricultureArea: parseNumber(formData.agricultureArea),
+      otherCrops: parseNumber(formData.otherCrops),
+      infrastructure: parseNumber(formData.infrastructure),
+      reserveAndAPP: parseNumber(formData.reserveAndAPP),
+      propertyValue: parseInteger(formData.propertyValue),
+      propertyType: formData.propertyType,
+      weightMetric: formData.weightMetric,
+      averageHerd: formData.averageHerd ? parseInt(formData.averageHerd.replace(/\./g, ''), 10) : undefined,
+      herdValue: parseInteger(formData.herdValue),
+      commercializesGenetics: formData.commercializesGenetics,
+      productionSystem: formData.productionSystem as Farm['productionSystem']
+    };
+
     if (editingFarm) {
       // Update existing farm
       updatedFarms = farms.map(farm =>
         farm.id === editingFarm.id
           ? {
               ...farm,
-              ...formData,
-              productionSystem: formData.productionSystem as Farm['productionSystem'],
+              ...farmData,
               updatedAt: now
-            }
+            } as Farm
           : farm
       );
     } else {
       // Create new farm
       const newFarm: Farm = {
         id: `farm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        ...formData,
-        productionSystem: formData.productionSystem as Farm['productionSystem'],
+        ...farmData,
         createdAt: now,
         updatedAt: now
-      };
+      } as Farm;
       updatedFarms = [...farms, newFarm];
     }
 
@@ -210,6 +377,21 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     }
   };
 
+  // Format number for display (with thousands separator (.) and 2 decimals (,))
+  const formatNumberForDisplay = (value: number | undefined): string => {
+    if (value === undefined || value === null || isNaN(value)) return '';
+    // Format with 2 decimals, then replace dot with comma for decimal separator
+    const formatted = value.toFixed(2);
+    const parts = formatted.split('.');
+    const integerPart = parts[0];
+    const decimalPart = parts[1] || '00';
+    
+    // Add thousands separator to integer part
+    const integerWithSeparator = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+    return `${integerWithSeparator},${decimalPart}`;
+  };
+
   const handleEdit = (farm: Farm) => {
     setEditingFarm(farm);
     setIsCreatingNew(false); // Não está criando, está editando
@@ -218,8 +400,17 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       country: farm.country,
       state: farm.state,
       city: farm.city,
+      totalArea: formatNumberForDisplay(farm.totalArea),
+      pastureArea: formatNumberForDisplay(farm.pastureArea),
+      agricultureArea: formatNumberForDisplay(farm.agricultureArea),
+      otherCrops: formatNumberForDisplay(farm.otherCrops),
+      infrastructure: formatNumberForDisplay(farm.infrastructure),
+      reserveAndAPP: formatNumberForDisplay(farm.reserveAndAPP),
+      propertyValue: formatIntegerForDisplay(farm.propertyValue),
       propertyType: farm.propertyType,
       weightMetric: farm.weightMetric,
+      averageHerd: farm.averageHerd ? farm.averageHerd.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '',
+      herdValue: formatIntegerForDisplay(farm.herdValue),
       commercializesGenetics: farm.commercializesGenetics,
       productionSystem: farm.productionSystem
     });
@@ -232,8 +423,17 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       country: 'Brasil',
       state: '',
       city: '',
+      totalArea: '',
+      pastureArea: '',
+      agricultureArea: '',
+      otherCrops: '',
+      infrastructure: '',
+      reserveAndAPP: '',
+      propertyValue: '',
       propertyType: 'Própria',
       weightMetric: 'Arroba (@)',
+      averageHerd: '',
+      herdValue: '',
       commercializesGenetics: false,
       productionSystem: '' as Farm['productionSystem'] | ''
     });
@@ -337,24 +537,24 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       <style>{`
         /* Estilos customizados para barras de rolagem dos selects */
         select::-webkit-scrollbar {
-          width: 12px;
+          width: 27px;
         }
         select::-webkit-scrollbar-track {
           background: #f1f5f9;
-          border-radius: 6px;
+          border-radius: 8px;
         }
         select::-webkit-scrollbar-thumb {
-          background: #3b82f6;
-          border-radius: 6px;
-          border: 2px solid #f1f5f9;
+          background: #9ca3af;
+          border-radius: 8px;
+          border: 3px solid #f1f5f9;
         }
         select::-webkit-scrollbar-thumb:hover {
-          background: #2563eb;
+          background: #6b7280;
         }
         /* Firefox */
         select {
-          scrollbar-width: auto;
-          scrollbar-color: #3b82f6 #f1f5f9;
+          scrollbar-width: thick;
+          scrollbar-color: #9ca3af #f1f5f9;
         }
       `}</style>
       <div className="mb-3">
@@ -370,7 +570,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         </h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-2xl bg-white rounded-lg border border-ai-border p-4 md:p-6">
+      <form onSubmit={handleSubmit} className="max-w-4xl bg-white rounded-lg border border-ai-border p-4 md:p-6">
         {/* Nome da Fazenda */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-ai-text mb-1">
@@ -388,8 +588,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
         </div>
 
-        {/* Localização */}
-        <div className="mb-4">
+        {/* Localização - Seção com fundo cinza claro */}
+        <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
           <h3 className="text-sm font-semibold text-ai-text mb-3">Localização</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
@@ -445,73 +645,212 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           </div>
         </div>
 
-        {/* Tipo de Propriedade e Métrica de Peso - Grid 2 colunas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Tipo de propriedade</label>
-            <select
-              value={formData.propertyType}
-              onChange={(e) => setFormData({ ...formData, propertyType: e.target.value as Farm['propertyType'] })}
-              className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent"
-            >
-              <option value="Própria">Própria</option>
-              <option value="Arrendada">Arrendada</option>
-              <option value="Parceria">Parceria</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Métrica de peso utilizada</label>
-            <select
-              value={formData.weightMetric}
-              onChange={(e) => setFormData({ ...formData, weightMetric: e.target.value as Farm['weightMetric'] })}
-              className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent"
-            >
-              <option value="Arroba (@)">Arroba (@)</option>
-              <option value="Quilograma (Kg)">Quilograma (Kg)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Comercialização de Genética */}
-        <div className="mb-4">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.commercializesGenetics}
-              onChange={(e) => setFormData({ ...formData, commercializesGenetics: e.target.checked })}
-              className="mt-1 w-4 h-4 text-ai-accent border-ai-border rounded focus:ring-ai-accent"
-            />
+        {/* Dimensões da Fazenda - Seção com fundo cinza claro */}
+        <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-sm font-semibold text-ai-text mb-3">Dimensões da Fazenda (Hectares)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <div>
-              <span className="block text-sm font-medium text-ai-text">
-                Comercializa genética animal
-              </span>
-              <span className="block text-xs text-ai-subtext mt-1">
-                Selecione se a fazenda vende touros, matrizes ou sêmen
-              </span>
+              <label className="block text-sm font-medium text-ai-text mb-1">Área Total</label>
+              <input
+                type="text"
+                value={formData.totalArea}
+                onChange={(e) => handleNumericChange('totalArea', e.target.value)}
+                onBlur={() => handleNumericBlur('totalArea')}
+                placeholder="0,00"
+                inputMode="decimal"
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
+                  isTotalAreaValid() && formData.totalArea ? 'border-green-500' : 'border-ai-border'
+                }`}
+              />
+              <p className={`text-xs mt-1 ${
+                isTotalAreaValid() && formData.totalArea ? 'text-green-600' : 'text-ai-subtext'
+              }`}>
+                Soma das áreas: {formatNumberForDisplay(calculateTotalAreaSum())} ha
+              </p>
             </div>
-          </label>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Área de Pastagem</label>
+              <input
+                type="text"
+                value={formData.pastureArea}
+                onChange={(e) => handleNumericChange('pastureArea', e.target.value)}
+                onBlur={() => handleNumericBlur('pastureArea')}
+                placeholder="0,00"
+                inputMode="decimal"
+                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Área Agricultura</label>
+              <input
+                type="text"
+                value={formData.agricultureArea}
+                onChange={(e) => handleNumericChange('agricultureArea', e.target.value)}
+                onBlur={() => handleNumericBlur('agricultureArea')}
+                placeholder="0,00"
+                inputMode="decimal"
+                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Outras Culturas</label>
+              <input
+                type="text"
+                value={formData.otherCrops}
+                onChange={(e) => handleNumericChange('otherCrops', e.target.value)}
+                onBlur={() => handleNumericBlur('otherCrops')}
+                placeholder="0,00"
+                inputMode="decimal"
+                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Infraestrutura</label>
+              <input
+                type="text"
+                value={formData.infrastructure}
+                onChange={(e) => handleNumericChange('infrastructure', e.target.value)}
+                onBlur={() => handleNumericBlur('infrastructure')}
+                placeholder="0,00"
+                inputMode="decimal"
+                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Reserva e APP</label>
+              <input
+                type="text"
+                value={formData.reserveAndAPP}
+                onChange={(e) => handleNumericChange('reserveAndAPP', e.target.value)}
+                onBlur={() => handleNumericBlur('reserveAndAPP')}
+                placeholder="0,00"
+                inputMode="decimal"
+                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Sistema de Produção */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-ai-text mb-1">
-            Sistema de produção <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={formData.productionSystem}
-            onChange={(e) => setFormData({ ...formData, productionSystem: e.target.value as Farm['productionSystem'] | '' })}
-            className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
-              errors.productionSystem ? 'border-red-500' : 'border-ai-border'
-            }`}
-          >
-            <option value="">Selecione um sistema</option>
-            <option value="Cria">Cria</option>
-            <option value="Recria-Engorda">Recria-Engorda</option>
-            <option value="Ciclo Completo">Ciclo Completo</option>
-          </select>
-          {errors.productionSystem && (
-            <p className="text-red-500 text-xs mt-1">{errors.productionSystem}</p>
-          )}
+        {/* Dados da Propriedade e Rebanho - Seção com fundo cinza claro */}
+        <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-sm font-semibold text-ai-text mb-3">Dados da Propriedade e Rebanho</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Tipo de propriedade</label>
+              <select
+                value={formData.propertyType}
+                onChange={(e) => setFormData({ ...formData, propertyType: e.target.value as Farm['propertyType'] })}
+                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+              >
+                <option value="Própria">Própria</option>
+                <option value="Arrendada">Arrendada</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Valor da propriedade</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-ai-subtext">R$</span>
+                <input
+                  type="text"
+                  value={formData.propertyValue}
+                  onChange={(e) => handleCurrencyChange('propertyValue', e.target.value)}
+                  placeholder="0"
+                  inputMode="numeric"
+                  className="w-full pl-10 pr-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Métrica de peso utilizada</label>
+              <select
+                value={formData.weightMetric}
+                onChange={(e) => setFormData({ ...formData, weightMetric: e.target.value as Farm['weightMetric'] })}
+                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+              >
+                <option value="Arroba (@)">Arroba (@)</option>
+                <option value="Quilograma (Kg)">Quilograma (Kg)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Rebanho médio últimos 12 meses</label>
+              <input
+                type="text"
+                value={formData.averageHerd}
+                onChange={(e) => {
+                  // Remove all non-numeric characters
+                  const cleaned = e.target.value.replace(/[^\d]/g, '');
+                  // Format with thousands separator
+                  const formatted = cleaned ? cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+                  setFormData({ ...formData, averageHerd: formatted });
+                }}
+                onBlur={() => {
+                  // Ensure it's formatted on blur
+                  if (formData.averageHerd) {
+                    const cleaned = formData.averageHerd.replace(/\./g, '');
+                    const formatted = cleaned ? cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+                    setFormData({ ...formData, averageHerd: formatted });
+                  }
+                }}
+                placeholder="0"
+                inputMode="numeric"
+                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Valor do Rebanho</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-ai-subtext">R$</span>
+                <input
+                  type="text"
+                  value={formData.herdValue}
+                  onChange={(e) => handleCurrencyChange('herdValue', e.target.value)}
+                  placeholder="0"
+                  inputMode="numeric"
+                  className="w-full pl-10 pr-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">
+                Sistema de produção <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={formData.productionSystem}
+                onChange={(e) => setFormData({ ...formData, productionSystem: e.target.value as Farm['productionSystem'] | '' })}
+                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
+                  errors.productionSystem ? 'border-red-500' : 'border-ai-border'
+                } bg-white`}
+              >
+                <option value="">Selecione um sistema</option>
+                <option value="Cria">Cria</option>
+                <option value="Recria-Engorda">Recria-Engorda</option>
+                <option value="Ciclo Completo">Ciclo Completo</option>
+              </select>
+              {errors.productionSystem && (
+                <p className="text-red-500 text-xs mt-1">{errors.productionSystem}</p>
+              )}
+            </div>
+          </div>
+          
+          {/* Comercialização de Genética */}
+          <div className="mt-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.commercializesGenetics}
+                onChange={(e) => setFormData({ ...formData, commercializesGenetics: e.target.checked })}
+                className="mt-1 w-4 h-4 text-ai-accent border-ai-border rounded focus:ring-ai-accent"
+              />
+              <div>
+                <span className="block text-sm font-medium text-ai-text">
+                  Comercializa genética animal
+                </span>
+                <span className="block text-xs text-ai-subtext mt-1">
+                  Selecione se a fazenda vende touros, matrizes ou sêmen
+                </span>
+              </div>
+            </label>
+          </div>
         </div>
 
         {/* Action Buttons */}

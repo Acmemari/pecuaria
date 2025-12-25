@@ -112,8 +112,20 @@ export interface Farm {
   country: string;
   state: string;
   city: string;
-  propertyType: 'Própria' | 'Arrendada' | 'Parceria';
+  // Dimensões (em hectares)
+  totalArea?: number;
+  pastureArea?: number;
+  agricultureArea?: number;
+  otherCrops?: number;
+  infrastructure?: number;
+  reserveAndAPP?: number;
+  propertyValue?: number;
+  // Dados da propriedade
+  propertyType: 'Própria' | 'Arrendada';
   weightMetric: 'Arroba (@)' | 'Quilograma (Kg)';
+  // Dados do rebanho
+  averageHerd?: number;
+  herdValue?: number;
   commercializesGenetics: boolean;
   productionSystem: 'Cria' | 'Recria-Engorda' | 'Ciclo Completo';
   createdAt: string;
