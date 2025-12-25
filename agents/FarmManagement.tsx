@@ -282,6 +282,21 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       newErrors.productionSystem = 'Sistema de produção é obrigatório';
     }
 
+    // Validar se a área total bate com a soma das áreas parciais
+    const totalAreaValue = parseNumber(formData.totalArea);
+    const calculatedSum = calculateTotalAreaSum();
+    
+    // Se a área total foi preenchida, deve bater com a soma das áreas parciais
+    if (totalAreaValue !== undefined && totalAreaValue > 0) {
+      const difference = Math.abs(totalAreaValue - calculatedSum);
+      if (difference >= 0.01) {
+        // Tolerância de 0.01 ha para arredondamentos
+        const formattedTotal = formatNumberForDisplay(totalAreaValue);
+        const formattedSum = formatNumberForDisplay(calculatedSum);
+        newErrors.totalArea = `A área total (${formattedTotal} ha) não corresponde à soma das áreas parciais (${formattedSum} ha). Por favor, verifique os valores.`;
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -659,9 +674,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 placeholder="0,00"
                 inputMode="decimal"
                 className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
+                  errors.totalArea ? 'border-red-500' : 
                   isTotalAreaValid() && formData.totalArea ? 'border-green-500' : 'border-ai-border'
                 }`}
               />
+              {errors.totalArea && <p className="text-red-500 text-xs mt-1">{errors.totalArea}</p>}
               <p className={`text-xs mt-1 ${
                 isTotalAreaValid() && formData.totalArea ? 'text-green-600' : 'text-ai-subtext'
               }`}>
