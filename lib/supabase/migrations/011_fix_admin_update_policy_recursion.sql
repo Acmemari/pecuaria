@@ -36,3 +36,4 @@ COMMENT ON FUNCTION public.is_admin IS 'Checks if the current authenticated user
 
 
 
+

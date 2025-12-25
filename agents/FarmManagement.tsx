@@ -334,10 +334,33 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   // Form View
   return (
     <div className="h-full flex flex-col p-3 md:p-4 overflow-y-auto">
+      <style>{`
+        /* Estilos customizados para barras de rolagem dos selects */
+        select::-webkit-scrollbar {
+          width: 12px;
+        }
+        select::-webkit-scrollbar-track {
+          background: #f1f5f9;
+          border-radius: 6px;
+        }
+        select::-webkit-scrollbar-thumb {
+          background: #3b82f6;
+          border-radius: 6px;
+          border: 2px solid #f1f5f9;
+        }
+        select::-webkit-scrollbar-thumb:hover {
+          background: #2563eb;
+        }
+        /* Firefox */
+        select {
+          scrollbar-width: auto;
+          scrollbar-color: #3b82f6 #f1f5f9;
+        }
+      `}</style>
       <div className="mb-3">
         <button
           onClick={handleCancel}
-          className="flex items-center gap-2 text-ai-subtext hover:text-ai-text transition-colors mb-2"
+          className="flex items-center gap-2 text-ai-subtext hover:text-ai-text transition-colors mb-2 cursor-pointer"
         >
           <ArrowLeft size={18} />
           Voltar para lista
