@@ -548,7 +548,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
   // Form View
   return (
-    <div className="h-full flex flex-col p-3 md:p-4 overflow-y-auto">
+    <div className="h-full flex flex-col p-2 md:p-3 overflow-hidden">
       <style>{`
         /* Estilos customizados para barras de rolagem dos selects */
         select::-webkit-scrollbar {
@@ -572,23 +572,24 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           scrollbar-color: #9ca3af #f1f5f9;
         }
       `}</style>
-      <div className="mb-3">
+      <div className="mb-1 flex-shrink-0">
         <button
           onClick={handleCancel}
-          className="flex items-center gap-2 text-ai-subtext hover:text-ai-text transition-colors mb-2 cursor-pointer"
+          className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors mb-0.5 cursor-pointer text-xs"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={14} />
           Voltar para lista
         </button>
-        <h1 className="text-xl md:text-2xl font-bold text-ai-text">
+        <h1 className="text-base md:text-lg font-bold text-ai-text">
           {editingFarm ? 'Editar Fazenda' : 'Cadastrar Fazenda'}
         </h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-4xl bg-white rounded-lg border border-ai-border p-4 md:p-6">
+      <form onSubmit={handleSubmit} className="max-w-4xl bg-white rounded-lg border border-ai-border p-1.5 flex-1 min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col">
         {/* Nome da Fazenda */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-ai-text mb-1">
+        <div className="mb-1">
+          <label className="block text-xs font-medium text-ai-text mb-0.5">
             Nome da fazenda <span className="text-red-500">*</span>
           </label>
           <input
@@ -596,23 +597,23 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             placeholder="Nome da fazenda"
-            className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
-              errors.name ? 'border-red-500' : 'border-ai-border'
-            }`}
+                className={`w-full px-2 py-1 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
+                  errors.name ? 'border-red-500' : 'border-ai-border'
+                }`}
           />
-          {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+              {errors.name && <p className="text-red-500 text-xs mt-0.5">{errors.name}</p>}
         </div>
 
         {/* Localização - Seção com fundo cinza claro */}
-        <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-sm font-semibold text-ai-text mb-3">Localização</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="mb-1 p-1.5 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-xs font-semibold text-ai-text mb-0.5">Localização</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">País</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">País</label>
               <select
                 value={formData.country}
                 onChange={(e) => handleCountryChange(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
               >
                 {COUNTRIES.map((country) => (
                   <option key={country} value={country}>
@@ -622,14 +623,14 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">
+              <label className="block text-xs font-medium text-ai-text mb-0.5">
                 Estado {isStateRequired && <span className="text-red-500">*</span>}
               </label>
               <select
                 value={formData.state}
                 onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                 disabled={!isStateRequired}
-                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
+                className={`w-full px-2 py-1 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
                   errors.state ? 'border-red-500' : 'border-ai-border'
                 } ${!isStateRequired ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
               >
@@ -640,10 +641,10 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                   </option>
                 ))}
               </select>
-              {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
+              {errors.state && <p className="text-red-500 text-xs mt-0.5">{errors.state}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">
+              <label className="block text-xs font-medium text-ai-text mb-0.5">
                 Cidade <span className="text-red-500">*</span>
               </label>
               <input
@@ -651,21 +652,21 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                 placeholder="Cidade"
-                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
+                className={`w-full px-2 py-1 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
                   errors.city ? 'border-red-500' : 'border-ai-border'
                 }`}
               />
-              {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
+              {errors.city && <p className="text-red-500 text-xs mt-0.5">{errors.city}</p>}
             </div>
           </div>
         </div>
 
         {/* Dimensões da Fazenda - Seção com fundo cinza claro */}
-        <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-sm font-semibold text-ai-text mb-3">Dimensões da Fazenda (Hectares)</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="mb-1 p-1.5 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-xs font-semibold text-ai-text mb-0.5">Dimensões da Fazenda (Hectares)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1">
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Área Total</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">Área Total</label>
               <input
                 type="text"
                 value={formData.totalArea}
@@ -673,20 +674,20 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('totalArea')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
+                className={`w-full px-2 py-1 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
                   errors.totalArea ? 'border-red-500' : 
                   isTotalAreaValid() && formData.totalArea ? 'border-green-500' : 'border-ai-border'
                 }`}
               />
-              {errors.totalArea && <p className="text-red-500 text-xs mt-1">{errors.totalArea}</p>}
-              <p className={`text-xs mt-1 ${
+              {errors.totalArea && <p className="text-red-500 text-xs mt-0.5">{errors.totalArea}</p>}
+              <p className={`text-xs mt-0.5 ${
                 isTotalAreaValid() && formData.totalArea ? 'text-green-600' : 'text-ai-subtext'
               }`}>
                 Soma das áreas: {formatNumberForDisplay(calculateTotalAreaSum())} ha
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Área de Pastagem</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">Área de Pastagem</label>
               <input
                 type="text"
                 value={formData.pastureArea}
@@ -694,11 +695,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('pastureArea')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Área Agricultura</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">Área Agricultura</label>
               <input
                 type="text"
                 value={formData.agricultureArea}
@@ -706,11 +707,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('agricultureArea')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Outras Culturas</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">Outras Culturas</label>
               <input
                 type="text"
                 value={formData.otherCrops}
@@ -718,11 +719,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('otherCrops')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Infraestrutura</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">Infraestrutura</label>
               <input
                 type="text"
                 value={formData.infrastructure}
@@ -730,11 +731,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('infrastructure')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Reserva e APP</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">Reserva e APP</label>
               <input
                 type="text"
                 value={formData.reserveAndAPP}
@@ -742,54 +743,54 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('reserveAndAPP')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
               />
             </div>
           </div>
         </div>
 
         {/* Dados da Propriedade e Rebanho - Seção com fundo cinza claro */}
-        <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-sm font-semibold text-ai-text mb-3">Dados da Propriedade e Rebanho</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mb-1 p-1.5 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-xs font-semibold text-ai-text mb-0.5">Dados da Propriedade e Rebanho</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Tipo de propriedade</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">Tipo de propriedade</label>
               <select
                 value={formData.propertyType}
                 onChange={(e) => setFormData({ ...formData, propertyType: e.target.value as Farm['propertyType'] })}
-                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
               >
                 <option value="Própria">Própria</option>
                 <option value="Arrendada">Arrendada</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Valor da propriedade</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">Valor da propriedade</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-ai-subtext">R$</span>
+                <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">R$</span>
                 <input
                   type="text"
                   value={formData.propertyValue}
                   onChange={(e) => handleCurrencyChange('propertyValue', e.target.value)}
                   placeholder="0"
                   inputMode="numeric"
-                  className="w-full pl-10 pr-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  className="w-full pl-8 pr-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Métrica de peso utilizada</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">Métrica de peso utilizada</label>
               <select
                 value={formData.weightMetric}
                 onChange={(e) => setFormData({ ...formData, weightMetric: e.target.value as Farm['weightMetric'] })}
-                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
               >
                 <option value="Arroba (@)">Arroba (@)</option>
                 <option value="Quilograma (Kg)">Quilograma (Kg)</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Rebanho médio últimos 12 meses</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">Rebanho médio últimos 12 meses</label>
               <input
                 type="text"
                 value={formData.averageHerd}
@@ -810,31 +811,31 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 }}
                 placeholder="0"
                 inputMode="numeric"
-                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Valor do Rebanho</label>
+              <label className="block text-xs font-medium text-ai-text mb-0.5">Valor do Rebanho</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-ai-subtext">R$</span>
+                <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">R$</span>
                 <input
                   type="text"
                   value={formData.herdValue}
                   onChange={(e) => handleCurrencyChange('herdValue', e.target.value)}
                   placeholder="0"
                   inputMode="numeric"
-                  className="w-full pl-10 pr-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  className="w-full pl-8 pr-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">
+              <label className="block text-xs font-medium text-ai-text mb-0.5">
                 Sistema de produção <span className="text-red-500">*</span>
               </label>
               <select
                 value={formData.productionSystem}
                 onChange={(e) => setFormData({ ...formData, productionSystem: e.target.value as Farm['productionSystem'] | '' })}
-                className={`w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
+                className={`w-full px-2 py-1 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
                   errors.productionSystem ? 'border-red-500' : 'border-ai-border'
                 } bg-white`}
               >
@@ -843,14 +844,14 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 <option value="Recria-Engorda">Recria-Engorda</option>
                 <option value="Ciclo Completo">Ciclo Completo</option>
               </select>
-              {errors.productionSystem && (
-                <p className="text-red-500 text-xs mt-1">{errors.productionSystem}</p>
-              )}
+          {errors.productionSystem && (
+            <p className="text-red-500 text-xs mt-0.5">{errors.productionSystem}</p>
+          )}
             </div>
           </div>
           
           {/* Comercialização de Genética */}
-          <div className="mt-4">
+          <div className="mt-1">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
@@ -870,20 +871,21 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           </div>
         </div>
 
+        </div>
         {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t border-ai-border">
+        <div className="flex gap-1.5 pt-1 border-t border-ai-border flex-shrink-0 mt-0.5">
           <button
             type="button"
             onClick={handleCancel}
-            className="flex-1 px-4 py-2 border border-ai-border text-ai-text rounded-lg font-medium hover:bg-ai-surface2 transition-colors"
+            className="flex-1 px-2 py-1 text-xs border border-ai-border text-ai-text rounded-lg font-medium hover:bg-ai-surface2 transition-colors"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="flex-1 px-4 py-2 bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors flex items-center justify-center gap-2"
+            className="flex-1 px-2 py-1 text-xs bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors flex items-center justify-center gap-1"
           >
-            <CheckCircle2 size={18} />
+            <CheckCircle2 size={14} />
             {editingFarm ? 'Atualizar Fazenda' : 'Cadastrar Fazenda'}
           </button>
         </div>
