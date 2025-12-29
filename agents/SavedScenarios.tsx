@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, FileText } from 'lucide-react';
+import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, Download } from 'lucide-react';
 import { CattleScenario } from '../types';
 import { getSavedScenarios, deleteScenario, getScenario } from '../lib/scenarios';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,9 +11,18 @@ import { generateReportPDF } from '../lib/generateReportPDF';
 interface SavedScenariosProps {
   onLoadScenario: (inputs: CattleCalculatorInputs) => void;
   onNavigateToCalculator: () => void;
+  onLoadComparator?: (scenarios: any[]) => void;
+  onNavigateToComparator?: () => void;
+  onToast?: (toast: { id: string; message: string; type: 'success' | 'error' | 'info' }) => void;
 }
 
-const SavedScenarios: React.FC<SavedScenariosProps> = ({ onLoadScenario, onNavigateToCalculator }) => {
+const SavedScenarios: React.FC<SavedScenariosProps> = ({
+  onLoadScenario,
+  onNavigateToCalculator,
+  onLoadComparator,
+  onNavigateToComparator,
+  onToast
+}) => {
   const { user } = useAuth();
   const [scenarios, setScenarios] = useState<CattleScenario[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,8 +69,17 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({ onLoadScenario, onNavig
     try {
       await deleteScenario(scenarioId, user.id);
       setScenarios(scenarios.filter(s => s.id !== scenarioId));
+      onToast?.({
+        id: Date.now().toString(),
+        message: 'Cenário excluído com sucesso',
+        type: 'success'
+      });
     } catch (err: any) {
-      alert(err.message || 'Erro ao excluir cenário');
+      onToast?.({
+        id: Date.now().toString(),
+        message: err.message || 'Erro ao excluir cenário',
+        type: 'error'
+      });
     } finally {
       setDeletingId(null);
     }
@@ -73,11 +91,28 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({ onLoadScenario, onNavig
     try {
       const scenario = await getScenario(scenarioId, user.id);
       if (scenario) {
-        onLoadScenario(scenario.inputs);
-        onNavigateToCalculator();
+        // Verificar se é um comparativo
+        const resultsObj = scenario.results as any;
+        if (resultsObj?.type === 'comparator_pdf' && resultsObj?.scenarios) {
+          // É um comparativo - carregar no comparador
+          if (onLoadComparator && onNavigateToComparator) {
+            onLoadComparator(resultsObj.scenarios);
+            onNavigateToComparator();
+          } else {
+            alert('Funcionalidade de carregar comparativos não está disponível');
+          }
+        } else {
+          // É um cenário individual - carregar na calculadora
+          onLoadScenario(scenario.inputs);
+          onNavigateToCalculator();
+        }
       }
     } catch (err: any) {
-      alert(err.message || 'Erro ao carregar cenário');
+      onToast?.({
+        id: Date.now().toString(),
+        message: err.message || 'Erro ao carregar cenário',
+        type: 'error'
+      });
     }
   };
 
@@ -94,7 +129,11 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({ onLoadScenario, onNavig
       await loadScenarios();
       setEditingScenario(null);
     } catch (err: any) {
-      alert(err.message || 'Erro ao atualizar cenário');
+      onToast?.({
+        id: Date.now().toString(),
+        message: err.message || 'Erro ao atualizar cenário',
+        type: 'error'
+      });
     } finally {
       setIsUpdating(false);
     }
@@ -102,21 +141,74 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({ onLoadScenario, onNavig
 
   const handleDownloadReport = async (scenario: CattleScenario) => {
     if (!scenario.results) {
-      alert('Este cenário não possui resultados para gerar o relatório. Visualize o cenário primeiro.');
+      onToast?.({
+        id: Date.now().toString(),
+        message: 'Este cenário não possui resultados para gerar o relatório',
+        type: 'error'
+      });
       return;
     }
 
     try {
-      generateReportPDF({
-        inputs: scenario.inputs,
-        results: scenario.results,
-        scenarioName: scenario.name,
-        createdAt: scenario.created_at,
-        userName: user?.name
-      });
+      // Verificar se é um PDF do comparador
+      const resultsObj = scenario.results as any;
+      if (resultsObj.type === 'comparator_pdf' && resultsObj.pdf_base64) {
+        // É um comparativo salvo - baixar o PDF armazenado
+        const pdfBase64 = resultsObj.pdf_base64;
+
+        // Validação de segurança: verificar se é base64 válido
+        if (typeof pdfBase64 !== 'string' || !/^[A-Za-z0-9+/=]+$/.test(pdfBase64)) {
+          throw new Error('PDF inválido ou corrompido');
+        }
+
+        // Validação de segurança: verificar tamanho (máx 10MB em base64)
+        if (pdfBase64.length > 14000000) { // ~10MB em base64
+          throw new Error('PDF muito grande para download');
+        }
+
+        // Converter base64 para Blob
+        const byteCharacters = atob(pdfBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+        // Criar link de download
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+
+        // Sanitizar nome do arquivo para prevenir XSS
+        const safeName = scenario.name
+          .replace(/[^a-z0-9\s-]/gi, '')
+          .replace(/\s+/g, '-')
+          .toLowerCase()
+          .substring(0, 50); // Limitar tamanho
+        const fileName = `comparativo-${safeName}.pdf`;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        // É um cenário normal - gerar PDF
+        generateReportPDF({
+          inputs: scenario.inputs,
+          results: scenario.results,
+          scenarioName: scenario.name,
+          createdAt: scenario.created_at,
+          userName: user?.name
+        });
+      }
     } catch (err: any) {
       console.error('Error generating PDF:', err);
-      alert('Erro ao gerar relatório PDF: ' + (err.message || 'Erro desconhecido'));
+      onToast?.({
+        id: Date.now().toString(),
+        message: 'Erro ao gerar relatório PDF: ' + (err.message || 'Erro desconhecido'),
+        type: 'error'
+      });
     }
   };
 
@@ -221,7 +313,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({ onLoadScenario, onNavig
                       className="p-1.5 text-ai-subtext hover:text-purple-600 hover:bg-ai-surface rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Download Relatório PDF"
                     >
-                      <FileText size={16} />
+                      <Download size={16} />
                     </button>
                     <button
                       onClick={() => handleEdit(scenario)}
@@ -252,66 +344,87 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({ onLoadScenario, onNavig
                 </div>
 
                 {/* Summary */}
-                {scenario.results && (
-                  <div className="pt-3 border-t border-ai-border">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-ai-subtext">Resultado:</span>
-                        <span className={`ml-1 font-medium ${
-                          scenario.results.resultadoPorBoi >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          R$ {scenario.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-ai-subtext">Margem:</span>
-                        <span className={`ml-1 font-medium ${
-                          scenario.results.margemVenda >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {scenario.results.margemVenda.toFixed(2)}%
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-ai-subtext">Permanência:</span>
-                        <span className="ml-1 font-medium text-ai-text">
-                          {scenario.results.diasPermanencia.toFixed(0)} dias
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-ai-subtext">Arrobas:</span>
-                        <span className="ml-1 font-medium text-ai-text">
-                          {scenario.results.arrobasProduzidas.toFixed(2)} @
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {(() => {
+                  const resultsObj = scenario.results as any;
+                  const isComparatorPDF = resultsObj?.type === 'comparator_pdf';
 
-                {/* Inputs Summary (if no results) */}
-                {!scenario.results && (
-                  <div className="pt-3 border-t border-ai-border">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <span className="text-ai-subtext">Peso Compra:</span>
-                        <span className="ml-1 font-medium text-ai-text">{scenario.inputs.pesoCompra} kg</span>
+                  if (isComparatorPDF) {
+                    // É um comparativo salvo
+                    return (
+                      <div className="pt-3 border-t border-ai-border">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                            Análise Comparativa
+                          </div>
+                        </div>
+                        <p className="text-xs text-ai-subtext">
+                          Comparação de 3 cenários com relatório PDF completo.
+                          Clique no ícone de download para visualizar o relatório.
+                        </p>
                       </div>
-                      <div>
-                        <span className="text-ai-subtext">Valor Compra:</span>
-                        <span className="ml-1 font-medium text-ai-text">
-                          R$ {scenario.inputs.valorCompra.toFixed(2)}/kg
-                        </span>
+                    );
+                  } else if (scenario.results) {
+                    // É um cenário normal com resultados
+                    return (
+                      <div className="pt-3 border-t border-ai-border">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-ai-subtext">Resultado:</span>
+                            <span className={`ml-1 font-medium ${scenario.results.resultadoPorBoi >= 0 ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                              R$ {scenario.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-ai-subtext">Margem:</span>
+                            <span className={`ml-1 font-medium ${scenario.results.margemVenda >= 0 ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                              {scenario.results.margemVenda.toFixed(2)}%
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-ai-subtext">Permanência:</span>
+                            <span className="ml-1 font-medium text-ai-text">
+                              {scenario.results.diasPermanencia.toFixed(0)} dias
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-ai-subtext">Arrobas:</span>
+                            <span className="ml-1 font-medium text-ai-text">
+                              {scenario.results.arrobasProduzidas.toFixed(2)} @
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-ai-subtext">Peso Abate:</span>
-                        <span className="ml-1 font-medium text-ai-text">{scenario.inputs.pesoAbate} kg</span>
+                    );
+                  } else {
+                    // Cenário sem resultados - mostrar inputs
+                    return (
+                      <div className="pt-3 border-t border-ai-border">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-ai-subtext">Peso Compra:</span>
+                            <span className="ml-1 font-medium text-ai-text">{scenario.inputs.pesoCompra} kg</span>
+                          </div>
+                          <div>
+                            <span className="text-ai-subtext">Valor Compra:</span>
+                            <span className="ml-1 font-medium text-ai-text">
+                              R$ {scenario.inputs.valorCompra.toFixed(2)}/kg
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-ai-subtext">Peso Abate:</span>
+                            <span className="ml-1 font-medium text-ai-text">{scenario.inputs.pesoAbate} kg</span>
+                          </div>
+                          <div>
+                            <span className="text-ai-subtext">Valor Venda:</span>
+                            <span className="ml-1 font-medium text-ai-text">R$ {scenario.inputs.valorVenda}/@</span>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-ai-subtext">Valor Venda:</span>
-                        <span className="ml-1 font-medium text-ai-text">R$ {scenario.inputs.valorVenda}/@</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    );
+                  }
+                })()}
               </div>
             ))}
           </div>

@@ -6,7 +6,7 @@ import { Agent, User } from '../../../types';
 const mockAgents: Agent[] = [
   {
     id: 'cattle-profit',
-    name: 'Lucro do Boi',
+    name: 'Calculadoras',
     description: 'Análise econômica completa.',
     icon: 'calculator',
     category: 'financeiro',
@@ -49,7 +49,7 @@ describe('Sidebar', () => {
     );
 
     expect(screen.getByText('PecuarIA')).toBeInTheDocument();
-    expect(screen.getByText('Lucro do Boi')).toBeInTheDocument();
+    expect(screen.getByText('Calculadoras')).toBeInTheDocument();
     expect(screen.getByText('Pergunte p/ Antonio')).toBeInTheDocument();
   });
 

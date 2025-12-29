@@ -10,7 +10,7 @@
 O **Pecuária** é uma aplicação SaaS (Software as a Service) voltada para o setor pecuário, oferecendo ferramentas de análise econômica, consultoria virtual e gestão de rebanho. A aplicação utiliza React, TypeScript, Supabase para backend e OpenAI Assistant para o chat.
 
 ### Propósito Principal
-- **Calculadora de Lucro do Boi:** Análise econômica completa de investimentos em gado
+- **Calculadoras:** Análise econômica completa de investimentos em gado
 - **Chat Consultivo:** Assistente virtual "Antonio" para consultoria especializada
 - **Tendências de Mercado:** Análise de ciclo pecuário e reposição
 - **Gestão de Cenários:** Salvamento e recuperação de simulações
@@ -298,7 +298,7 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 
 ## 🔧 Funcionalidades Principais
 
-### 1. Calculadora de Lucro do Boi
+### 1. Calculadoras
 - **Inputs:** Peso compra/venda, valor, GMD, custos
 - **Outputs:** Lucro, margem, ROI, custos por arroba
 - **Salvamento:** Cenários podem ser salvos

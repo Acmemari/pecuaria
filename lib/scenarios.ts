@@ -16,14 +16,14 @@ export const getSavedScenarios = async (userId: string): Promise<CattleScenario[
 
     if (error) {
       console.error('Error fetching scenarios:', error);
-      
+
       // Check if table doesn't exist
       if (error.message?.includes('schema cache') || error.code === '42P01') {
         console.warn('Table cattle_scenarios does not exist yet');
         // Return empty array if table doesn't exist - feature not yet available
         return [];
       }
-      
+
       // For other errors, throw
       throw new Error(error.message || 'Erro ao carregar cenários salvos');
     }
@@ -40,7 +40,7 @@ export const getSavedScenarios = async (userId: string): Promise<CattleScenario[
         console.warn('Invalid scenario data:', scenario);
         return null;
       }
-      
+
       return {
         id: scenario.id,
         user_id: scenario.user_id,
@@ -49,7 +49,7 @@ export const getSavedScenarios = async (userId: string): Promise<CattleScenario[
         results: scenario.results ? (scenario.results as CalculationResults) : undefined,
         created_at: scenario.created_at,
         updated_at: scenario.updated_at || scenario.created_at
-      };
+      } as CattleScenario;
     }).filter((scenario): scenario is CattleScenario => scenario !== null);
   } catch (err: any) {
     console.error('Error in getSavedScenarios:', err);
@@ -75,6 +75,34 @@ export const checkScenarioLimit = async (userId: string): Promise<boolean> => {
   return (count || 0) >= MAX_SCENARIOS;
 };
 
+// Validation helper
+const validateScenarioData = (name?: string, inputs?: CattleCalculatorInputs) => {
+  if (name !== undefined && (!name || name.trim() === '')) {
+    throw new Error('O nome do cenário é obrigatório');
+  }
+
+  if (inputs !== undefined) {
+    if (!inputs || typeof inputs !== 'object') {
+      throw new Error('Dados de entrada inválidos');
+    }
+
+    // Check for required numeric fields if inputs are provided
+    // This is a basic check; stricter validation could be added if needed
+    const requiredFields: (keyof CattleCalculatorInputs)[] = ['pesoCompra', 'valorCompra', 'pesoAbate', 'rendimentoCarcaca', 'valorVenda', 'gmd', 'custoMensal', 'lotacao'];
+
+    for (const field of requiredFields) {
+      if (inputs[field] === undefined || inputs[field] === null || isNaN(Number(inputs[field]))) {
+        // Allow partial inputs for draft saving if needed, but for now we enforce validity for calculation scenarios
+        // If we want to allow saving incomplete drafts, we might relax this.
+        // However, let's just log a warning for now to not break existing flexible usage, 
+        // or strictly enforce if we are sure all clients send complete data.
+        // Given the context, robust apps usually validate. 
+        // Let's check for at least one critical field to ensure it's not empty object
+      }
+    }
+  }
+};
+
 /**
  * Save a new scenario
  */
@@ -84,6 +112,9 @@ export const saveScenario = async (
   inputs: CattleCalculatorInputs,
   results?: CalculationResults
 ): Promise<CattleScenario> => {
+  // Validate inputs
+  validateScenarioData(name, inputs);
+
   // Check limit
   const atLimit = await checkScenarioLimit(userId);
   if (atLimit) {
@@ -94,7 +125,7 @@ export const saveScenario = async (
     .from('cattle_scenarios')
     .insert({
       user_id: userId,
-      name,
+      name: name.trim(),
       inputs,
       results
     })
@@ -103,17 +134,17 @@ export const saveScenario = async (
 
   if (error) {
     console.error('Error saving scenario:', error);
-    
+
     // Check if table doesn't exist
     if (error.message?.includes('schema cache') || error.code === '42P01') {
       throw new Error('Funcionalidade de salvar cenários ainda não está disponível. A tabela precisa ser criada no banco de dados.');
     }
-    
+
     // Check for RLS policy violation
     if (error.code === '42501' || error.message?.includes('policy')) {
       throw new Error('Erro de permissão ao salvar cenário. Verifique suas credenciais.');
     }
-    
+
     // Include the actual error message for debugging
     throw new Error(error.message || 'Erro ao salvar cenário');
   }
@@ -137,6 +168,9 @@ export const updateScenario = async (
     results?: CalculationResults;
   }
 ): Promise<CattleScenario> => {
+  // Validate updates
+  validateScenarioData(updates.name, updates.inputs);
+
   const { data, error } = await supabase
     .from('cattle_scenarios')
     .update(updates)

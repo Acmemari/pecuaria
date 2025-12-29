@@ -48,6 +48,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }).catch(err => {
             console.error('Error loading user profile:', err);
           });
+        } else {
+          // Se não houver sessão, fazer login automático com acmemari@gmail.com
+          console.log('No session found, attempting auto-login with acmemari@gmail.com');
+          try {
+            const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+              email: 'acmemari@gmail.com',
+              password: 'acmemari123' // Senha padrão - ajustar se necessário
+            });
+
+            if (loginError) {
+              console.error('Auto-login error:', loginError);
+              setIsLoading(false);
+            } else if (loginData.user) {
+              console.log('Auto-login successful, user ID:', loginData.user.id);
+              // Wait a moment for the trigger to potentially create the profile
+              await new Promise(resolve => setTimeout(resolve, 1000));
+
+              // Try to load the profile with retries
+              let userProfile = await loadUserProfile(loginData.user.id, 3, 1000);
+
+              // If profile doesn't exist, try to create it
+              if (!userProfile) {
+                console.log('Profile not found after auto-login, attempting to create...');
+                const created = await createUserProfileIfMissing(loginData.user.id);
+
+                if (created) {
+                  // Wait a bit more and try loading again
+                  await new Promise(resolve => setTimeout(resolve, 1500));
+                  userProfile = await loadUserProfile(loginData.user.id, 3, 1000);
+                }
+              }
+
+              if (userProfile) {
+                console.log('User profile loaded after auto-login, setting user state');
+                setUser(userProfile);
+              } else {
+                console.warn('Profile not found after auto-login and creation attempt');
+                // Create a temporary user object from auth data
+                setUser({
+                  id: loginData.user.id,
+                  email: loginData.user.email || '',
+                  name: loginData.user.user_metadata?.name || loginData.user.user_metadata?.full_name || 'Usuário',
+                  role: (loginData.user.user_metadata?.role as 'admin' | 'client') || 'client',
+                  plan: (loginData.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
+                  avatar: loginData.user.user_metadata?.avatar || (loginData.user.email?.[0].toUpperCase() || 'U'),
+                  status: 'active'
+                });
+              }
+            }
+          } catch (autoLoginError) {
+            console.error('Error during auto-login:', autoLoginError);
+          }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);

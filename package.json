@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.86.0",
     "jspdf": "^3.0.4",
     "lucide-react": "^0.555.0",

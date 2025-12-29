@@ -585,11 +585,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         </h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-4xl bg-white rounded-lg border border-ai-border p-1.5 flex-1 min-h-0 flex flex-col">
+      <form onSubmit={handleSubmit} className="max-w-4xl bg-white rounded-lg border border-ai-border p-3 flex-1 min-h-0 flex flex-col">
         <div className="flex-1 min-h-0 flex flex-col">
         {/* Nome da Fazenda */}
-        <div className="mb-1">
-          <label className="block text-xs font-medium text-ai-text mb-0.5">
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-ai-text mb-1">
             Nome da fazenda <span className="text-red-500">*</span>
           </label>
           <input
@@ -605,9 +605,9 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         </div>
 
         {/* Localização - Seção com fundo cinza claro */}
-        <div className="mb-1 p-1.5 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-xs font-semibold text-ai-text mb-0.5">Localização</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
+        <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-xs font-semibold text-ai-text mb-2">Localização</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div>
               <label className="block text-xs font-medium text-ai-text mb-0.5">País</label>
               <select
@@ -623,7 +623,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">
+              <label className="block text-xs font-medium text-ai-text mb-1">
                 Estado {isStateRequired && <span className="text-red-500">*</span>}
               </label>
               <select
@@ -644,7 +644,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               {errors.state && <p className="text-red-500 text-xs mt-0.5">{errors.state}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">
+              <label className="block text-xs font-medium text-ai-text mb-1">
                 Cidade <span className="text-red-500">*</span>
               </label>
               <input
@@ -662,11 +662,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         </div>
 
         {/* Dimensões da Fazenda - Seção com fundo cinza claro */}
-        <div className="mb-1 p-1.5 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-xs font-semibold text-ai-text mb-0.5">Dimensões da Fazenda (Hectares)</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1">
+        <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-xs font-semibold text-ai-text mb-2">Dimensões da Fazenda (Hectares)</h3>
+          <div className="grid grid-cols-7 gap-1">
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">Área Total</label>
+              <label className="block text-xs font-medium text-ai-text mb-1">Área Total</label>
               <input
                 type="text"
                 value={formData.totalArea}
@@ -674,20 +674,20 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('totalArea')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className={`w-full px-2 py-1 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
+                className={`w-full px-1 py-0.5 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-ai-accent bg-white ${
                   errors.totalArea ? 'border-red-500' : 
                   isTotalAreaValid() && formData.totalArea ? 'border-green-500' : 'border-ai-border'
                 }`}
               />
-              {errors.totalArea && <p className="text-red-500 text-xs mt-0.5">{errors.totalArea}</p>}
-              <p className={`text-xs mt-0.5 ${
+              {errors.totalArea && <p className="text-red-500 text-[10px] mt-0.5">{errors.totalArea}</p>}
+              <p className={`text-[10px] mt-0.5 ${
                 isTotalAreaValid() && formData.totalArea ? 'text-green-600' : 'text-ai-subtext'
               }`}>
-                Soma das áreas: {formatNumberForDisplay(calculateTotalAreaSum())} ha
+                Soma: {formatNumberForDisplay(calculateTotalAreaSum())} ha
               </p>
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">Área de Pastagem</label>
+              <label className="block text-xs font-medium text-ai-text mb-1">Área de Pastagem</label>
               <input
                 type="text"
                 value={formData.pastureArea}
@@ -695,11 +695,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('pastureArea')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-1 py-0.5 text-xs border border-ai-border rounded focus:outline-none focus:ring-1 focus:ring-ai-accent bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">Área Agricultura</label>
+              <label className="block text-xs font-medium text-ai-text mb-1">Área Agricultura</label>
               <input
                 type="text"
                 value={formData.agricultureArea}
@@ -707,11 +707,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('agricultureArea')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-1 py-0.5 text-xs border border-ai-border rounded focus:outline-none focus:ring-1 focus:ring-ai-accent bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">Outras Culturas</label>
+              <label className="block text-xs font-medium text-ai-text mb-1">Outras Culturas</label>
               <input
                 type="text"
                 value={formData.otherCrops}
@@ -719,11 +719,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('otherCrops')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-1 py-0.5 text-xs border border-ai-border rounded focus:outline-none focus:ring-1 focus:ring-ai-accent bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">Infraestrutura</label>
+              <label className="block text-xs font-medium text-ai-text mb-1">Infraestrutura</label>
               <input
                 type="text"
                 value={formData.infrastructure}
@@ -731,11 +731,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('infrastructure')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-1 py-0.5 text-xs border border-ai-border rounded focus:outline-none focus:ring-1 focus:ring-ai-accent bg-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">Reserva e APP</label>
+              <label className="block text-xs font-medium text-ai-text mb-1">Reserva e APP</label>
               <input
                 type="text"
                 value={formData.reserveAndAPP}
@@ -743,18 +743,18 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onBlur={() => handleNumericBlur('reserveAndAPP')}
                 placeholder="0,00"
                 inputMode="decimal"
-                className="w-full px-2 py-1 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                className="w-full px-1 py-0.5 text-xs border border-ai-border rounded focus:outline-none focus:ring-1 focus:ring-ai-accent bg-white"
               />
             </div>
           </div>
         </div>
 
         {/* Dados da Propriedade e Rebanho - Seção com fundo cinza claro */}
-        <div className="mb-1 p-1.5 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-xs font-semibold text-ai-text mb-0.5">Dados da Propriedade e Rebanho</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
+        <div className="mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-xs font-semibold text-ai-text mb-2">Dados da Propriedade e Rebanho</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">Tipo de propriedade</label>
+              <label className="block text-xs font-medium text-ai-text mb-1">Tipo de propriedade</label>
               <select
                 value={formData.propertyType}
                 onChange={(e) => setFormData({ ...formData, propertyType: e.target.value as Farm['propertyType'] })}
@@ -765,7 +765,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">Valor da propriedade</label>
+              <label className="block text-xs font-medium text-ai-text mb-1">Valor da propriedade</label>
               <div className="relative">
                 <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">R$</span>
                 <input
@@ -779,7 +779,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">Métrica de peso utilizada</label>
+              <label className="block text-xs font-medium text-ai-text mb-1">Métrica de peso utilizada</label>
               <select
                 value={formData.weightMetric}
                 onChange={(e) => setFormData({ ...formData, weightMetric: e.target.value as Farm['weightMetric'] })}
@@ -790,7 +790,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">Rebanho médio últimos 12 meses</label>
+              <label className="block text-xs font-medium text-ai-text mb-1">Rebanho médio últimos 12 meses</label>
               <input
                 type="text"
                 value={formData.averageHerd}
@@ -815,7 +815,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">Valor do Rebanho</label>
+              <label className="block text-xs font-medium text-ai-text mb-1">Valor do Rebanho</label>
               <div className="relative">
                 <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">R$</span>
                 <input
@@ -829,7 +829,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               </div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-ai-text mb-0.5">
+              <label className="block text-xs font-medium text-ai-text mb-1">
                 Sistema de produção <span className="text-red-500">*</span>
               </label>
               <select
@@ -851,7 +851,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           </div>
           
           {/* Comercialização de Genética */}
-          <div className="mt-1">
+          <div className="mt-3">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"

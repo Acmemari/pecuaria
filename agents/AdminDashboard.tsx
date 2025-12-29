@@ -679,7 +679,7 @@ const AdminDashboard: React.FC = () => {
                                             {deletingUserId === client.id ? (
                                                 <Loader2 size={16} className="animate-spin" />
                                             ) : (
-                                                <MoreHorizontal size={16} />
+                                        <MoreHorizontal size={16} />
                                             )}
                                         </button>
                                         
@@ -712,7 +712,7 @@ const AdminDashboard: React.FC = () => {
                                                     >
                                                         <Trash2 size={14} />
                                                         Excluir Usuário
-                                                    </button>
+                                    </button>
                                                 </div>
                                             </div>
                                         )}

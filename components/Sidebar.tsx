@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Agent, User } from '../types';
 import {
   Calculator,
@@ -12,7 +12,9 @@ import {
   X,
   Save,
   Brain,
-  Building2
+  Building2,
+  FileCheck,
+  ChevronDown
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -27,6 +29,24 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent, isOpen, toggleSidebar, user, onLogout, onSettingsClick }) => {
+  const [isQuestionnairesOpen, setIsQuestionnairesOpen] = useState(false);
+  const [questionnaires, setQuestionnaires] = useState<any[]>([]);
+
+  // Função para carregar questionários (estrutura básica)
+  useEffect(() => {
+    // Questionário pré-cadastrado "Gente/Gestão/Produção"
+    setQuestionnaires([
+      {
+        id: 'gente-gestao-producao',
+        name: 'Gente/Gestão/Produção',
+        description: 'Questionário completo de avaliação'
+      }
+    ]);
+  }, []);
+
+  // Encontrar o índice do "Cadastro de Fazendas" para inserir "Questionários" logo após
+  const farmManagementIndex = agents.findIndex(agent => agent.id === 'farm-management');
+
   return (
     <>
       {/* Overlay - visible on mobile when sidebar is open */}
@@ -73,16 +93,16 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
           </div>
 
           <nav className="space-y-0.5 px-2">
-            {agents.map((agent) => {
+            {agents.map((agent, index) => {
               const isActive = activeAgentId === agent.id;
               const isLocked = agent.status !== 'active';
 
               return (
-                <button
-                  key={agent.id}
-                  onClick={() => !isLocked && onSelectAgent(agent.id)}
-                  disabled={isLocked}
-                  className={`
+                <React.Fragment key={agent.id}>
+                  <button
+                    onClick={() => !isLocked && onSelectAgent(agent.id)}
+                    disabled={isLocked}
+                    className={`
                       w-full flex items-center px-3 py-2 rounded-md transition-all relative group
                       ${isActive
                       ? 'bg-ai-accent/10 text-ai-accent'
@@ -90,24 +110,72 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                     }
                       ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                     `}
-                  title={agent.name}
-                >
-                  <div className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}>
-                    {agent.icon === 'calculator' && <Calculator size={16} />}
-                    {agent.icon === 'save' && <Save size={16} />}
-                    {agent.icon === 'chart' && <TrendingUp size={16} />}
-                    {agent.icon === 'nutrition' && <Sprout size={16} />}
-                    {agent.icon === 'users' && <Users size={16} />}
-                    {agent.icon === 'brain' && <Brain size={16} />}
-                    {agent.icon === 'farm' && <Building2 size={16} />}
-                  </div>
+                    title={agent.name}
+                  >
+                    <div className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}>
+                      {agent.icon === 'calculator' && <Calculator size={16} />}
+                      {agent.icon === 'save' && <Save size={16} />}
+                      {agent.icon === 'chart' && <TrendingUp size={16} />}
+                      {agent.icon === 'nutrition' && <Sprout size={16} />}
+                      {agent.icon === 'users' && <Users size={16} />}
+                      {agent.icon === 'brain' && <Brain size={16} />}
+                      {agent.icon === 'farm' && <Building2 size={16} />}
+                    </div>
 
-                  <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
+                    <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
 
-                  {isLocked && (
-                    <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />
+                    {isLocked && (
+                      <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />
+                    )}
+                  </button>
+
+                  {/* Inserir Questionários logo após Cadastro de Fazendas */}
+                  {agent.id === 'farm-management' && (
+                    <div className="space-y-0.5">
+                      <button
+                        onClick={() => setIsQuestionnairesOpen(!isQuestionnairesOpen)}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-md transition-all text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text cursor-pointer group"
+                        title="Questionários"
+                      >
+                        <div className="flex items-center">
+                          <FileCheck size={16} className="flex-shrink-0 text-ai-subtext group-hover:text-ai-text" />
+                          <span className="ml-3 text-sm font-medium block text-left truncate">Questionários</span>
+                        </div>
+                        <ChevronDown
+                          size={14}
+                          className={`transition-transform duration-200 ${isQuestionnairesOpen ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+
+                      {/* Submenu de Questionários */}
+                      {isQuestionnairesOpen && (
+                        <div className="ml-4 space-y-0.5 border-l border-ai-border pl-2">
+                          {questionnaires.length > 0 ? (
+                            questionnaires.map((questionnaire) => (
+                              <button
+                                key={questionnaire.id}
+                                onClick={() => {
+                                  onSelectAgent(`questionnaire-${questionnaire.id}`);
+                                }}
+                                className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${
+                                  activeAgentId === `questionnaire-${questionnaire.id}`
+                                    ? 'bg-ai-accent/10 text-ai-accent'
+                                    : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                                }`}
+                              >
+                                <span className="truncate">{questionnaire.name || questionnaire.title}</span>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-2 py-1.5 text-xs text-ai-subtext italic">
+                              Nenhum questionário
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
-                </button>
+                </React.Fragment>
               );
             })}
           </nav>

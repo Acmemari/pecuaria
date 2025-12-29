@@ -2,11 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Slider from '../components/Slider';
 import ResultCard from '../components/ResultCard';
 import { CattleCalculatorInputs, CalculationResults } from '../types';
-import { SlidersHorizontal, Save, Grid3X3 } from 'lucide-react';
+import { SlidersHorizontal, Save, Grid3X3, Download } from 'lucide-react';
 import SaveScenarioModal from '../components/SaveScenarioModal';
 import { saveScenario } from '../lib/scenarios';
 import { useAuth } from '../contexts/AuthContext';
 import { Toast } from '../components/Toast';
+import { generateReportPDF } from '../lib/generateReportPDF';
 
 interface CattleProfitCalculatorProps {
   initialInputs?: CattleCalculatorInputs;
@@ -25,54 +26,54 @@ function calculateLivestockIRR(
   salesValue: number,
   permanenceMonths: number
 ): number {
-  
+
   const investment = purchaseWeight * purchasePrice; // Saída no t=0
   const totalRevenue = salesValue; // Entrada no final
-  
+
   // Se não há período de permanência, retorna 0
   if (permanenceMonths <= 0) return 0;
-  
+
   // Função de VPL (NPV) para uma dada taxa r
   const npv = (rate: number) => {
     let value = -investment;
-    
+
     // Deduzir custos mensais trazidos a valor presente
     // Assumindo custos pagos ao final de cada mês completo e fração no final
     for (let t = 1; t <= Math.floor(permanenceMonths); t++) {
       value -= monthlyCost / Math.pow(1 + rate, t);
     }
-    
+
     // Custo do período fracionado final (se houver)
     const fraction = permanenceMonths - Math.floor(permanenceMonths);
     if (fraction > 0) {
-       // Custo proporcional ao tempo restante, descontado no tempo final
-       value -= (monthlyCost * fraction) / Math.pow(1 + rate, permanenceMonths);
+      // Custo proporcional ao tempo restante, descontado no tempo final
+      value -= (monthlyCost * fraction) / Math.pow(1 + rate, permanenceMonths);
     }
 
     // Adicionar Receita Final trazida a valor presente
     value += totalRevenue / Math.pow(1 + rate, permanenceMonths);
-    
+
     return value;
   };
 
   // Derivada do VPL para Newton-Raphson (dVPL/dr)
   const dNpv = (rate: number) => {
     let derivative = 0;
-    
+
     // Derivada do termo constante (investimento) é 0, calculamos os fluxos:
     // d/dr [C * (1+r)^-t] = C * -t * (1+r)^(-t-1)
-    
+
     for (let t = 1; t <= Math.floor(permanenceMonths); t++) {
       derivative -= (-t * monthlyCost) / Math.pow(1 + rate, t + 1);
     }
-    
+
     const fraction = permanenceMonths - Math.floor(permanenceMonths);
     if (fraction > 0) {
-        derivative -= (-(permanenceMonths) * (monthlyCost * fraction)) / Math.pow(1 + rate, permanenceMonths + 1);
+      derivative -= (-(permanenceMonths) * (monthlyCost * fraction)) / Math.pow(1 + rate, permanenceMonths + 1);
     }
 
     derivative += (-(permanenceMonths) * totalRevenue) / Math.pow(1 + rate, permanenceMonths + 1);
-    
+
     return derivative;
   };
 
@@ -88,13 +89,13 @@ function calculateLivestockIRR(
     if (Math.abs(yPrime) < tolerance) break; // Evitar divisão por zero
 
     const newRate = rate - y / yPrime;
-    
+
     if (Math.abs(newRate - rate) < tolerance) {
       return newRate * 100; // Retorna em porcentagem (ex: 1.5 para 1.5%)
     }
     rate = newRate;
   }
-  
+
   return rate * 100;
 }
 
@@ -106,13 +107,13 @@ function calculateLivestockIRR(
  */
 function convertMonthlyToAnnualRate(monthlyRatePercent: number): number {
   if (monthlyRatePercent === 0) return 0;
-  
+
   // 1. Converte de porcentagem para decimal (ex: 0.74 -> 0.0074)
   const decimalRate = monthlyRatePercent / 100;
-  
+
   // 2. Aplica a fórmula de juros compostos: (1 + i)^12 - 1
   const annualDecimal = Math.pow(1 + decimalRate, 12) - 1;
-  
+
   // 3. Converte de volta para porcentagem
   return annualDecimal * 100;
 }
@@ -136,13 +137,13 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
   const [results, setResults] = useState<CalculationResults | null>(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Rastrear se algum dos indicadores interdependentes foi alterado
   const [isInterdependentChanged, setIsInterdependentChanged] = useState(false);
-  
+
   // Rastrear se GMD foi alterado (para destacar Desembolso)
   const [isGmdChanged, setIsGmdChanged] = useState(false);
-  
+
   // Estado para métrica selecionada na matriz de sensibilidade
   const [selectedMetric, setSelectedMetric] = useState<'resultado' | 'tirMensal' | 'tirAnual' | 'margem' | 'resultadoPorHectareAno'>('resultado');
 
@@ -159,7 +160,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
   const handleInputChange = (key: keyof CattleCalculatorInputs, value: number) => {
     setInputs(prev => ({ ...prev, [key]: value }));
-    
+
     // Se alterar pesoCompra, valorCompra ou gmd, marcar como interdependente alterado
     // Se alterar qualquer outro indicador, voltar ao estado original (borda azul)
     if (key === 'pesoCompra' || key === 'valorCompra' || key === 'gmd') {
@@ -167,7 +168,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     } else {
       setIsInterdependentChanged(false);
     }
-    
+
     // Se alterar GMD, destacar também o Desembolso com cor diferente
     if (key === 'gmd') {
       setIsGmdChanged(true);
@@ -217,8 +218,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     // Passo 2: Lotação em cabeça
     const lotacaoCabecas = pesoMedio > 0 ? (450 * inputs.lotacao) / pesoMedio : 0;
     // Passo 3: Produção @/ha
-    const producaoArrobaPorHa = mesesPermanencia > 0 
-      ? (arrobasProduzidas / mesesPermanencia) * 12 * lotacaoCabecas 
+    const producaoArrobaPorHa = mesesPermanencia > 0
+      ? (arrobasProduzidas / mesesPermanencia) * 12 * lotacaoCabecas
       : 0;
 
     // Indicador 15: Resultado por @ final
@@ -227,8 +228,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     // Indicador 16: Resultado por hectare ano
     // Usar 5 casas decimais para o tempo de permanência em meses
     const mesesPermanenciaArredondado = Math.round(mesesPermanencia * 100000) / 100000;
-    const resultadoPorHectareAno = mesesPermanenciaArredondado > 0 
-      ? (resultadoPorBoi / mesesPermanenciaArredondado) * 12 * lotacaoCabecas 
+    const resultadoPorHectareAno = mesesPermanenciaArredondado > 0
+      ? (resultadoPorBoi / mesesPermanenciaArredondado) * 12 * lotacaoCabecas
       : 0;
 
     setResults({
@@ -257,35 +258,35 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
   // Matriz de Sensibilidade: Valor de Venda (colunas) x Valor de Compra (linhas)
   const sensitivityMatrix = useMemo(() => {
     if (!results) return { rows: [], cols: [], min: 0, max: 0 };
-    
+
     // Variações: -10%, -5%, Base, +5%, +10%
     const variations = [-0.10, -0.05, 0, 0.05, 0.10];
-    
+
     // Colunas: Valor de Venda (variações sobre a premissa 5)
     const cols = variations.map(v => ({
       variation: v,
       value: Math.round(inputs.valorVenda * (1 + v)),
       label: v === 0 ? 'Base' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(0)}%`
     }));
-    
+
     // Coletar todos os valores para calcular min/max
     const allValues: number[] = [];
-    
+
     // Linhas: Valor de Compra (variações sobre a premissa 2)
     const rows = variations.map(vCompra => {
       const valorCompraVar = inputs.valorCompra * (1 + vCompra);
-      
+
       // Calcular resultado para cada combinação
       const cells = variations.map(vVenda => {
         const valorVendaVar = inputs.valorVenda * (1 + vVenda);
-        
+
         // Recalcular com os novos valores
         const custoCompraVar = inputs.pesoCompra * valorCompraVar;
         const valorBoiVar = results.pesoFinalArrobas * valorVendaVar;
         const resultadoVar = valorBoiVar - custoCompraVar - results.custoOperacional;
-        
+
         let metricValue: number;
-        
+
         switch (selectedMetric) {
           case 'resultado':
             metricValue = resultadoVar;
@@ -314,8 +315,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             break;
           case 'resultadoPorHectareAno':
             // Calcular resultado por @ final com as variações
-            const custoPorArrobaFinalVar = results.pesoFinalArrobas > 0 
-              ? (custoCompraVar + results.custoOperacional) / results.pesoFinalArrobas 
+            const custoPorArrobaFinalVar = results.pesoFinalArrobas > 0
+              ? (custoCompraVar + results.custoOperacional) / results.pesoFinalArrobas
               : 0;
             const resultadoPorArrobaFinalVar = valorVendaVar - custoPorArrobaFinalVar;
             // Produção @/ha permanece a mesma (não varia com valor de compra/venda)
@@ -324,11 +325,11 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           default:
             metricValue = resultadoVar;
         }
-        
+
         allValues.push(metricValue);
         return metricValue;
       });
-      
+
       return {
         variation: vCompra,
         valorCompra: valorCompraVar,
@@ -336,10 +337,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
         cells
       };
     });
-    
+
     const min = Math.min(...allValues);
     const max = Math.max(...allValues);
-    
+
     return { rows, cols, min, max };
   }, [inputs, results, selectedMetric]);
 
@@ -366,7 +367,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     if (isBase) {
       return 'ring-2 ring-blue-500 ring-inset bg-blue-50';
     }
-    
+
     if (value >= 0) {
       // Gradiente verde leve para valores positivos
       const range = max;
@@ -437,6 +438,37 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     }
   };
 
+  const handleDownload = () => {
+    if (!results) return;
+
+    try {
+      generateReportPDF({
+        inputs,
+        results,
+        scenarioName: 'Cenário Simulado', // Nome genérico para download direto
+        userName: user?.name,
+        createdAt: new Date().toISOString()
+      });
+
+      if (onToast) {
+        onToast({
+          id: Date.now().toString(),
+          message: 'Relatório baixado com sucesso!',
+          type: 'success'
+        });
+      }
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      if (onToast) {
+        onToast({
+          id: Date.now().toString(),
+          message: 'Erro ao gerar relatório PDF',
+          type: 'error'
+        });
+      }
+    }
+  };
+
   if (!results) return <div className="p-4 md:p-10 text-center">Calculando...</div>;
 
   return (
@@ -450,108 +482,117 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               <SlidersHorizontal size={18} className="text-ai-subtext" />
               <h2 className="text-sm font-semibold text-ai-text">Premissas</h2>
             </div>
-            {user && (
+            <div className="flex items-center gap-1">
               <button
-                onClick={() => setIsSaveModalOpen(true)}
+                onClick={handleDownload}
                 className="p-1.5 text-ai-subtext hover:text-ai-accent hover:bg-ai-surface rounded transition-colors"
-                title="Salvar cenário"
+                title="Baixar relatório PDF"
               >
-                <Save size={16} />
+                <Download size={16} />
               </button>
-            )}
+              {user && (
+                <button
+                  onClick={() => setIsSaveModalOpen(true)}
+                  className="p-1.5 text-ai-subtext hover:text-ai-accent hover:bg-ai-surface rounded transition-colors"
+                  title="Salvar cenário"
+                >
+                  <Save size={16} />
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col md:flex-1 overflow-y-auto md:overflow-visible md:pr-1 pb-1 gap-1.5">
-            <Slider 
-              index={1} 
-              label="Peso de Compra" 
-              value={inputs.pesoCompra} 
-              min={150} 
-              max={420} 
-              step={1} 
-              unit="kg" 
-              onChange={(v) => handleInputChange('pesoCompra', v)} 
+            <Slider
+              index={1}
+              label="Peso de Compra"
+              value={inputs.pesoCompra}
+              min={150}
+              max={420}
+              step={1}
+              unit="kg"
+              onChange={(v) => handleInputChange('pesoCompra', v)}
               highlightBorder={isInterdependentChanged}
               description="O que é: É o peso de entrada do animal no sistema (Bezerro(a), garrote, novilha, boi magro). Refere-se ao peso vivo do animal no momento da aquisição ou início do ciclo produtivo."
             />
-            <Slider 
-              index={2} 
-              label="Valor de Compra" 
-              value={inputs.valorCompra} 
-              min={11} 
-              max={18} 
-              step={0.05} 
-              unit="R$/kg" 
-              onChange={(v) => handleInputChange('valorCompra', v)} 
+            <Slider
+              index={2}
+              label="Valor de Compra"
+              value={inputs.valorCompra}
+              min={11}
+              max={18}
+              step={0.05}
+              unit="R$/kg"
+              onChange={(v) => handleInputChange('valorCompra', v)}
               highlightBorder={isInterdependentChanged}
               description="O que é: O custo de aquisição por quilograma de peso vivo. Define o investimento inicial necessário para comprar o gado já incluindo frete e comissão."
             />
-            <Slider 
-              index={3} 
-              label="Peso Vivo Abate" 
-              value={inputs.pesoAbate} 
-              min={Math.max(350, inputs.pesoCompra + 10)} 
-              max={630} 
-              step={1} 
-              unit="kg" 
+            <Slider
+              index={3}
+              label="Peso Vivo Abate"
+              value={inputs.pesoAbate}
+              min={Math.max(350, inputs.pesoCompra + 10)}
+              max={630}
+              step={1}
+              unit="kg"
               onChange={(v) => handleInputChange('pesoAbate', v)}
               description="O que é: A meta de peso final do animal vivo no momento da saída da fazenda para o frigorífico."
             />
-            <Slider 
-              index={4} 
-              label="Rend. Carcaça" 
-              value={inputs.rendimentoCarcaca} 
-              min={46} 
-              max={58} 
-              step={0.5} 
-              unit="%" 
+            <Slider
+              index={4}
+              label="Rend. Carcaça"
+              value={inputs.rendimentoCarcaca}
+              min={46}
+              max={58}
+              step={0.5}
+              unit="%"
               onChange={(v) => handleInputChange('rendimentoCarcaca', v)}
               description="O que é: O Rendimento de Carcaça é a eficiência industrial. Representa a porcentagem do peso vivo que efetivamente se converte em carne (carcaça) após o abate e limpeza do animal."
             />
-            <Slider 
-              index={5} 
-              label="Valor Venda" 
-              value={inputs.valorVenda} 
-              min={250} 
-              max={350} 
-              step={1} 
-              unit="R$/@" 
+            <Slider
+              index={5}
+              label="Valor Venda"
+              value={inputs.valorVenda}
+              min={250}
+              max={350}
+              step={1}
+              unit="R$/@"
               onChange={(v) => handleInputChange('valorVenda', v)}
               description="O que é: O preço de venda por Arroba (@ = 15kg de carcaça)."
             />
-            <Slider 
-              index={6} 
-              label="GMD (Ganho Médio Diário)" 
-              value={inputs.gmd} 
-              min={0.38} 
-              max={1.1} 
-              step={0.01} 
-              unit="kg/dia" 
-              onChange={(v) => handleInputChange('gmd', v)} 
+            <Slider
+              index={6}
+              label="GMD (Ganho Médio Diário)"
+              value={inputs.gmd}
+              min={0.38}
+              max={1.1}
+              step={0.01}
+              unit="kg/dia"
+              onChange={(v) => handleInputChange('gmd', v)}
               highlightBorder={isInterdependentChanged}
               description="O que é: Ganho Médio Diário. É a velocidade de ganho de peso. Indica quantos quilos o animal engorda por dia na média de todo o período."
             />
-            <Slider 
-              index={7} 
-              label="Desembolso/Cab/Mês" 
-              value={inputs.custoMensal} 
-              min={50} 
-              max={220} 
-              step={1} 
-              unit="R$/mês" 
+            <Slider
+              index={7}
+              label="Desembolso/Cab/Mês"
+              value={inputs.custoMensal}
+              min={50}
+              max={220}
+              step={1}
+              unit="R$/mês"
               onChange={(v) => handleInputChange('custoMensal', v)}
               highlightBorder={isGmdChanged}
               highlightColor="#DAA520"
               description="O que é: É o desembolso total (custeios + investimentos) por cabeça/mês. Inclui nutrição (pasto/suplemento/ração), sanidade, mão de obra e custos fixos rateados. Apenas valor de aquisição do animal e pagamento de financiamentos não entram na conta. É utilizado o desembolso para que o foco seja na capacidade de geração de caixa e não no lucro contábil."
             />
-            <Slider 
-              index={8} 
-              label="LOTAÇÃO" 
-              value={inputs.lotacao} 
-              min={0.7} 
-              max={4.5} 
-              step={0.1} 
-              unit="UA/HA" 
+            <Slider
+              index={8}
+              label="LOTAÇÃO"
+              value={inputs.lotacao}
+              min={0.7}
+              max={4.5}
+              step={0.1}
+              unit="UA/HA"
               onChange={(v) => handleInputChange('lotacao', v)}
               description="Lotação em UA/ha é a relação entre o número de Unidades Animais (UA) presentes por hectare (ha) de área útil na fazenda. Cada UA representa 450 kg de peso vivo. Apesar de existirem fazendas com mais de 4,5 UA/ha de lotação, nossa aplicação manterá a faixa mais presentes nas fazendas monitoradas pela Inttegra."
             />
@@ -605,7 +646,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                   <span className="text-[10px] text-emerald-500">● Lucro</span>
                 </div>
               </div>
-              
+
               {/* Tabela da Matriz */}
               <div className="flex-1 overflow-hidden">
                 <table className="w-full border-collapse text-[10px] table-fixed">
@@ -646,8 +687,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                           const isBase = row.variation === 0 && sensitivityMatrix.cols[colIdx].variation === 0;
                           const colorClass = getCellColor(cell, sensitivityMatrix.min, sensitivityMatrix.max, isBase);
                           return (
-                            <td 
-                              key={colIdx} 
+                            <td
+                              key={colIdx}
                               className={`px-1 py-[0.297rem] text-center font-bold text-[11px] ${colorClass}`}
                             >
                               {formatCellValue(cell)}

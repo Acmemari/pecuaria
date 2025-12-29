@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BrainCircuit, Lock, Mail, ArrowRight, Loader2, User, Building2, Phone } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Loader2, User, Building2, Phone } from 'lucide-react';
 import { formatPhone, validatePhone } from '../lib/utils/phoneMask';
 
 interface LoginPageProps {
@@ -102,11 +102,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
 
                 {/* Logo Section */}
                 <div className="flex flex-col items-center mb-6 sm:mb-8">
-                    <div className="p-2 sm:p-3 rounded-xl bg-ai-text text-white mb-3 sm:mb-4">
-                        <BrainCircuit size={24} className="sm:w-8 sm:h-8" />
-                    </div>
-                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight">PecuarIA</h1>
-                    <p className="text-ai-subtext text-xs sm:text-sm mt-1 sm:mt-2">Gestão de precisão para sua fazenda</p>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight">pecuarIA</h1>
+                    <p className="text-ai-subtext text-xs sm:text-sm mt-1 sm:mt-2">Calculadora de resultados para a pecuária</p>
+                    <p className="text-ai-subtext text-xs sm:text-sm mt-1">@ntonio_chaker_</p>
+                    <p className="text-ai-subtext text-xs sm:text-sm mt-0.5">antonio@inttegra.com</p>
                 </div>
 
                 {/* Login/Signup Card */}

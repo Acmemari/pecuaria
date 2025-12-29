@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Slider from '../components/Slider';
 import { CattleCalculatorInputs, CalculationResults } from '../types';
-import { Save, Edit2, Check, X, TrendingUp, FileText } from 'lucide-react';
+import { Edit2, Check, X, TrendingUp, Download, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Toast } from '../components/Toast';
+import { generateComparatorPDF, generateComparatorPDFAsBase64 } from '../lib/generateReportPDF';
 import { saveScenario } from '../lib/scenarios';
-import { generateComparatorPDF } from '../lib/generateReportPDF';
 
 interface ComparatorProps {
   onToast?: (toast: Toast) => void;
+  initialScenarios?: Scenario[];
 }
 
 interface Scenario {
@@ -33,9 +34,9 @@ function calculateLivestockIRR(
 ): number {
   const investment = purchaseWeight * purchasePrice;
   const totalRevenue = salesValue;
-  
+
   if (permanenceMonths <= 0) return 0;
-  
+
   const npv = (rate: number) => {
     let value = -investment;
     for (let t = 1; t <= Math.floor(permanenceMonths); t++) {
@@ -76,7 +77,7 @@ function calculateLivestockIRR(
     }
     rate = newRate;
   }
-  
+
   return rate * 100;
 }
 
@@ -124,15 +125,15 @@ function calculateResults(inputs: CattleCalculatorInputs): CalculationResults {
 
   const pesoMedio = (inputs.pesoCompra + inputs.pesoAbate) / 2;
   const lotacaoCabecas = pesoMedio > 0 ? (450 * inputs.lotacao) / pesoMedio : 0;
-  const producaoArrobaPorHa = mesesPermanencia > 0 
-    ? (arrobasProduzidas / mesesPermanencia) * 12 * lotacaoCabecas 
+  const producaoArrobaPorHa = mesesPermanencia > 0
+    ? (arrobasProduzidas / mesesPermanencia) * 12 * lotacaoCabecas
     : 0;
 
   const resultadoPorArrobaFinal = inputs.valorVenda - custoPorArrobaFinal;
 
   const mesesPermanenciaArredondado = Math.round(mesesPermanencia * 100000) / 100000;
-  const resultadoPorHectareAno = mesesPermanenciaArredondado > 0 
-    ? (resultadoPorBoi / mesesPermanenciaArredondado) * 12 * lotacaoCabecas 
+  const resultadoPorHectareAno = mesesPermanenciaArredondado > 0
+    ? (resultadoPorBoi / mesesPermanenciaArredondado) * 12 * lotacaoCabecas
     : 0;
 
   return {
@@ -158,7 +159,7 @@ function calculateResults(inputs: CattleCalculatorInputs): CalculationResults {
   };
 }
 
-const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
+const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) => {
   const { user } = useAuth();
 
   const defaultInputs: CattleCalculatorInputs = {
@@ -172,7 +173,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
     lotacao: 1.5
   };
 
-  const [scenarios, setScenarios] = useState<Scenario[]>([
+  const defaultScenarios: Scenario[] = [
     {
       id: 'A',
       name: 'Cenário A (Base)',
@@ -200,7 +201,35 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
       colorLight: 'bg-orange-50',
       colorBorder: 'border-orange-500'
     }
-  ]);
+  ];
+
+  // Validar initialScenarios antes de usar
+  const getValidatedScenarios = (): Scenario[] => {
+    if (!initialScenarios || !Array.isArray(initialScenarios) || initialScenarios.length !== 3) {
+      return defaultScenarios;
+    }
+
+    // Verificar se tem os IDs corretos
+    const hasValidIds = initialScenarios.every(s => s?.id && ['A', 'B', 'C'].includes(s.id));
+    if (!hasValidIds) {
+      console.warn('Invalid scenario IDs, using defaults');
+      return defaultScenarios;
+    }
+
+    // Validar inputs básicos
+    try {
+      return initialScenarios.map(s => ({
+        ...s,
+        inputs: s.inputs || defaultInputs,
+        results: s.results || null
+      }));
+    } catch (error) {
+      console.error('Error validating scenarios:', error);
+      return defaultScenarios;
+    }
+  };
+
+  const [scenarios, setScenarios] = useState<Scenario[]>(getValidatedScenarios());
 
   const [editingName, setEditingName] = useState<string | null>(null);
   const [tempName, setTempName] = useState('');
@@ -212,20 +241,20 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
   // Calculate results for all scenarios
   useEffect(() => {
     const currentInputsKey = scenarios.map(s => JSON.stringify(s.inputs)).join('|');
-    
+
     // Only update if inputs actually changed
     if (prevInputsKeyRef.current !== currentInputsKey) {
       prevInputsKeyRef.current = currentInputsKey;
       setScenarios(prev => {
         // Garantir que temos exatamente 3 cenários únicos
-        const uniqueScenarios = prev.filter((s, index, self) => 
+        const uniqueScenarios = prev.filter((s, index, self) =>
           index === self.findIndex(sc => sc.id === s.id)
         );
-        
+
         if (uniqueScenarios.length !== 3) {
           return prev; // Não atualizar se houver duplicatas
         }
-        
+
         return prev.map(scenario => ({
           ...scenario,
           results: calculateResults(scenario.inputs)
@@ -235,8 +264,8 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
   }, [scenarios]);
 
   const handleInputChange = (scenarioId: 'A' | 'B' | 'C', key: keyof CattleCalculatorInputs, value: number) => {
-    setScenarios(prev => prev.map(s => 
-      s.id === scenarioId 
+    setScenarios(prev => prev.map(s =>
+      s.id === scenarioId
         ? { ...s, inputs: { ...s.inputs, [key]: value } }
         : s
     ));
@@ -251,8 +280,8 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
   };
 
   const handleNameSave = (scenarioId: 'A' | 'B' | 'C') => {
-    setScenarios(prev => prev.map(s => 
-      s.id === scenarioId 
+    setScenarios(prev => prev.map(s =>
+      s.id === scenarioId
         ? { ...s, name: tempName || s.name }
         : s
     ));
@@ -265,15 +294,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
     setTempName('');
   };
 
-  const handleSaveClick = () => {
-    if (!user) {
-      onToast?.({ id: Date.now().toString(), message: 'Você precisa estar logado para salvar', type: 'error' });
-      return;
-    }
-    setIsSaveModalOpen(true);
-  };
-
-  const handleGeneratePDF = () => {
+  const handleDownloadClick = () => {
     try {
       if (scenarios.length !== 3) {
         onToast?.({ id: Date.now().toString(), message: 'É necessário ter 3 cenários para gerar o relatório', type: 'error' });
@@ -301,16 +322,24 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
 
       onToast?.({
         id: Date.now().toString(),
-        message: 'Relatório PDF gerado com sucesso!',
+        message: 'PDF baixado com sucesso!',
         type: 'success'
       });
     } catch (error: any) {
       onToast?.({
         id: Date.now().toString(),
-        message: error.message || 'Erro ao gerar relatório PDF',
+        message: error.message || 'Erro ao gerar PDF',
         type: 'error'
       });
     }
+  };
+
+  const handleSaveClick = () => {
+    if (!user) {
+      onToast?.({ id: Date.now().toString(), message: 'Você precisa estar logado para salvar', type: 'error' });
+      return;
+    }
+    setIsSaveModalOpen(true);
   };
 
   const handleSave = async () => {
@@ -319,15 +348,13 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
       return;
     }
 
-    // Prevenir salvamento duplicado
     if (isSaving) {
       return;
     }
 
     setIsSaving(true);
     try {
-      // Garantir que temos os 3 cenários únicos (A, B, C)
-      const uniqueScenarios = scenarios.filter((s, index, self) => 
+      const uniqueScenarios = scenarios.filter((s, index, self) =>
         index === self.findIndex(sc => sc.id === s.id)
       );
 
@@ -335,17 +362,43 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
         throw new Error('É necessário ter exatamente 3 cenários para salvar o comparativo');
       }
 
-      // Save all 3 scenarios with prefix
-      const scenariosToSave = uniqueScenarios.map((scenario) => ({
-        name: `${saveName.trim()} - ${scenario.name}`,
-        inputs: scenario.inputs,
-        results: scenario.results || undefined
-      }));
+      const scenarioA = uniqueScenarios.find(s => s.id === 'A');
+      const scenarioB = uniqueScenarios.find(s => s.id === 'B');
+      const scenarioC = uniqueScenarios.find(s => s.id === 'C');
 
-      // Save each scenario sequentially
-      for (const scenarioData of scenariosToSave) {
-        await saveScenario(user.id, scenarioData.name, scenarioData.inputs, scenarioData.results);
+      if (!scenarioA || !scenarioB || !scenarioC || !scenarioA.results || !scenarioB.results || !scenarioC.results) {
+        throw new Error('Todos os cenários devem ter resultados calculados');
       }
+
+      // Gerar o PDF como base64 (mesmo PDF que é gerado para download)
+      const pdfBase64 = generateComparatorPDFAsBase64({
+        scenarios: [
+          { id: 'A', name: scenarioA.name, inputs: scenarioA.inputs, results: scenarioA.results },
+          { id: 'B', name: scenarioB.name, inputs: scenarioB.inputs, results: scenarioB.results },
+          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results }
+        ],
+        userName: user?.name || user?.email || undefined,
+        createdAt: new Date().toISOString()
+      });
+
+      // Salvar o PDF E os dados dos cenários para permitir edição posterior
+      const comparatorData = {
+        type: 'comparator_pdf',
+        pdf_base64: pdfBase64,
+        scenarios: [
+          { id: 'A', name: scenarioA.name, inputs: scenarioA.inputs, results: scenarioA.results },
+          { id: 'B', name: scenarioB.name, inputs: scenarioB.inputs, results: scenarioB.results },
+          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results }
+        ]
+      };
+
+      // Salvar o comparativo completo (PDF + dados dos cenários)
+      await saveScenario(
+        user.id,
+        saveName.trim(),
+        {} as CattleCalculatorInputs, // Inputs vazios para compatibilidade
+        comparatorData as any // Armazenar PDF e dados dos cenários no campo results
+      );
 
       setIsSaveModalOpen(false);
       setSaveName('');
@@ -365,6 +418,12 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
     }
   };
 
+
+
+  const scenarioA = scenarios.find(s => s.id === 'A');
+  const scenarioB = scenarios.find(s => s.id === 'B');
+  const scenarioC = scenarios.find(s => s.id === 'C');
+
   useEffect(() => {
     if (isSaveModalOpen) {
       const now = new Date();
@@ -378,10 +437,6 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
       setSaveName(`Comparativo ${dateStr}`);
     }
   }, [isSaveModalOpen]);
-
-  const scenarioA = scenarios.find(s => s.id === 'A');
-  const scenarioB = scenarios.find(s => s.id === 'B');
-  const scenarioC = scenarios.find(s => s.id === 'C');
 
   const getColorClasses = (scenarioId: 'A' | 'B' | 'C') => {
     switch (scenarioId) {
@@ -411,21 +466,22 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
 
   return (
     <div className="h-full flex flex-col gap-1 overflow-visible p-1.5 comparator-container">
-      {/* Header with Save and PDF buttons */}
+      {/* Header with Download and Save buttons */}
       <div className="flex items-center justify-end gap-2 shrink-0 mb-0.5">
         <button
-          onClick={handleGeneratePDF}
+          onClick={handleDownloadClick}
           className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors flex items-center gap-1"
-          title="Gerar relatório PDF"
+          title="Baixar PDF no computador"
         >
-          <FileText size={12} />
-          PDF
+          <Download size={12} />
+          Download
         </button>
         {user && (
           <button
             onClick={handleSaveClick}
             disabled={isSaving}
             className="px-2 py-1 text-xs bg-ai-accent text-white rounded hover:bg-ai-accent/90 transition-colors flex items-center gap-1 disabled:opacity-50"
+            title="Salvar comparativo em Meus Salvos"
           >
             <Save size={12} />
             Salvar
@@ -470,7 +526,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
                     </div>
                   ) : (
                     <>
-                      <h3 className={`text-[10px] font-semibold ${colors.text} truncate`}>{scenario.name}</h3>
+                      <h3 className={`text-[15px] font-semibold ${colors.text} truncate`}>{scenario.name}</h3>
                       <button
                         onClick={() => handleNameEdit(scenario.id)}
                         className="p-0.5 text-ai-subtext hover:text-ai-text hover:bg-ai-surface rounded shrink-0"
@@ -489,81 +545,81 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
                     {/* Inputs */}
                     <div className="flex flex-col gap-0.35 flex-1 min-h-0 overflow-visible">
                       <Slider
-                    index={1}
-                    label="Peso de Compra"
-                    value={scenario.inputs.pesoCompra}
-                    min={150}
-                    max={420}
-                    step={1}
-                    unit="kg"
-                    onChange={(v) => handleInputChange(scenario.id, 'pesoCompra', v)}
-                    description="Peso de entrada do animal no sistema"
+                        index={1}
+                        label="Peso de Compra"
+                        value={scenario.inputs.pesoCompra}
+                        min={150}
+                        max={420}
+                        step={1}
+                        unit="kg"
+                        onChange={(v) => handleInputChange(scenario.id, 'pesoCompra', v)}
+                        description="Peso de entrada do animal no sistema"
                       />
                       <Slider
                         index={2}
-                    label="Valor de Compra (KG)"
-                    value={scenario.inputs.valorCompra}
-                    min={11}
-                    max={18}
-                    step={0.05}
-                    unit="R$/kg"
-                    onChange={(v) => handleInputChange(scenario.id, 'valorCompra', v)}
-                    description="Custo de aquisição por quilograma"
+                        label="Valor de Compra (KG)"
+                        value={scenario.inputs.valorCompra}
+                        min={11}
+                        max={18}
+                        step={0.05}
+                        unit="R$/kg"
+                        onChange={(v) => handleInputChange(scenario.id, 'valorCompra', v)}
+                        description="Custo de aquisição por quilograma"
                       />
                       <Slider
                         index={3}
-                    label="Peso Vivo Abate"
-                    value={scenario.inputs.pesoAbate}
-                    min={Math.max(350, scenario.inputs.pesoCompra + 10)}
-                    max={630}
-                    step={1}
-                    unit="kg"
-                    onChange={(v) => handleInputChange(scenario.id, 'pesoAbate', v)}
-                    description="Meta de peso final do animal"
+                        label="Peso Vivo Abate"
+                        value={scenario.inputs.pesoAbate}
+                        min={Math.max(350, scenario.inputs.pesoCompra + 10)}
+                        max={630}
+                        step={1}
+                        unit="kg"
+                        onChange={(v) => handleInputChange(scenario.id, 'pesoAbate', v)}
+                        description="Meta de peso final do animal"
                       />
                       <Slider
                         index={4}
-                    label="Rend. Carcaça"
-                    value={scenario.inputs.rendimentoCarcaca}
-                    min={46}
-                    max={58}
-                    step={0.5}
-                    unit="%"
-                    onChange={(v) => handleInputChange(scenario.id, 'rendimentoCarcaca', v)}
-                    description="Rendimento de carcaça"
+                        label="Rend. Carcaça"
+                        value={scenario.inputs.rendimentoCarcaca}
+                        min={46}
+                        max={58}
+                        step={0.5}
+                        unit="%"
+                        onChange={(v) => handleInputChange(scenario.id, 'rendimentoCarcaca', v)}
+                        description="Rendimento de carcaça"
                       />
                       <Slider
                         index={5}
-                    label="Valor Venda (@)"
-                    value={scenario.inputs.valorVenda}
-                    min={250}
-                    max={350}
-                    step={1}
-                    unit="R$/@"
-                    onChange={(v) => handleInputChange(scenario.id, 'valorVenda', v)}
-                    description="Preço de venda por arroba"
+                        label="Valor Venda (@)"
+                        value={scenario.inputs.valorVenda}
+                        min={250}
+                        max={350}
+                        step={1}
+                        unit="R$/@"
+                        onChange={(v) => handleInputChange(scenario.id, 'valorVenda', v)}
+                        description="Preço de venda por arroba"
                       />
                       <Slider
                         index={6}
-                    label="GMD (Ganho Médio)"
-                    value={scenario.inputs.gmd}
-                    min={0.38}
-                    max={1.1}
-                    step={0.01}
-                    unit="kg/dia"
-                    onChange={(v) => handleInputChange(scenario.id, 'gmd', v)}
-                    description="Ganho médio diário"
+                        label="GMD (Ganho Médio)"
+                        value={scenario.inputs.gmd}
+                        min={0.38}
+                        max={1.1}
+                        step={0.01}
+                        unit="kg/dia"
+                        onChange={(v) => handleInputChange(scenario.id, 'gmd', v)}
+                        description="Ganho médio diário"
                       />
                       <Slider
                         index={7}
-                    label="Desembolso/cab./mês"
-                    value={scenario.inputs.custoMensal}
-                    min={50}
-                    max={220}
-                    step={1}
-                    unit="R$/mês"
-                    onChange={(v) => handleInputChange(scenario.id, 'custoMensal', v)}
-                    description="Desembolso por cabeça ao mês"
+                        label="Desembolso/cab./mês"
+                        value={scenario.inputs.custoMensal}
+                        min={50}
+                        max={220}
+                        step={1}
+                        unit="R$/mês"
+                        onChange={(v) => handleInputChange(scenario.id, 'custoMensal', v)}
+                        description="Desembolso por cabeça ao mês"
                       />
                       <Slider
                         index={8}
@@ -707,15 +763,18 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
                 <h2 className="text-lg font-semibold text-ai-text">Salvar Comparativo</h2>
               </div>
               <button
-                onClick={() => setIsSaveModalOpen(false)}
+                onClick={() => {
+                  setIsSaveModalOpen(false);
+                  setSaveName('');
+                }}
                 className="p-1 text-ai-subtext hover:text-ai-text hover:bg-ai-surface rounded transition-colors"
                 disabled={isSaving}
               >
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={(e) => { 
-              e.preventDefault(); 
+            <form onSubmit={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               if (!isSaving) {
                 handleSave();
@@ -736,14 +795,14 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast }) => {
                   maxLength={100}
                   disabled={isSaving}
                 />
-                <p className="mt-1 text-xs text-ai-subtext">
-                  Os 3 cenários serão salvos com este nome como prefixo
-                </p>
               </div>
               <div className="flex gap-2 justify-end">
                 <button
                   type="button"
-                  onClick={() => setIsSaveModalOpen(false)}
+                  onClick={() => {
+                    setIsSaveModalOpen(false);
+                    setSaveName('');
+                  }}
                   disabled={isSaving}
                   className="px-4 py-2 text-sm font-medium text-ai-subtext hover:text-ai-text hover:bg-ai-surface rounded-lg transition-colors disabled:opacity-50"
                 >

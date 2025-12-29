@@ -22,6 +22,7 @@ const MarketTrends = lazy(() => import('./agents/MarketTrends'));
 const SavedScenarios = lazy(() => import('./agents/SavedScenarios'));
 const AgentTrainingAdmin = lazy(() => import('./agents/AgentTrainingAdmin'));
 const FarmManagement = lazy(() => import('./agents/FarmManagement'));
+const QuestionnaireFiller = lazy(() => import('./agents/QuestionnaireFiller'));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full">
@@ -35,6 +36,7 @@ const AppContent: React.FC = () => {
   const [viewMode, setViewMode] = useState<'simulator' | 'comparator'>('simulator');
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
+  const [comparatorScenarios, setComparatorScenarios] = useState<any>(null);
   const [authPage, setAuthPage] = useState<'login' | 'forgot-password'>('login');
   // Sidebar starts closed on mobile, open on desktop
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -79,7 +81,7 @@ const AppContent: React.FC = () => {
       const baseAgents: Agent[] = [
         {
           id: 'cattle-profit',
-          name: 'Lucro do Boi',
+          name: 'Calculadoras',
           description: 'Análise econômica completa.',
           icon: 'calculator',
           category: 'financeiro',
@@ -122,24 +124,24 @@ const AppContent: React.FC = () => {
       // Dynamically add Admin tools if user is admin
       return user?.role === 'admin'
         ? [
-            ...baseAgents,
-            {
-              id: 'agent-training',
-              name: 'Treinar Antonio',
-              description: 'Configurar e treinar o agente',
-              icon: 'brain',
-              category: 'admin',
-              status: 'active'
-            } as Agent,
-            {
-              id: 'admin-dashboard',
-              name: 'Gestão de Usuários',
-              description: 'Painel mestre administrativo',
-              icon: 'users',
-              category: 'admin',
-              status: 'active'
-            } as Agent
-          ]
+          ...baseAgents,
+          {
+            id: 'agent-training',
+            name: 'Treinar Antonio',
+            description: 'Configurar e treinar o agente',
+            icon: 'brain',
+            category: 'admin',
+            status: 'active'
+          } as Agent,
+          {
+            id: 'admin-dashboard',
+            name: 'Gestão de Usuários',
+            description: 'Painel mestre administrativo',
+            icon: 'users',
+            category: 'admin',
+            status: 'active'
+          } as Agent
+        ]
         : baseAgents;
     } catch (error) {
       console.error('Erro ao calcular agents:', error);
@@ -147,7 +149,7 @@ const AppContent: React.FC = () => {
       return [
         {
           id: 'cattle-profit',
-          name: 'Lucro do Boi',
+          name: 'Calculadoras',
           description: 'Análise econômica completa.',
           icon: 'calculator',
           category: 'financeiro',
@@ -215,7 +217,7 @@ const AppContent: React.FC = () => {
           <Loader2 size={32} className="animate-spin" />
         </div>
       }>
-        <ResetPasswordPage 
+        <ResetPasswordPage
           onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
           onSuccess={() => clearPasswordRecovery()}
         />
@@ -232,7 +234,7 @@ const AppContent: React.FC = () => {
             <Loader2 size={32} className="animate-spin" />
           </div>
         }>
-          <ForgotPasswordPage 
+          <ForgotPasswordPage
             onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
             onBack={() => setAuthPage('login')}
           />
@@ -242,7 +244,7 @@ const AppContent: React.FC = () => {
 
 
     return (
-      <LoginPage 
+      <LoginPage
         onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
         onForgotPassword={() => setAuthPage('forgot-password')}
       />
@@ -265,7 +267,7 @@ const AppContent: React.FC = () => {
     const fallbackAgents: Agent[] = [
       {
         id: 'cattle-profit',
-        name: 'Lucro do Boi',
+        name: 'Calculadoras',
         description: 'Análise econômica completa.',
         icon: 'calculator',
         category: 'financeiro',
@@ -317,7 +319,10 @@ const AppContent: React.FC = () => {
         if (viewMode === 'comparator') {
           return (
             <Suspense fallback={<LoadingFallback />}>
-              <Comparator onToast={addToast} />
+              <Comparator
+                onToast={addToast}
+                initialScenarios={comparatorScenarios}
+              />
             </Suspense>
           );
         }
@@ -337,9 +342,23 @@ const AppContent: React.FC = () => {
               key="saved-scenarios"
               onLoadScenario={(inputs) => {
                 setCalculatorInputs(inputs);
+                setViewMode('simulator');
                 setActiveAgentId('cattle-profit');
               }}
-              onNavigateToCalculator={() => setActiveAgentId('cattle-profit')}
+              onNavigateToCalculator={() => {
+                setViewMode('simulator');
+                setActiveAgentId('cattle-profit');
+              }}
+              onLoadComparator={(scenarios) => {
+                setComparatorScenarios(scenarios);
+                setViewMode('comparator');
+                setActiveAgentId('cattle-profit');
+              }}
+              onNavigateToComparator={() => {
+                setViewMode('comparator');
+                setActiveAgentId('cattle-profit');
+              }}
+              onToast={addToast}
             />
           </Suspense>
         );
@@ -378,6 +397,12 @@ const AppContent: React.FC = () => {
           </Suspense>
         ) : (
           <div>Acesso negado.</div>
+        );
+      case 'questionnaire-gente-gestao-producao':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <QuestionnaireFiller questionnaireId="gente-gestao-producao" />
+          </Suspense>
         );
       default:
         return (
@@ -430,22 +455,20 @@ const AppContent: React.FC = () => {
               <div className="flex items-center gap-2 mr-4">
                 <button
                   onClick={() => setViewMode('simulator')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                    viewMode === 'simulator'
-                      ? 'bg-ai-surface text-ai-text'
-                      : 'bg-white border border-ai-border text-ai-subtext hover:bg-ai-surface'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${viewMode === 'simulator'
+                    ? 'bg-ai-surface text-ai-text'
+                    : 'bg-white border border-ai-border text-ai-subtext hover:bg-ai-surface'
+                    }`}
                 >
                   <Grid3X3 size={14} />
                   Simulador
                 </button>
                 <button
                   onClick={() => setViewMode('comparator')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
-                    viewMode === 'comparator'
-                      ? 'bg-ai-accent text-white'
-                      : 'bg-white border border-ai-border text-ai-subtext hover:bg-ai-surface'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${viewMode === 'comparator'
+                    ? 'bg-ai-accent text-white'
+                    : 'bg-white border border-ai-border text-ai-subtext hover:bg-ai-surface'
+                    }`}
                 >
                   <ArrowLeftRight size={14} />
                   Comparador
