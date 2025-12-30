@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BrainCircuit, Lock, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { Lock, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
 
 interface ResetPasswordPageProps {
     onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -71,10 +71,7 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSucces
                 <div className="w-full max-w-md mx-auto px-4 py-6 sm:py-8 pb-12">
                     {/* Logo Section */}
                     <div className="flex flex-col items-center mb-6 sm:mb-8">
-                        <div className="p-2 sm:p-3 rounded-xl bg-ai-text text-white mb-3 sm:mb-4">
-                            <BrainCircuit size={24} className="sm:w-8 sm:h-8" />
-                        </div>
-                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">PecuarIA</h1>
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">pecuarIA</h1>
                         <p className="text-ai-subtext text-xs sm:text-sm mt-1 sm:mt-2">Gestão de precisão para sua fazenda</p>
                     </div>
 
@@ -101,10 +98,7 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSucces
 
                 {/* Logo Section */}
                 <div className="flex flex-col items-center mb-6 sm:mb-8">
-                    <div className="p-2 sm:p-3 rounded-xl bg-ai-text text-white mb-3 sm:mb-4">
-                        <BrainCircuit size={24} className="sm:w-8 sm:h-8" />
-                    </div>
-                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight">PecuarIA</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight">pecuarIA</h1>
                     <p className="text-ai-subtext text-xs sm:text-sm mt-1 sm:mt-2">Gestão de precisão para sua fazenda</p>
                 </div>
 

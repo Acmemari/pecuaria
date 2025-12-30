@@ -5,7 +5,7 @@ import {
   TrendingUp,
   Sprout,
   Settings,
-  BrainCircuit,
+
   Lock,
   LogOut,
   Users,
@@ -68,10 +68,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
         {/* Header */}
         <div className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-ai-border bg-ai-bg">
           <div className="flex items-center space-x-2 text-ai-text">
-            <div className="p-1 rounded bg-ai-text text-white">
-              <BrainCircuit size={16} />
-            </div>
-            <span className="font-bold tracking-tight text-base">PecuarIA</span>
+            <span className="font-bold tracking-tight text-base">pecuarIA</span>
           </div>
           {/* Close button - visible on mobile, hidden on desktop when sidebar is always visible */}
           <button
@@ -105,9 +102,9 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                     className={`
                       w-full flex items-center px-3 py-2 rounded-md transition-all relative group
                       ${isActive
-                      ? 'bg-ai-accent/10 text-ai-accent'
-                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                    }
+                        ? 'bg-ai-accent/10 text-ai-accent'
+                        : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                      }
                       ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                     `}
                     title={agent.name}
@@ -157,11 +154,10 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                                 onClick={() => {
                                   onSelectAgent(`questionnaire-${questionnaire.id}`);
                                 }}
-                                className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${
-                                  activeAgentId === `questionnaire-${questionnaire.id}`
-                                    ? 'bg-ai-accent/10 text-ai-accent'
-                                    : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                                }`}
+                                className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === `questionnaire-${questionnaire.id}`
+                                  ? 'bg-ai-accent/10 text-ai-accent'
+                                  : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                                  }`}
                               >
                                 <span className="truncate">{questionnaire.name || questionnaire.title}</span>
                               </button>

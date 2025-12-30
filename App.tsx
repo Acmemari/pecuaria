@@ -416,7 +416,7 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-ai-bg overflow-hidden font-sans text-ai-text">
+    <div className="flex h-screen w-full bg-ai-bg overflow-hidden font-sans text-ai-text">
 
       {/* Sidebar Navigation */}
       <Sidebar
@@ -435,47 +435,49 @@ const AppContent: React.FC = () => {
 
         {/* Header - Minimalist with hamburger button */}
         <header className="h-12 bg-ai-bg border-b border-ai-border flex items-center justify-between px-4 shrink-0 sticky top-0 z-40">
-          <div className="flex items-center">
+          <div className="flex items-center gap-2 md:gap-0">
             {/* Hamburger button - always visible */}
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-1.5 text-ai-subtext hover:text-ai-text rounded hover:bg-ai-surface mr-3 focus:outline-none transition-colors"
+              className="p-1.5 text-ai-subtext hover:text-ai-text rounded hover:bg-ai-surface mr-1 md:mr-3 focus:outline-none transition-colors"
               aria-label={isSidebarOpen ? 'Fechar menu' : 'Abrir menu'}
               title={isSidebarOpen ? 'Fechar menu' : 'Abrir menu'}
             >
               <Menu size={20} />
             </button>
-            <h1 className="text-sm font-semibold text-ai-text flex items-center gap-2">
+            <h1 className="text-sm font-semibold text-ai-text flex items-center gap-2 truncate max-w-[120px] md:max-w-none">
               {isSettingsPage ? 'Configurações' : isSubscriptionPage ? 'Assinatura e Planos' : activeAgent?.name}
             </h1>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             {activeAgentId === 'cattle-profit' && (
-              <div className="flex items-center gap-2 mr-4">
+              <div className="flex items-center gap-2 mr-2 md:mr-4">
                 <button
                   onClick={() => setViewMode('simulator')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${viewMode === 'simulator'
+                  className={`px-2 md:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${viewMode === 'simulator'
                     ? 'bg-ai-surface text-ai-text'
                     : 'bg-white border border-ai-border text-ai-subtext hover:bg-ai-surface'
                     }`}
+                  title="Simulador"
                 >
                   <Grid3X3 size={14} />
-                  Simulador
+                  <span className="hidden sm:inline">Simulador</span>
                 </button>
                 <button
                   onClick={() => setViewMode('comparator')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${viewMode === 'comparator'
+                  className={`px-2 md:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${viewMode === 'comparator'
                     ? 'bg-ai-accent text-white'
                     : 'bg-white border border-ai-border text-ai-subtext hover:bg-ai-surface'
                     }`}
+                  title="Comparador"
                 >
                   <ArrowLeftRight size={14} />
-                  Comparador
+                  <span className="hidden sm:inline">Comparador</span>
                 </button>
               </div>
             )}
-            <div className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-ai-surface2 text-ai-subtext border border-ai-border">
+            <div className="hidden sm:block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-ai-surface2 text-ai-subtext border border-ai-border whitespace-nowrap">
               v1.3 SaaS
             </div>
           </div>

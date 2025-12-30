@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BrainCircuit, Mail, ArrowRight, Loader2, ArrowLeft } from 'lucide-react';
+import { Mail, ArrowRight, Loader2, ArrowLeft } from 'lucide-react';
 
 interface ForgotPasswordPageProps {
     onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -61,10 +61,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onToast, onBack
                 <div className="w-full max-w-md mx-auto px-4 py-6 sm:py-8 pb-12">
                     {/* Logo Section */}
                     <div className="flex flex-col items-center mb-6 sm:mb-8">
-                        <div className="p-2 sm:p-3 rounded-xl bg-ai-text text-white mb-3 sm:mb-4">
-                            <BrainCircuit size={24} className="sm:w-8 sm:h-8" />
-                        </div>
-                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">PecuarIA</h1>
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">pecuarIA</h1>
                         <p className="text-ai-subtext text-xs sm:text-sm mt-1 sm:mt-2">Gestão de precisão para sua fazenda</p>
                     </div>
 
@@ -78,7 +75,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onToast, onBack
                             </div>
                             <h2 className="text-base sm:text-lg font-semibold mb-2">Email enviado!</h2>
                             <p className="text-[10px] sm:text-xs text-ai-subtext mb-6">
-                                Enviamos um link de recuperação para <strong>{email}</strong>. 
+                                Enviamos um link de recuperação para <strong>{email}</strong>.
                                 Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
                             </p>
                             <p className="text-[10px] sm:text-xs text-ai-subtext mb-6">
@@ -104,10 +101,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onToast, onBack
 
                 {/* Logo Section */}
                 <div className="flex flex-col items-center mb-6 sm:mb-8">
-                    <div className="p-2 sm:p-3 rounded-xl bg-ai-text text-white mb-3 sm:mb-4">
-                        <BrainCircuit size={24} className="sm:w-8 sm:h-8" />
-                    </div>
-                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight">PecuarIA</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight">pecuarIA</h1>
                     <p className="text-ai-subtext text-xs sm:text-sm mt-1 sm:mt-2">Gestão de precisão para sua fazenda</p>
                 </div>
 
