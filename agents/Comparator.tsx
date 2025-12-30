@@ -465,7 +465,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
   };
 
   return (
-    <div className="h-full flex flex-col gap-1 overflow-visible p-1.5 comparator-container">
+    <div className="h-full w-full max-w-full flex flex-col gap-1 overflow-y-auto overflow-x-hidden px-4 py-2 comparator-container">
       {/* Header with Download and Save buttons */}
       <div className="flex items-center justify-end gap-2 shrink-0 mb-0.5">
         <button
@@ -490,8 +490,8 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       </div>
 
       {/* Scenarios Section */}
-      <div className="flex-[1.4] overflow-visible flex flex-col min-h-0">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 flex-1 min-h-0 overflow-visible">
+      <div className="flex-[1.4] overflow-y-auto overflow-x-hidden flex flex-col min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3 flex-1 min-h-0 overflow-visible w-full">
           {scenarios.map((scenario) => {
             const colors = getColorClasses(scenario.id);
             return (
@@ -538,12 +538,12 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                 </div>
 
                 {/* Card apenas com sliders */}
-                <div className="bg-white rounded-lg border border-gray-200 p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative">
+                <div className="bg-white rounded-lg border border-gray-200 p-2 md:p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full">
                   {/* Colored vertical bar on the left */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors.accent} rounded-l-lg`}></div>
-                  <div className="pl-1 flex flex-col flex-1 min-h-0 overflow-visible">
+                  <div className="pl-2 md:pl-1 flex flex-col flex-1 min-h-0 overflow-visible w-full">
                     {/* Inputs */}
-                    <div className="flex flex-col gap-0.35 flex-1 min-h-0 overflow-visible">
+                    <div className="flex flex-col gap-0.35 md:gap-0.35 flex-1 min-h-0 overflow-visible w-full">
                       <Slider
                         index={1}
                         label="Peso de Compra"
@@ -643,13 +643,13 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
       {/* Results Section */}
       {scenarioA?.results && scenarioB?.results && scenarioC?.results && (
-        <div className="shrink-0">
+        <div className="shrink-0 w-full">
           <div className="flex items-center gap-1.5 mb-1">
             <TrendingUp size={14} className="text-ai-accent" />
             <h2 className="text-[10px] font-semibold text-ai-text">Resultados Projetados</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
             {/* Resultado por Boi */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
               <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">1. RESULTADO POR BOI</h3>
@@ -755,8 +755,8 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
       {/* Save Modal */}
       {isSaveModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl border border-ai-border shadow-xl max-w-md w-full">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-xl border border-ai-border shadow-xl max-w-md w-full mx-4 my-4">
             <div className="flex items-center justify-between p-4 border-b border-ai-border">
               <div className="flex items-center gap-2">
                 <Save size={18} className="text-ai-accent" />
@@ -843,6 +843,14 @@ if (typeof document !== 'undefined') {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
+      .comparator-container {
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+      }
+      .comparator-container * {
+        box-sizing: border-box !important;
+      }
       .comparator-container .bg-gray-50 {
         padding: 0.3rem !important;
       }
@@ -854,21 +862,46 @@ if (typeof document !== 'undefined') {
         line-height: 1.1 !important;
         letter-spacing: 0.025em !important;
       }
+      @media (max-width: 768px) {
+        .comparator-container label {
+          font-size: 0.65rem !important;
+        }
+      }
       .comparator-container .text-\\[0\\.9rem\\] {
         font-size: 0.7rem !important;
         line-height: 1 !important;
         font-weight: 700 !important;
       }
+      @media (max-width: 768px) {
+        .comparator-container .text-\\[0\\.9rem\\] {
+          font-size: 0.8rem !important;
+        }
+      }
       .comparator-container .text-\\[0\\.675rem\\] {
         font-size: 0.55rem !important;
         line-height: 1.1 !important;
       }
+      @media (max-width: 768px) {
+        .comparator-container .text-\\[0\\.675rem\\] {
+          font-size: 0.65rem !important;
+        }
+      }
       .comparator-container .relative.h-\\[1\\.35rem\\] {
         height: 1rem !important;
+      }
+      @media (max-width: 768px) {
+        .comparator-container .relative.h-\\[1\\.35rem\\] {
+          height: 1.2rem !important;
+        }
       }
       .comparator-container .relative.h-\\[1\\.35rem\\] > div:first-of-type {
         height: 0.4rem !important;
         border-radius: 9999px !important;
+      }
+      @media (max-width: 768px) {
+        .comparator-container .relative.h-\\[1\\.35rem\\] > div:first-of-type {
+          height: 0.5rem !important;
+        }
       }
       .comparator-container .relative.h-\\[1\\.35rem\\] > div:last-of-type {
         height: 0.75rem !important;
@@ -877,6 +910,16 @@ if (typeof document !== 'undefined') {
         border-radius: 50% !important;
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1) !important;
       }
+      @media (max-width: 768px) {
+        .comparator-container .relative.h-\\[1\\.35rem\\] > div:last-of-type {
+          height: 0.9rem !important;
+          width: 0.9rem !important;
+        }
+      }
+      .comparator-container input[type=range] {
+        width: 100% !important;
+        max-width: 100% !important;
+      }
       .comparator-container input[type=range]::-webkit-slider-thumb {
         height: 11px !important;
         width: 11px !important;
@@ -884,8 +927,20 @@ if (typeof document !== 'undefined') {
         margin-top: -2.5px !important;
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1) !important;
       }
+      @media (max-width: 768px) {
+        .comparator-container input[type=range]::-webkit-slider-thumb {
+          height: 14px !important;
+          width: 14px !important;
+          margin-top: -3px !important;
+        }
+      }
       .comparator-container input[type=range]::-webkit-slider-runnable-track {
         height: 5px !important;
+      }
+      @media (max-width: 768px) {
+        .comparator-container input[type=range]::-webkit-slider-runnable-track {
+          height: 6px !important;
+        }
       }
       .comparator-container input[type=range]::-moz-range-thumb {
         height: 11px !important;
@@ -893,8 +948,19 @@ if (typeof document !== 'undefined') {
         border-width: 2px !important;
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1) !important;
       }
+      @media (max-width: 768px) {
+        .comparator-container input[type=range]::-moz-range-thumb {
+          height: 14px !important;
+          width: 14px !important;
+        }
+      }
       .comparator-container input[type=range]::-moz-range-track {
         height: 5px !important;
+      }
+      @media (max-width: 768px) {
+        .comparator-container input[type=range]::-moz-range-track {
+          height: 6px !important;
+        }
       }
     `;
     document.head.appendChild(style);
