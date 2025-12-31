@@ -538,10 +538,10 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                 </div>
 
                 {/* Card apenas com sliders */}
-                <div className="bg-white rounded-lg border border-gray-200 p-2 md:p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full">
+                <div className="bg-white rounded-lg border border-gray-200 p-2 md:p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full" style={{ overflowX: 'visible', overflowY: 'visible' }}>
                   {/* Colored vertical bar on the left */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors.accent} rounded-l-lg`}></div>
-                  <div className="pl-2 md:pl-1 flex flex-col flex-1 min-h-0 overflow-visible w-full">
+                  <div className="pl-2 md:pl-1 flex flex-col flex-1 min-h-0 overflow-visible w-full" style={{ overflowX: 'visible' }}>
                     {/* Inputs */}
                     <div className="flex flex-col gap-0.35 md:gap-0.35 flex-1 min-h-0 overflow-visible w-full">
                       <Slider
@@ -853,38 +853,88 @@ if (typeof document !== 'undefined') {
       }
       .comparator-container .bg-gray-50 {
         padding: 0.3rem !important;
+        overflow: visible !important;
+      }
+      @media (max-width: 768px) {
+        .comparator-container .bg-gray-50 {
+          padding: 0.5rem !important;
+        }
       }
       .comparator-container .bg-gray-50 > div:first-child {
         margin-bottom: 0.3rem !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        overflow: visible !important;
+        position: relative !important;
       }
       .comparator-container label {
         font-size: 0.55rem !important;
         line-height: 1.1 !important;
         letter-spacing: 0.025em !important;
+        flex-shrink: 1 !important;
+        min-width: 0 !important;
+        overflow: visible !important;
       }
       @media (max-width: 768px) {
         .comparator-container label {
           font-size: 0.65rem !important;
+          max-width: 55% !important;
+          flex-shrink: 1 !important;
+          word-break: break-word !important;
+        }
+      }
+      .comparator-container .bg-gray-50 > div:first-child > div:last-child {
+        flex-shrink: 0 !important;
+        min-width: fit-content !important;
+        max-width: none !important;
+        overflow: visible !important;
+        display: flex !important;
+        align-items: baseline !important;
+        justify-content: flex-end !important;
+        gap: 0.25rem !important;
+        text-align: right !important;
+        white-space: nowrap !important;
+      }
+      @media (max-width: 768px) {
+        .comparator-container .bg-gray-50 > div:first-child > div:last-child {
+          max-width: none !important;
+          gap: 0.15rem !important;
+          flex-basis: auto !important;
         }
       }
       .comparator-container .text-\\[0\\.9rem\\] {
         font-size: 0.7rem !important;
         line-height: 1 !important;
         font-weight: 700 !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
+        display: inline-block !important;
       }
       @media (max-width: 768px) {
         .comparator-container .text-\\[0\\.9rem\\] {
-          font-size: 0.8rem !important;
+          font-size: 0.85rem !important;
         }
       }
       .comparator-container .text-\\[0\\.675rem\\] {
         font-size: 0.55rem !important;
         line-height: 1.1 !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
+        display: inline-block !important;
       }
       @media (max-width: 768px) {
         .comparator-container .text-\\[0\\.675rem\\] {
-          font-size: 0.65rem !important;
+          font-size: 0.7rem !important;
         }
+      }
+      .comparator-container .bg-gray-50 {
+        overflow: visible !important;
+      }
+      .comparator-container .bg-gray-50 * {
+        overflow-x: visible !important;
       }
       .comparator-container .relative.h-\\[1\\.35rem\\] {
         height: 1rem !important;
