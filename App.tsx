@@ -5,6 +5,7 @@ import SubscriptionPage from './components/SubscriptionPage';
 import SettingsPage from './components/SettingsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LocationProvider, useLocation } from './contexts/LocationContext';
 import { Agent } from './types';
 import { Menu, Construction, Loader2, Grid3X3, ArrowLeftRight } from 'lucide-react';
 import { ToastContainer, Toast } from './components/Toast';
@@ -32,6 +33,7 @@ const LoadingFallback: React.FC = () => (
 
 const AppContent: React.FC = () => {
   const { user, isLoading, logout, checkPermission, upgradePlan, isPasswordRecovery, clearPasswordRecovery } = useAuth() as any;
+  const { country } = useLocation();
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
   const [viewMode, setViewMode] = useState<'simulator' | 'comparator'>('simulator');
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -97,7 +99,7 @@ const AppContent: React.FC = () => {
         },
         {
           id: 'ask-antonio',
-          name: 'Pergunte p/ Antonio',
+          name: country === 'PY' ? 'PREGUNTE /Antonio' : 'Pergunte p/ Antonio',
           description: 'Consultor virtual especialista.',
           icon: 'nutrition',
           category: 'consultoria',
@@ -157,7 +159,7 @@ const AppContent: React.FC = () => {
         },
         {
           id: 'ask-antonio',
-          name: 'Pergunte p/ Antonio',
+          name: country === 'PY' ? 'PREGUNTE /Antonio' : 'Pergunte p/ Antonio',
           description: 'Consultor virtual especialista.',
           icon: 'nutrition',
           category: 'consultoria',
@@ -166,7 +168,7 @@ const AppContent: React.FC = () => {
       ];
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isLoading]);
+  }, [user, isLoading, country]);
 
   // Reset active agent if access is lost or on role change
   useEffect(() => {
@@ -502,7 +504,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AppContent />
+      <LocationProvider>
+        <AppContent />
+      </LocationProvider>
     </AuthProvider>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useId } from 'react';
 import { Info } from 'lucide-react';
+import { useLocation } from '../contexts/LocationContext';
 
 interface SliderProps {
   label: string;
@@ -28,6 +29,7 @@ const Slider: React.FC<SliderProps> = ({
   highlightBorder = false,
   highlightColor = '#F5DEB3' // amarelo palha padrão
 }) => {
+  const { currencySymbol } = useLocation();
   const [showInfo, setShowInfo] = useState(false);
   const infoRef = useRef<HTMLDivElement>(null);
   const percentage = ((value - min) / (max - min)) * 100;
@@ -52,8 +54,8 @@ const Slider: React.FC<SliderProps> = ({
   }, [showInfo]);
 
   // Formatar valor e unidade
-  const isCurrency = unit.includes('R$');
-  const cleanUnit = unit.replace('R$ ', '').replace('R$', '').trim();
+  const isCurrency = unit.includes('R$') || unit.includes('G$');
+  const cleanUnit = unit.replace('R$ ', '').replace('R$', '').replace('G$ ', '').replace('G$', '').trim();
   
   const formattedValue = value.toLocaleString('pt-BR', { 
     minimumFractionDigits: Number.isInteger(step) ? 0 : 2, 
@@ -74,7 +76,7 @@ const Slider: React.FC<SliderProps> = ({
 
         {/* Lado Direito: Valor e Unidade */}
         <div className="text-right flex items-baseline justify-end gap-1 flex-shrink-0 min-w-fit overflow-visible">
-          {isCurrency && <span className="text-[0.675rem] text-gray-400 font-medium flex-shrink-0">R$</span>}
+          {isCurrency && <span className="text-[0.675rem] text-gray-400 font-medium flex-shrink-0">{currencySymbol}</span>}
           <span className="text-[0.9rem] font-bold text-blue-600 tabular-nums leading-none whitespace-nowrap flex-shrink-0">
             {formattedValue}
           </span>

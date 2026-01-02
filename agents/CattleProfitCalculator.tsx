@@ -6,6 +6,7 @@ import { SlidersHorizontal, Save, Grid3X3, Download } from 'lucide-react';
 import SaveScenarioModal from '../components/SaveScenarioModal';
 import { saveScenario } from '../lib/scenarios';
 import { useAuth } from '../contexts/AuthContext';
+import { useLocation } from '../contexts/LocationContext';
 import { Toast } from '../components/Toast';
 import { generateReportPDF } from '../lib/generateReportPDF';
 
@@ -120,6 +121,7 @@ function convertMonthlyToAnnualRate(monthlyRatePercent: number): number {
 
 const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initialInputs, onToast, onNavigateToSaved }) => {
   const { user } = useAuth();
+  const { country, currencySymbol } = useLocation();
   // Initial state based on the PDF Page 8 Ranges
   const [inputs, setInputs] = useState<CattleCalculatorInputs>(
     initialInputs || {
@@ -153,6 +155,42 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
       setInputs(initialInputs);
     }
   }, [initialInputs]);
+
+  // Ajustar valores quando o país mudar para garantir que estejam dentro dos ranges
+  useEffect(() => {
+    setInputs(prev => {
+      const updated = { ...prev };
+      
+      // Ajustar valor de compra para ficar dentro do range
+      if (country === 'PY') {
+        if (prev.valorCompra < 15000) {
+          updated.valorCompra = 15000;
+        } else if (prev.valorCompra > 30000) {
+          updated.valorCompra = 30000;
+        }
+        // Ajustar valor de venda
+        if (prev.valorVenda < 20000) {
+          updated.valorVenda = 20000;
+        } else if (prev.valorVenda > 40000) {
+          updated.valorVenda = 40000;
+        }
+      } else {
+        if (prev.valorCompra < 11) {
+          updated.valorCompra = 11;
+        } else if (prev.valorCompra > 18) {
+          updated.valorCompra = 18;
+        }
+        // Ajustar valor de venda
+        if (prev.valorVenda < 250) {
+          updated.valorVenda = 250;
+        } else if (prev.valorVenda > 350) {
+          updated.valorVenda = 350;
+        }
+      }
+      
+      return updated;
+    });
+  }, [country]);
 
   // Constants
   const ARROBA_KG = 15;
@@ -519,10 +557,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               index={2}
               label="Valor de Compra"
               value={inputs.valorCompra}
-              min={11}
-              max={18}
-              step={0.05}
-              unit="R$/kg"
+              min={country === 'PY' ? 15000 : 11}
+              max={country === 'PY' ? 30000 : 18}
+              step={country === 'PY' ? 100 : 0.05}
+              unit={`${currencySymbol}/kg`}
               onChange={(v) => handleInputChange('valorCompra', v)}
               highlightBorder={isInterdependentChanged}
               description="O que é: O custo de aquisição por quilograma de peso vivo. Define o investimento inicial necessário para comprar o gado já incluindo frete e comissão."
@@ -540,7 +578,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             />
             <Slider
               index={4}
-              label="Rend. Carcaça"
+              label={country === 'PY' ? 'REND. CARCAZA' : 'Rend. Carcaça'}
               value={inputs.rendimentoCarcaca}
               min={46}
               max={58}
@@ -551,18 +589,18 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             />
             <Slider
               index={5}
-              label="Valor Venda"
+              label={country === 'PY' ? 'VALOR DE VENTA (kg carcaza)' : 'Valor Venda'}
               value={inputs.valorVenda}
-              min={250}
-              max={350}
-              step={1}
-              unit="R$/@"
+              min={country === 'PY' ? 20000 : 250}
+              max={country === 'PY' ? 40000 : 350}
+              step={country === 'PY' ? 100 : 1}
+              unit={country === 'PY' ? `${currencySymbol}/kg` : `${currencySymbol}/@`}
               onChange={(v) => handleInputChange('valorVenda', v)}
               description="O que é: O preço de venda por Arroba (@ = 15kg de carcaça)."
             />
             <Slider
               index={6}
-              label="GMD (Ganho Médio Diário)"
+              label={country === 'PY' ? 'GPD (ganancia diaria)' : 'GMD (Ganho Médio Diário)'}
               value={inputs.gmd}
               min={0.38}
               max={1.1}
@@ -574,12 +612,12 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             />
             <Slider
               index={7}
-              label="Desembolso/Cab/Mês"
+              label={country === 'PY' ? 'COSTO/CAB/MES' : 'Desembolso/Cab/Mês'}
               value={inputs.custoMensal}
               min={50}
               max={220}
               step={1}
-              unit="R$/mês"
+              unit={`${currencySymbol}/mês`}
               onChange={(v) => handleInputChange('custoMensal', v)}
               highlightBorder={isGmdChanged}
               highlightColor="#DAA520"
@@ -587,7 +625,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             />
             <Slider
               index={8}
-              label="LOTAÇÃO"
+              label={country === 'PY' ? 'Carga' : 'LOTAÇÃO'}
               value={inputs.lotacao}
               min={0.7}
               max={4.5}
