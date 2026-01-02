@@ -72,6 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
             <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
               <rect width="20" height="14" fill="#009739"/>
               <path d="M10 0L20 7L10 14L0 7Z" fill="#FEDD00"/>
+              <circle cx="10" cy="7" r="4.5" fill="#012169"/>
             </svg>
             {/* Bandeira do Paraguai */}
             <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
