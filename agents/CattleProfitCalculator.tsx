@@ -668,29 +668,29 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               label="5. Valor de Venda" 
               value={`${currencySymbol} ${Math.round(results.valorBoi).toLocaleString('pt-BR')}`} 
               description={country === 'PY' 
-                ? "Receita bruta por animal. É o peso final em kg de carcaça multiplicado pelo preço de venda por kg de carcaça."
+                ? "Receita bruta por animal. É o peso final em kg de carcaza multiplicado pelo preço de venda por kg de carcaza."
                 : "Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba."
               } 
             />
             <ResultCard label="6. Desemb. Total" value={`${currencySymbol} ${Math.round(results.custoTotal).toLocaleString('pt-BR')}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
             <ResultCard label="7. Desemb./@ Produzida" value={`${currencySymbol} ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Custo operacional dividido pelas arrobas produzidas. Indica a eficiência na produção de carne." />
             <ResultCard 
-              label={country === 'PY' ? '8. Desemb./kg Carcaça Final' : '8. Desemb./@ Final'} 
+              label={country === 'PY' ? '8. Desemb./kg Carcaza Final' : '8. Desemb./@ Final'} 
               value={`${currencySymbol} ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${country === 'PY' ? '/kg' : ''}`} 
               description={country === 'PY' 
-                ? "Desembolso total dividido pelo peso final em kg de carcaça. É o custo médio por kg de carcaça do animal pronto."
+                ? "Desembolso total dividido pelo peso final em kg de carcaza. É o custo médio por kg de carcaza do animal pronto."
                 : "Desembolso total dividido pelo peso final em arrobas. É o custo médio por arroba do animal pronto."
               } 
             />
             <ResultCard 
               label="9. Peso Final" 
-              subLabel={country === 'PY' ? 'kg carcaça' : 'arrobas'} 
+              subLabel={country === 'PY' ? 'kg carcaza' : 'arrobas'} 
               value={country === 'PY' 
-                ? `${(results.pesoFinalKgCarcaca || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg carcaça`
+                ? `${(results.pesoFinalKgCarcaca || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg carcaza`
                 : `${results.pesoFinalArrobas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @`
               } 
               description={country === 'PY' 
-                ? "Peso do animal ao abate em kg de carcaça, considerando o rendimento de carcaça."
+                ? "Peso do animal ao abate em kg de carcaza, considerando o rendimento de carcaza."
                 : "Peso do animal ao abate convertido em arrobas, considerando o rendimento de carcaça."
               } 
             />
@@ -700,10 +700,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             <ResultCard label="13. Giro de Estoque" value={`${results.giroEstoque.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} description="Indica quantas vezes o estoque de animais gira por ano. Calculado como 12 meses dividido pelo tempo de permanência em meses." />
             <ResultCard label="14. Produção @/ha" value={`${results.producaoArrobaPorHa.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @/ha`} description="Produção de arrobas por hectare por ano. Considera a lotação, peso médio dos animais e arrobas produzidas." />
             <ResultCard 
-              label={country === 'PY' ? '15. Resultado por kg Carcaça Final' : '15. Resultado por @ Final'} 
+              label={country === 'PY' ? '15. Resultado por kg Carcaza Final' : '15. Resultado por @ Final'} 
               value={`${currencySymbol} ${results.resultadoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${country === 'PY' ? '/kg' : ''}`} 
               description={country === 'PY' 
-                ? "Lucro ou prejuízo por kg de carcaça final. Diferença entre o valor de venda por kg de carcaça e o desembolso por kg de carcaça final."
+                ? "Lucro ou prejuízo por kg de carcaza final. Diferença entre o valor de venda por kg de carcaza e o desembolso por kg de carcaza final."
                 : "Lucro ou prejuízo por arroba final. Diferença entre o valor de venda por arroba e o desembolso por arroba final."
               } 
             />
