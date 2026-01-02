@@ -68,6 +68,21 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
         {/* Header */}
         <div className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-ai-border bg-ai-bg">
           <div className="flex items-center space-x-2 text-ai-text">
+            {/* Bandeira do Brasil */}
+            <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
+              <rect width="20" height="14" fill="#009739"/>
+              <path d="M10 0L20 7L10 14L0 7Z" fill="#FEDD00"/>
+              <circle cx="10" cy="7" r="4.5" fill="#012169"/>
+              <path d="M10 4L12 7L10 10L8 7Z" fill="#FFFFFF"/>
+            </svg>
+            {/* Bandeira do Paraguai */}
+            <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
+              <rect width="20" height="4.67" y="0" fill="#CE1126"/>
+              <rect width="20" height="4.67" y="4.67" fill="#FFFFFF"/>
+              <rect width="20" height="4.66" y="9.34" fill="#0038A8"/>
+              <circle cx="10" cy="7" r="2.3" fill="#009739"/>
+              <path d="M10 5.3L11 7L10 8.7L9 7Z" fill="#FEDD00"/>
+            </svg>
             <span className="font-bold tracking-tight text-base">pecuarIA</span>
           </div>
           {/* Close button - visible on mobile, hidden on desktop when sidebar is always visible */}
