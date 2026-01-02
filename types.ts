@@ -12,6 +12,7 @@ export interface CattleCalculatorInputs {
 export interface CalculationResults {
   pesoCompraArrobas: number;
   pesoFinalArrobas: number;
+  pesoFinalKgCarcaca?: number; // Para Paraguai
   arrobasProduzidas: number;
   diasPermanencia: number;
   mesesPermanencia: number;
