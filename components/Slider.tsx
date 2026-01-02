@@ -61,24 +61,24 @@ const Slider: React.FC<SliderProps> = ({
   });
 
   return (
-    <div className={`bg-gray-50 p-[0.45rem] rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative ${sliderClass}`}>
+    <div className={`bg-gray-50 p-[0.45rem] rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative overflow-visible ${sliderClass}`}>
       
       {/* Cabeçalho: Label + Valor */}
-      <div className="flex justify-between items-start mb-[0.45rem]">
+      <div className="flex justify-between items-start mb-[0.45rem] overflow-visible w-full min-w-0">
         
         {/* Lado Esquerdo: Label */}
-        <label className="text-[0.675rem] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1">
-          {index && <span className="opacity-70">{index}.</span>}
-          {label}
+        <label className="text-[0.675rem] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1 flex-shrink-1 min-w-0 overflow-visible max-w-[60%] md:max-w-none">
+          {index && <span className="opacity-70 flex-shrink-0">{index}.</span>}
+          <span className="truncate">{label}</span>
         </label>
 
         {/* Lado Direito: Valor e Unidade */}
-        <div className="text-right flex items-baseline justify-end gap-1">
-          {isCurrency && <span className="text-[0.675rem] text-gray-400 font-medium">R$</span>}
-          <span className="text-[0.9rem] font-bold text-blue-600 tabular-nums leading-none">
+        <div className="text-right flex items-baseline justify-end gap-1 flex-shrink-0 min-w-fit overflow-visible">
+          {isCurrency && <span className="text-[0.675rem] text-gray-400 font-medium flex-shrink-0">R$</span>}
+          <span className="text-[0.9rem] font-bold text-blue-600 tabular-nums leading-none whitespace-nowrap flex-shrink-0">
             {formattedValue}
           </span>
-          {cleanUnit && <span className="text-[0.675rem] text-gray-400 font-medium self-end mb-0.5">{cleanUnit}</span>}
+          {cleanUnit && <span className="text-[0.675rem] text-gray-400 font-medium self-end mb-0.5 flex-shrink-0">{cleanUnit}</span>}
         </div>
       </div>
 
@@ -141,6 +141,26 @@ const Slider: React.FC<SliderProps> = ({
       </div>
 
       <style>{`
+        /* Garantir que valores apareçam em mobile */
+        .${sliderClass} > div:first-child {
+          overflow-x: visible !important;
+          overflow-y: visible !important;
+        }
+        .${sliderClass} > div:first-child > div:last-child {
+          overflow: visible !important;
+          min-width: fit-content !important;
+        }
+        .${sliderClass} > div:first-child > div:last-child > span {
+          display: inline-block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        @media (max-width: 768px) {
+          .${sliderClass} > div:first-child > div:last-child {
+            max-width: none !important;
+            flex-basis: auto !important;
+          }
+        }
         /* Reset básico para input range dentro deste componente */
         .${sliderClass} input[type=range] {
           -webkit-appearance: none;
