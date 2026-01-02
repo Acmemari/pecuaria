@@ -3,6 +3,7 @@ import Slider from '../components/Slider';
 import { CattleCalculatorInputs, CalculationResults } from '../types';
 import { Edit2, Check, X, TrendingUp, Download, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLocation } from '../contexts/LocationContext';
 import { Toast } from '../components/Toast';
 import { generateComparatorPDF, generateComparatorPDFAsBase64 } from '../lib/generateReportPDF';
 import { saveScenario } from '../lib/scenarios';
@@ -161,6 +162,7 @@ function calculateResults(inputs: CattleCalculatorInputs): CalculationResults {
 
 const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) => {
   const { user } = useAuth();
+  const { country, currencySymbol } = useLocation();
 
   const defaultInputs: CattleCalculatorInputs = {
     pesoCompra: 200,
@@ -559,10 +561,10 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         index={2}
                         label="Valor de Compra (KG)"
                         value={scenario.inputs.valorCompra}
-                        min={11}
-                        max={18}
-                        step={0.05}
-                        unit="R$/kg"
+                        min={country === 'PY' ? 15000 : 11}
+                        max={country === 'PY' ? 30000 : 18}
+                        step={country === 'PY' ? 100 : 0.05}
+                        unit={`${currencySymbol}/kg`}
                         onChange={(v) => handleInputChange(scenario.id, 'valorCompra', v)}
                         description="Custo de aquisição por quilograma"
                       />
@@ -590,12 +592,12 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       />
                       <Slider
                         index={5}
-                        label="Valor Venda (@)"
+                        label={country === 'PY' ? 'VALOR DE VENTA (kg carcaza)' : 'Valor Venda (@)'}
                         value={scenario.inputs.valorVenda}
-                        min={250}
-                        max={350}
-                        step={1}
-                        unit="R$/@"
+                        min={country === 'PY' ? 20000 : 250}
+                        max={country === 'PY' ? 40000 : 350}
+                        step={country === 'PY' ? 100 : 1}
+                        unit={country === 'PY' ? `${currencySymbol}/kg` : `${currencySymbol}/@`}
                         onChange={(v) => handleInputChange(scenario.id, 'valorVenda', v)}
                         description="Preço de venda por arroba"
                       />
@@ -612,12 +614,12 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       />
                       <Slider
                         index={7}
-                        label="Desembolso/cab./mês"
+                        label={country === 'PY' ? 'COSTO/CAB/MES' : 'Desembolso/cab./mês'}
                         value={scenario.inputs.custoMensal}
                         min={50}
                         max={220}
                         step={1}
-                        unit="R$/mês"
+                        unit={`${currencySymbol}/mês`}
                         onChange={(v) => handleInputChange(scenario.id, 'custoMensal', v)}
                         description="Desembolso por cabeça ao mês"
                       />
@@ -736,14 +738,14 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-green-700 font-medium">{scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">R$ {scenarioB.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-sm font-bold text-ai-text">{currencySymbol} {scenarioB.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{((scenarioB.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) / 1000).toFixed(1)}k</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-orange-700 font-medium">{scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">R$ {scenarioC.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-sm font-bold text-ai-text">{currencySymbol} {scenarioC.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{((scenarioC.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) / 1000).toFixed(1)}k</span>
                   </div>
                 </div>

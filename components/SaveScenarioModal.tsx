@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import { CattleCalculatorInputs } from '../types';
+import { useLocation } from '../contexts/LocationContext';
 
 interface SaveScenarioModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ const SaveScenarioModal: React.FC<SaveScenarioModalProps> = ({
   inputs,
   isLoading = false
 }) => {
+  const { country, currencySymbol } = useLocation();
   const [name, setName] = useState('');
   const [error, setError] = useState('');
 
@@ -109,13 +111,13 @@ const SaveScenarioModal: React.FC<SaveScenarioModalProps> = ({
                 <span className="text-ai-subtext">Peso Compra:</span> {inputs.pesoCompra} kg
               </div>
               <div>
-                <span className="text-ai-subtext">Valor Compra:</span> R$ {inputs.valorCompra.toFixed(2)}/kg
+                <span className="text-ai-subtext">Valor Compra:</span> {currencySymbol} {inputs.valorCompra.toFixed(2)}/kg
               </div>
               <div>
                 <span className="text-ai-subtext">Peso Abate:</span> {inputs.pesoAbate} kg
               </div>
               <div>
-                <span className="text-ai-subtext">Valor Venda:</span> R$ {inputs.valorVenda}/@
+                <span className="text-ai-subtext">Valor Venda:</span> {currencySymbol} {inputs.valorVenda}{country === 'PY' ? '/kg' : '/@'}
               </div>
             </div>
           </div>

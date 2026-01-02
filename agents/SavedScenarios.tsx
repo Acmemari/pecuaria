@@ -3,6 +3,7 @@ import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, Download } fro
 import { CattleScenario } from '../types';
 import { getSavedScenarios, deleteScenario, getScenario } from '../lib/scenarios';
 import { useAuth } from '../contexts/AuthContext';
+import { useLocation } from '../contexts/LocationContext';
 import EditScenarioNameModal from '../components/EditScenarioNameModal';
 import { updateScenario } from '../lib/scenarios';
 import { CattleCalculatorInputs, CalculationResults } from '../types';
@@ -24,6 +25,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   onToast
 }) => {
   const { user } = useAuth();
+  const { country, currencySymbol } = useLocation();
   const [scenarios, setScenarios] = useState<CattleScenario[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -372,7 +374,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                             <span className="text-ai-subtext">Resultado:</span>
                             <span className={`ml-1 font-medium ${scenario.results.resultadoPorBoi >= 0 ? 'text-green-600' : 'text-red-600'
                               }`}>
-                              R$ {scenario.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              {currencySymbol} {scenario.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </span>
                           </div>
                           <div>
@@ -409,7 +411,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                           <div>
                             <span className="text-ai-subtext">Valor Compra:</span>
                             <span className="ml-1 font-medium text-ai-text">
-                              R$ {scenario.inputs.valorCompra.toFixed(2)}/kg
+                              {currencySymbol} {scenario.inputs.valorCompra.toFixed(2)}/kg
                             </span>
                           </div>
                           <div>
@@ -418,7 +420,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                           </div>
                           <div>
                             <span className="text-ai-subtext">Valor Venda:</span>
-                            <span className="ml-1 font-medium text-ai-text">R$ {scenario.inputs.valorVenda}/@</span>
+                            <span className="ml-1 font-medium text-ai-text">{currencySymbol} {scenario.inputs.valorVenda}{country === 'PY' ? '/kg' : '/@'}</span>
                           </div>
                         </div>
                       </div>

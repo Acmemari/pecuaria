@@ -641,22 +641,22 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
         <div className="flex-1 flex flex-col md:h-full md:overflow-hidden overflow-visible min-h-0">
           {/* KPI Cards Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 shrink-0 mb-2 md:mb-3">
-            <ResultCard label="1. Resultado por Boi" value={`R$ ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
+            <ResultCard label="1. Resultado por Boi" value={`${currencySymbol} ${results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Lucro ou prejuízo líquido por animal. É a diferença entre o valor de venda e todos os custos (compra + operacional)." />
             <ResultCard label="2. TIR Mensal" value={`${results.resultadoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.m.`} description="Taxa Interna de Retorno mensal. Indica o rendimento percentual do capital investido por mês de operação." />
             <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
             <ResultCard label="4. Margem %" value={`${results.margemVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
-            <ResultCard label="5. Valor de Venda" value={`R$ ${Math.round(results.valorBoi).toLocaleString('pt-BR')}`} description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
-            <ResultCard label="6. Desemb. Total" value={`R$ ${Math.round(results.custoTotal).toLocaleString('pt-BR')}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
-            <ResultCard label="7. Desemb./@ Produzida" value={`R$ ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Custo operacional dividido pelas arrobas produzidas. Indica a eficiência na produção de carne." />
-            <ResultCard label="8. Desemb./@ Final" value={`R$ ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Desembolso total dividido pelo peso final em arrobas. É o custo médio por arroba do animal pronto." />
+            <ResultCard label="5. Valor de Venda" value={`${currencySymbol} ${Math.round(results.valorBoi).toLocaleString('pt-BR')}`} description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
+            <ResultCard label="6. Desemb. Total" value={`${currencySymbol} ${Math.round(results.custoTotal).toLocaleString('pt-BR')}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
+            <ResultCard label="7. Desemb./@ Produzida" value={`${currencySymbol} ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Custo operacional dividido pelas arrobas produzidas. Indica a eficiência na produção de carne." />
+            <ResultCard label="8. Desemb./@ Final" value={`${currencySymbol} ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Desembolso total dividido pelo peso final em arrobas. É o custo médio por arroba do animal pronto." />
             <ResultCard label="9. Peso Final" subLabel="arrobas" value={`${results.pesoFinalArrobas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @`} description="Peso do animal ao abate convertido em arrobas, considerando o rendimento de carcaça." />
             <ResultCard label="10. Arrobas Produzidas" value={`${results.arrobasProduzidas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @`} description="Diferença entre o peso final e o peso de entrada, ambos em arrobas. Representa a produção de carne." />
             <ResultCard label="11. Permanência" subLabel="dias" value={`${results.diasPermanencia.toFixed(0)} dias`} description="Tempo necessário para o animal ganhar o peso desejado, calculado com base no GMD." />
             <ResultCard label="12. Permanência" subLabel="meses" value={`${results.mesesPermanencia.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses`} description="Tempo de permanência convertido em meses para facilitar o planejamento do ciclo produtivo." />
             <ResultCard label="13. Giro de Estoque" value={`${results.giroEstoque.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} description="Indica quantas vezes o estoque de animais gira por ano. Calculado como 12 meses dividido pelo tempo de permanência em meses." />
             <ResultCard label="14. Produção @/ha" value={`${results.producaoArrobaPorHa.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @/ha`} description="Produção de arrobas por hectare por ano. Considera a lotação, peso médio dos animais e arrobas produzidas." />
-            <ResultCard label="15. Resultado por @ Final" value={`R$ ${results.resultadoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Lucro ou prejuízo por arroba final. Diferença entre o valor de venda por arroba e o desembolso por arroba final." />
-            <ResultCard label="16. Resultado por Hectare/Ano" value={`R$ ${results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Resultado financeiro por hectare por ano. Calculado como: (Resultado por Boi / Tempo de Permanência em Meses) × 12 × Lotação em Cabeças." />
+            <ResultCard label="15. Resultado por @ Final" value={`${currencySymbol} ${results.resultadoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Lucro ou prejuízo por arroba final. Diferença entre o valor de venda por arroba e o desembolso por arroba final." />
+            <ResultCard label="16. Resultado por Hectare/Ano" value={`${currencySymbol} ${results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Resultado financeiro por hectare por ano. Calculado como: (Resultado por Boi / Tempo de Permanência em Meses) × 12 × Lotação em Cabeças." />
           </div>
 
           {/* Charts Section - Expands to fill remaining space */}
@@ -674,11 +674,11 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                     onChange={(e) => setSelectedMetric(e.target.value as 'resultado' | 'tirMensal' | 'tirAnual' | 'margem' | 'resultadoPorHectareAno')}
                     className="text-[10px] border border-gray-300 rounded px-1.5 py-0.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="resultado">Resultado/Boi (R$)</option>
+                    <option value="resultado">Resultado/Boi ({currencySymbol})</option>
                     <option value="tirMensal">TIR Mensal (%)</option>
                     <option value="tirAnual">Resultado/Ano (%)</option>
                     <option value="margem">Margem Final (%)</option>
-                    <option value="resultadoPorHectareAno">Resultado por Hectare/Ano (R$)</option>
+                    <option value="resultadoPorHectareAno">Resultado por Hectare/Ano ({currencySymbol})</option>
                   </select>
                   <span className="text-[10px] text-rose-400">● Prejuízo</span>
                   <span className="text-[10px] text-emerald-500">● Lucro</span>
@@ -706,7 +706,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                         <th key={i} className={`px-1 py-[0.297rem] text-center border-b border-gray-200 ${col.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
                           <div className="text-[9px] text-gray-400 leading-tight">{col.label}</div>
                           <div className={`font-bold ${col.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
-                            <span className="text-[10.35px]">R$</span> <span className="text-[12.65px]">{col.value}</span>
+                            <span className="text-[10.35px]">{currencySymbol}</span> <span className="text-[12.65px]">{col.value}</span>
                           </div>
                         </th>
                       ))}
@@ -718,7 +718,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                         <td className={`px-1 py-[0.297rem] border-r border-gray-200 text-[10px] ${row.variation === 0 ? 'bg-blue-50' : 'bg-gray-50'}`}>
                           <div className="text-[9px] text-gray-400 leading-tight">{row.label}</div>
                           <div className={`font-bold ${row.variation === 0 ? 'text-blue-600' : 'text-gray-700'}`}>
-                            <span className="text-[10px]">R$</span> <span className="text-[11px]">{row.valorCompra.toFixed(1)}</span><span className="text-[10px]">/kg</span>
+                            <span className="text-[10px]">{currencySymbol}</span> <span className="text-[11px]">{row.valorCompra.toFixed(1)}</span><span className="text-[10px]">/kg</span>
                           </div>
                         </td>
                         {row.cells.map((cell, colIdx) => {
