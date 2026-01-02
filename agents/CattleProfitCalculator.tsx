@@ -686,7 +686,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
               label="9. Peso Final" 
               subLabel={country === 'PY' ? 'kg carcaza' : 'arrobas'} 
               value={country === 'PY' 
-                ? `${(results.pesoFinalKgCarcaca || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg carcaza`
+                ? `${(results.pesoFinalKgCarcaca || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : `${results.pesoFinalArrobas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @`
               } 
               description={country === 'PY' 
