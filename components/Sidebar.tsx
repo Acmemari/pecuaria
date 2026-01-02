@@ -72,16 +72,12 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
             <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
               <rect width="20" height="14" fill="#009739"/>
               <path d="M10 0L20 7L10 14L0 7Z" fill="#FEDD00"/>
-              <circle cx="10" cy="7" r="4.5" fill="#012169"/>
-              <path d="M10 5L11.5 7L10 9L8.5 7Z" fill="#FFFFFF"/>
             </svg>
             {/* Bandeira do Paraguai */}
             <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
               <rect width="20" height="4.67" y="0" fill="#CE1126"/>
               <rect width="20" height="4.67" y="4.67" fill="#FFFFFF"/>
               <rect width="20" height="4.66" y="9.34" fill="#0038A8"/>
-              <circle cx="10" cy="7" r="2.3" fill="#009739"/>
-              <path d="M10 5.3L11 7L10 8.7L9 7Z" fill="#FEDD00"/>
             </svg>
             <span className="font-bold tracking-tight text-base">pecuarIA</span>
           </div>
