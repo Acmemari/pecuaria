@@ -664,7 +664,14 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             <ResultCard label="2. TIR Mensal" value={`${results.resultadoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.m.`} description="Taxa Interna de Retorno mensal. Indica o rendimento percentual do capital investido por mês de operação." />
             <ResultCard label="3. Result./Ano" value={`${results.resultadoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
             <ResultCard label="4. Margem %" value={`${results.margemVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
-            <ResultCard label="5. Valor de Venda" value={`${currencySymbol} ${Math.round(results.valorBoi).toLocaleString('pt-BR')}`} description="Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba." />
+            <ResultCard 
+              label="5. Valor de Venda" 
+              value={`${currencySymbol} ${Math.round(results.valorBoi).toLocaleString('pt-BR')}`} 
+              description={country === 'PY' 
+                ? "Receita bruta por animal. É o peso final em kg de carcaça multiplicado pelo preço de venda por kg de carcaça."
+                : "Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba."
+              } 
+            />
             <ResultCard label="6. Desemb. Total" value={`${currencySymbol} ${Math.round(results.custoTotal).toLocaleString('pt-BR')}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
             <ResultCard label="7. Desemb./@ Produzida" value={`${currencySymbol} ${results.custoPorArrobaProduzida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Custo operacional dividido pelas arrobas produzidas. Indica a eficiência na produção de carne." />
             <ResultCard 
