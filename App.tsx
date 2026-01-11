@@ -91,7 +91,7 @@ const AppContent: React.FC = () => {
         },
         {
           id: 'saved-scenarios',
-          name: 'Mis Guardados',
+          name: country === 'PY' ? 'Mis Guardados' : 'Meus Salvos',
           description: 'Cenários e simulações salvos.',
           icon: 'save',
           category: 'financeiro',
