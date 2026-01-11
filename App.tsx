@@ -111,7 +111,7 @@ const AppContent: React.FC = () => {
           description: 'Ciclo pecuário e reposição.',
           icon: 'chart',
           category: 'mercado',
-          status: checkPermission('Tendências') ? 'active' : 'locked'
+          status: 'locked'
         },
         {
           id: 'farm-management',

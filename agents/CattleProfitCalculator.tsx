@@ -748,7 +748,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                     onChange={(e) => setSelectedMetric(e.target.value as 'resultado' | 'tirMensal' | 'tirAnual' | 'margem' | 'resultadoPorHectareAno')}
                     className="text-[10px] border border-gray-300 rounded px-1.5 py-0.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="resultado">Resultado/Boi ({currencySymbol})</option>
+                    <option value="resultado">Resultado/cab ({currencySymbol})</option>
                     <option value="tirMensal">TIR Mensal (%)</option>
                     <option value="tirAnual">Resultado/Ano (%)</option>
                     <option value="margem">Margem Final (%)</option>
