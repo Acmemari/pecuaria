@@ -89,7 +89,7 @@ function convertMonthlyToAnnualRate(monthlyRatePercent: number): number {
   return annualDecimal * 100;
 }
 
-function calculateResults(inputs: CattleCalculatorInputs): CalculationResults {
+function calculateResults(inputs: CattleCalculatorInputs, country?: string): CalculationResults {
   const ARROBA_KG = 15;
   const YIELD_PURCHASE = 50;
 
@@ -103,7 +103,10 @@ function calculateResults(inputs: CattleCalculatorInputs): CalculationResults {
 
   const valorBoi = pesoFinalArrobas * inputs.valorVenda;
   const custoCompra = inputs.pesoCompra * inputs.valorCompra;
-  const custoOperacional = mesesPermanencia * inputs.custoMensal;
+  
+  // Para Paraguai: custo mensal deve ser multiplicado por 1000 para o cálculo de resultados
+  const custoMensalAjustado = country === 'PY' ? inputs.custoMensal * 1000 : inputs.custoMensal;
+  const custoOperacional = mesesPermanencia * custoMensalAjustado;
   const custoTotal = custoCompra + custoOperacional;
   const resultadoPorBoi = valorBoi - custoTotal;
 
@@ -112,7 +115,7 @@ function calculateResults(inputs: CattleCalculatorInputs): CalculationResults {
   const resultadoMensal = calculateLivestockIRR(
     inputs.pesoCompra,
     inputs.valorCompra,
-    inputs.custoMensal,
+    custoMensalAjustado,
     valorBoi,
     mesesPermanencia
   );
@@ -242,9 +245,9 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
   // Calculate results for all scenarios
   useEffect(() => {
-    const currentInputsKey = scenarios.map(s => JSON.stringify(s.inputs)).join('|');
+    const currentInputsKey = `${scenarios.map(s => JSON.stringify(s.inputs)).join('|')}|${country}`;
 
-    // Only update if inputs actually changed
+    // Only update if inputs or country actually changed
     if (prevInputsKeyRef.current !== currentInputsKey) {
       prevInputsKeyRef.current = currentInputsKey;
       setScenarios(prev => {
@@ -259,11 +262,11 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
         return prev.map(scenario => ({
           ...scenario,
-          results: calculateResults(scenario.inputs)
+          results: calculateResults(scenario.inputs, country)
         }));
       });
     }
-  }, [scenarios]);
+  }, [scenarios, country]);
 
   const handleInputChange = (scenarioId: 'A' | 'B' | 'C', key: keyof CattleCalculatorInputs, value: number) => {
     setScenarios(prev => prev.map(s =>

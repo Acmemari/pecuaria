@@ -91,7 +91,7 @@ const AppContent: React.FC = () => {
         },
         {
           id: 'saved-scenarios',
-          name: 'Meus Salvos',
+          name: 'Mis Guardados',
           description: 'Cenários e simulações salvos.',
           icon: 'save',
           category: 'financeiro',
