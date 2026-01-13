@@ -258,6 +258,45 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
   const [saveName, setSaveName] = useState('');
   const prevInputsKeyRef = useRef<string>('');
 
+  // Ajustar valores quando o país mudar para garantir que estejam dentro dos ranges
+  useEffect(() => {
+    setScenarios(prev => prev.map(scenario => {
+      const updated = { ...scenario.inputs };
+      
+      // Ajustar valor de compra para ficar dentro do range
+      if (country === 'PY') {
+        if (updated.valorCompra < 15000) {
+          updated.valorCompra = 15000;
+        } else if (updated.valorCompra > 30000) {
+          updated.valorCompra = 30000;
+        }
+        // Ajustar valor de venda
+        if (updated.valorVenda < 20000) {
+          updated.valorVenda = 20000;
+        } else if (updated.valorVenda > 40000) {
+          updated.valorVenda = 40000;
+        }
+      } else {
+        if (updated.valorCompra < 11) {
+          updated.valorCompra = 11;
+        } else if (updated.valorCompra > 18) {
+          updated.valorCompra = 18;
+        }
+        // Ajustar valor de venda
+        if (updated.valorVenda < 250) {
+          updated.valorVenda = 250;
+        } else if (updated.valorVenda > 350) {
+          updated.valorVenda = 350;
+        }
+      }
+      
+      return {
+        ...scenario,
+        inputs: updated
+      };
+    }));
+  }, [country]);
+
   // Calculate results for all scenarios
   useEffect(() => {
     const currentInputsKey = `${scenarios.map(s => JSON.stringify(s.inputs)).join('|')}|${country}`;
@@ -643,10 +682,10 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       />
                       <Slider
                         index={8}
-                        label="Lotação"
+                        label={country === 'PY' ? 'Carga' : 'LOTAÇÃO'}
                         value={scenario.inputs.lotacao}
-                        min={0.5}
-                        max={3.0}
+                        min={0.7}
+                        max={4.5}
                         step={0.1}
                         unit="UA/HA"
                         onChange={(v) => handleInputChange(scenario.id, 'lotacao', v)}
@@ -672,23 +711,23 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
             {/* Resultado por Boi */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">1. RESULTADO POR BOI</h3>
+              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">{country === 'PY' ? '1. RESULTADO POR CABEZA' : '1. RESULTADO POR BOI'}</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-blue-700 font-medium">{scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:</span>
-                  <span className="text-sm font-bold text-ai-text">{scenarioA.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-sm font-bold text-ai-text">{scenarioA.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-green-700 font-medium">{scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">{scenarioB.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-sm font-bold text-ai-text">{scenarioB.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{(scenarioB.results.resultadoPorBoi - scenarioA.results.resultadoPorBoi).toFixed(0)}</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-orange-700 font-medium">{scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">{scenarioC.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="text-sm font-bold text-ai-text">{scenarioC.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{(scenarioC.results.resultadoPorBoi - scenarioA.results.resultadoPorBoi).toFixed(0)}</span>
                   </div>
                 </div>
@@ -697,7 +736,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
             {/* TIR Mensal */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">2. RETORNO MENSAL</h3>
+              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">{country === 'PY' ? '2. RETORNO MENSUAL' : '2. RETORNO MENSAL'}</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-blue-700 font-medium">{scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:</span>
@@ -722,7 +761,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
             {/* Margem Líquida */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">3. MARGEM LÍQUIDA</h3>
+              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">{country === 'PY' ? '3. MARGEN NETO' : '3. MARGEM LÍQUIDA'}</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-blue-700 font-medium">{scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:</span>
@@ -747,23 +786,23 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
             {/* Resultado por Hectare */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">4. RESULTADO POR HECTARE</h3>
+              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">{country === 'PY' ? '4. RESULTADO POR HECTÁREA' : '4. RESULTADO POR HECTARE'}</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-blue-700 font-medium">{scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:</span>
-                  <span className="text-sm font-bold text-ai-text">R$ {scenarioA.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}>{country === 'PY' ? currencySymbol : 'R$'} {scenarioA.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-green-700 font-medium">{scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">{currencySymbol} {scenarioB.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}>{currencySymbol} {scenarioB.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{((scenarioB.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) / 1000).toFixed(1)}k</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-orange-700 font-medium">{scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">{currencySymbol} {scenarioC.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}>{currencySymbol} {scenarioC.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{((scenarioC.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) / 1000).toFixed(1)}k</span>
                   </div>
                 </div>

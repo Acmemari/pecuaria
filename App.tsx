@@ -479,9 +479,6 @@ const AppContent: React.FC = () => {
                 </button>
               </div>
             )}
-            <div className="hidden sm:block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-ai-surface2 text-ai-subtext border border-ai-border whitespace-nowrap">
-              v1.3 SaaS
-            </div>
           </div>
         </header>
 
