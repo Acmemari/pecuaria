@@ -94,14 +94,22 @@ function calculateResults(inputs: CattleCalculatorInputs, country?: string): Cal
   const YIELD_PURCHASE = 50;
 
   const pesoCompraArrobas = (inputs.pesoCompra * (YIELD_PURCHASE / 100)) / ARROBA_KG;
-  const pesoFinalArrobas = (inputs.pesoAbate * (inputs.rendimentoCarcaca / 100)) / ARROBA_KG;
+  
+  // Para Paraguai: peso vivo X rendimento de carcaça (resultado em kg carcaça)
+  // Para Brasil: peso vivo X rendimento de carcaça / 15 (resultado em arrobas)
+  const pesoFinalKgCarcaca = inputs.pesoAbate * (inputs.rendimentoCarcaca / 100);
+  const pesoFinalArrobas = pesoFinalKgCarcaca / ARROBA_KG;
   const arrobasProduzidas = pesoFinalArrobas - pesoCompraArrobas;
 
   const weightGainNeeded = inputs.pesoAbate - inputs.pesoCompra;
   const diasPermanencia = weightGainNeeded > 0 ? weightGainNeeded / inputs.gmd : 0;
   const mesesPermanencia = diasPermanencia / 30.41667;
 
-  const valorBoi = pesoFinalArrobas * inputs.valorVenda;
+  // Para Paraguai: valorVenda está em G$/kg carcaça, então multiplica por kg carcaça
+  // Para Brasil: valorVenda está em R$/@, então multiplica por arrobas
+  const valorBoi = country === 'PY' 
+    ? pesoFinalKgCarcaca * inputs.valorVenda
+    : pesoFinalArrobas * inputs.valorVenda;
   const custoCompra = inputs.pesoCompra * inputs.valorCompra;
   
   // Para Paraguai: custo mensal deve ser multiplicado por 1000 para o cálculo de resultados
@@ -123,7 +131,10 @@ function calculateResults(inputs: CattleCalculatorInputs, country?: string): Cal
   const resultadoAnual = convertMonthlyToAnnualRate(resultadoMensal);
 
   const custoPorArrobaProduzida = arrobasProduzidas > 0 ? custoOperacional / arrobasProduzidas : 0;
-  const custoPorArrobaFinal = pesoFinalArrobas > 0 ? custoTotal / pesoFinalArrobas : 0;
+  // Para Paraguai: custo por kg carcaça final; Para Brasil: custo por arroba final
+  const custoPorArrobaFinal = country === 'PY' 
+    ? (pesoFinalKgCarcaca > 0 ? custoTotal / pesoFinalKgCarcaca : 0)
+    : (pesoFinalArrobas > 0 ? custoTotal / pesoFinalArrobas : 0);
 
   const giroEstoque = mesesPermanencia > 0 ? (12 / mesesPermanencia) * 100 : 0;
 
@@ -133,6 +144,9 @@ function calculateResults(inputs: CattleCalculatorInputs, country?: string): Cal
     ? (arrobasProduzidas / mesesPermanencia) * 12 * lotacaoCabecas
     : 0;
 
+  // Indicador 15: Resultado por @ final (ou por kg carcaça para PY)
+  // Para Paraguai: valorVenda está em G$/kg, então resultadoPorArrobaFinal será em G$/kg
+  // Para Brasil: valorVenda está em R$/@, então resultadoPorArrobaFinal será em R$/@
   const resultadoPorArrobaFinal = inputs.valorVenda - custoPorArrobaFinal;
 
   const mesesPermanenciaArredondado = Math.round(mesesPermanencia * 100000) / 100000;
@@ -143,6 +157,7 @@ function calculateResults(inputs: CattleCalculatorInputs, country?: string): Cal
   return {
     pesoCompraArrobas,
     pesoFinalArrobas,
+    pesoFinalKgCarcaca: country === 'PY' ? pesoFinalKgCarcaca : undefined,
     arrobasProduzidas,
     diasPermanencia,
     mesesPermanencia,
@@ -562,7 +577,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       />
                       <Slider
                         index={2}
-                        label="Valor de Compra (KG)"
+                        label="Valor de Compra"
                         value={scenario.inputs.valorCompra}
                         min={country === 'PY' ? 15000 : 11}
                         max={country === 'PY' ? 30000 : 18}
@@ -584,7 +599,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       />
                       <Slider
                         index={4}
-                        label="Rend. Carcaça"
+                        label={country === 'PY' ? 'REND. CARCAZA' : 'Rend. Carcaça'}
                         value={scenario.inputs.rendimentoCarcaca}
                         min={46}
                         max={58}
@@ -595,7 +610,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       />
                       <Slider
                         index={5}
-                        label={country === 'PY' ? 'VALOR DE VENTA (kg carcaza)' : 'Valor Venda (@)'}
+                        label={country === 'PY' ? 'VALOR DE VENTA (kg carcaza)' : 'Valor Venda'}
                         value={scenario.inputs.valorVenda}
                         min={country === 'PY' ? 20000 : 250}
                         max={country === 'PY' ? 40000 : 350}
@@ -606,7 +621,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       />
                       <Slider
                         index={6}
-                        label="GMD (Ganho Médio)"
+                        label={country === 'PY' ? 'GPD (ganancia diaria)' : 'GMD (Ganho Médio Diário)'}
                         value={scenario.inputs.gmd}
                         min={0.38}
                         max={1.1}
@@ -617,7 +632,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       />
                       <Slider
                         index={7}
-                        label={country === 'PY' ? 'COSTO/CAB/MES' : 'Desembolso/cab./mês'}
+                        label={country === 'PY' ? 'COSTO/CAB/MES' : 'Desembolso/Cab/Mês'}
                         value={scenario.inputs.custoMensal}
                         min={50}
                         max={220}
