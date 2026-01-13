@@ -91,7 +91,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
             {/* Bandeira do Brasil */}
             <button
               onClick={() => setCountry('BR')}
-              className={`flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 ${country === 'BR' ? 'opacity-100 scale-[1.2]' : 'opacity-50 hover:opacity-75 scale-100'}`}
+              className={`flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 ${country === 'BR' ? 'opacity-100 scale-[1.2]' : 'opacity-50 hover:opacity-75 scale-[0.72]'}`}
               title="Brasil"
             >
               <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0 cursor-pointer" xmlns="http://www.w3.org/2000/svg">
@@ -104,7 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
             {/* Bandeira do Paraguai */}
             <button
               onClick={() => setCountry('PY')}
-              className={`flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 ${country === 'PY' ? 'opacity-100 scale-[1.2]' : 'opacity-50 hover:opacity-75 scale-100'}`}
+              className={`flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 ${country === 'PY' ? 'opacity-100 scale-[1.2]' : 'opacity-50 hover:opacity-75 scale-[0.72]'}`}
               title="Paraguai"
             >
               <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0 cursor-pointer" xmlns="http://www.w3.org/2000/svg">
