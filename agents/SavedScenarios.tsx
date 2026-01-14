@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, Download } from 'lucide-react';
-import { CattleScenario } from '../types';
+import { CattleScenario, ComparatorResult, CalculationResults } from '../types';
 import { getSavedScenarios, deleteScenario, getScenario } from '../lib/scenarios';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocation } from '../contexts/LocationContext';
 import EditScenarioNameModal from '../components/EditScenarioNameModal';
 import { updateScenario } from '../lib/scenarios';
-import { CattleCalculatorInputs, CalculationResults } from '../types';
+import { CattleCalculatorInputs } from '../types';
 import { generateReportPDF } from '../lib/generateReportPDF';
 
 interface SavedScenariosProps {
@@ -94,17 +94,24 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       const scenario = await getScenario(scenarioId, user.id);
       if (scenario) {
         // Verificar se é um comparativo
-        const resultsObj = scenario.results as any;
-        if (resultsObj?.type === 'comparator_pdf' && resultsObj?.scenarios) {
+        const results = scenario.results;
+
+        if (results && 'type' in results && results.type === 'comparator_pdf') {
           // É um comparativo - carregar no comparador
           if (onLoadComparator && onNavigateToComparator) {
-            onLoadComparator(resultsObj.scenarios);
+            onLoadComparator(results.scenarios);
             onNavigateToComparator();
           } else {
-            alert('Funcionalidade de carregar comparativos não está disponível');
+            onToast?.({
+              id: Date.now().toString(),
+              message: 'Funcionalidade de carregar comparativos não está disponível nesta visualização',
+              type: 'info'
+            });
           }
-        } else {
+        } else if (results) {
           // É um cenário individual - carregar na calculadora
+          // TypeScript needs assurance that results is CalculationResults here if we were using it,
+          // but we just use inputs.
           onLoadScenario(scenario.inputs);
           onNavigateToCalculator();
         }
@@ -152,11 +159,12 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     }
 
     try {
-      // Verificar se é um PDF do comparador
-      const resultsObj = scenario.results as any;
-      if (resultsObj.type === 'comparator_pdf' && resultsObj.pdf_base64) {
+      // Verificar se é um comparativo
+      const results = scenario.results;
+
+      if (results && 'type' in results && results.type === 'comparator_pdf' && results.pdf_base64) {
         // É um comparativo salvo - baixar o PDF armazenado
-        const pdfBase64 = resultsObj.pdf_base64;
+        const pdfBase64 = results.pdf_base64;
 
         // Validação de segurança: verificar se é base64 válido
         if (typeof pdfBase64 !== 'string' || !/^[A-Za-z0-9+/=]+$/.test(pdfBase64)) {
@@ -194,11 +202,14 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-      } else {
+      } else if (results && !('type' in results)) {
         // É um cenário normal - gerar PDF
+        // Cast to make TS happy knowing it's CalculationResults
+        const calcResults = results as CalculationResults;
+
         generateReportPDF({
           inputs: scenario.inputs,
-          results: scenario.results,
+          results: calcResults,
           scenarioName: scenario.name,
           createdAt: scenario.created_at,
           userName: user?.name
@@ -347,8 +358,8 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
 
                 {/* Summary */}
                 {(() => {
-                  const resultsObj = scenario.results as any;
-                  const isComparatorPDF = resultsObj?.type === 'comparator_pdf';
+                  const results = scenario.results;
+                  const isComparatorPDF = results && 'type' in results && results.type === 'comparator_pdf';
 
                   if (isComparatorPDF) {
                     // É um comparativo salvo
@@ -365,35 +376,38 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                         </p>
                       </div>
                     );
-                  } else if (scenario.results) {
+                  } else if (results && !('type' in results)) {
                     // É um cenário normal com resultados
+                    // We know it is CalculationResults here
+                    const calcResults = results as CalculationResults;
+
                     return (
                       <div className="pt-3 border-t border-ai-border">
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           <div>
                             <span className="text-ai-subtext">Resultado:</span>
-                            <span className={`ml-1 font-medium ${scenario.results.resultadoPorBoi >= 0 ? 'text-green-600' : 'text-red-600'
+                            <span className={`ml-1 font-medium ${(calcResults.resultadoPorBoi || 0) >= 0 ? 'text-green-600' : 'text-red-600'
                               }`}>
-                              {currencySymbol} {scenario.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              {currencySymbol} {(calcResults.resultadoPorBoi || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </span>
                           </div>
                           <div>
                             <span className="text-ai-subtext">Margem:</span>
-                            <span className={`ml-1 font-medium ${scenario.results.margemVenda >= 0 ? 'text-green-600' : 'text-red-600'
+                            <span className={`ml-1 font-medium ${(calcResults.margemVenda || 0) >= 0 ? 'text-green-600' : 'text-red-600'
                               }`}>
-                              {scenario.results.margemVenda.toFixed(2)}%
+                              {(calcResults.margemVenda || 0).toFixed(2)}%
                             </span>
                           </div>
                           <div>
                             <span className="text-ai-subtext">Permanência:</span>
                             <span className="ml-1 font-medium text-ai-text">
-                              {scenario.results.diasPermanencia.toFixed(0)} dias
+                              {(calcResults.diasPermanencia || 0).toFixed(0)} dias
                             </span>
                           </div>
                           <div>
                             <span className="text-ai-subtext">Arrobas:</span>
                             <span className="ml-1 font-medium text-ai-text">
-                              {scenario.results.arrobasProduzidas.toFixed(2)} @
+                              {(calcResults.arrobasProduzidas || 0).toFixed(2)} @
                             </span>
                           </div>
                         </div>

@@ -3,6 +3,7 @@ import { ChevronDown, Building2, Loader2, Check } from 'lucide-react';
 import { Farm } from '../types';
 import { supabase } from '../lib/supabase';
 import { useClient } from '../contexts/ClientContext';
+import { useAuth } from '../contexts/AuthContext';
 
 interface FarmSelectorProps {
   selectedFarm: Farm | null;
@@ -11,6 +12,7 @@ interface FarmSelectorProps {
 
 const FarmSelector: React.FC<FarmSelectorProps> = ({ selectedFarm, onSelectFarm }) => {
   const { selectedClient } = useClient();
+  const { user } = useAuth();
   const [farms, setFarms] = useState<Farm[]>([]);
   const [clientFarms, setClientFarms] = useState<Farm[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,7 +28,7 @@ const FarmSelector: React.FC<FarmSelectorProps> = ({ selectedFarm, onSelectFarm 
       onSelectFarm(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClient]);
+  }, [selectedClient, user]);
 
   // Recarregar fazendas quando uma nova fazenda for cadastrada (evento customizado)
   useEffect(() => {
@@ -71,46 +73,113 @@ const FarmSelector: React.FC<FarmSelectorProps> = ({ selectedFarm, onSelectFarm 
       const storedFarms = localStorage.getItem('agro-farms');
       let allFarms: Farm[] = [];
       
+      console.log('[FarmSelector] Loading farms. Stored data:', storedFarms ? 'exists' : 'not found');
+      
       if (storedFarms) {
         try {
           allFarms = JSON.parse(storedFarms) || [];
+          console.log('[FarmSelector] Parsed farms from localStorage:', allFarms.length, 'farms');
         } catch (e) {
           console.error('[FarmSelector] Error parsing farms from localStorage:', e);
         }
       }
 
-      // Buscar fazendas vinculadas ao cliente selecionado
-      const { data: clientFarmsData, error } = await supabase
-        .from('client_farms')
-        .select('farm_id')
-        .eq('client_id', selectedClient?.id);
-
-      if (error) {
-        console.error('[FarmSelector] Error loading client farms:', error);
-        setClientFarms([]);
-        setFarms([]);
-        return;
-      }
-
-      if (clientFarmsData && allFarms.length > 0) {
-        const farmIds = clientFarmsData.map(cf => cf.farm_id);
-        const farmsForClient = allFarms.filter(farm => farmIds.includes(farm.id));
-        
-        setClientFarms(farmsForClient);
-        setFarms(farmsForClient);
-        
-        // Se não houver fazenda selecionada e houver fazendas, selecionar a primeira
-        if (!selectedFarm && farmsForClient.length > 0) {
-          onSelectFarm(farmsForClient[0]);
-        }
-        // Se a fazenda selecionada não estiver mais na lista, limpar seleção
-        else if (selectedFarm && !farmsForClient.find(f => f.id === selectedFarm.id)) {
-          onSelectFarm(farmsForClient.length > 0 ? farmsForClient[0] : null);
-        }
-      } else {
+      if (allFarms.length === 0) {
+        console.log('[FarmSelector] No farms found in localStorage');
         setClientFarms([]);
         setFarms([]);
         onSelectFarm(null);
+        return;
+      }
+
+      let farmsForClient: Farm[] = [];
+
+      // Primeiro, tentar buscar fazendas vinculadas ao cliente selecionado
+      if (selectedClient) {
+        console.log('[FarmSelector] Searching for farms linked to client:', selectedClient.id);
+        const { data: clientFarmsData, error } = await supabase
+          .from('client_farms')
+          .select('farm_id')
+          .eq('client_id', selectedClient.id);
+
+        if (error) {
+          console.error('[FarmSelector] Error loading client farms:', error);
+        } else {
+          console.log('[FarmSelector] Client farms data:', clientFarmsData);
+          if (clientFarmsData && clientFarmsData.length > 0) {
+            const farmIds = clientFarmsData.map(cf => cf.farm_id);
+            farmsForClient = allFarms.filter(farm => farmIds.includes(farm.id));
+            console.log('[FarmSelector] Found', farmsForClient.length, 'farms linked to client');
+          }
+        }
+      }
+
+      // Se não encontrou fazendas vinculadas ao cliente, buscar fazendas do analista/usuário logado
+      if (farmsForClient.length === 0) {
+        console.log('[FarmSelector] No farms linked to client. Checking analyst farms. User:', user);
+        if (user && (user.qualification === 'analista' || user.role === 'admin')) {
+          const { data: analystFarmsData, error: analystError } = await supabase
+            .from('analyst_farms')
+            .select('farm_id')
+            .eq('analyst_id', user.id);
+
+          if (analystError) {
+            console.error('[FarmSelector] Error loading analyst farms:', analystError);
+          } else {
+            console.log('[FarmSelector] Analyst farms data:', analystFarmsData);
+            if (analystFarmsData && analystFarmsData.length > 0) {
+              const farmIds = analystFarmsData.map(af => af.farm_id);
+              farmsForClient = allFarms.filter(farm => farmIds.includes(farm.id));
+              console.log('[FarmSelector] Found', farmsForClient.length, 'farms linked to analyst');
+            }
+          }
+        }
+      }
+
+      // Se ainda não encontrou fazendas, mostrar todas as fazendas do localStorage
+      // (fallback para casos onde as fazendas não estão vinculadas)
+      if (farmsForClient.length === 0) {
+        console.log('[FarmSelector] No linked farms found. Using all farms from localStorage as fallback');
+        farmsForClient = allFarms;
+      }
+      
+      console.log('[FarmSelector] Final farms to display:', farmsForClient.length);
+      setClientFarms(farmsForClient);
+      setFarms(farmsForClient);
+      
+      // Tentar carregar fazenda salva do localStorage
+      const savedFarmId = localStorage.getItem('selectedFarmId');
+      let farmToSelect: Farm | null = null;
+      
+      if (savedFarmId && farmsForClient.length > 0) {
+        const savedFarm = farmsForClient.find(f => f.id === savedFarmId);
+        if (savedFarm) {
+          farmToSelect = savedFarm;
+          console.log('[FarmSelector] Restored saved farm from localStorage:', savedFarm.name);
+        }
+      }
+      
+      // Se não houver fazenda selecionada e houver fazendas, selecionar a primeira ou a salva
+      if (!selectedFarm && farmsForClient.length > 0) {
+        const farm = farmToSelect || farmsForClient[0];
+        console.log('[FarmSelector] Auto-selecting farm:', farm.name);
+        onSelectFarm(farm);
+        // Salvar no localStorage
+        localStorage.setItem('selectedFarmId', farm.id);
+      }
+      // Se a fazenda selecionada não estiver mais na lista, usar a salva ou a primeira
+      else if (selectedFarm && !farmsForClient.find(f => f.id === selectedFarm.id)) {
+        const farm = farmToSelect || (farmsForClient.length > 0 ? farmsForClient[0] : null);
+        onSelectFarm(farm);
+        if (farm) {
+          localStorage.setItem('selectedFarmId', farm.id);
+        } else {
+          localStorage.removeItem('selectedFarmId');
+        }
+      }
+      // Se a fazenda selecionada está na lista, garantir que está salva
+      else if (selectedFarm && farmsForClient.find(f => f.id === selectedFarm.id)) {
+        localStorage.setItem('selectedFarmId', selectedFarm.id);
       }
     } catch (err: any) {
       console.error('[FarmSelector] Unexpected error:', err);

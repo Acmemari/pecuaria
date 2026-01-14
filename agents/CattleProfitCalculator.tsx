@@ -16,124 +16,25 @@ interface CattleProfitCalculatorProps {
   onNavigateToSaved?: () => void;
 }
 
-/**
- * Calcula a TIR Mensal (Taxa Interna de Retorno) usando Newton-Raphson
- * para suportar períodos fracionados e fluxos mensais constantes.
- */
-function calculateLivestockIRR(
-  purchaseWeight: number,
-  purchasePrice: number,
-  monthlyCost: number,
-  salesValue: number,
-  permanenceMonths: number
-): number {
-
-  const investment = purchaseWeight * purchasePrice; // Saída no t=0
-  const totalRevenue = salesValue; // Entrada no final
-
-  // Se não há período de permanência, retorna 0
-  if (permanenceMonths <= 0) return 0;
-
-  // Função de VPL (NPV) para uma dada taxa r
-  const npv = (rate: number) => {
-    let value = -investment;
-
-    // Deduzir custos mensais trazidos a valor presente
-    // Assumindo custos pagos ao final de cada mês completo e fração no final
-    for (let t = 1; t <= Math.floor(permanenceMonths); t++) {
-      value -= monthlyCost / Math.pow(1 + rate, t);
-    }
-
-    // Custo do período fracionado final (se houver)
-    const fraction = permanenceMonths - Math.floor(permanenceMonths);
-    if (fraction > 0) {
-      // Custo proporcional ao tempo restante, descontado no tempo final
-      value -= (monthlyCost * fraction) / Math.pow(1 + rate, permanenceMonths);
-    }
-
-    // Adicionar Receita Final trazida a valor presente
-    value += totalRevenue / Math.pow(1 + rate, permanenceMonths);
-
-    return value;
-  };
-
-  // Derivada do VPL para Newton-Raphson (dVPL/dr)
-  const dNpv = (rate: number) => {
-    let derivative = 0;
-
-    // Derivada do termo constante (investimento) é 0, calculamos os fluxos:
-    // d/dr [C * (1+r)^-t] = C * -t * (1+r)^(-t-1)
-
-    for (let t = 1; t <= Math.floor(permanenceMonths); t++) {
-      derivative -= (-t * monthlyCost) / Math.pow(1 + rate, t + 1);
-    }
-
-    const fraction = permanenceMonths - Math.floor(permanenceMonths);
-    if (fraction > 0) {
-      derivative -= (-(permanenceMonths) * (monthlyCost * fraction)) / Math.pow(1 + rate, permanenceMonths + 1);
-    }
-
-    derivative += (-(permanenceMonths) * totalRevenue) / Math.pow(1 + rate, permanenceMonths + 1);
-
-    return derivative;
-  };
-
-  // Execução do Método de Newton-Raphson
-  let rate = 0.01; // Chute inicial (1% a.m)
-  const maxIterations = 100;
-  const tolerance = 1e-6;
-
-  for (let i = 0; i < maxIterations; i++) {
-    const y = npv(rate);
-    const yPrime = dNpv(rate);
-
-    if (Math.abs(yPrime) < tolerance) break; // Evitar divisão por zero
-
-    const newRate = rate - y / yPrime;
-
-    if (Math.abs(newRate - rate) < tolerance) {
-      return newRate * 100; // Retorna em porcentagem (ex: 1.5 para 1.5%)
-    }
-    rate = newRate;
-  }
-
-  return rate * 100;
-}
-
-/**
- * Converte uma taxa mensal percentual para uma taxa anual percentual.
- * Utiliza regime de juros compostos (taxa efetiva).
- * @param monthlyRatePercent - A taxa mensal em formato percentual (ex: 0.74 para 0.74%)
- * @returns A taxa anual em formato percentual (ex: 9.26 para 9.26%)
- */
-function convertMonthlyToAnnualRate(monthlyRatePercent: number): number {
-  if (monthlyRatePercent === 0) return 0;
-
-  // 1. Converte de porcentagem para decimal (ex: 0.74 -> 0.0074)
-  const decimalRate = monthlyRatePercent / 100;
-
-  // 2. Aplica a fórmula de juros compostos: (1 + i)^12 - 1
-  const annualDecimal = Math.pow(1 + decimalRate, 12) - 1;
-
-  // 3. Converte de volta para porcentagem
-  return annualDecimal * 100;
-}
+import { calculateLivestockIRR, convertMonthlyToAnnualRate } from '../lib/calculations';
 
 const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initialInputs, onToast, onNavigateToSaved }) => {
   const { user } = useAuth();
   const { country, currencySymbol } = useLocation();
+  const defaultInputs = useMemo(() => ({
+    pesoCompra: 200,        // 1. Peso de compra (kg)
+    valorCompra: 14.50,     // 2. Valor de compra (R$/kg)
+    pesoAbate: 530,         // 3. Peso vivo ao abate (kg)
+    rendimentoCarcaca: 54.5,  // 4. Rendimento de carcaça (%)
+    valorVenda: 300,        // 5. Valor de venda (R$ por arroba)
+    gmd: 0.65,              // 6. Ganho médio diário – GMD (kg/dia)
+    custoMensal: 135,       // 7. Desembolso por cabeça ao mês (R$/cab/mês)
+    lotacao: 1.5            // 8. Lotação (UA/HA)
+  }), []);
+
   // Initial state based on the PDF Page 8 Ranges
   const [inputs, setInputs] = useState<CattleCalculatorInputs>(
-    initialInputs || {
-      pesoCompra: 200,        // 1. Peso de compra (kg)
-      valorCompra: 14.50,     // 2. Valor de compra (R$/kg)
-      pesoAbate: 530,         // 3. Peso vivo ao abate (kg)
-      rendimentoCarcaca: 54.5,  // 4. Rendimento de carcaça (%)
-      valorVenda: 300,        // 5. Valor de venda (R$ por arroba)
-      gmd: 0.65,              // 6. Ganho médio diário – GMD (kg/dia)
-      custoMensal: 135,       // 7. Desembolso por cabeça ao mês (R$/cab/mês)
-      lotacao: 1.5            // 8. Lotação (UA/HA)
-    }
+    initialInputs ? { ...defaultInputs, ...initialInputs } : defaultInputs
   );
 
   const [results, setResults] = useState<CalculationResults | null>(null);
@@ -152,15 +53,15 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
   // Update inputs when initialInputs changes
   useEffect(() => {
     if (initialInputs) {
-      setInputs(initialInputs);
+      setInputs({ ...defaultInputs, ...initialInputs });
     }
-  }, [initialInputs]);
+  }, [initialInputs, defaultInputs]);
 
   // Ajustar valores quando o país mudar para garantir que estejam dentro dos ranges
   useEffect(() => {
     setInputs(prev => {
       const updated = { ...prev };
-      
+
       // Ajustar valor de compra para ficar dentro do range
       if (country === 'PY') {
         if (prev.valorCompra < 15000) {
@@ -187,7 +88,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
           updated.valorVenda = 350;
         }
       }
-      
+
       return updated;
     });
   }, [country]);
@@ -217,14 +118,14 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
   useEffect(() => {
     const pesoCompraArrobas = (inputs.pesoCompra * (YIELD_PURCHASE / 100)) / ARROBA_KG;
-    
+
     // Para Paraguai: peso vivo X rendimento de carcaça (resultado em kg carcaça)
     // Para Brasil: peso vivo X rendimento de carcaça / 15 (resultado em arrobas)
     const pesoFinalKgCarcaca = inputs.pesoAbate * (inputs.rendimentoCarcaca / 100);
-    const pesoFinalArrobas = country === 'PY' 
+    const pesoFinalArrobas = country === 'PY'
       ? pesoFinalKgCarcaca / ARROBA_KG // Converter para arrobas apenas para cálculos internos
       : pesoFinalKgCarcaca / ARROBA_KG;
-    
+
     const arrobasProduzidas = pesoFinalArrobas - pesoCompraArrobas;
 
     const weightGainNeeded = inputs.pesoAbate - inputs.pesoCompra;
@@ -233,11 +134,11 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
     // Para Paraguai: valorVenda está em G$/kg carcaça, então multiplica por kg carcaça
     // Para Brasil: valorVenda está em R$/@, então multiplica por arrobas
-    const valorBoi = country === 'PY' 
+    const valorBoi = country === 'PY'
       ? pesoFinalKgCarcaca * inputs.valorVenda
       : pesoFinalArrobas * inputs.valorVenda;
     const custoCompra = inputs.pesoCompra * inputs.valorCompra;
-    
+
     // Para Paraguai: custo mensal deve ser multiplicado por 1000 para o cálculo de resultados
     const custoMensalAjustado = country === 'PY' ? inputs.custoMensal * 1000 : inputs.custoMensal;
     const custoOperacional = mesesPermanencia * custoMensalAjustado;
@@ -260,7 +161,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
     const custoPorArrobaProduzida = arrobasProduzidas > 0 ? custoOperacional / arrobasProduzidas : 0;
     // Para Paraguai: custo por kg carcaça final; Para Brasil: custo por arroba final
-    const custoPorArrobaFinal = country === 'PY' 
+    const custoPorArrobaFinal = country === 'PY'
       ? (pesoFinalKgCarcaca > 0 ? custoTotal / pesoFinalKgCarcaca : 0)
       : (pesoFinalArrobas > 0 ? custoTotal / pesoFinalArrobas : 0);
 
@@ -323,7 +224,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
     const ARROBA_KG = 15;
     const pesoFinalKgCarcaca = inputs.pesoAbate * (inputs.rendimentoCarcaca / 100);
     const pesoFinalArrobas = pesoFinalKgCarcaca / ARROBA_KG;
-    
+
     // Para Paraguai: custo mensal deve ser multiplicado por 1000 para o cálculo de resultados
     const custoMensalAjustado = country === 'PY' ? inputs.custoMensal * 1000 : inputs.custoMensal;
     const custoOperacionalBase = results.mesesPermanencia * custoMensalAjustado;
@@ -351,13 +252,13 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
         // Recalcular com os novos valores
         const custoCompraVar = inputs.pesoCompra * valorCompraVar;
-        
+
         // Para Paraguai: valorVenda está em G$/kg carcaça, então multiplica por kg carcaça
         // Para Brasil: valorVenda está em R$/@, então multiplica por arrobas
-        const valorBoiVar = country === 'PY' 
+        const valorBoiVar = country === 'PY'
           ? pesoFinalKgCarcaca * valorVendaVar
           : pesoFinalArrobas * valorVendaVar;
-        
+
         // O custo operacional não muda com as variações de preço
         const custoOperacionalVar = custoOperacionalBase;
         const custoTotalVar = custoCompraVar + custoOperacionalVar;
@@ -687,48 +588,48 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
             <ResultCard label={country === 'PY' ? '2. TIR MENSUAL' : '2. TIR Mensal'} value={`${results.resultadoMensal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.m.`} description="Taxa Interna de Retorno mensal. Indica o rendimento percentual do capital investido por mês de operação." />
             <ResultCard label={country === 'PY' ? '3. RESULT. / AÑO' : '3. Result./Ano'} value={`${results.resultadoAnual.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}% a.a.`} description="TIR anualizada usando juros compostos: (1 + TIR_mensal)^12 - 1. Representa o retorno efetivo anual equivalente." />
             <ResultCard label={country === 'PY' ? '4. MARGEN %' : '4. Margem %'} value={`${results.margemVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} color={results.margemVenda >= 0 ? 'positive' : 'negative'} description="Margem sobre o preço de venda. Indica quanto do valor de venda representa lucro após deduzir todos os custos." />
-            <ResultCard 
-              label={country === 'PY' ? '5. VALOR DE VENTA' : '5. Valor de Venda'} 
-              value={`${currencySymbol} ${Math.round(results.valorBoi).toLocaleString('pt-BR')}`} 
-              description={country === 'PY' 
+            <ResultCard
+              label={country === 'PY' ? '5. VALOR DE VENTA' : '5. Valor de Venda'}
+              value={`${currencySymbol} ${Math.round(results.valorBoi).toLocaleString('pt-BR')}`}
+              description={country === 'PY'
                 ? "Receita bruta por animal. É o peso final em kg de carcaza multiplicado pelo preço de venda por kg de carcaza."
                 : "Receita bruta por animal. É o peso final em arrobas multiplicado pelo preço de venda por arroba."
-              } 
+              }
             />
             <ResultCard label={country === 'PY' ? '6. DESEMBOLSO TOTAL' : '6. Desemb. Total'} value={`${currencySymbol} ${Math.round(results.custoTotal).toLocaleString('pt-BR')}`} description="Desembolso total por animal. Soma do custo de aquisição mais todos os custos operacionais do período." />
             <ResultCard label={country === 'PY' ? '7. G$/KG DE CANAL PRODUCIDA' : '7. G$/kg carc producida'} value={`${currencySymbol} ${(results.custoPorArrobaProduzida / 15).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description="Custo operacional dividido pelos kg de carcaça produzidos. Indica a eficiência na produção de carne (convertido de arrobas para kg: 1 arroba = 15kg)." />
-            <ResultCard 
-              label={country === 'PY' ? '8. G$/KG DE CANAL FINAL' : '8. G$/kg de carc final'} 
-              value={`${currencySymbol} ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} 
-              description={country === 'PY' 
+            <ResultCard
+              label={country === 'PY' ? '8. G$/KG DE CANAL FINAL' : '8. G$/kg de carc final'}
+              value={`${currencySymbol} ${results.custoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+              description={country === 'PY'
                 ? "Desembolso total dividido pelo peso final em kg de carcaza. É o custo médio por kg de carcaza do animal pronto."
                 : "Desembolso total dividido pelo peso final em arrobas. É o custo médio por arroba do animal pronto."
-              } 
+              }
             />
-            <ResultCard 
-              label={country === 'PY' ? '9. PESO FINAL' : '9. Peso Final'} 
-              subLabel={country === 'PY' ? 'KG CANAL' : 'arrobas'} 
-              value={country === 'PY' 
+            <ResultCard
+              label={country === 'PY' ? '9. PESO FINAL' : '9. Peso Final'}
+              subLabel={country === 'PY' ? 'KG CANAL' : 'arrobas'}
+              value={country === 'PY'
                 ? `${(results.pesoFinalKgCarcaca || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : `${results.pesoFinalArrobas.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} @`
-              } 
-              description={country === 'PY' 
+              }
+              description={country === 'PY'
                 ? "Peso do animal ao abate em kg de carcaza, considerando o rendimento de carcaza."
                 : "Peso do animal ao abate convertido em arrobas, considerando o rendimento de carcaça."
-              } 
+              }
             />
             <ResultCard label={country === 'PY' ? '10. DESEMBOLSO OPERATIVO' : '10. Desembolso Operativo'} value={`${currencySymbol} ${Math.round(inputs.custoMensal * results.mesesPermanencia * 1000).toLocaleString('pt-BR')}`} description="Costo/cab/mês vezes tempo de permanencia" />
             <ResultCard label={country === 'PY' ? '11. PERMANENCIA' : '11. Permanência'} subLabel={country === 'PY' ? 'DÍAS' : 'dias'} value={`${results.diasPermanencia.toFixed(0)} dias`} description="Tempo necessário para o animal ganhar o peso desejado, calculado com base no GMD." />
             <ResultCard label={country === 'PY' ? '12. PERMANENCIA' : '12. Permanência'} subLabel={country === 'PY' ? 'MESES' : 'meses'} value={`${results.mesesPermanencia.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses`} description="Tempo de permanência convertido em meses para facilitar o planejamento do ciclo produtivo." />
             <ResultCard label={country === 'PY' ? '13. ROTACIÓN DE STOCK' : '13. Giro de Estoque'} value={`${results.giroEstoque.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`} description="Indica quantas vezes o estoque de animais gira por ano. Calculado como 12 meses dividido pelo tempo de permanência em meses." />
             <ResultCard label={country === 'PY' ? '14. KG DE CANAL / HA / AÑO' : '14. Prod. @/ha/ano'} value={`${(country === 'PY' ? (results.producaoArrobaPorHa * 15) : results.producaoArrobaPorHa).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} description={country === 'PY' ? "kg de carc/ha/ano" : "Produção em arrobas por hectare por ano"} />
-            <ResultCard 
-              label={country === 'PY' ? '15. RESULT. / KG DE CANAL' : '15. Resultado por @ Final'} 
-              value={`${currencySymbol} ${results.resultadoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}${country === 'PY' ? '/kg' : ''}`} 
-              description={country === 'PY' 
+            <ResultCard
+              label={country === 'PY' ? '15. RESULT. / KG DE CANAL' : '15. Resultado por @ Final'}
+              value={`${currencySymbol} ${results.resultadoPorArrobaFinal.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}${country === 'PY' ? '/kg' : ''}`}
+              description={country === 'PY'
                 ? "Lucro ou prejuízo por kg de carcaza final. Diferença entre o valor de venda por kg de carcaza e o desembolso por kg de carcaza final."
                 : "Lucro ou prejuízo por arroba final. Diferença entre o valor de venda por arroba e o desembolso por arroba final."
-              } 
+              }
             />
             <ResultCard label={country === 'PY' ? '16. RESULT. POR HECTÁREA' : '16. Result./ha/ano'} value={`${currencySymbol} ${results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} description="Resultado financeiro por hectare por ano. Calculado como: (Resultado por Boi / Tempo de Permanência em Meses) × 12 × Lotação em Cabeças." />
           </div>

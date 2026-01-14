@@ -95,6 +95,19 @@ export interface AuthContextType {
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   clearPasswordRecovery: () => void;
+  signInWithOAuth: (provider: 'google') => Promise<any>;
+  signup: (email: string, password: string, name: string, phone: string, organizationName?: string) => Promise<{ success: boolean; error?: string }>;
+}
+
+export interface ComparatorResult {
+  type: 'comparator_pdf';
+  pdf_base64: string;
+  scenarios: {
+    id: string;
+    name: string;
+    inputs: CattleCalculatorInputs;
+    results: CalculationResults;
+  }[];
 }
 
 export interface CattleScenario {
@@ -102,7 +115,7 @@ export interface CattleScenario {
   user_id: string;
   name: string;
   inputs: CattleCalculatorInputs;
-  results?: CalculationResults;
+  results?: CalculationResults | ComparatorResult;
   created_at: string;
   updated_at: string;
 }

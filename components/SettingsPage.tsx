@@ -69,7 +69,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     confirm: false
   });
   const [emailVerified, setEmailVerified] = useState(false);
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -461,28 +460,25 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const handleDeleteAccount = async () => {
     setIsSaving(true);
     try {
-      // Note: Actual account deletion requires admin privileges
-      // For now, we'll mark the account as inactive and sign out
-      // Admin can handle actual deletion via admin panel
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .update({ status: 'inactive' })
-        .eq('id', user.id);
+      // Call the database function to delete the user's account completely
+      const { error } = await supabase.rpc('delete_my_account');
 
-      if (profileError) throw profileError;
+      if (error) {
+        console.error('Error calling delete_my_account:', error);
+        throw new Error(error.message || 'Erro ao excluir conta. Por favor, entre em contato com o suporte.');
+      }
 
-      onToast('Sua conta foi marcada para exclusão. Entre em contato com o suporte para finalizar o processo.', 'info');
+      onToast('Sua conta foi excluída com sucesso.', 'success');
 
       // Sign out the user
       await supabase.auth.signOut();
 
       setTimeout(() => {
         onLogout();
-      }, 2000);
+      }, 1500);
     } catch (error: any) {
       console.error('Error deleting account:', error);
-      onToast(error.message || 'Erro ao processar exclusão. Entre em contato com o suporte.', 'error');
-    } finally {
+      onToast(error.message || 'Erro ao excluir conta. Tente novamente ou entre em contato com o suporte.', 'error');
       setIsSaving(false);
       setShowDeleteConfirm(false);
     }
@@ -669,27 +665,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
             className="px-6 py-2.5 bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSaving ? 'Alterando...' : 'Alterar Senha'}
-          </button>
-        </div>
-      </div>
-
-      {/* Two Factor Authentication */}
-      <div className="border-t border-ai-border pt-6">
-        <h3 className="text-lg font-semibold text-ai-text mb-4">Segurança</h3>
-        <div className="flex items-center justify-between p-4 bg-ai-surface rounded-lg border border-ai-border">
-          <div>
-            <p className="font-medium text-ai-text">Verificação em Duas Etapas</p>
-            <p className="text-sm text-ai-subtext mt-1">Adicione uma camada extra de segurança à sua conta</p>
-          </div>
-          <button
-            onClick={() => setTwoFactorEnabled(!twoFactorEnabled)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${twoFactorEnabled ? 'bg-ai-accent' : 'bg-gray-300'
-              }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${twoFactorEnabled ? 'translate-x-6' : 'translate-x-1'
-                }`}
-            />
           </button>
         </div>
       </div>
@@ -1842,7 +1817,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-6 px-4 animate-in fade-in duration-500">
+    <div className="h-full w-full max-w-6xl mx-auto py-6 px-4 animate-in fade-in duration-500 overflow-y-auto">
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1894,8 +1869,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         </div>
 
         {/* Main Content */}
-        <div className="flex-1">
-          <div className="bg-white rounded-lg border border-ai-border p-6">
+        <div className="flex-1 min-h-0">
+          <div className="bg-white rounded-lg border border-ai-border p-6 h-full overflow-y-auto">
             {renderContent()}
           </div>
         </div>

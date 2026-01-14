@@ -133,7 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const pathname = window.location.pathname;
         const isResetPasswordPath = pathname === '/reset-password' || pathname.includes('reset-password');
         const hasRecoveryToken = hash.includes('type=recovery') || hash.includes('type%3Drecovery') || hash.includes('access_token=');
-        
+
         // Se estiver na rota de reset OU tiver token de recovery, NÃO fazer login automático
         if (isResetPasswordPath || hasRecoveryToken) {
           console.log('Recovery session detected, not setting user - user must reset password first');
@@ -205,7 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Map Supabase errors to user-friendly messages
         let errorMessage = 'Erro ao realizar login.';
         const errorMsg = error.message.toLowerCase();
-        
+
         if (errorMsg === 'invalid login credentials' || errorMsg.includes('invalid login credentials')) {
           errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.';
         } else if (errorMsg.includes('email not confirmed') || errorMsg.includes('email_not_confirmed')) {
@@ -435,20 +435,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Garantir que a URL use o protocolo correto (https em produção)
       const origin = window.location.origin || (window.location.protocol + '//' + window.location.host);
       const redirectUrl = `${origin}/reset-password`;
-      
+
       console.log('Sending password reset email with redirect URL:', redirectUrl);
-      
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl
       });
 
       if (error) {
         console.error('Reset password error:', error);
-        
+
         // Map Supabase errors to user-friendly messages
         let errorMessage = 'Erro ao enviar email de recuperação.';
         const errorMsg = error.message.toLowerCase();
-        
+
         if (errorMsg.includes('user not found') || errorMsg.includes('user_not_found')) {
           errorMessage = 'Email não encontrado. Verifique se o email está correto.';
         } else if (errorMsg.includes('invalid email')) {
@@ -475,11 +475,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Update password error:', error);
-        
+
         // Map Supabase errors to user-friendly messages
         let errorMessage = 'Erro ao atualizar senha.';
         const errorMsg = error.message.toLowerCase();
-        
+
         if (errorMsg.includes('password')) {
           errorMessage = 'A senha não atende aos requisitos mínimos.';
         } else if (errorMsg.includes('token') || errorMsg.includes('expired')) {
@@ -519,9 +519,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       resetPassword,
       updatePassword,
       clearPasswordRecovery
-    } as AuthContextType & {
-      signInWithOAuth: (provider: 'google') => Promise<any>;
-      signup: (email: string, password: string, name: string, phone: string, organizationName?: string) => Promise<{ success: boolean; error?: string }>;
     }}>
       {children}
     </AuthContext.Provider>

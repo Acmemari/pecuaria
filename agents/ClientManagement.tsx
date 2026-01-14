@@ -356,14 +356,61 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
 
   const getClientFarms = async (clientId: string): Promise<Farm[]> => {
     try {
-      const { data } = await supabase
+      // Buscar fazendas vinculadas ao cliente da tabela client_farms
+      const { data: clientFarmsData, error: clientFarmsError } = await supabase
         .from('client_farms')
         .select('farm_id')
         .eq('client_id', clientId);
 
-      if (!data) return [];
+      if (clientFarmsError) {
+        console.error('[ClientManagement] Error loading client_farms:', clientFarmsError);
+        return [];
+      }
 
-      const farmIds = data.map(cf => cf.farm_id);
+      if (!clientFarmsData || clientFarmsData.length === 0) {
+        return [];
+      }
+
+      const farmIds = clientFarmsData.map(cf => cf.farm_id);
+
+      // Tentar buscar fazendas do banco de dados primeiro
+      const { data: dbFarms, error: dbError } = await supabase
+        .from('farms')
+        .select('*')
+        .in('id', farmIds);
+
+      if (!dbError && dbFarms && dbFarms.length > 0) {
+        // Converter do formato do banco para o formato Farm
+        return dbFarms.map(farm => ({
+          id: farm.id,
+          name: farm.name,
+          country: farm.country,
+          state: farm.state || '',
+          city: farm.city,
+          clientId: farm.client_id,
+          totalArea: farm.total_area,
+          pastureArea: farm.pasture_area,
+          agricultureArea: farm.agriculture_area,
+          otherCrops: farm.other_crops,
+          infrastructure: farm.infrastructure,
+          reserveAndAPP: farm.reserve_and_app,
+          propertyValue: farm.property_value,
+          operationPecuary: farm.operation_pecuary,
+          operationAgricultural: farm.operation_agricultural,
+          otherOperations: farm.other_operations,
+          agricultureVariation: farm.agriculture_variation,
+          propertyType: farm.property_type as 'Própria' | 'Arrendada',
+          weightMetric: farm.weight_metric as 'Arroba (@)' | 'Quilograma (Kg)',
+          averageHerd: farm.average_herd,
+          herdValue: farm.herd_value,
+          commercializesGenetics: farm.commercializes_genetics || false,
+          productionSystem: farm.production_system as 'Cria' | 'Recria-Engorda' | 'Ciclo Completo',
+          createdAt: farm.created_at || new Date().toISOString(),
+          updatedAt: farm.updated_at || new Date().toISOString()
+        } as Farm));
+      }
+
+      // Fallback: buscar do localStorage se não encontrar no banco
       return farms.filter(farm => farmIds.includes(farm.id));
     } catch (err) {
       console.error('[ClientManagement] Error loading client farms:', err);
@@ -699,10 +746,31 @@ const ClientRow: React.FC<ClientRowProps> = ({
   const loadFarmsCount = async () => {
     setLoadingFarms(true);
     try {
-      const clientFarms = await getClientFarms(client.id);
-      setFarmsCount(clientFarms.length);
+      // Buscar diretamente da tabela client_farms para contar (mais eficiente)
+      const { data, error, count } = await supabase
+        .from('client_farms')
+        .select('*', { count: 'exact', head: false })
+        .eq('client_id', client.id);
+
+      if (error) {
+        console.error('[ClientRow] Error loading farms count:', error);
+        // Fallback: usar getClientFarms
+        const clientFarms = await getClientFarms(client.id);
+        setFarmsCount(clientFarms.length);
+      } else {
+        // Usar count se disponível, senão usar o tamanho do array
+        setFarmsCount(count !== null ? count : (data?.length || 0));
+      }
     } catch (err) {
       console.error('[ClientRow] Error loading farms:', err);
+      // Fallback: usar getClientFarms
+      try {
+        const clientFarms = await getClientFarms(client.id);
+        setFarmsCount(clientFarms.length);
+      } catch (fallbackErr) {
+        console.error('[ClientRow] Error in fallback:', fallbackErr);
+        setFarmsCount(0);
+      }
     } finally {
       setLoadingFarms(false);
     }

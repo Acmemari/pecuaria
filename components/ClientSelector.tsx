@@ -118,13 +118,46 @@ const ClientSelector: React.FC = () => {
         
         setClients(mappedClients);
         
-        // Se não houver cliente selecionado e houver clientes, selecionar o primeiro
-        if (!selectedClient && mappedClients.length > 0) {
-          setSelectedClient(mappedClients[0]);
+        // Validar o cliente salvo no localStorage
+        const savedClientId = localStorage.getItem('selectedClientId');
+        let savedClient: Client | null = null;
+        if (savedClientId) {
+          try {
+            savedClient = JSON.parse(savedClientId);
+          } catch {
+            savedClient = null;
+          }
         }
-        // Se o cliente selecionado não estiver mais na lista, limpar seleção
+        
+        // Verificar se o cliente salvo ainda existe na lista e pertence ao analista atual
+        const savedClientExists = savedClient && mappedClients.find(c => c.id === savedClient!.id);
+        
+        // Se não houver cliente selecionado e houver clientes, usar o salvo ou o primeiro
+        if (!selectedClient && mappedClients.length > 0) {
+          const clientToSelect = savedClientExists ? savedClient! : mappedClients[0];
+          setSelectedClient(clientToSelect);
+          console.log('[ClientSelector] Restored/selected client:', clientToSelect.name);
+        }
+        // Se o cliente selecionado não estiver mais na lista, usar o salvo ou o primeiro
         else if (selectedClient && !mappedClients.find(c => c.id === selectedClient.id)) {
-          setSelectedClient(mappedClients.length > 0 ? mappedClients[0] : null);
+          const clientToSelect = savedClientExists ? savedClient! : (mappedClients.length > 0 ? mappedClients[0] : null);
+          setSelectedClient(clientToSelect);
+          if (!clientToSelect) {
+            // Limpar fazenda se não houver cliente
+            localStorage.removeItem('selectedFarmId');
+          } else {
+            // Se mudou o cliente, limpar a fazenda para forçar nova seleção
+            localStorage.removeItem('selectedFarmId');
+          }
+        }
+        // Se o cliente selecionado está na lista, garantir que está salvo e atualizado
+        else if (selectedClient && mappedClients.find(c => c.id === selectedClient.id)) {
+          // Atualizar o cliente salvo com os dados mais recentes da lista
+          const updatedClient = mappedClients.find(c => c.id === selectedClient.id);
+          if (updatedClient) {
+            setSelectedClient(updatedClient);
+            localStorage.setItem('selectedClientId', JSON.stringify(updatedClient));
+          }
         }
       }
     } catch (err: any) {

@@ -45,7 +45,15 @@ const AppContent: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
   const [comparatorScenarios, setComparatorScenarios] = useState<any>(null);
-  const [selectedFarm, setSelectedFarm] = useState<any>(null);
+  const [selectedFarm, setSelectedFarm] = useState<any>(() => {
+    // Carregar fazenda do localStorage se existir
+    const savedFarmId = localStorage.getItem('selectedFarmId');
+    if (savedFarmId) {
+      // A fazenda será carregada pelo FarmSelector quando o cliente for carregado
+      return null; // Retornar null aqui, o FarmSelector vai restaurar
+    }
+    return null;
+  });
   const [authPage, setAuthPage] = useState<'login' | 'forgot-password'>('login');
   // Sidebar starts closed on mobile, open on desktop
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -575,7 +583,7 @@ const AppContent: React.FC = () => {
         <main className="flex-1 overflow-hidden bg-ai-bg">
           <div className="h-full w-full max-w-[1600px] mx-auto overflow-hidden flex flex-col">
             <ErrorBoundary>
-              <div className="flex-1 overflow-hidden">
+              <div className={`flex-1 ${activeAgentId === 'settings' ? 'overflow-y-auto' : 'overflow-hidden'}`}>
                 {renderContent()}
               </div>
             </ErrorBoundary>

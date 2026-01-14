@@ -405,6 +405,22 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    // Validar se há cliente selecionado (obrigatório para criar fazenda)
+    if (!editingFarm && !selectedClient) {
+      newErrors.client = 'É necessário selecionar um cliente antes de cadastrar uma fazenda';
+    }
+
+    // Validar se o cliente está vinculado ao analista
+    if (!editingFarm && selectedClient) {
+      // Verificar se o usuário é analista ou admin
+      if (user && (user.qualification === 'analista' || user.role === 'admin')) {
+        // Verificar se o cliente pertence ao analista logado
+        if (user.role !== 'admin' && selectedClient.analystId !== user.id) {
+          newErrors.client = 'O cliente selecionado não está vinculado ao seu perfil de analista';
+        }
+      }
+    }
+
     if (!formData.name.trim()) {
       newErrors.name = 'Nome da fazenda é obrigatório';
     }
@@ -531,6 +547,22 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Validação adicional: não permitir criar fazenda sem cliente
+    if (!editingFarm && !selectedClient) {
+      onToast?.('Por favor, selecione um cliente antes de cadastrar uma fazenda', 'error');
+      setErrors({ client: 'É necessário selecionar um cliente antes de cadastrar uma fazenda' });
+      return;
+    }
+
+    // Verificar se o cliente está vinculado ao analista
+    if (!editingFarm && selectedClient && user) {
+      if (user.role !== 'admin' && selectedClient.analystId !== user.id) {
+        onToast?.('O cliente selecionado não está vinculado ao seu perfil de analista', 'error');
+        setErrors({ client: 'O cliente selecionado não está vinculado ao seu perfil de analista' });
+        return;
+      }
+    }
+
     if (!validateForm()) {
       return;
     }
@@ -590,21 +622,109 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     
     saveFarms(updatedFarms);
     
-    // Se houver cliente selecionado e for uma nova fazenda, vincular automaticamente
-    if (selectedClient && !editingFarm) {
+    // Para novas fazendas, sempre deve haver cliente selecionado (já validado acima)
+    if (!editingFarm) {
+      if (!selectedClient) {
+        onToast?.('Erro: Cliente não selecionado. A fazenda não foi cadastrada.', 'error');
+        return;
+      }
+
       const newFarm = updatedFarms[updatedFarms.length - 1];
       
-      // Vincular fazenda ao cliente
+      // Vincular fazenda ao cliente (obrigatório)
       await linkFarmToClient(newFarm.id, selectedClient.id);
       
-      // Vincular fazenda ao analista logado (se for analista ou admin)
+      // Vincular fazenda ao analista logado (obrigatório)
       if (user && (user.qualification === 'analista' || user.role === 'admin')) {
         await linkFarmToAnalyst(newFarm.id, user.id);
+      } else {
+        onToast?.('Aviso: Usuário não é analista. A fazenda foi cadastrada mas pode não estar vinculada corretamente.', 'warning');
+      }
+      
+      // Salvar fazenda no banco de dados também
+      try {
+        const { error: dbError } = await supabase
+          .from('farms')
+          .insert({
+            id: newFarm.id,
+            name: newFarm.name,
+            country: newFarm.country,
+            state: newFarm.state || null,
+            city: newFarm.city,
+            client_id: selectedClient.id,
+            total_area: newFarm.totalArea || null,
+            pasture_area: newFarm.pastureArea || null,
+            agriculture_area: newFarm.agricultureArea || null,
+            other_crops: newFarm.otherCrops || null,
+            infrastructure: newFarm.infrastructure || null,
+            reserve_and_app: newFarm.reserveAndAPP || null,
+            property_value: newFarm.propertyValue || null,
+            operation_pecuary: (newFarm as any).operationPecuary || null,
+            operation_agricultural: (newFarm as any).operationAgricultural || null,
+            other_operations: (newFarm as any).otherOperations || null,
+            agriculture_variation: (newFarm as any).agricultureVariation || 0,
+            property_type: newFarm.propertyType,
+            weight_metric: newFarm.weightMetric,
+            average_herd: newFarm.averageHerd || null,
+            herd_value: newFarm.herdValue || null,
+            commercializes_genetics: newFarm.commercializesGenetics,
+            production_system: newFarm.productionSystem || null
+          });
+
+        if (dbError) {
+          console.error('[FarmManagement] Error saving farm to database:', dbError);
+          // Não bloquear o cadastro, apenas logar o erro
+        } else {
+          console.log('[FarmManagement] Farm saved to database successfully');
+        }
+      } catch (err) {
+        console.error('[FarmManagement] Error saving farm to database:', err);
       }
       
       // Disparar evento para atualizar o FarmSelector
       window.dispatchEvent(new CustomEvent('farmAdded'));
     } else if (editingFarm) {
+      // Atualizar fazenda no banco de dados também
+      try {
+        const { error: dbError } = await supabase
+          .from('farms')
+          .upsert({
+            id: editingFarm.id,
+            name: formData.name,
+            country: formData.country,
+            state: formData.state || null,
+            city: formData.city,
+            client_id: selectedClient?.id || editingFarm.clientId || null,
+            total_area: parseNumber(formData.totalArea) || null,
+            pasture_area: parseNumber(formData.pastureArea) || null,
+            agriculture_area: parseNumber(formData.agricultureArea) || null,
+            other_crops: parseNumber(formData.otherCrops) || null,
+            infrastructure: parseNumber(formData.infrastructure) || null,
+            reserve_and_app: parseNumber(formData.reserveAndAPP) || null,
+            property_value: parseInteger(formData.propertyValue) || null,
+            operation_pecuary: parseInteger(formData.operationPecuary) || null,
+            operation_agricultural: parseInteger(formData.operationAgricultural) || null,
+            other_operations: parseInteger(formData.otherOperations) || null,
+            agriculture_variation: formData.agricultureVariation || 0,
+            property_type: formData.propertyType,
+            weight_metric: formData.weightMetric,
+            average_herd: formData.averageHerd ? parseInt(formData.averageHerd.replace(/\./g, ''), 10) : null,
+            herd_value: parseInteger(formData.herdValue) || null,
+            commercializes_genetics: formData.commercializesGenetics,
+            production_system: formData.productionSystem || null
+          }, {
+            onConflict: 'id'
+          });
+
+        if (dbError) {
+          console.error('[FarmManagement] Error updating farm in database:', dbError);
+        } else {
+          console.log('[FarmManagement] Farm updated in database successfully');
+        }
+      } catch (err) {
+        console.error('[FarmManagement] Error updating farm in database:', err);
+      }
+      
       // Disparar evento para atualizar o FarmSelector quando uma fazenda for editada
       window.dispatchEvent(new CustomEvent('farmUpdated'));
     }
@@ -836,6 +956,23 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
       <form onSubmit={handleSubmit} className="max-w-7xl w-full bg-white rounded-lg border border-ai-border p-4 flex-1 min-h-0 flex flex-col">
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        {/* Alerta se não houver cliente selecionado */}
+        {!editingFarm && !selectedClient && (
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-yellow-600 font-semibold">⚠️ Atenção:</span>
+              <div className="flex-1">
+                <p className="text-sm text-yellow-800">
+                  É necessário selecionar um cliente antes de cadastrar uma fazenda. 
+                  Por favor, selecione um cliente no cabeçalho da aplicação.
+                </p>
+                {errors.client && (
+                  <p className="text-red-600 text-sm mt-1 font-medium">{errors.client}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {/* Nome da Fazenda, Tipo, Sistema de Produção, País, Estado e Cidade - Todos na mesma linha */}
         <div className="mb-4 grid grid-cols-6 gap-2">
           <div>
@@ -1256,7 +1393,9 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           </button>
           <button
             type="submit"
-            className="flex-1 px-4 py-2 text-sm bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors flex items-center justify-center gap-2"
+            disabled={!editingFarm && !selectedClient}
+            className="flex-1 px-4 py-2 text-sm bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={!editingFarm && !selectedClient ? 'Selecione um cliente antes de cadastrar uma fazenda' : ''}
           >
             <CheckCircle2 size={16} />
             {editingFarm ? 'Atualizar Fazenda' : 'Cadastrar Fazenda'}

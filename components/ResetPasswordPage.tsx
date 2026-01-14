@@ -13,7 +13,7 @@ interface ResetPasswordPageProps {
  * O token já foi validado pelo Supabase, então só precisamos mostrar o formulário
  */
 const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSuccess }) => {
-    const { updatePassword } = useAuth() as any;
+    const { updatePassword } = useAuth();
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');

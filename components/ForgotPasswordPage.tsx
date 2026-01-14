@@ -8,7 +8,7 @@ interface ForgotPasswordPageProps {
 }
 
 const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onToast, onBack }) => {
-    const { resetPassword } = useAuth() as any;
+    const { resetPassword } = useAuth();
     const [email, setEmail] = useState('');
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);

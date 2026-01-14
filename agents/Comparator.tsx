@@ -23,78 +23,14 @@ interface Scenario {
   colorBorder: string;
 }
 
-/**
- * Calcula a TIR Mensal (Taxa Interna de Retorno) usando Newton-Raphson
- */
-function calculateLivestockIRR(
-  purchaseWeight: number,
-  purchasePrice: number,
-  monthlyCost: number,
-  salesValue: number,
-  permanenceMonths: number
-): number {
-  const investment = purchaseWeight * purchasePrice;
-  const totalRevenue = salesValue;
-
-  if (permanenceMonths <= 0) return 0;
-
-  const npv = (rate: number) => {
-    let value = -investment;
-    for (let t = 1; t <= Math.floor(permanenceMonths); t++) {
-      value -= monthlyCost / Math.pow(1 + rate, t);
-    }
-    const fraction = permanenceMonths - Math.floor(permanenceMonths);
-    if (fraction > 0) {
-      value -= (monthlyCost * fraction) / Math.pow(1 + rate, permanenceMonths);
-    }
-    value += totalRevenue / Math.pow(1 + rate, permanenceMonths);
-    return value;
-  };
-
-  const dNpv = (rate: number) => {
-    let derivative = 0;
-    for (let t = 1; t <= Math.floor(permanenceMonths); t++) {
-      derivative -= (-t * monthlyCost) / Math.pow(1 + rate, t + 1);
-    }
-    const fraction = permanenceMonths - Math.floor(permanenceMonths);
-    if (fraction > 0) {
-      derivative -= (-(permanenceMonths) * (monthlyCost * fraction)) / Math.pow(1 + rate, permanenceMonths + 1);
-    }
-    derivative += (-(permanenceMonths) * totalRevenue) / Math.pow(1 + rate, permanenceMonths + 1);
-    return derivative;
-  };
-
-  let rate = 0.01;
-  const maxIterations = 100;
-  const tolerance = 1e-6;
-
-  for (let i = 0; i < maxIterations; i++) {
-    const y = npv(rate);
-    const yPrime = dNpv(rate);
-    if (Math.abs(yPrime) < tolerance) break;
-    const newRate = rate - y / yPrime;
-    if (Math.abs(newRate - rate) < tolerance) {
-      return newRate * 100;
-    }
-    rate = newRate;
-  }
-
-  return rate * 100;
-}
-
-function convertMonthlyToAnnualRate(monthlyRatePercent: number): number {
-  if (monthlyRatePercent === 0) return 0;
-  const decimalRate = monthlyRatePercent / 100;
-  const annualDecimal = Math.pow(1 + decimalRate, 12) - 1;
-  return annualDecimal * 100;
-}
+import { calculateLivestockIRR, convertMonthlyToAnnualRate } from '../lib/calculations';
 
 function calculateResults(inputs: CattleCalculatorInputs, country?: string): CalculationResults {
   const ARROBA_KG = 15;
   const YIELD_PURCHASE = 50;
 
   const pesoCompraArrobas = (inputs.pesoCompra * (YIELD_PURCHASE / 100)) / ARROBA_KG;
-  
+
   // Para Paraguai: peso vivo X rendimento de carcaça (resultado em kg carcaça)
   // Para Brasil: peso vivo X rendimento de carcaça / 15 (resultado em arrobas)
   const pesoFinalKgCarcaca = inputs.pesoAbate * (inputs.rendimentoCarcaca / 100);
@@ -107,11 +43,11 @@ function calculateResults(inputs: CattleCalculatorInputs, country?: string): Cal
 
   // Para Paraguai: valorVenda está em G$/kg carcaça, então multiplica por kg carcaça
   // Para Brasil: valorVenda está em R$/@, então multiplica por arrobas
-  const valorBoi = country === 'PY' 
+  const valorBoi = country === 'PY'
     ? pesoFinalKgCarcaca * inputs.valorVenda
     : pesoFinalArrobas * inputs.valorVenda;
   const custoCompra = inputs.pesoCompra * inputs.valorCompra;
-  
+
   // Para Paraguai: custo mensal deve ser multiplicado por 1000 para o cálculo de resultados
   const custoMensalAjustado = country === 'PY' ? inputs.custoMensal * 1000 : inputs.custoMensal;
   const custoOperacional = mesesPermanencia * custoMensalAjustado;
@@ -132,7 +68,7 @@ function calculateResults(inputs: CattleCalculatorInputs, country?: string): Cal
 
   const custoPorArrobaProduzida = arrobasProduzidas > 0 ? custoOperacional / arrobasProduzidas : 0;
   // Para Paraguai: custo por kg carcaça final; Para Brasil: custo por arroba final
-  const custoPorArrobaFinal = country === 'PY' 
+  const custoPorArrobaFinal = country === 'PY'
     ? (pesoFinalKgCarcaca > 0 ? custoTotal / pesoFinalKgCarcaca : 0)
     : (pesoFinalArrobas > 0 ? custoTotal / pesoFinalArrobas : 0);
 
@@ -262,7 +198,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
   useEffect(() => {
     setScenarios(prev => prev.map(scenario => {
       const updated = { ...scenario.inputs };
-      
+
       // Ajustar valor de compra para ficar dentro do range
       if (country === 'PY') {
         if (updated.valorCompra < 15000) {
@@ -289,7 +225,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
           updated.valorVenda = 350;
         }
       }
-      
+
       return {
         ...scenario,
         inputs: updated

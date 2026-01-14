@@ -14,7 +14,11 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const saved = localStorage.getItem('selectedClientId');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const client = JSON.parse(saved);
+        // Validar se o cliente tem os campos necessários
+        if (client && client.id && client.name) {
+          return client;
+        }
       } catch {
         return null;
       }
@@ -28,6 +32,8 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem('selectedClientId', JSON.stringify(client));
     } else {
       localStorage.removeItem('selectedClientId');
+      // Limpar também a fazenda selecionada quando o cliente for limpo
+      localStorage.removeItem('selectedFarmId');
     }
   };
 
