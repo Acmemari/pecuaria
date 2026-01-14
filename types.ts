@@ -113,6 +113,7 @@ export interface Farm {
   country: string;
   state: string;
   city: string;
+  clientId?: string; // Vinculação ao cliente
   // Dimensões (em hectares)
   totalArea?: number;
   pastureArea?: number;
@@ -131,4 +132,28 @@ export interface Farm {
   productionSystem: 'Cria' | 'Recria-Engorda' | 'Ciclo Completo';
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  analystId: string; // ID do analista responsável
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClientFarm {
+  id: string;
+  clientId: string;
+  farmId: string;
+  createdAt: string;
+}
+
+export interface ClientAnalyst {
+  id: string;
+  clientId: string;
+  analystId: string; // ID do usuário analista
+  createdAt: string;
 }

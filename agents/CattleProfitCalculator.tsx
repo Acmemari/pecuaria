@@ -553,7 +553,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
   return (
     <>
-      <div className="min-h-full flex flex-col md:flex-row gap-2 md:gap-4">
+      <div className="h-full flex flex-col md:flex-row gap-2 md:gap-4 overflow-hidden">
 
         {/* Left Column: Inputs - Full width on mobile, fixed width on desktop */}
         <div className="w-full md:w-[300px] flex flex-col shrink-0 md:h-full md:overflow-hidden overflow-x-visible overflow-y-auto">

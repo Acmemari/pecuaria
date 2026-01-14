@@ -239,12 +239,15 @@ const AdminDashboard: React.FC = () => {
         updated_at: new Date().toISOString()
       };
 
-      // Se for analista, incluir organization_id; caso contrário, limpar
-      if (editingClientData.qualification === 'analista') {
+      // Se for visitante, remover vínculo com empresa
+      if (editingClientData.qualification === 'visitante') {
+        updatePayload.organization_id = null;
+      } else if (editingClientData.qualification === 'analista') {
+        // Se for analista, incluir organization_id se fornecido
         updatePayload.organization_id = editingClientData.organizationId || null;
       } else {
-        // Se mudou de analista para outra qualificação, remover vínculo
-        updatePayload.organization_id = null;
+        // Para cliente, manter organization_id se já existir, mas não obrigar
+        // Não alteramos organization_id para clientes aqui
       }
 
       const { data: updateData, error } = await supabase
@@ -433,8 +436,9 @@ const AdminDashboard: React.FC = () => {
                     setEditingClientData(prev => prev ? {
                       ...prev,
                       qualification: newQualification,
-                      // Limpar organizationId se mudar de analista para outra qualificação
-                      organizationId: newQualification === 'analista' ? prev.organizationId : null
+                      // Limpar organizationId se mudar para visitante
+                      // Para cliente e analista, manter o valor atual (será definido na tela de cadastro)
+                      organizationId: newQualification === 'visitante' ? null : (newQualification === 'analista' ? prev.organizationId : prev.organizationId)
                     } : null);
                   }}
                   className="w-full px-3 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
@@ -493,6 +497,27 @@ const AdminDashboard: React.FC = () => {
                       Nenhuma empresa cadastrada. Cadastre empresas em Configurações → Cadastro de Empresa.
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Mensagem informativa para visitantes */}
+              {editingClientData.qualification === 'visitante' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-800">
+                    <strong>Visitantes</strong> não precisam ter vínculo com empresa ou analista. 
+                    Quando convertido para <strong>Cliente</strong> ou <strong>Analista</strong>, 
+                    o vínculo será feito na tela de cadastro correspondente.
+                  </p>
+                </div>
+              )}
+
+              {/* Mensagem informativa para clientes */}
+              {editingClientData.qualification === 'cliente' && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-xs text-amber-800">
+                    <strong>Clientes</strong> devem ser vinculados a um analista na tela de 
+                    <strong> Gestão de Clientes</strong>. O vínculo com empresa é opcional.
+                  </p>
                 </div>
               )}
             </div>

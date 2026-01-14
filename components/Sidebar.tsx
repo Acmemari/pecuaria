@@ -16,7 +16,8 @@ import {
   Brain,
   Building2,
   FileCheck,
-  ChevronDown
+  ChevronDown,
+  Target
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -149,6 +150,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                       {agent.icon === 'users' && <Users size={16} />}
                       {agent.icon === 'brain' && <Brain size={16} />}
                       {agent.icon === 'farm' && <Building2 size={16} />}
+                      {agent.icon === 'target' && <Target size={16} />}
                     </div>
 
                     <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>

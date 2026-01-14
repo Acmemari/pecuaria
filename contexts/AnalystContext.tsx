@@ -1,0 +1,47 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User } from '../types';
+
+interface AnalystContextType {
+  selectedAnalyst: User | null;
+  setSelectedAnalyst: (analyst: User | null) => void;
+}
+
+const AnalystContext = createContext<AnalystContextType | undefined>(undefined);
+
+export const AnalystProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [selectedAnalyst, setSelectedAnalystState] = useState<User | null>(() => {
+    // Carregar do localStorage se existir
+    const saved = localStorage.getItem('selectedAnalystId');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const setSelectedAnalyst = (analyst: User | null) => {
+    setSelectedAnalystState(analyst);
+    if (analyst) {
+      localStorage.setItem('selectedAnalystId', JSON.stringify(analyst));
+    } else {
+      localStorage.removeItem('selectedAnalystId');
+    }
+  };
+
+  return (
+    <AnalystContext.Provider value={{ selectedAnalyst, setSelectedAnalyst }}>
+      {children}
+    </AnalystContext.Provider>
+  );
+};
+
+export const useAnalyst = () => {
+  const context = useContext(AnalystContext);
+  if (context === undefined) {
+    throw new Error('useAnalyst must be used within an AnalystProvider');
+  }
+  return context;
+};

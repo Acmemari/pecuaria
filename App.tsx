@@ -6,6 +6,9 @@ import SettingsPage from './components/SettingsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LocationProvider, useLocation } from './contexts/LocationContext';
+import { ClientProvider } from './contexts/ClientContext';
+import { AnalystProvider } from './contexts/AnalystContext';
+import AnalystHeader from './components/AnalystHeader';
 import { Agent } from './types';
 import { Menu, Construction, Loader2, Grid3X3, ArrowLeftRight } from 'lucide-react';
 import { ToastContainer, Toast } from './components/Toast';
@@ -24,6 +27,9 @@ const SavedScenarios = lazy(() => import('./agents/SavedScenarios'));
 const AgentTrainingAdmin = lazy(() => import('./agents/AgentTrainingAdmin'));
 const FarmManagement = lazy(() => import('./agents/FarmManagement'));
 const QuestionnaireFiller = lazy(() => import('./agents/QuestionnaireFiller'));
+const ClientManagement = lazy(() => import('./agents/ClientManagement'));
+const AgilePlanning = lazy(() => import('./agents/AgilePlanning'));
+const AnalystManagement = lazy(() => import('./agents/AnalystManagement'));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full">
@@ -39,6 +45,7 @@ const AppContent: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
   const [comparatorScenarios, setComparatorScenarios] = useState<any>(null);
+  const [selectedFarm, setSelectedFarm] = useState<any>(null);
   const [authPage, setAuthPage] = useState<'login' | 'forgot-password'>('login');
   // Sidebar starts closed on mobile, open on desktop
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -123,10 +130,37 @@ const AppContent: React.FC = () => {
         }
       ];
 
+      // Add Client Management for analysts and admins
+      const clientManagementAgent: Agent = {
+        id: 'client-management',
+        name: 'Gestão de Clientes',
+        description: 'Cadastrar e gerenciar clientes',
+        icon: 'users',
+        category: 'admin',
+        status: (user?.role === 'admin' || user?.qualification === 'analista') ? 'active' : 'locked'
+      };
+
       // Dynamically add Admin tools if user is admin
-      return user?.role === 'admin'
-        ? [
+      if (user?.role === 'admin') {
+        return [
           ...baseAgents,
+          clientManagementAgent,
+          {
+            id: 'agile-planning',
+            name: 'Planejamento Ágil',
+            description: 'Planejamento estratégico vinculado a cliente e fazenda.',
+            icon: 'target',
+            category: 'zootecnico',
+            status: 'active'
+          } as Agent,
+          {
+            id: 'analyst-management',
+            name: 'Gerenciamento de Analistas',
+            description: 'Visualize analistas, clientes e fazendas de forma hierárquica',
+            icon: 'users',
+            category: 'admin',
+            status: 'active'
+          } as Agent,
           {
             id: 'agent-training',
             name: 'Treinar Antonio',
@@ -143,8 +177,26 @@ const AppContent: React.FC = () => {
             category: 'admin',
             status: 'active'
           } as Agent
-        ]
-        : baseAgents;
+        ];
+      }
+
+      // Add Client Management and Agile Planning for analysts
+      if (user?.qualification === 'analista') {
+        return [
+          ...baseAgents,
+          clientManagementAgent,
+          {
+            id: 'agile-planning',
+            name: 'Planejamento Ágil',
+            description: 'Planejamento estratégico vinculado a cliente e fazenda.',
+            icon: 'target',
+            category: 'zootecnico',
+            status: 'active'
+          } as Agent
+        ];
+      }
+
+      return baseAgents;
     } catch (error) {
       console.error('Erro ao calcular agents:', error);
       // Retornar pelo menos os agents básicos em caso de erro
@@ -400,6 +452,40 @@ const AppContent: React.FC = () => {
         ) : (
           <div>Acesso negado.</div>
         );
+      case 'client-management':
+        return (user.role === 'admin' || user.qualification === 'analista') ? (
+          <Suspense fallback={<LoadingFallback />}>
+            <ClientManagement
+              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+            />
+          </Suspense>
+        ) : (
+          <div>Acesso negado.</div>
+        );
+      case 'analyst-management':
+        return user.role === 'admin' ? (
+          <Suspense fallback={<LoadingFallback />}>
+            <AnalystManagement
+              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+            />
+          </Suspense>
+        ) : (
+          <div className="flex items-center justify-center h-full text-red-500">
+            Acesso negado. Apenas administradores podem acessar esta página.
+          </div>
+        );
+      case 'agile-planning':
+        return (user.role === 'admin' || user.qualification === 'analista') ? (
+          <Suspense fallback={<LoadingFallback />}>
+            <AgilePlanning
+              selectedFarm={selectedFarm}
+              onSelectFarm={setSelectedFarm}
+              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+            />
+          </Suspense>
+        ) : (
+          <div>Acesso negado.</div>
+        );
       case 'questionnaire-gente-gestao-producao':
         return (
           <Suspense fallback={<LoadingFallback />}>
@@ -435,8 +521,11 @@ const AppContent: React.FC = () => {
       {/* Main Content Area */}
       <div className={`flex-1 flex flex-col h-full transition-all duration-300 relative ${isSidebarOpen ? 'md:ml-56' : 'ml-0'}`}>
 
+        {/* Analyst Header - Above main header */}
+        <AnalystHeader selectedFarm={selectedFarm} onSelectFarm={setSelectedFarm} />
+
         {/* Header - Minimalist with hamburger button */}
-        <header className="h-12 bg-ai-bg border-b border-ai-border flex items-center justify-between px-4 shrink-0 sticky top-0 z-40">
+        <header className="h-12 bg-ai-bg border-b border-ai-border flex items-center justify-between px-4 shrink-0 sticky top-12 z-40">
           <div className="flex items-center gap-2 md:gap-0">
             {/* Hamburger button - always visible */}
             <button
@@ -483,10 +572,12 @@ const AppContent: React.FC = () => {
         </header>
 
         {/* Workspace */}
-        <main className="flex-1 overflow-hidden p-2 md:p-3 bg-ai-bg">
-          <div className="h-full w-full max-w-[1600px] mx-auto overflow-y-auto">
+        <main className="flex-1 overflow-hidden bg-ai-bg">
+          <div className="h-full w-full max-w-[1600px] mx-auto overflow-hidden flex flex-col">
             <ErrorBoundary>
-              {renderContent()}
+              <div className="flex-1 overflow-hidden">
+                {renderContent()}
+              </div>
             </ErrorBoundary>
           </div>
         </main>
@@ -502,7 +593,11 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <LocationProvider>
-        <AppContent />
+        <ClientProvider>
+          <AnalystProvider>
+            <AppContent />
+          </AnalystProvider>
+        </ClientProvider>
       </LocationProvider>
     </AuthProvider>
   );

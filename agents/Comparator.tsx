@@ -524,7 +524,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
   };
 
   return (
-    <div className="h-full w-full max-w-full flex flex-col gap-1 overflow-y-auto overflow-x-hidden px-4 py-2 comparator-container">
+    <div className="h-full w-full max-w-full flex flex-col gap-1 overflow-hidden px-4 py-2 comparator-container">
       {/* Header with Download and Save buttons */}
       <div className="flex items-center justify-end gap-2 shrink-0 mb-0.5">
         <button
@@ -549,7 +549,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       </div>
 
       {/* Scenarios Section */}
-      <div className="flex-[1.4] overflow-y-auto overflow-x-hidden flex flex-col min-h-0">
+      <div className="flex-[1.4] overflow-hidden overflow-x-hidden flex flex-col min-h-0">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3 flex-1 min-h-0 overflow-visible w-full">
           {scenarios.map((scenario) => {
             const colors = getColorClasses(scenario.id);
