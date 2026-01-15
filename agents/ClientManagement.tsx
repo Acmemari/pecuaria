@@ -36,6 +36,11 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [view, setView] = useState<'list' | 'form'>('list');
+
+  // Notificar App.tsx sobre mudanças de view
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('clientViewChange', { detail: view }));
+  }, [view]);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
@@ -399,7 +404,24 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
   const handleCancel = () => {
     resetForm();
     setView('list');
+    window.dispatchEvent(new CustomEvent('clientCancelForm'));
   };
+
+  // Escutar evento de cancelamento da barra superior
+  useEffect(() => {
+    const handleCancelForm = () => {
+      if (view === 'form') {
+        resetForm();
+        setView('list');
+      }
+    };
+
+    window.addEventListener('clientCancelForm', handleCancelForm);
+    return () => {
+      window.removeEventListener('clientCancelForm', handleCancelForm);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   // Memoizar lista filtrada para melhorar performance
   const filteredClients = useMemo(() => {
@@ -433,10 +455,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
       <div className="h-full overflow-y-auto bg-ai-bg">
         <div className="max-w-4xl mx-auto p-6">
           <div className="bg-ai-surface rounded-lg shadow-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-ai-text">
-                {editingClient ? 'Editar Cliente' : 'Novo Cliente'}
-              </h2>
+            <div className="flex items-center justify-end mb-6">
               <button
                 onClick={handleCancel}
                 className="p-2 hover:bg-ai-surface2 rounded-md transition-colors"
@@ -603,24 +622,6 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
   return (
     <div className="h-full overflow-y-auto bg-ai-bg">
       <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-ai-text mb-2">Gestão de Clientes</h1>
-            <p className="text-ai-subtext">Cadastre e gerencie os clientes do sistema</p>
-          </div>
-          <button
-            onClick={() => {
-              resetForm();
-              setView('form');
-            }}
-            className="flex items-center space-x-2 px-4 py-2 bg-ai-accent text-white rounded-md hover:bg-ai-accent/90 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Novo Cliente</span>
-          </button>
-        </div>
-
         {/* Search */}
         <div className="mb-6">
           <div className="relative">

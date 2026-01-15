@@ -10,7 +10,7 @@ import { ClientProvider } from './contexts/ClientContext';
 import { AnalystProvider } from './contexts/AnalystContext';
 import AnalystHeader from './components/AnalystHeader';
 import { Agent } from './types';
-import { Menu, Construction, Loader2, Grid3X3, ArrowLeftRight } from 'lucide-react';
+import { Menu, Construction, Loader2, Grid3X3, ArrowLeftRight, ArrowLeft, Plus } from 'lucide-react';
 import { ToastContainer, Toast } from './components/Toast';
 
 // Lazy load auth pages
@@ -65,6 +65,10 @@ const AppContent: React.FC = () => {
   });
   // Timeout de segurança para evitar loading infinito quando agents não carregam
   const [agentsLoadTimeout, setAgentsLoadTimeout] = useState(false);
+  // Estado para controlar se está no formulário de fazendas
+  const [isFarmFormView, setIsFarmFormView] = useState(false);
+  // Estado para controlar se está no formulário de clientes
+  const [isClientFormView, setIsClientFormView] = useState(false);
 
   // Handle window resize to adjust sidebar state
   useEffect(() => {
@@ -79,6 +83,30 @@ const AppContent: React.FC = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [isSidebarOpen]);
+
+  // Escutar mudanças de view do FarmManagement
+  useEffect(() => {
+    const handleFarmViewChange = (e: CustomEvent) => {
+      setIsFarmFormView(e.detail === 'form');
+    };
+
+    window.addEventListener('farmViewChange', handleFarmViewChange as EventListener);
+    return () => {
+      window.removeEventListener('farmViewChange', handleFarmViewChange as EventListener);
+    };
+  }, []);
+
+  // Escutar mudanças de view do ClientManagement
+  useEffect(() => {
+    const handleClientViewChange = (e: CustomEvent) => {
+      setIsClientFormView(e.detail === 'form');
+    };
+
+    window.addEventListener('clientViewChange', handleClientViewChange as EventListener);
+    return () => {
+      window.removeEventListener('clientViewChange', handleClientViewChange as EventListener);
+    };
+  }, []);
 
   const addToast = (toast: Toast) => {
     setToasts(prev => [...prev, toast]);
@@ -550,6 +578,42 @@ const AppContent: React.FC = () => {
           </div>
 
           <div className="flex items-center space-x-2 shrink-0">
+            {/* Botão Voltar para lista quando estiver no formulário de fazendas */}
+            {activeAgentId === 'farm-management' && isFarmFormView && (
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('farmCancelForm'));
+                }}
+                className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
+              >
+                <ArrowLeft size={16} />
+                Voltar para lista
+              </button>
+            )}
+            {/* Botão Voltar para lista quando estiver no formulário de clientes */}
+            {activeAgentId === 'client-management' && isClientFormView && (
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('clientCancelForm'));
+                }}
+                className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
+              >
+                <ArrowLeft size={16} />
+                Voltar para lista
+              </button>
+            )}
+            {/* Botão Novo Cliente quando estiver na lista de clientes */}
+            {activeAgentId === 'client-management' && !isClientFormView && (
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('clientNewClient'));
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-ai-accent text-white rounded-md hover:bg-ai-accent/90 transition-colors text-sm"
+              >
+                <Plus size={16} />
+                Novo Cliente
+              </button>
+            )}
             {activeAgentId === 'cattle-profit' && (
               <div className="flex items-center gap-2 mr-2 md:mr-4">
                 <button

@@ -38,6 +38,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const { selectedClient } = useClient();
   const [farms, setFarms] = useState<Farm[]>([]);
   const [view, setView] = useState<'list' | 'form'>('form'); // Inicia direto no formulário
+
+  // Notificar App.tsx sobre mudanças de view
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('farmViewChange', { detail: view }));
+  }, [view]);
   const [editingFarm, setEditingFarm] = useState<Farm | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingNew, setIsCreatingNew] = useState(true); // Flag para indicar criação de nova fazenda
@@ -902,7 +907,24 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     resetForm();
     setIsCreatingNew(false);
     setView('list');
+    window.dispatchEvent(new CustomEvent('farmCancelForm'));
   };
+
+  // Escutar evento de cancelamento da barra superior
+  useEffect(() => {
+    const handleCancelForm = () => {
+      if (view === 'form') {
+        resetForm();
+        setIsCreatingNew(false);
+        setView('list');
+      }
+    };
+
+    window.addEventListener('farmCancelForm', handleCancelForm);
+    return () => {
+      window.removeEventListener('farmCancelForm', handleCancelForm);
+    };
+  }, [view]);
 
   if (isLoading) {
     return (
@@ -1014,18 +1036,6 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           scrollbar-color: #9ca3af #f1f5f9;
         }
       `}</style>
-      <div className="mb-2 flex-shrink-0">
-        <button
-          onClick={handleCancel}
-          className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors mb-1 cursor-pointer text-xs"
-        >
-          <ArrowLeft size={14} />
-          Voltar para lista
-        </button>
-        <h1 className="text-lg md:text-xl font-bold text-ai-text">
-          {editingFarm ? 'Editar Fazenda' : 'Cadastrar Fazenda'}
-        </h1>
-      </div>
 
       <form onSubmit={handleSubmit} className="max-w-7xl w-full bg-white rounded-lg border border-ai-border p-4 flex-1 min-h-0 flex flex-col">
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
