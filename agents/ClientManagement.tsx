@@ -67,17 +67,10 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
       setIsLoading(true);
       setError(null);
 
-      // Usar JOIN para buscar clientes com analistas em uma única query (otimização N+1)
+      // Construir query base
       let query = supabase
         .from('clients')
-        .select(`
-          *,
-          analyst:user_profiles!clients_analyst_id_fkey (
-            id,
-            name,
-            email
-          )
-        `);
+        .select('*');
 
       // Filtrar por analista: se for analista, mostrar apenas seus clientes; se for admin, mostrar todos
       if (currentUser?.qualification === 'analista' && currentUser?.role !== 'admin') {
@@ -95,7 +88,27 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
       }
 
       if (data) {
-        setClients(data as any);
+        // Buscar informações dos analistas em paralelo (otimizado)
+        const uniqueAnalystIds = [...new Set(data.map(c => c.analyst_id).filter(Boolean))];
+        
+        // Buscar todos os analistas de uma vez
+        const { data: analystsData } = await supabase
+          .from('user_profiles')
+          .select('id, name, email')
+          .in('id', uniqueAnalystIds);
+
+        // Criar mapa de analistas para lookup O(1)
+        const analystsMap = new Map(
+          (analystsData || []).map(a => [a.id, a])
+        );
+
+        // Mapear clientes com seus analistas
+        const clientsWithAnalysts = data.map(client => ({
+          ...client,
+          analyst: analystsMap.get(client.analyst_id) || null
+        }));
+
+        setClients(clientsWithAnalysts as any);
       }
     } catch (err: any) {
       console.error('[ClientManagement] Unexpected error:', err);
