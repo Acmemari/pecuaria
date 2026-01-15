@@ -35,7 +35,6 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
   const [view, setView] = useState<'list' | 'form'>('list');
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
   const [selectedClientFarms, setSelectedClientFarms] = useState<string[]>([]);
 
@@ -116,7 +115,48 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
 
   const loadFarms = async () => {
     try {
-      // Carregar fazendas do localStorage (FarmManagement usa localStorage)
+      // Buscar fazendas do banco de dados que pertencem aos clientes do analista
+      // As RLS policies garantem que só veremos fazendas dos nossos clientes
+      const { data: dbFarms, error: dbError } = await supabase
+        .from('farms')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (!dbError && dbFarms && dbFarms.length > 0) {
+        // Converter do formato do banco para o formato Farm
+        const convertedFarms: Farm[] = dbFarms.map(farm => ({
+          id: farm.id,
+          name: farm.name,
+          country: farm.country,
+          state: farm.state || '',
+          city: farm.city,
+          clientId: farm.client_id,
+          totalArea: farm.total_area,
+          pastureArea: farm.pasture_area,
+          agricultureArea: farm.agriculture_area,
+          otherCrops: farm.other_crops,
+          infrastructure: farm.infrastructure,
+          reserveAndAPP: farm.reserve_and_app,
+          propertyValue: farm.property_value,
+          operationPecuary: farm.operation_pecuary,
+          operationAgricultural: farm.operation_agricultural,
+          otherOperations: farm.other_operations,
+          agricultureVariation: farm.agriculture_variation,
+          propertyType: farm.property_type as 'Própria' | 'Arrendada',
+          weightMetric: farm.weight_metric as 'Arroba (@)' | 'Quilograma (Kg)',
+          averageHerd: farm.average_herd,
+          herdValue: farm.herd_value,
+          commercializesGenetics: farm.commercializes_genetics || false,
+          productionSystem: farm.production_system as 'Cria' | 'Recria-Engorda' | 'Ciclo Completo',
+          createdAt: farm.created_at || new Date().toISOString(),
+          updatedAt: farm.updated_at || new Date().toISOString()
+        }));
+        
+        setFarms(convertedFarms);
+        return;
+      }
+
+      // Fallback: carregar do localStorage
       const storedFarms = localStorage.getItem('agro-farms');
       if (storedFarms) {
         const parsedFarms = JSON.parse(storedFarms);
@@ -304,8 +344,58 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
   };
 
   const handleDelete = async (clientId: string) => {
-    setDeletingClientId(clientId);
     try {
+      // 1. Buscar fazendas vinculadas ao cliente
+      const clientFarms = await getClientFarms(clientId);
+      
+      // 2. Mostrar confirmação com detalhes
+      const farmCount = clientFarms.length;
+      const farmNames = clientFarms.map(f => f.name).join(', ');
+      
+      let confirmMessage = `Tem certeza que deseja excluir este cliente?\n\n`;
+      
+      if (farmCount > 0) {
+        confirmMessage += `⚠️ ATENÇÃO: Esta ação irá excluir:\n`;
+        confirmMessage += `• ${farmCount} fazenda${farmCount !== 1 ? 's' : ''}: ${farmNames}\n`;
+        confirmMessage += `• Todos os vínculos e registros associados\n\n`;
+        confirmMessage += `Esta ação NÃO pode ser desfeita!`;
+      } else {
+        confirmMessage += `O cliente será removido do sistema.`;
+      }
+      
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+
+      // Iniciar processo de exclusão
+      setDeletingClientId(clientId);
+
+      // 3. Se houver fazendas, excluí-las primeiro
+      if (farmCount > 0) {
+        for (const farm of clientFarms) {
+          // Excluir vínculos analyst_farms
+          await supabase
+            .from('analyst_farms')
+            .delete()
+            .eq('farm_id', farm.id);
+          
+          // Excluir fazenda do banco
+          await supabase
+            .from('farms')
+            .delete()
+            .eq('id', farm.id);
+          
+          // Remover do localStorage
+          const storedFarms = localStorage.getItem('agro-farms');
+          if (storedFarms) {
+            const allFarms = JSON.parse(storedFarms);
+            const updatedFarms = allFarms.filter((f: Farm) => f.id !== farm.id);
+            localStorage.setItem('agro-farms', JSON.stringify(updatedFarms));
+          }
+        }
+      }
+
+      // 4. Excluir o cliente (client_farms será excluído automaticamente por cascata)
       const { error } = await supabase
         .from('clients')
         .delete()
@@ -315,19 +405,25 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
         throw error;
       }
 
-      onToast?.('Cliente excluído com sucesso!', 'success');
+      // 5. Mensagem de sucesso
+      if (farmCount > 0) {
+        onToast?.(`Cliente e ${farmCount} fazenda${farmCount !== 1 ? 's' : ''} excluídos com sucesso!`, 'success');
+      } else {
+        onToast?.('Cliente excluído com sucesso!', 'success');
+      }
+      
       loadClients();
       
-      // Disparar evento para atualizar o ClientSelector após um pequeno delay
+      // Disparar eventos para atualizar seletores
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('clientDeleted'));
+        window.dispatchEvent(new CustomEvent('farmUpdated'));
       }, 500);
     } catch (err: any) {
       console.error('[ClientManagement] Error deleting client:', err);
       onToast?.(`Erro ao excluir cliente: ${err.message || 'Erro desconhecido'}`, 'error');
     } finally {
       setDeletingClientId(null);
-      setShowDeleteConfirm(null);
     }
   };
 
@@ -700,8 +796,6 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
                         client={client}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
-                        showDeleteConfirm={showDeleteConfirm}
-                        setShowDeleteConfirm={setShowDeleteConfirm}
                         deletingClientId={deletingClientId}
                         getClientFarms={getClientFarms}
                       />
@@ -721,8 +815,6 @@ interface ClientRowProps {
   client: Client & { analyst?: { name: string; email: string } };
   onEdit: (client: Client) => void;
   onDelete: (clientId: string) => void;
-  showDeleteConfirm: string | null;
-  setShowDeleteConfirm: (id: string | null) => void;
   deletingClientId: string | null;
   getClientFarms: (clientId: string) => Promise<Farm[]>;
 }
@@ -731,13 +823,14 @@ const ClientRow: React.FC<ClientRowProps> = ({
   client,
   onEdit,
   onDelete,
-  showDeleteConfirm,
-  setShowDeleteConfirm,
   deletingClientId,
   getClientFarms
 }) => {
   const [farmsCount, setFarmsCount] = useState<number | null>(null);
   const [loadingFarms, setLoadingFarms] = useState(false);
+  const [showFarmsModal, setShowFarmsModal] = useState(false);
+  const [clientFarmsList, setClientFarmsList] = useState<Farm[]>([]);
+  const [loadingFarmsList, setLoadingFarmsList] = useState(false);
 
   useEffect(() => {
     loadFarmsCount();
@@ -776,90 +869,183 @@ const ClientRow: React.FC<ClientRowProps> = ({
     }
   };
 
+  const handleViewFarms = async () => {
+    if ((farmsCount ?? 0) === 0) {
+      return; // Não abrir modal se não houver fazendas
+    }
+
+    setShowFarmsModal(true);
+    setLoadingFarmsList(true);
+    try {
+      const farms = await getClientFarms(client.id);
+      setClientFarmsList(farms);
+    } catch (err) {
+      console.error('[ClientRow] Error loading farms list:', err);
+      setClientFarmsList([]);
+    } finally {
+      setLoadingFarmsList(false);
+    }
+  };
+
   return (
-    <tr className="hover:bg-ai-surface2 transition-colors">
-      <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center">
-          <div className="w-10 h-10 rounded-full bg-ai-accent/20 flex items-center justify-center mr-3">
-            <User className="w-5 h-5 text-ai-accent" />
-          </div>
-          <div>
-            <div className="text-sm font-medium text-ai-text">{client.name}</div>
-          </div>
-        </div>
-      </td>
-      <td className="px-6 py-4">
-        <div className="text-sm text-ai-text space-y-1">
-          <div className="flex items-center space-x-2">
-            <Mail className="w-4 h-4 text-ai-subtext" />
-            <span>{client.email}</span>
-          </div>
-          {client.phone && (
-            <div className="flex items-center space-x-2">
-              <Phone className="w-4 h-4 text-ai-subtext" />
-              <span>{client.phone}</span>
+    <>
+      <tr className="hover:bg-ai-surface2 transition-colors">
+        <td className="px-6 py-4 whitespace-nowrap">
+          <div className="flex items-center">
+            <div className="w-10 h-10 rounded-full bg-ai-accent/20 flex items-center justify-center mr-3">
+              <User className="w-5 h-5 text-ai-accent" />
             </div>
-          )}
-        </div>
-      </td>
-      <td className="px-6 py-4">
-        <div className="text-sm text-ai-text">
-          {client.analyst?.name || 'N/A'}
-        </div>
-      </td>
-      <td className="px-6 py-4">
-        {loadingFarms ? (
-          <Loader2 className="w-4 h-4 animate-spin text-ai-accent" />
-        ) : (
-          <div className="flex items-center space-x-1 text-sm text-ai-text">
-            <Building2 className="w-4 h-4 text-ai-subtext" />
-            <span>{farmsCount ?? 0} fazenda{farmsCount !== 1 ? 's' : ''}</span>
-          </div>
-        )}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-        <div className="flex items-center justify-end space-x-2">
-          <button
-            onClick={() => onEdit(client)}
-            className="p-2 text-ai-accent hover:bg-ai-surface2 rounded-md transition-colors"
-            title="Editar"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
-          {showDeleteConfirm === client.id ? (
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => onDelete(client.id)}
-                disabled={deletingClientId === client.id}
-                className="p-2 text-ai-error hover:bg-ai-error/10 rounded-md transition-colors disabled:opacity-50"
-                title="Confirmar exclusão"
-              >
-                {deletingClientId === client.id ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-4 h-4" />
-                )}
-              </button>
-              <button
-                onClick={() => setShowDeleteConfirm(null)}
-                className="p-2 text-ai-subtext hover:bg-ai-surface2 rounded-md transition-colors"
-                title="Cancelar"
-              >
-                <X className="w-4 h-4" />
-              </button>
+            <div>
+              <div className="text-sm font-medium text-ai-text">{client.name}</div>
             </div>
+          </div>
+        </td>
+        <td className="px-6 py-4">
+          <div className="text-sm text-ai-text space-y-1">
+            <div className="flex items-center space-x-2">
+              <Mail className="w-4 h-4 text-ai-subtext" />
+              <span>{client.email}</span>
+            </div>
+            {client.phone && (
+              <div className="flex items-center space-x-2">
+                <Phone className="w-4 h-4 text-ai-subtext" />
+                <span>{client.phone}</span>
+              </div>
+            )}
+          </div>
+        </td>
+        <td className="px-6 py-4">
+          <div className="text-sm text-ai-text">
+            {client.analyst?.name || 'N/A'}
+          </div>
+        </td>
+        <td className="px-6 py-4">
+          {loadingFarms ? (
+            <Loader2 className="w-4 h-4 animate-spin text-ai-accent" />
           ) : (
             <button
-              onClick={() => setShowDeleteConfirm(client.id)}
-              className="p-2 text-ai-error hover:bg-ai-error/10 rounded-md transition-colors"
-              title="Excluir"
+              onClick={handleViewFarms}
+              disabled={(farmsCount ?? 0) === 0}
+              className={`flex items-center space-x-1 text-sm text-ai-text ${
+                (farmsCount ?? 0) > 0 
+                  ? 'hover:text-ai-accent hover:underline cursor-pointer transition-colors' 
+                  : 'cursor-not-allowed opacity-60'
+              }`}
+              title={(farmsCount ?? 0) > 0 ? 'Clique para ver as fazendas' : 'Nenhuma fazenda vinculada'}
             >
-              <Trash2 className="w-4 h-4" />
+              <Building2 className="w-4 h-4 text-ai-subtext" />
+              <span>{farmsCount ?? 0} fazenda{farmsCount !== 1 ? 's' : ''}</span>
             </button>
           )}
-        </div>
-      </td>
-    </tr>
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+          <div className="flex items-center justify-end space-x-2">
+            <button
+              onClick={() => onEdit(client)}
+              className="p-2 text-ai-accent hover:bg-ai-surface2 rounded-md transition-colors"
+              title="Editar"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => onDelete(client.id)}
+              disabled={deletingClientId === client.id}
+              className="p-2 text-ai-error hover:bg-ai-error/10 rounded-md transition-colors disabled:opacity-50"
+              title="Excluir cliente"
+            >
+              {deletingClientId === client.id ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+        </td>
+      </tr>
+
+      {/* Modal de Fazendas */}
+      {showFarmsModal && (
+        <tr>
+          <td colSpan={5} className="p-0">
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowFarmsModal(false)}>
+              <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <div className="p-6 border-b border-ai-border flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-ai-text">Fazendas de {client.name}</h3>
+                    <p className="text-sm text-ai-subtext mt-1">{clientFarmsList.length} fazenda{clientFarmsList.length !== 1 ? 's' : ''} cadastrada{clientFarmsList.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowFarmsModal(false)}
+                    className="p-2 hover:bg-ai-surface2 rounded-md transition-colors"
+                    title="Fechar"
+                  >
+                    <X className="w-5 h-5 text-ai-subtext" />
+                  </button>
+                </div>
+
+                <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
+                  {loadingFarmsList ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-ai-accent" />
+                    </div>
+                  ) : clientFarmsList.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Building2 className="w-12 h-12 text-ai-subtext mx-auto mb-4" />
+                      <p className="text-ai-subtext">Nenhuma fazenda vinculada a este cliente</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {clientFarmsList.map((farm) => (
+                        <div
+                          key={farm.id}
+                          className="border border-ai-border rounded-lg p-4 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-ai-accent/10 flex items-center justify-center flex-shrink-0">
+                              <Building2 className="w-5 h-5 text-ai-accent" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-ai-text truncate">{farm.name}</h4>
+                              <p className="text-sm text-ai-subtext mt-1">
+                                {farm.city}, {farm.state || farm.country}
+                              </p>
+                              {farm.productionSystem && (
+                                <p className="text-xs text-ai-subtext mt-2">
+                                  Sistema: {farm.productionSystem}
+                                </p>
+                              )}
+                              {farm.totalArea && (
+                                <p className="text-xs text-ai-subtext">
+                                  Área total: {farm.totalArea.toFixed(2).replace('.', ',')} ha
+                                </p>
+                              )}
+                              {farm.propertyValue && (
+                                <p className="text-xs text-ai-subtext">
+                                  Valor: R$ {farm.propertyValue.toLocaleString('pt-BR')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 border-t border-ai-border flex justify-end">
+                  <button
+                    onClick={() => setShowFarmsModal(false)}
+                    className="px-4 py-2 bg-ai-accent text-white rounded-md hover:bg-ai-accent/90 transition-colors"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 };
 

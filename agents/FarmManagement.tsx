@@ -357,8 +357,56 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     }
   }, [farms.length, isLoading, view, editingFarm, isCreatingNew]);
 
-  const loadFarms = () => {
+  const loadFarms = async () => {
     try {
+      // Primeiro, tentar carregar do banco de dados (farms vinculadas ao analista/cliente)
+      if (user && (user.qualification === 'analista' || user.role === 'admin')) {
+        // Buscar fazendas do banco que pertencem aos clientes do analista
+        const { data: dbFarms, error: dbError } = await supabase
+          .from('farms')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!dbError && dbFarms && dbFarms.length > 0) {
+          // Converter do formato do banco para o formato Farm
+          const convertedFarms: Farm[] = dbFarms.map(farm => ({
+            id: farm.id,
+            name: farm.name,
+            country: farm.country,
+            state: farm.state || '',
+            city: farm.city,
+            clientId: farm.client_id,
+            totalArea: farm.total_area,
+            pastureArea: farm.pasture_area,
+            agricultureArea: farm.agriculture_area,
+            otherCrops: farm.other_crops,
+            infrastructure: farm.infrastructure,
+            reserveAndAPP: farm.reserve_and_app,
+            propertyValue: farm.property_value,
+            operationPecuary: farm.operation_pecuary,
+            operationAgricultural: farm.operation_agricultural,
+            otherOperations: farm.other_operations,
+            agricultureVariation: farm.agriculture_variation,
+            propertyType: farm.property_type as 'Própria' | 'Arrendada',
+            weightMetric: farm.weight_metric as 'Arroba (@)' | 'Quilograma (Kg)',
+            averageHerd: farm.average_herd,
+            herdValue: farm.herd_value,
+            commercializesGenetics: farm.commercializes_genetics || false,
+            productionSystem: farm.production_system as 'Cria' | 'Recria-Engorda' | 'Ciclo Completo',
+            createdAt: farm.created_at || new Date().toISOString(),
+            updatedAt: farm.updated_at || new Date().toISOString()
+          }));
+          
+          console.log('[FarmManagement] Loaded farms from database:', convertedFarms.length, 'farms');
+          setFarms(convertedFarms);
+          
+          // Sincronizar com localStorage para compatibilidade
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(convertedFarms));
+          return convertedFarms;
+        }
+      }
+
+      // Fallback: carregar do localStorage
       const stored = localStorage.getItem(STORAGE_KEY);
       console.log('[FarmManagement] Loading farms from localStorage:', stored);
       if (stored) {
@@ -631,17 +679,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
       const newFarm = updatedFarms[updatedFarms.length - 1];
       
-      // Vincular fazenda ao cliente (obrigatório)
-      await linkFarmToClient(newFarm.id, selectedClient.id);
-      
-      // Vincular fazenda ao analista logado (obrigatório)
-      if (user && (user.qualification === 'analista' || user.role === 'admin')) {
-        await linkFarmToAnalyst(newFarm.id, user.id);
-      } else {
-        onToast?.('Aviso: Usuário não é analista. A fazenda foi cadastrada mas pode não estar vinculada corretamente.', 'warning');
-      }
-      
-      // Salvar fazenda no banco de dados também
+      // Salvar fazenda no banco de dados PRIMEIRO
       try {
         const { error: dbError } = await supabase
           .from('farms')
@@ -673,12 +711,26 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
         if (dbError) {
           console.error('[FarmManagement] Error saving farm to database:', dbError);
-          // Não bloquear o cadastro, apenas logar o erro
+          onToast?.('Erro ao salvar fazenda no banco de dados: ' + dbError.message, 'error');
+          return;
         } else {
           console.log('[FarmManagement] Farm saved to database successfully');
+          
+          // Após salvar com sucesso, criar os vínculos
+          // Vincular fazenda ao cliente na tabela client_farms (obrigatório)
+          await linkFarmToClient(newFarm.id, selectedClient.id);
+          
+          // Vincular fazenda ao analista logado (obrigatório)
+          if (user && (user.qualification === 'analista' || user.role === 'admin')) {
+            await linkFarmToAnalyst(newFarm.id, user.id);
+          } else {
+            onToast?.('Aviso: Usuário não é analista. A fazenda foi cadastrada mas pode não estar vinculada corretamente.', 'warning');
+          }
         }
       } catch (err) {
         console.error('[FarmManagement] Error saving farm to database:', err);
+        onToast?.('Erro ao salvar fazenda no banco de dados', 'error');
+        return;
       }
       
       // Disparar evento para atualizar o FarmSelector
@@ -745,11 +797,32 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     }
   };
 
-  const handleDelete = (farmId: string) => {
+  const handleDelete = async (farmId: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta fazenda?')) {
-      const updatedFarms = farms.filter(farm => farm.id !== farmId);
-      saveFarms(updatedFarms);
-      onToast?.('Fazenda excluída com sucesso!', 'success');
+      try {
+        // Primeiro, remover vínculos client_farms e analyst_farms
+        await supabase.from('client_farms').delete().eq('farm_id', farmId);
+        await supabase.from('analyst_farms').delete().eq('farm_id', farmId);
+        
+        // Depois, excluir do banco de dados
+        const { error: dbError } = await supabase.from('farms').delete().eq('id', farmId);
+        
+        if (dbError) {
+          console.error('[FarmManagement] Error deleting farm from database:', dbError);
+        }
+        
+        // Atualizar localStorage
+        const updatedFarms = farms.filter(farm => farm.id !== farmId);
+        saveFarms(updatedFarms);
+        
+        onToast?.('Fazenda excluída com sucesso!', 'success');
+        
+        // Disparar evento para atualizar FarmSelector
+        window.dispatchEvent(new CustomEvent('farmUpdated'));
+      } catch (err) {
+        console.error('[FarmManagement] Error deleting farm:', err);
+        onToast?.('Erro ao excluir fazenda', 'error');
+      }
     }
   };
 

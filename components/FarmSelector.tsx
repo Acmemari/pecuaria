@@ -69,78 +69,99 @@ const FarmSelector: React.FC<FarmSelectorProps> = ({ selectedFarm, onSelectFarm 
     try {
       setIsLoading(true);
 
-      // Carregar fazendas do localStorage
-      const storedFarms = localStorage.getItem('agro-farms');
-      let allFarms: Farm[] = [];
-      
-      console.log('[FarmSelector] Loading farms. Stored data:', storedFarms ? 'exists' : 'not found');
-      
-      if (storedFarms) {
-        try {
-          allFarms = JSON.parse(storedFarms) || [];
-          console.log('[FarmSelector] Parsed farms from localStorage:', allFarms.length, 'farms');
-        } catch (e) {
-          console.error('[FarmSelector] Error parsing farms from localStorage:', e);
-        }
-      }
-
-      if (allFarms.length === 0) {
-        console.log('[FarmSelector] No farms found in localStorage');
-        setClientFarms([]);
-        setFarms([]);
-        onSelectFarm(null);
-        return;
-      }
-
       let farmsForClient: Farm[] = [];
+      const allFarmIds = new Set<string>();
 
-      // Primeiro, tentar buscar fazendas vinculadas ao cliente selecionado
+      // Buscar fazendas vinculadas ao cliente selecionado diretamente do banco
       if (selectedClient) {
         console.log('[FarmSelector] Searching for farms linked to client:', selectedClient.id);
+        
+        // 1. Buscar fazendas através da tabela client_farms
         const { data: clientFarmsData, error } = await supabase
           .from('client_farms')
           .select('farm_id')
           .eq('client_id', selectedClient.id);
 
         if (error) {
-          console.error('[FarmSelector] Error loading client farms:', error);
-        } else {
-          console.log('[FarmSelector] Client farms data:', clientFarmsData);
-          if (clientFarmsData && clientFarmsData.length > 0) {
-            const farmIds = clientFarmsData.map(cf => cf.farm_id);
-            farmsForClient = allFarms.filter(farm => farmIds.includes(farm.id));
-            console.log('[FarmSelector] Found', farmsForClient.length, 'farms linked to client');
-          }
+          console.error('[FarmSelector] Error loading client_farms:', error);
+        } else if (clientFarmsData && clientFarmsData.length > 0) {
+          clientFarmsData.forEach(cf => allFarmIds.add(cf.farm_id));
+          console.log('[FarmSelector] Found', clientFarmsData.length, 'farms in client_farms table');
         }
-      }
 
-      // Se não encontrou fazendas vinculadas ao cliente, buscar fazendas do analista/usuário logado
-      if (farmsForClient.length === 0) {
-        console.log('[FarmSelector] No farms linked to client. Checking analyst farms. User:', user);
-        if (user && (user.qualification === 'analista' || user.role === 'admin')) {
-          const { data: analystFarmsData, error: analystError } = await supabase
-            .from('analyst_farms')
-            .select('farm_id')
-            .eq('analyst_id', user.id);
+        // 2. Buscar fazendas diretamente vinculadas pelo campo client_id na tabela farms
+        const { data: directFarmsData, error: directError } = await supabase
+          .from('farms')
+          .select('id')
+          .eq('client_id', selectedClient.id);
 
-          if (analystError) {
-            console.error('[FarmSelector] Error loading analyst farms:', analystError);
+        if (directError) {
+          console.error('[FarmSelector] Error loading farms by client_id:', directError);
+        } else if (directFarmsData && directFarmsData.length > 0) {
+          directFarmsData.forEach(f => allFarmIds.add(f.id));
+          console.log('[FarmSelector] Found', directFarmsData.length, 'farms directly linked by client_id');
+        }
+
+        // 3. Buscar detalhes de todas as fazendas encontradas
+        if (allFarmIds.size > 0) {
+          const farmIdsArray = Array.from(allFarmIds);
+          const { data: dbFarms, error: dbError } = await supabase
+            .from('farms')
+            .select('*')
+            .in('id', farmIdsArray);
+
+          if (!dbError && dbFarms && dbFarms.length > 0) {
+            // Converter do formato do banco para o formato Farm
+            farmsForClient = dbFarms.map(farm => ({
+              id: farm.id,
+              name: farm.name,
+              country: farm.country,
+              state: farm.state || '',
+              city: farm.city,
+              clientId: farm.client_id,
+              totalArea: farm.total_area,
+              pastureArea: farm.pasture_area,
+              agricultureArea: farm.agriculture_area,
+              otherCrops: farm.other_crops,
+              infrastructure: farm.infrastructure,
+              reserveAndAPP: farm.reserve_and_app,
+              propertyValue: farm.property_value,
+              operationPecuary: farm.operation_pecuary,
+              operationAgricultural: farm.operation_agricultural,
+              otherOperations: farm.other_operations,
+              agricultureVariation: farm.agriculture_variation,
+              propertyType: farm.property_type as 'Própria' | 'Arrendada',
+              weightMetric: farm.weight_metric as 'Arroba (@)' | 'Quilograma (Kg)',
+              averageHerd: farm.average_herd,
+              herdValue: farm.herd_value,
+              commercializesGenetics: farm.commercializes_genetics || false,
+              productionSystem: farm.production_system as 'Cria' | 'Recria-Engorda' | 'Ciclo Completo',
+              createdAt: farm.created_at || new Date().toISOString(),
+              updatedAt: farm.updated_at || new Date().toISOString()
+            } as Farm));
+            console.log('[FarmSelector] Found', farmsForClient.length, 'farms linked to client from database');
           } else {
-            console.log('[FarmSelector] Analyst farms data:', analystFarmsData);
-            if (analystFarmsData && analystFarmsData.length > 0) {
-              const farmIds = analystFarmsData.map(af => af.farm_id);
-              farmsForClient = allFarms.filter(farm => farmIds.includes(farm.id));
-              console.log('[FarmSelector] Found', farmsForClient.length, 'farms linked to analyst');
+            // Fallback: tentar carregar do localStorage
+            const storedFarms = localStorage.getItem('agro-farms');
+            if (storedFarms) {
+              try {
+                const allFarms: Farm[] = JSON.parse(storedFarms) || [];
+                farmsForClient = allFarms.filter(farm => allFarmIds.has(farm.id));
+                console.log('[FarmSelector] Found', farmsForClient.length, 'farms from localStorage');
+              } catch (e) {
+                console.error('[FarmSelector] Error parsing farms from localStorage:', e);
+              }
             }
           }
+        } else {
+          console.log('[FarmSelector] No farms found linked to this client');
         }
       }
 
-      // Se ainda não encontrou fazendas, mostrar todas as fazendas do localStorage
-      // (fallback para casos onde as fazendas não estão vinculadas)
+      // Se não houver fazendas vinculadas, não mostrar nenhuma
+      // Regra de negócio: fazendas devem sempre estar vinculadas a um cliente
       if (farmsForClient.length === 0) {
-        console.log('[FarmSelector] No linked farms found. Using all farms from localStorage as fallback');
-        farmsForClient = allFarms;
+        console.log('[FarmSelector] No linked farms found. User must register farms properly linked to clients.');
       }
       
       console.log('[FarmSelector] Final farms to display:', farmsForClient.length);

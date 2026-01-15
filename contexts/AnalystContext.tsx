@@ -29,6 +29,11 @@ export const AnalystProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } else {
       localStorage.removeItem('selectedAnalystId');
     }
+    
+    // Ao trocar de analista, limpar cliente e fazenda selecionados
+    // Isso garante que o admin não veja dados do analista anterior
+    localStorage.removeItem('selectedClientId');
+    localStorage.removeItem('selectedFarmId');
   };
 
   return (
