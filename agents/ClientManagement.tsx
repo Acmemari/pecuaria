@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   Plus, 
   Search, 
@@ -19,6 +19,8 @@ import {
 import { Client, Farm } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useFarmOperations } from '../lib/hooks/useFarmOperations';
+import { mapFarmsFromDatabase } from '../lib/utils/farmMapper';
 
 interface ClientManagementProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -26,6 +28,7 @@ interface ClientManagementProps {
 
 const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
   const { user: currentUser } = useAuth();
+  const { getClientFarms, deleteFarm } = useFarmOperations();
   const [clients, setClients] = useState<Client[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [analysts, setAnalysts] = useState<any[]>([]);
@@ -59,22 +62,27 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
     }
   }, [currentUser]);
 
-  const loadClients = async () => {
+  const loadClients = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Construir query base
+      // Usar JOIN para buscar clientes com analistas em uma única query (otimização N+1)
       let query = supabase
         .from('clients')
-        .select('*');
+        .select(`
+          *,
+          analyst:user_profiles!clients_analyst_id_fkey (
+            id,
+            name,
+            email
+          )
+        `);
 
       // Filtrar por analista: se for analista, mostrar apenas seus clientes; se for admin, mostrar todos
       if (currentUser?.qualification === 'analista' && currentUser?.role !== 'admin') {
-        // Analista vê apenas seus próprios clientes
         query = query.eq('analyst_id', currentUser.id);
       }
-      // Admin vê todos os clientes (sem filtro)
 
       query = query.order('created_at', { ascending: false });
 
@@ -87,23 +95,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
       }
 
       if (data) {
-        // Buscar informações dos analistas para cada cliente
-        const clientsWithAnalysts = await Promise.all(
-          data.map(async (client) => {
-            const { data: analystData } = await supabase
-              .from('user_profiles')
-              .select('id, name, email')
-              .eq('id', client.analyst_id)
-              .single();
-
-            return {
-              ...client,
-              analyst: analystData || null
-            };
-          })
-        );
-
-        setClients(clientsWithAnalysts as any);
+        setClients(data as any);
       }
     } catch (err: any) {
       console.error('[ClientManagement] Unexpected error:', err);
@@ -111,9 +103,9 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentUser]);
 
-  const loadFarms = async () => {
+  const loadFarms = useCallback(async () => {
     try {
       // Buscar fazendas do banco de dados que pertencem aos clientes do analista
       // As RLS policies garantem que só veremos fazendas dos nossos clientes
@@ -123,35 +115,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
         .order('name', { ascending: true });
 
       if (!dbError && dbFarms && dbFarms.length > 0) {
-        // Converter do formato do banco para o formato Farm
-        const convertedFarms: Farm[] = dbFarms.map(farm => ({
-          id: farm.id,
-          name: farm.name,
-          country: farm.country,
-          state: farm.state || '',
-          city: farm.city,
-          clientId: farm.client_id,
-          totalArea: farm.total_area,
-          pastureArea: farm.pasture_area,
-          agricultureArea: farm.agriculture_area,
-          otherCrops: farm.other_crops,
-          infrastructure: farm.infrastructure,
-          reserveAndAPP: farm.reserve_and_app,
-          propertyValue: farm.property_value,
-          operationPecuary: farm.operation_pecuary,
-          operationAgricultural: farm.operation_agricultural,
-          otherOperations: farm.other_operations,
-          agricultureVariation: farm.agriculture_variation,
-          propertyType: farm.property_type as 'Própria' | 'Arrendada',
-          weightMetric: farm.weight_metric as 'Arroba (@)' | 'Quilograma (Kg)',
-          averageHerd: farm.average_herd,
-          herdValue: farm.herd_value,
-          commercializesGenetics: farm.commercializes_genetics || false,
-          productionSystem: farm.production_system as 'Cria' | 'Recria-Engorda' | 'Ciclo Completo',
-          createdAt: farm.created_at || new Date().toISOString(),
-          updatedAt: farm.updated_at || new Date().toISOString()
-        }));
-        
+        const convertedFarms = mapFarmsFromDatabase(dbFarms);
         setFarms(convertedFarms);
         return;
       }
@@ -165,7 +129,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
     } catch (err: any) {
       console.error('[ClientManagement] Error loading farms:', err);
     }
-  };
+  }, []);
 
   const loadAnalysts = async () => {
     try {
@@ -343,7 +307,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
     setView('form');
   };
 
-  const handleDelete = async (clientId: string) => {
+  const handleDelete = useCallback(async (clientId: string) => {
     try {
       // 1. Buscar fazendas vinculadas ao cliente
       const clientFarms = await getClientFarms(clientId);
@@ -370,29 +334,9 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
       // Iniciar processo de exclusão
       setDeletingClientId(clientId);
 
-      // 3. Se houver fazendas, excluí-las primeiro
+      // 3. Se houver fazendas, excluí-las usando hook otimizado
       if (farmCount > 0) {
-        for (const farm of clientFarms) {
-          // Excluir vínculos analyst_farms
-          await supabase
-            .from('analyst_farms')
-            .delete()
-            .eq('farm_id', farm.id);
-          
-          // Excluir fazenda do banco
-          await supabase
-            .from('farms')
-            .delete()
-            .eq('id', farm.id);
-          
-          // Remover do localStorage
-          const storedFarms = localStorage.getItem('agro-farms');
-          if (storedFarms) {
-            const allFarms = JSON.parse(storedFarms);
-            const updatedFarms = allFarms.filter((f: Farm) => f.id !== farm.id);
-            localStorage.setItem('agro-farms', JSON.stringify(updatedFarms));
-          }
-        }
+        await Promise.all(clientFarms.map(farm => deleteFarm(farm.id)));
       }
 
       // 4. Excluir o cliente (client_farms será excluído automaticamente por cascata)
@@ -412,20 +356,20 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
         onToast?.('Cliente excluído com sucesso!', 'success');
       }
       
-      loadClients();
+      await loadClients();
       
       // Disparar eventos para atualizar seletores
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('clientDeleted'));
         window.dispatchEvent(new CustomEvent('farmUpdated'));
-      }, 500);
+      }, 300);
     } catch (err: any) {
       console.error('[ClientManagement] Error deleting client:', err);
       onToast?.(`Erro ao excluir cliente: ${err.message || 'Erro desconhecido'}`, 'error');
     } finally {
       setDeletingClientId(null);
     }
-  };
+  }, [getClientFarms, deleteFarm, onToast, loadClients]);
 
   const resetForm = () => {
     setFormData({
@@ -444,75 +388,20 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
     setView('list');
   };
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (client.phone && client.phone.includes(searchTerm))
-  );
+  // Memoizar lista filtrada para melhorar performance
+  const filteredClients = useMemo(() => {
+    if (!searchTerm) return clients;
+    
+    const term = searchTerm.toLowerCase();
+    return clients.filter(client =>
+      client.name.toLowerCase().includes(term) ||
+      client.email.toLowerCase().includes(term) ||
+      (client.phone && client.phone.includes(term))
+    );
+  }, [clients, searchTerm]);
 
-  const getClientFarms = async (clientId: string): Promise<Farm[]> => {
-    try {
-      // Buscar fazendas vinculadas ao cliente da tabela client_farms
-      const { data: clientFarmsData, error: clientFarmsError } = await supabase
-        .from('client_farms')
-        .select('farm_id')
-        .eq('client_id', clientId);
-
-      if (clientFarmsError) {
-        console.error('[ClientManagement] Error loading client_farms:', clientFarmsError);
-        return [];
-      }
-
-      if (!clientFarmsData || clientFarmsData.length === 0) {
-        return [];
-      }
-
-      const farmIds = clientFarmsData.map(cf => cf.farm_id);
-
-      // Tentar buscar fazendas do banco de dados primeiro
-      const { data: dbFarms, error: dbError } = await supabase
-        .from('farms')
-        .select('*')
-        .in('id', farmIds);
-
-      if (!dbError && dbFarms && dbFarms.length > 0) {
-        // Converter do formato do banco para o formato Farm
-        return dbFarms.map(farm => ({
-          id: farm.id,
-          name: farm.name,
-          country: farm.country,
-          state: farm.state || '',
-          city: farm.city,
-          clientId: farm.client_id,
-          totalArea: farm.total_area,
-          pastureArea: farm.pasture_area,
-          agricultureArea: farm.agriculture_area,
-          otherCrops: farm.other_crops,
-          infrastructure: farm.infrastructure,
-          reserveAndAPP: farm.reserve_and_app,
-          propertyValue: farm.property_value,
-          operationPecuary: farm.operation_pecuary,
-          operationAgricultural: farm.operation_agricultural,
-          otherOperations: farm.other_operations,
-          agricultureVariation: farm.agriculture_variation,
-          propertyType: farm.property_type as 'Própria' | 'Arrendada',
-          weightMetric: farm.weight_metric as 'Arroba (@)' | 'Quilograma (Kg)',
-          averageHerd: farm.average_herd,
-          herdValue: farm.herd_value,
-          commercializesGenetics: farm.commercializes_genetics || false,
-          productionSystem: farm.production_system as 'Cria' | 'Recria-Engorda' | 'Ciclo Completo',
-          createdAt: farm.created_at || new Date().toISOString(),
-          updatedAt: farm.updated_at || new Date().toISOString()
-        } as Farm));
-      }
-
-      // Fallback: buscar do localStorage se não encontrar no banco
-      return farms.filter(farm => farmIds.includes(farm.id));
-    } catch (err) {
-      console.error('[ClientManagement] Error loading client farms:', err);
-      return [];
-    }
-  };
+  // Usar hook customizado otimizado ao invés da função local
+  // const getClientFarms = useFarmOperations().getClientFarms;
 
   if (!currentUser || (currentUser.role !== 'admin' && currentUser.qualification !== 'analista')) {
     return (
