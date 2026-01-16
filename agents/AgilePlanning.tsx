@@ -3,7 +3,7 @@ import { useClient } from '../contexts/ClientContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Farm } from '../types';
 import { supabase } from '../lib/supabase';
-import { Building2, Loader2, AlertCircle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { Building2, Loader2, AlertCircle, CheckCircle2, Plus, Trash2, Edit3, X } from 'lucide-react';
 import ClientSelector from '../components/ClientSelector';
 import FarmSelector from '../components/FarmSelector';
 
@@ -53,15 +53,61 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     quantity?: number;
   }
 
-  // Estado para categorias de animais com valores padrão
+  // Função para obter percentuais iniciais baseados no sistema de produção
+  const getInitialPercentages = (system: Farm['productionSystem'] | ''): Record<string, number> => {
+    switch (system) {
+      case 'Cria':
+        return {
+          '1': 50,  // Bezerro Macho
+          '2': 0,   // Bezerra Desm.
+          '3': 0,   // Garrote
+          '4': 17,  // Novilha
+          '5': 0,   // Boi Gordo
+          '6': 33,  // Vaca Descarte
+          '7': 0,   // Touro Descarte
+        };
+      case 'Ciclo Completo':
+        return {
+          '1': 5,   // Bezerro
+          '2': 5,   // Bezerra
+          '3': 0,   // Garrote
+          '4': 12,  // Novilha
+          '5': 45,  // Boi
+          '6': 33,  // Vaca Descarte
+          '7': 0,   // Touro Descarte
+        };
+      case 'Recria-Engorda':
+        return {
+          '1': 0,   // Bezerro Desm.
+          '2': 0,   // Bezerra Desm.
+          '3': 0,   // Garrote
+          '4': 0,   // Novilha
+          '5': 100, // Boi
+          '6': 0,   // Vaca Descarte
+          '7': 0,   // Touro Descarte
+        };
+      default:
+        return {
+          '1': 50,  // Bezerro Desm.
+          '2': 0,   // Bezerra Desm.
+          '3': 0,   // Garrote
+          '4': 17,  // Novilha
+          '5': 0,   // Boi Gordo
+          '6': 33,  // Vaca Descarte
+          '7': 0,   // Touro Descarte
+        };
+    }
+  };
+
+  // Estado para categorias de animais - lista fixa
   const [animalCategories, setAnimalCategories] = useState<AnimalCategory[]>([
     { id: '1', name: 'Bezerro Desm.', percentage: 50, weight: 200, valuePerKg: 14 },
     { id: '2', name: 'Bezerra Desm.', percentage: 0, weight: 200, valuePerKg: 12 },
-    { id: '3', name: 'Garrote', percentage: 0, weight: 250, valuePerKg: 16 },
+    { id: '3', name: 'Garrote', percentage: 0, weight: 20, valuePerKg: 300 },
     { id: '4', name: 'Novilha', percentage: 17, weight: 13, valuePerKg: 290 },
-    { id: '5', name: 'Boi Gordo', percentage: 0, weight: 450, valuePerKg: 18 },
-    { id: '6', name: 'Vaca Descarte', percentage: 33, weight: 15, valuePerKg: 320 },
-    { id: '7', name: 'Touro Descarte', percentage: 0, weight: 500, valuePerKg: 15 },
+    { id: '5', name: 'Boi Gordo', percentage: 0, weight: 24, valuePerKg: 270 },
+    { id: '6', name: 'Vaca Descarte', percentage: 33, weight: 13, valuePerKg: 320 },
+    { id: '7', name: 'Touro Descarte', percentage: 0, weight: 15, valuePerKg: 280 },
   ]);
 
   // Handle adding a new category
@@ -79,34 +125,39 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
 
   // Handle deleting a category
   const handleDeleteCategory = (id: string) => {
-    // Prevent deleting the 'sink' category (Vaca Descarte - id 6) or 'fixed' category (Bezerro Desm - id 1) if essential
-    // For now, let's just protect id '1' and '6' as they are logic pivots
-    if (id === '1' || id === '6') {
-      onToast?.('Não é possível excluir esta categoria padrão.', 'warning');
-      return;
-    }
-
-    const categoryToDelete = animalCategories.find(c => c.id === id);
-    if (!categoryToDelete) return;
-
-    // Add the deleted percentage to Vaca Descarte (id 6) to maintain 100%
-    const deletedPercentage = categoryToDelete.percentage;
-
-    const updatedCategories = animalCategories
-      .filter(c => c.id !== id)
-      .map(c => {
-        if (c.id === '6') {
-          return { ...c, percentage: c.percentage + deletedPercentage };
-        }
-        return c;
-      });
-
+    const updatedCategories = animalCategories.filter(c => c.id !== id);
     setAnimalCategories(updatedCategories);
   };
 
   // State for tracking focused input to manage "dirty" typing state vs "clean" formatted state
   const [editingCell, setEditingCell] = useState<{ id: string, field: keyof AnimalCategory } | null>(null);
   const [tempValue, setTempValue] = useState<string>('');
+  
+  // State for modal visibility
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+
+  // Fechar modal com ESC e bloquear scroll do body
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isModalOpen) {
+        setIsModalOpen(false);
+      }
+    };
+    
+    if (isModalOpen) {
+      // Bloqueia scroll do body quando modal aberto
+      document.body.style.overflow = 'hidden';
+      document.addEventListener('keydown', handleEscape);
+    } else {
+      // Restaura scroll quando modal fechado
+      document.body.style.overflow = '';
+    }
+    
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = '';
+    };
+  }, [isModalOpen]);
 
   // Handle input focus (start with empty temp value for fluid typing - "overwrite" feel)
   const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>, id: string, field: keyof AnimalCategory, value: number | undefined) => {
@@ -221,78 +272,46 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     }, 0);
   };
 
+  // Calcular vendas necessárias
+  const calculateRequiredSales = (): number => {
+    if (!isPercentageSumValid()) return 0;
+    
+    const averageValue = calculateAverageValue();
+    const calculatedValue = selectedFarm && (selectedFarm as any).operationPecuary
+      ? (percentage / 100) * (selectedFarm as any).operationPecuary
+      : 0;
+    const requiredRevenue = expectedMargin > 0 && productionSystem
+      ? calculatedValue / (expectedMargin / 100)
+      : 0;
+
+    if (averageValue > 0 && requiredRevenue > 0) {
+      return Math.round(requiredRevenue / averageValue);
+    }
+    return 0;
+  };
+
+  // Calcular quantidade para uma categoria: Vendas necessárias × %
+  const calculateQuantity = (categoryPercentage: number): number => {
+    const requiredSales = calculateRequiredSales();
+    if (requiredSales === 0 || !isPercentageSumValid()) return 0;
+    return Math.round((requiredSales * categoryPercentage) / 100);
+  };
+
   // Atualizar categoria
   const updateCategory = (id: string, field: keyof AnimalCategory, value: number | string | undefined) => {
-    // Bezerro Desm. (id: '1') não pode ter seu percentual alterado - sempre 50%
-    if (id === '1' && field === 'percentage') {
-      return; // Não permite alteração
-    }
-
     setAnimalCategories(prev => {
-      let updated = prev.map(cat =>
+      const updated = prev.map(cat =>
         cat.id === id ? { ...cat, [field]: value } : cat
       );
 
-      // Se o percentual de bezerras (id: '2') mudou, ajustar novilhas (id: '4') inversamente
-      if (id === '2' && field === 'percentage' && typeof value === 'number') {
-        const bezerraCategory = updated.find(cat => cat.id === '2');
-        const novilhaCategory = updated.find(cat => cat.id === '4');
-        const previousBezerra = prev.find(cat => cat.id === '2');
-
-        if (bezerraCategory && novilhaCategory && previousBezerra) {
-          const percentageDiff = value - previousBezerra.percentage;
-
-          // Ajustar novilha inversamente: se bezerra aumenta, novilha diminui
-          const newNovilhaPercentage = Math.max(0, Math.min(100, novilhaCategory.percentage - percentageDiff));
-
-          updated = updated.map(cat =>
-            cat.id === '4' ? { ...cat, percentage: newNovilhaPercentage } : cat
-          );
-        }
-      }
-
-      // Se o percentual de novilhas (id: '4') mudou, ajustar bezerras (id: '2') inversamente
-      if (id === '4' && field === 'percentage' && typeof value === 'number') {
-        const bezerraCategory = updated.find(cat => cat.id === '2');
-        const novilhaCategory = updated.find(cat => cat.id === '4');
-        const previousNovilha = prev.find(cat => cat.id === '4');
-
-        if (bezerraCategory && novilhaCategory && previousNovilha) {
-          const percentageDiff = value - previousNovilha.percentage;
-
-          // Ajustar bezerra inversamente: se novilha aumenta, bezerra diminui
-          const newBezerraPercentage = Math.max(0, Math.min(100, bezerraCategory.percentage - percentageDiff));
-
-          updated = updated.map(cat =>
-            cat.id === '2' ? { ...cat, percentage: newBezerraPercentage } : cat
-          );
-        }
-      }
-
-      // Garantir que a soma dos percentuais seja sempre 100%
-      // Bezerro Desm. (id: '1') deve permanecer fixo em 50%
-      if (field === 'percentage') {
-        const totalPercentage = updated.reduce((sum, cat) => sum + cat.percentage, 0);
-        const difference = 100 - totalPercentage;
-
-        if (Math.abs(difference) > 0.01) {
-          // Ajustar apenas Vaca Descarte (id: '6') para compensar a diferença
-          // Bezerro Desm. (id: '1') permanece fixo em 50%
-          const vacaDescarteCategory = updated.find(cat => cat.id === '6');
-
-          if (vacaDescarteCategory) {
-            updated = updated.map(cat => {
-              if (cat.id === '6') {
-                return { ...cat, percentage: Math.max(0, Math.min(100, cat.percentage + difference)) };
-              }
-              return cat;
-            });
-          }
-        }
-      }
-
       return updated;
     });
+  };
+
+  // Calcular se a soma dos percentuais é 100%
+  const isPercentageSumValid = (): boolean => {
+    const total = animalCategories.reduce((sum, cat) => sum + cat.percentage, 0);
+    return Math.abs(total - 100) < 0.01;
   };
 
   // Função para obter os valores de margem esperada baseado no sistema de produção
@@ -328,6 +347,19 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     }
   }, [selectedClient, selectedFarm]);
 
+  // Atualizar apenas os percentuais quando o sistema de produção mudar
+  useEffect(() => {
+    if (productionSystem) {
+      const initialPercentages = getInitialPercentages(productionSystem);
+      setAnimalCategories(prev => {
+        return prev.map(cat => ({
+          ...cat,
+          percentage: initialPercentages[cat.id] !== undefined ? initialPercentages[cat.id] : cat.percentage
+        }));
+      });
+    }
+  }, [productionSystem]);
+
   // Atualizar margem esperada quando o sistema de produção mudar
   useEffect(() => {
     const config = getMarginConfig(productionSystem);
@@ -339,16 +371,16 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
       let query = supabase
         .from('clients')
         .select('*');
-
+      
       // Filtrar por analista: se for analista, mostrar apenas seus clientes; se for admin, mostrar todos
       if (user?.qualification === 'analista' && user?.role !== 'admin') {
         // Analista vê apenas seus próprios clientes
         query = query.eq('analyst_id', user.id);
       }
       // Admin vê todos os clientes (sem filtro)
-
+      
       query = query.order('name', { ascending: true });
-
+      
       const { data, error } = await query;
 
       if (error) {
@@ -366,7 +398,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
           createdAt: client.created_at,
           updatedAt: client.updated_at
         }));
-
+        
         setClients(mappedClients);
         if (mappedClients.length > 0 && !tempSelectedClient) {
           setTempSelectedClient(mappedClients[0]);
@@ -382,7 +414,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
       // Carregar fazendas do localStorage
       const storedFarms = localStorage.getItem('agro-farms');
       let allFarms: Farm[] = [];
-
+      
       if (storedFarms) {
         try {
           allFarms = JSON.parse(storedFarms) || [];
@@ -407,7 +439,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
         const farmIds = clientFarmsData.map(cf => cf.farm_id);
         const farmsForClient = allFarms.filter(farm => farmIds.includes(farm.id));
         setFarms(farmsForClient);
-
+        
         if (farmsForClient.length > 0 && !tempSelectedFarm) {
           setTempSelectedFarm(farmsForClient[0]);
         }
@@ -600,10 +632,10 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                     <span className="font-semibold text-ai-text text-sm">
                       {formatArea(selectedFarm.pastureArea)}
                     </span>
-                  </div>
+          </div>
                 </>
               )}
-            </div>
+          </div>
           )}
         </div>
       </div>
@@ -789,31 +821,123 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
               {/* Caixa de Valor Médio */}
               <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200 min-w-[180px]">
                 <div className="text-[10px] text-orange-700 mb-1 font-medium">Valor Médio de Venda</div>
-                <div className="text-xl font-bold text-orange-900 mb-2">
-                  {formatCurrency(calculateAverageValue())}
-                </div>
-                <div className="text-[10px] text-orange-700 mb-1 font-medium">Vendas Necessárias</div>
-                <div className="text-xl font-bold text-orange-900">
-                  {(() => {
-                    const averageValue = calculateAverageValue();
-                    const calculatedValue = selectedFarm && (selectedFarm as any).operationPecuary
-                      ? (percentage / 100) * (selectedFarm as any).operationPecuary
-                      : 0;
-                    const requiredRevenue = expectedMargin > 0 && productionSystem
-                      ? calculatedValue / (expectedMargin / 100)
-                      : 0;
+                {isPercentageSumValid() ? (
+                  <>
+                    <div className="text-xl font-bold text-orange-900 mb-2">
+                      {formatCurrency(calculateAverageValue())}
+                    </div>
+                    <div className="text-[10px] text-orange-700 mb-1 font-medium">Vendas Necessárias</div>
+                    <div className="text-xl font-bold text-orange-900">
+                      {(() => {
+                        const averageValue = calculateAverageValue();
+                        const calculatedValue = selectedFarm && (selectedFarm as any).operationPecuary
+                          ? (percentage / 100) * (selectedFarm as any).operationPecuary
+                          : 0;
+                        const requiredRevenue = expectedMargin > 0 && productionSystem
+                          ? calculatedValue / (expectedMargin / 100)
+                          : 0;
 
-                    if (averageValue > 0 && requiredRevenue > 0) {
-                      const result = Math.round(requiredRevenue / averageValue);
-                      return `${result} Cabeças`;
-                    }
-                    return '-';
-                  })()}
-                </div>
+                        if (averageValue > 0 && requiredRevenue > 0) {
+                          const result = Math.round(requiredRevenue / averageValue);
+                          return `${result} Cabeças`;
+                        }
+                        return '-';
+                      })()}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm font-semibold text-red-600 mb-2 flex items-center gap-1">
+                    <AlertCircle size={16} />
+                    Soma deve ser 100%
+                  </div>
+                )}
               </div>
 
-              {/* Tabela de Categorias */}
-              <div className="flex-1 bg-white rounded-lg border border-ai-border overflow-hidden">
+              {/* Card Resumo - Abre Modal */}
+              <div className="flex-1">
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="w-full bg-white rounded-lg border border-ai-border p-4 hover:border-ai-accent hover:shadow-md transition-all text-left group"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-ai-text flex items-center gap-2">
+                      <Edit3 size={16} className="text-ai-accent" />
+                      Categorias de Animais
+                    </h3>
+                    <div className={`px-2 py-1 rounded text-xs font-bold ${
+                      isPercentageSumValid() 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {animalCategories.reduce((sum, cat) => sum + cat.percentage, 0).toFixed(1)}%
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-blue-50 rounded px-2 py-1.5">
+                      <div className="text-blue-600 text-[10px] font-medium mb-0.5">Categorias</div>
+                      <div className="text-blue-900 font-bold">{animalCategories.length}</div>
+                    </div>
+                    <div className="bg-orange-50 rounded px-2 py-1.5">
+                      <div className="text-orange-600 text-[10px] font-medium mb-0.5">Vendas Necessárias</div>
+                      <div className="text-orange-900 font-bold">
+                        {isPercentageSumValid() ? `${calculateRequiredSales()} cab` : '-'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {!isPercentageSumValid() && (
+                    <div className="mt-2 flex items-center gap-1 text-xs text-red-600">
+                      <AlertCircle size={12} />
+                      <span>Clique para ajustar percentuais</span>
+                    </div>
+                  )}
+                  
+                  <div className="mt-2 text-xs text-ai-accent group-hover:text-ai-accentHover font-medium">
+                    Clique para editar →
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Modal - Tabela de Categorias */}
+          {isModalOpen && (
+            <div 
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+              onClick={(e) => {
+                // Fecha o modal ao clicar no overlay (fundo escuro)
+                if (e.target === e.currentTarget) {
+                  setIsModalOpen(false);
+                }
+              }}
+            >
+              <div 
+                className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header do Modal */}
+                <div className="px-6 py-4 border-b border-ai-border flex items-center justify-between bg-gradient-to-r from-ai-accent/10 to-transparent">
+                  <h2 className="text-lg font-bold text-ai-text">Editar Categorias de Animais</h2>
+                  <button
+                    onClick={() => setIsModalOpen(false)}
+                    className="p-2 hover:bg-ai-surface2 rounded-lg transition-colors"
+                    title="Fechar"
+                  >
+                    <X size={20} className="text-ai-subtext" />
+                  </button>
+                </div>
+
+                {/* Conteúdo do Modal - Scrollable */}
+                <div className="flex-1 overflow-y-auto p-6">
+                  {!isPercentageSumValid() && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2 mb-4">
+                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                      <span className="text-sm text-red-700 font-medium">
+                        A soma dos percentuais deve ser exatamente 100%. Atualmente: {animalCategories.reduce((sum, cat) => sum + cat.percentage, 0).toFixed(1)}%
+                      </span>
+                    </div>
+                  )}
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-ai-surface2 border-b border-ai-border">
@@ -826,7 +950,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                             </button>
                           </div>
                         </th>
-                        <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-20">%</th>
+                        <th className="px-2 py-1 text-center text-[10px] font-semibold text-green-600 w-20">%</th>
                         <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-24">Peso (kg/@)</th>
                         <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-24">Valor (kg/@)</th>
                         <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-28">Valor/cab</th>
@@ -837,7 +961,6 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                     <tbody className="divide-y divide-ai-border">
                       {animalCategories.map((category) => {
                         const valuePerHead = calculateValuePerHead(category);
-                        const isBezerro = category.id === '1'; // Bezerro Desm. não pode ser editado
                         return (
                           <tr key={category.id} className="hover:bg-ai-surface2/50 group">
                             <td className="p-0">
@@ -859,9 +982,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                                 onFocus={(e) => handleInputFocus(e, category.id, 'percentage', category.percentage)}
                                 onBlur={handleInputBlur}
                                 onKeyDown={handleKeyDown}
-                                disabled={isBezerro}
-                                className={`w-full h-full px-1 py-2 text-center text-[10px] border-0 focus:ring-2 focus:ring-inset focus:ring-ai-accent outline-none ${isBezerro ? 'bg-ai-surface2 cursor-not-allowed opacity-60' : 'bg-transparent'
-                                  }`}
+                                className="w-full h-full px-1 py-2 text-center text-[10px] border-0 bg-transparent text-green-600 font-bold focus:ring-2 focus:ring-inset focus:ring-ai-accent outline-none"
                               />
                             </td>
                             <td className="p-0 relative">
@@ -894,21 +1015,11 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                             <td className="px-2 py-1 text-center text-ai-text font-semibold text-xs">
                               {formatCurrency(valuePerHead)}
                             </td>
-                            <td className="p-0">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                value={editingCell?.id === category.id && editingCell?.field === 'quantity' ? tempValue : (category.quantity || '')}
-                                onChange={(e) => handleNumericChange(category.id, 'quantity', e.target.value)}
-                                onFocus={(e) => handleInputFocus(e, category.id, 'quantity', category.quantity)}
-                                onBlur={handleInputBlur}
-                                onKeyDown={handleKeyDown}
-                                className="w-full h-full px-1 py-2 text-center text-[10px] border-0 bg-transparent focus:ring-2 focus:ring-inset focus:ring-ai-accent outline-none"
-                                placeholder="-"
-                              />
+                            <td className="px-2 py-1 text-center text-ai-text font-semibold text-[10px]">
+                              {isPercentageSumValid() ? calculateQuantity(category.percentage) : '-'}
                             </td>
                             <td className="px-1 py-1 text-center">
-                              {category.id !== '1' && category.id !== '6' && (
+                              {animalCategories.length > 1 && (
                                 <button
                                   onClick={() => handleDeleteCategory(category.id)}
                                   className="p-1 text-ai-subtext hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
@@ -925,36 +1036,66 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                     <tfoot className="bg-ai-surface2 border-t-2 border-ai-border">
                       <tr>
                         <td className="px-2 py-1 text-ai-text font-bold text-xs">Total</td>
-                        <td className="px-2 py-1 text-center text-ai-text font-bold text-xs">
+                        <td className={`px-2 py-1 text-center font-bold text-xs ${
+                          isPercentageSumValid() ? 'text-ai-text' : 'text-red-600'
+                        }`}>
                           {animalCategories.reduce((sum, cat) => sum + cat.percentage, 0).toFixed(1)}%
+                          {!isPercentageSumValid() && (
+                            <span className="ml-1 text-[9px]">⚠️</span>
+                          )}
                         </td>
                         <td className="px-2 py-1 text-center text-ai-subtext text-xs">-</td>
                         <td className="px-2 py-1 text-center text-ai-subtext text-xs">-</td>
                         <td className="px-2 py-1 text-center text-ai-text font-bold text-xs">
-                          {formatCurrency(calculateAverageValue())}
+                          {isPercentageSumValid() ? formatCurrency(calculateAverageValue()) : '-'}
                         </td>
-                        <td className="px-2 py-1 text-center text-ai-subtext text-xs">-</td>
+                        <td className="px-2 py-1 text-center text-ai-text font-bold text-xs">
+                          {isPercentageSumValid() ? calculateRequiredSales() : '-'}
+                        </td>
                         <td></td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
+
+                {/* Footer do Modal */}
+                <div className="px-6 py-4 border-t border-ai-border bg-ai-surface flex items-center justify-between">
+                  <div className="text-sm text-ai-subtext">
+                    {isPercentageSumValid() ? (
+                      <span className="text-green-600 font-medium flex items-center gap-1">
+                        <CheckCircle2 size={16} />
+                        Percentuais corretos (100%)
+                      </span>
+                    ) : (
+                      <span className="text-red-600 font-medium flex items-center gap-1">
+                        <AlertCircle size={16} />
+                        Ajuste para 100%
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 bg-ai-accent text-white rounded-lg hover:bg-ai-accentHover transition-colors font-medium"
+                  >
+                    Concluir
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Conteúdo adicional */}
           <div className="text-center py-8">
-            <div className="w-16 h-16 rounded-full bg-ai-accent/10 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-8 h-8 text-ai-accent" />
-            </div>
-            <h2 className="text-xl font-semibold text-ai-text mb-2">
-              Planejamento Ágil
-            </h2>
-            <p className="text-ai-subtext">
-              Funcionalidade em desenvolvimento. Aqui será implementado o sistema de planejamento ágil
-              vinculado ao cliente <strong>{selectedClient?.name}</strong> e à fazenda <strong>{selectedFarm?.name}</strong>.
-            </p>
+          <div className="w-16 h-16 rounded-full bg-ai-accent/10 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-8 h-8 text-ai-accent" />
+          </div>
+          <h2 className="text-xl font-semibold text-ai-text mb-2">
+            Planejamento Ágil
+          </h2>
+          <p className="text-ai-subtext">
+            Funcionalidade em desenvolvimento. Aqui será implementado o sistema de planejamento ágil
+            vinculado ao cliente <strong>{selectedClient?.name}</strong> e à fazenda <strong>{selectedFarm?.name}</strong>.
+          </p>
           </div>
         </div>
       </div>
