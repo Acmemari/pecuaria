@@ -400,80 +400,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   /** Configuração de margem para o sistema atual */
   const marginConfig = useMemo(() => getMarginConfig(productionSystem), [productionSystem]);
 
-  // Inicializar quando cliente/fazenda selecionados
-  useEffect(() => {
-    if (selectedClient && farm) {
-      setIsLoading(false);
-      setShowSelectionModal(false);
-      setProductionSystem(farm.productionSystem || '');
-    } else {
-      setIsLoading(false);
-      setShowSelectionModal(true);
-      loadClients();
-    }
-  }, [selectedClient, farm, loadClients]);
-
-  // Atualizar percentuais quando sistema de produção mudar
-  useEffect(() => {
-    if (productionSystem) {
-      const initialPercentages = getInitialPercentages(productionSystem);
-      setAnimalCategories(prev =>
-        prev.map(cat => ({
-          ...cat,
-          percentage: initialPercentages[cat.id] ?? cat.percentage
-        }))
-      );
-    }
-  }, [productionSystem]);
-
-  // Atualizar margem esperada quando sistema de produção mudar
-  useEffect(() => {
-    setExpectedMargin(marginConfig.default);
-  }, [marginConfig.default]);
-
   // ============================================================================
   // FUNÇÕES DE CARREGAMENTO
   // ============================================================================
-
-  const loadClients = useCallback(async () => {
-    try {
-      let query = supabase.from('clients').select('*');
-      
-      // Analista vê apenas seus clientes; admin vê todos
-      if (user?.qualification === 'analista' && user?.role !== 'admin') {
-        query = query.eq('analyst_id', user.id);
-      }
-      
-      query = query.order('name', { ascending: true });
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('[AgilePlanning] Error loading clients:', error);
-        onToast?.('Erro ao carregar clientes. Tente novamente.', 'error');
-        return;
-      }
-
-      if (data) {
-        const mappedClients: Client[] = data.map(client => ({
-          id: client.id,
-          name: client.name,
-          phone: client.phone || '',
-          email: client.email,
-          analystId: client.analyst_id,
-          createdAt: client.created_at,
-          updatedAt: client.updated_at
-        }));
-        
-        setClients(mappedClients);
-        if (mappedClients.length > 0) {
-          setTempSelectedClient(prev => prev || mappedClients[0]);
-        }
-      }
-    } catch (err) {
-      console.error('[AgilePlanning] Unexpected error:', err);
-      onToast?.('Erro inesperado ao carregar clientes.', 'error');
-    }
-  }, [user?.qualification, user?.role, user?.id, onToast]);
 
   const loadFarmsForClient = useCallback(async (clientId: string) => {
     if (!clientId) {
@@ -483,12 +412,14 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     
     try {
       // Carregar fazendas do localStorage
-      const storedFarms = localStorage.getItem('agro-farms');
       let allFarms: Farm[] = [];
       
-      if (storedFarms) {
+      if (typeof window !== 'undefined' && window.localStorage) {
         try {
+          const storedFarms = localStorage.getItem('agro-farms');
+      if (storedFarms) {
           allFarms = JSON.parse(storedFarms) || [];
+          }
         } catch (parseError) {
           console.error('[AgilePlanning] Error parsing farms from localStorage:', parseError);
           onToast?.('Erro ao carregar dados locais de fazendas.', 'warning');
@@ -526,11 +457,93 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     }
   }, [onToast]);
 
+  // ============================================================================
+  // EFFECTS
+  // ============================================================================
+
+  // Inicializar quando cliente/fazenda selecionados
+  useEffect(() => {
+    if (selectedClient && farm) {
+      setIsLoading(false);
+      setShowSelectionModal(false);
+      setProductionSystem(farm.productionSystem || '');
+    } else {
+      setIsLoading(false);
+      setShowSelectionModal(true);
+      // Só carrega clientes se user estiver disponível
+      if (user) {
+        // Carregar clientes diretamente aqui para evitar dependência circular
+        const fetchClients = async () => {
+          try {
+            let query = supabase.from('clients').select('*');
+            
+            // Analista vê apenas seus clientes; admin vê todos
+            if (user.qualification === 'analista' && user.role !== 'admin') {
+              query = query.eq('analyst_id', user.id);
+            }
+            
+            query = query.order('name', { ascending: true });
+            const { data, error } = await query;
+
+            if (error) {
+              console.error('[AgilePlanning] Error loading clients:', error);
+              onToast?.('Erro ao carregar clientes. Tente novamente.', 'error');
+              return;
+            }
+
+            if (data) {
+              const mappedClients: Client[] = data.map(client => ({
+                id: client.id,
+                name: client.name,
+                phone: client.phone || '',
+                email: client.email,
+                analystId: client.analyst_id,
+                createdAt: client.created_at,
+                updatedAt: client.updated_at
+              }));
+              
+              setClients(mappedClients);
+              if (mappedClients.length > 0) {
+                setTempSelectedClient(prev => prev || mappedClients[0]);
+              }
+            }
+          } catch (err) {
+            console.error('[AgilePlanning] Unexpected error:', err);
+            onToast?.('Erro inesperado ao carregar clientes.', 'error');
+          }
+        };
+        fetchClients();
+      }
+    }
+  }, [selectedClient, farm, user, onToast]);
+
   useEffect(() => {
     if (tempSelectedClient) {
       loadFarmsForClient(tempSelectedClient.id);
     }
   }, [tempSelectedClient, loadFarmsForClient]);
+
+  // Atualizar percentuais quando sistema de produção mudar
+  useEffect(() => {
+    if (productionSystem) {
+      const initialPercentages = getInitialPercentages(productionSystem);
+      setAnimalCategories(prev =>
+        prev.map(cat => ({
+          ...cat,
+          percentage: initialPercentages[cat.id] ?? cat.percentage
+        }))
+      );
+    }
+  }, [productionSystem]);
+
+  // Atualizar margem esperada quando sistema de produção mudar
+  useEffect(() => {
+    setExpectedMargin(marginConfig.default);
+  }, [marginConfig.default]);
+
+  // ============================================================================
+  // HANDLERS
+  // ============================================================================
 
   const handleConfirmSelection = useCallback(() => {
     if (tempSelectedClient && tempSelectedFarm) {
