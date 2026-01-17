@@ -723,11 +723,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           
           // Após salvar com sucesso, criar os vínculos
           // Vincular fazenda ao cliente na tabela client_farms (obrigatório)
-          await linkFarmToClient(newFarm.id, selectedClient.id);
-          
+      await linkFarmToClient(newFarm.id, selectedClient.id);
+      
           // Vincular fazenda ao analista logado (obrigatório)
-          if (user && (user.qualification === 'analista' || user.role === 'admin')) {
-            await linkFarmToAnalyst(newFarm.id, user.id);
+      if (user && (user.qualification === 'analista' || user.role === 'admin')) {
+        await linkFarmToAnalyst(newFarm.id, user.id);
           } else {
             onToast?.('Aviso: Usuário não é analista. A fazenda foi cadastrada mas pode não estar vinculada corretamente.', 'warning');
           }
@@ -817,10 +817,10 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         }
         
         // Atualizar localStorage
-        const updatedFarms = farms.filter(farm => farm.id !== farmId);
-        saveFarms(updatedFarms);
+      const updatedFarms = farms.filter(farm => farm.id !== farmId);
+      saveFarms(updatedFarms);
         
-        onToast?.('Fazenda excluída com sucesso!', 'success');
+      onToast?.('Fazenda excluída com sucesso!', 'success');
         
         // Disparar evento para atualizar FarmSelector
         window.dispatchEvent(new CustomEvent('farmUpdated'));
@@ -923,7 +923,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     window.addEventListener('farmCancelForm', handleCancelForm);
     return () => {
       window.removeEventListener('farmCancelForm', handleCancelForm);
-    };
+  };
   }, [view]);
 
   if (isLoading) {
