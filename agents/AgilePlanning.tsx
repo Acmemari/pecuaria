@@ -1208,6 +1208,23 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     }
   }, [tempSelectedClient, tempSelectedFarm, setSelectedClient, onSelectFarm, onToast]);
 
+  // Handlers memoizados para melhor performance (devem estar antes de qualquer return condicional)
+  const handleProductionSystemChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as Farm['productionSystem'] | '';
+    // Validação de segurança
+    if (value === '' || ['Cria', 'Ciclo Completo', 'Recria-Engorda'].includes(value)) {
+      setProductionSystem(value);
+    }
+  }, []);
+
+  const handleAnalysisMethodChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as 'ancoragem' | 'desempenho';
+    // Validação de segurança
+    if (value === 'ancoragem' || value === 'desempenho') {
+      setAnalysisMethod(value);
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -1307,23 +1324,6 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
       </div>
     );
   }
-
-  // Handlers memoizados para melhor performance
-  const handleProductionSystemChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value as Farm['productionSystem'] | '';
-    // Validação de segurança
-    if (value === '' || ['Cria', 'Ciclo Completo', 'Recria-Engorda'].includes(value)) {
-      setProductionSystem(value);
-    }
-  }, []);
-
-  const handleAnalysisMethodChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value as 'ancoragem' | 'desempenho';
-    // Validação de segurança
-    if (value === 'ancoragem' || value === 'desempenho') {
-      setAnalysisMethod(value);
-    }
-  }, []);
 
   // Tela principal do Planejamento Ágil
   return (
