@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useClient } from '../contexts/ClientContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Farm, Client } from '../types';
 import { supabase } from '../lib/supabase';
-import { Building2, Loader2, AlertCircle, CheckCircle2, Plus, Trash2, Edit3, X, ListChecks } from 'lucide-react';
+import { Building2, Loader2, AlertCircle, CheckCircle2, Plus, Trash2, Edit3, X, ListChecks, Info } from 'lucide-react';
 
 // ============================================================================
 // TIPOS E INTERFACES
@@ -143,19 +143,64 @@ const getInitialPercentages = (system: Farm['productionSystem'] | ''): Record<st
 
 /** Categorias padrão de animais */
 const getDefaultCategories = (): AnimalCategory[] => [
-  { id: CATEGORY_IDS.BEZERRO, name: 'Bezerro Desm.', percentage: 50, weight: 200, valuePerKg: 14 },
+  { id: CATEGORY_IDS.BEZERRO, name: 'Bezerro Desm.', percentage: 50, weight: 220, valuePerKg: 14 },
   { id: CATEGORY_IDS.BEZERRA, name: 'Bezerra Desm.', percentage: 0, weight: 200, valuePerKg: 12 },
   { id: CATEGORY_IDS.GARROTE, name: 'Garrote', percentage: 0, weight: 20, valuePerKg: 300 },
   { id: CATEGORY_IDS.NOVILHA, name: 'Novilha', percentage: 17, weight: 13, valuePerKg: 290 },
-  { id: CATEGORY_IDS.BOI_GORDO, name: 'Boi Gordo', percentage: 0, weight: 24, valuePerKg: 270 },
-  { id: CATEGORY_IDS.VACA_DESCARTE, name: 'Vaca Descarte', percentage: 33, weight: 13, valuePerKg: 320 },
-  { id: CATEGORY_IDS.TOURO_DESCARTE, name: 'Touro Descarte', percentage: 0, weight: 15, valuePerKg: 280 },
+  { id: CATEGORY_IDS.BOI_GORDO, name: 'Boi Gordo', percentage: 0, weight: 20, valuePerKg: 270 },
+  { id: CATEGORY_IDS.VACA_DESCARTE, name: 'Vaca Descarte', percentage: 33, weight: 15, valuePerKg: 320 },
+  { id: CATEGORY_IDS.TOURO_DESCARTE, name: 'Touro Descarte', percentage: 0, weight: 24, valuePerKg: 280 },
 ];
 
 /** Verifica se a categoria usa kg (bezerros) ou @ (demais) */
 const isKgCategory = (categoryId: string): boolean => {
   return categoryId === CATEGORY_IDS.BEZERRO || categoryId === CATEGORY_IDS.BEZERRA;
 };
+
+// ============================================================================
+// CONSTANTES DO REBANHO MÉDIO
+// ============================================================================
+
+/** Constantes de conversão e cálculo */
+const HERD_CONSTANTS = {
+  /** Fator de conversão de @ para kg */
+  ARROBA_TO_KG: 30,
+  /** Percentual do peso médio das matrizes em relação à vaca descarte */
+  MATRIZ_WEIGHT_FACTOR: 0.97,
+  /** Tempo fixo em meses para categorias permanentes */
+  TEMPO_MATRIZES: 12,
+  TEMPO_NOVILHAS_8_12: 5,
+  TEMPO_TOUROS: 12,
+  /** Ajuste no cálculo do peso médio de bezerros mamando */
+  BEZERRO_WEIGHT_ADJUSTMENT: 30,
+} as const;
+
+/** Tipo para identificar categorias na tabela de rebanho médio */
+type WeightInfoCategory = 'matrizes' | 'bezerros' | 'novilhas8a12' | 'novilhas13a24' | 'touros';
+
+/** Interface para os dados da tabela de rebanho médio */
+interface AverageHerdData {
+  vacas: number;
+  bezerrosMamando: number;
+  novilhas8a12: number;
+  novilhas13a24: number;
+  touros: number;
+  tempoVacas: number;
+  tempoBezerros: number;
+  tempoNovilhas8a12: number;
+  tempoNovilhas13a24: number;
+  tempoTouros: number;
+  pesoVivoVacas: number;
+  pesoVivoBezerros: number;
+  pesoVivoNovilhas8a12: number;
+  pesoVivoNovilhas13a24: number;
+  pesoVivoTouros: number;
+  pesoIndividualVaca: number;
+  pesoIndividualBezerro: number;
+  pesoIndividualNovilha8a12: number;
+  pesoIndividualNovilha13a24: number;
+  pesoIndividualTouro: number;
+}
 
 // ============================================================================
 // COMPONENTE PRINCIPAL
@@ -183,6 +228,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   const [showSelectionModal, setShowSelectionModal] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isIndicatorsModalOpen, setIsIndicatorsModalOpen] = useState(false);
+  const [isAverageHerdModalOpen, setIsAverageHerdModalOpen] = useState(false);
   const [editingCell, setEditingCell] = useState<{ id: string; field: keyof AnimalCategory } | null>(null);
   const [tempValue, setTempValue] = useState('');
   
@@ -196,6 +242,20 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   const [percentage, setPercentage] = useState(4);
   const [productionSystem, setProductionSystem] = useState<Farm['productionSystem'] | ''>('');
   const [expectedMargin, setExpectedMargin] = useState(40);
+
+  // Relação Matrizes/Touro (para o modal de Rebanho Médio)
+  const [bullCowRatioPercent, setBullCowRatioPercent] = useState(4); // 0% a 6%, default 4%
+  const [isBullCowRatioOpen, setIsBullCowRatioOpen] = useState(false);
+  // Peso médio dos touros (para o modal de Rebanho Médio)
+  const [pesoMedioTouro, setPesoMedioTouro] = useState(710); // 600 a 900 kg, default 710
+  // Idade ao desmame (para o modal de Rebanho Médio)
+  const [weaningAgeMonths, setWeaningAgeMonths] = useState(7); // 4 a 8 meses, default 7
+  const [isWeaningAgeOpen, setIsWeaningAgeOpen] = useState(false);
+  // Explicação do cálculo de peso individual
+  const [weightCalculationInfoOpen, setWeightCalculationInfoOpen] = useState<WeightInfoCategory | null>(null);
+  const [popoverPositions, setPopoverPositions] = useState<Partial<Record<WeightInfoCategory, { top: number; left: number }>>>({});
+  const weightInfoRefs = useRef<Partial<Record<WeightInfoCategory, HTMLDivElement | null>>>({});
+  const weightButtonRefs = useRef<Partial<Record<WeightInfoCategory, HTMLButtonElement | null>>>({});
   
   // Estados de índices reprodutivos
   const [fertility, setFertility] = useState(85);
@@ -204,6 +264,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   const [maleWeaningWeight, setMaleWeaningWeight] = useState(220);
   const [femaleWeaningWeight, setFemaleWeaningWeight] = useState(200);
   const [firstMatingAge, setFirstMatingAge] = useState(14);
+  const [pesoPrimeiraMonta, setPesoPrimeiraMonta] = useState(300); // 270 a 360 kg, default 300
   
   // Estado de categorias
   const [animalCategories, setAnimalCategories] = useState<AnimalCategory[]>(getDefaultCategories);
@@ -256,14 +317,22 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   // Fechar modal com ESC e bloquear scroll do body
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isModalOpen) {
-        setIsModalOpen(false);
-        setEditingCell(null);
-        setTempValue('');
+      if (e.key === 'Escape') {
+        if (isModalOpen) {
+          setIsModalOpen(false);
+          setEditingCell(null);
+          setTempValue('');
+        } else if (isIndicatorsModalOpen) {
+          setIsIndicatorsModalOpen(false);
+        } else if (isAverageHerdModalOpen) {
+          setIsAverageHerdModalOpen(false);
+        }
       }
     };
     
-    if (isModalOpen) {
+    const hasOpenModal = isModalOpen || isIndicatorsModalOpen || isAverageHerdModalOpen;
+    
+    if (hasOpenModal) {
       document.body.style.overflow = 'hidden';
       document.addEventListener('keydown', handleEscape);
     } else {
@@ -274,7 +343,48 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
     };
-  }, [isModalOpen]);
+  }, [isModalOpen, isIndicatorsModalOpen, isAverageHerdModalOpen]);
+
+  // Fechar popovers de peso ao clicar fora
+  useEffect(() => {
+    if (!weightCalculationInfoOpen) return;
+    
+    const handleClickOutside = (event: MouseEvent) => {
+      const containerRef = weightInfoRefs.current[weightCalculationInfoOpen];
+      const buttonRef = weightButtonRefs.current[weightCalculationInfoOpen];
+      const target = event.target as Node;
+      
+      const isOutsideContainer = !containerRef?.contains(target);
+      const isOutsideButton = !buttonRef?.contains(target);
+      
+      if (isOutsideContainer && isOutsideButton) {
+        setWeightCalculationInfoOpen(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [weightCalculationInfoOpen]);
+
+  // ============================================================================
+  // HANDLERS DE POPOVER
+  // ============================================================================
+
+  /** Calcula posição e toggle do popover de peso */
+  const handleWeightInfoToggle = useCallback((category: WeightInfoCategory) => {
+    const buttonEl = weightButtonRefs.current[category];
+    if (buttonEl) {
+      const rect = buttonEl.getBoundingClientRect();
+      setPopoverPositions(prev => ({
+        ...prev,
+        [category]: {
+          top: rect.top - 110,
+          left: Math.max(10, rect.left - 230),
+        }
+      }));
+    }
+    setWeightCalculationInfoOpen(prev => prev === category ? null : category);
+  }, []);
 
   // ============================================================================
   // HANDLERS DE INPUT
@@ -552,6 +662,127 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     return safeDivide(safeDivide(totalPesoKg, averageHerd), 365);
   }, [showReproductiveIndices, averageHerd, animalCategories, calculateQuantity]);
 
+  /** Produção de @/ha: soma(quantidade × peso em @) ÷ área pecuária */
+  const producaoArrobaHa = useMemo(() => {
+    if (!selectedFarm?.pastureArea || selectedFarm.pastureArea <= 0) return 0;
+    
+    const totalArroba = animalCategories.reduce((sum, category) => {
+      const quantity = calculateQuantity(category.percentage);
+      if (quantity <= 0) return sum;
+      
+      // Converter peso para @ (arrobas)
+      const weightArroba = isKgCategory(category.id) 
+        ? category.weight / 30  // kg → @ (divide por 30)
+        : category.weight;      // Já está em @
+      
+      return sum + (quantity * weightArroba);
+    }, 0);
+    
+    return safeDivide(totalArroba, selectedFarm.pastureArea);
+  }, [selectedFarm?.pastureArea, animalCategories, calculateQuantity]);
+
+  /** Cálculos para tabela de Rebanho Médio */
+  const averageHerdTable = useMemo((): AverageHerdData => {
+    const { ARROBA_TO_KG, MATRIZ_WEIGHT_FACTOR, TEMPO_MATRIZES, TEMPO_NOVILHAS_8_12, TEMPO_TOUROS, BEZERRO_WEIGHT_ADJUSTMENT } = HERD_CONSTANTS;
+    
+    // Valores padrão quando não há dados
+    const emptyResult: AverageHerdData = {
+      vacas: 0,
+      bezerrosMamando: 0,
+      novilhas8a12: 0,
+      novilhas13a24: 0,
+      touros: 0,
+      tempoVacas: TEMPO_MATRIZES,
+      tempoBezerros: weaningAgeMonths,
+      tempoNovilhas8a12: TEMPO_NOVILHAS_8_12,
+      tempoNovilhas13a24: Math.max(0, firstMatingAge - 12),
+      tempoTouros: TEMPO_TOUROS,
+      pesoVivoVacas: 0,
+      pesoVivoBezerros: 0,
+      pesoVivoNovilhas8a12: 0,
+      pesoVivoNovilhas13a24: 0,
+      pesoVivoTouros: 0,
+      pesoIndividualVaca: 0,
+      pesoIndividualBezerro: 0,
+      pesoIndividualNovilha8a12: 0,
+      pesoIndividualNovilha13a24: 0,
+      pesoIndividualTouro: 0,
+    };
+    
+    if (!showReproductiveIndices || requiredMatrixes <= 0) {
+      return emptyResult;
+    }
+
+    // Buscar peso da categoria Vaca Descarte
+    const vacaDescarteCategory = animalCategories.find(c => c.id === CATEGORY_IDS.VACA_DESCARTE);
+    const pesoVacaDescarteArroba = vacaDescarteCategory?.weight || 0;
+
+    // === MATRIZES ===
+    const vacas = Math.round(requiredMatrixes);
+    const tempoVacas = TEMPO_MATRIZES;
+    const pesoMedioVaca = pesoVacaDescarteArroba * ARROBA_TO_KG * MATRIZ_WEIGHT_FACTOR;
+    const pesoVivoVacas = vacas * pesoMedioVaca;
+
+    // === BEZERROS MAMANDO ===
+    const bezerrosMamando = Math.round(vacas * weaningRate);
+    const tempoBezerros = weaningAgeMonths;
+    // Fórmula: ((pesoMachos + pesoFêmeas) / 2 - 30) / 2
+    const pesoMedioDesmame = (maleWeaningWeight + femaleWeaningWeight) / 2;
+    const pesoMedioBezerroMamando = (pesoMedioDesmame - BEZERRO_WEIGHT_ADJUSTMENT) / 2;
+    const pesoVivoBezerros = bezerrosMamando * pesoMedioBezerroMamando;
+
+    // === NOVILHAS: Cálculo do ganho mensal até primeira monta ===
+    const ganhoTotalAteMonta = pesoPrimeiraMonta - femaleWeaningWeight;
+    const periodoAteMonta = firstMatingAge - weaningAgeMonths;
+    const ganhoMensal = periodoAteMonta > 0 ? safeDivide(ganhoTotalAteMonta, periodoAteMonta) : 0;
+    const pesoInicialDesmame = femaleWeaningWeight;
+
+    // === NOVILHAS 8-12 MESES ===
+    const novilhas8a12 = Math.round(bezerrosMamando / 2);
+    const tempoNovilhas8a12 = TEMPO_NOVILHAS_8_12;
+    const mesesAte12Meses = 12 - weaningAgeMonths;
+    const pesoAos12Meses = pesoInicialDesmame + (ganhoMensal * mesesAte12Meses);
+    const pesoMedioNovilha8a12 = (pesoInicialDesmame + pesoAos12Meses) / 2;
+    const pesoVivoNovilhas8a12 = novilhas8a12 * pesoMedioNovilha8a12;
+
+    // === NOVILHAS 13-24 MESES ===
+    const novilhas13a24 = novilhas8a12;
+    const tempoNovilhas13a24 = Math.max(0, firstMatingAge - 12);
+    const mesesAte13Meses = 13 - weaningAgeMonths;
+    const pesoAos13Meses = pesoInicialDesmame + (ganhoMensal * mesesAte13Meses);
+    const pesoMedioNovilha13a24 = (pesoAos13Meses + pesoPrimeiraMonta) / 2;
+    const pesoVivoNovilhas13a24 = novilhas13a24 * pesoMedioNovilha13a24;
+
+    // === TOUROS ===
+    const touros = bullCowRatioPercent > 0 ? Math.ceil(vacas * (bullCowRatioPercent / 100)) : 0;
+    const tempoTouros = TEMPO_TOUROS;
+    const pesoVivoTouros = touros * pesoMedioTouro;
+
+    return {
+      vacas,
+      bezerrosMamando,
+      novilhas8a12,
+      novilhas13a24,
+      touros,
+      tempoVacas,
+      tempoBezerros,
+      tempoNovilhas8a12,
+      tempoNovilhas13a24,
+      tempoTouros,
+      pesoVivoVacas,
+      pesoVivoBezerros,
+      pesoVivoNovilhas8a12,
+      pesoVivoNovilhas13a24,
+      pesoVivoTouros,
+      // Pesos individuais (para exibição na tabela)
+      pesoIndividualVaca: pesoMedioVaca,
+      pesoIndividualBezerro: pesoMedioBezerroMamando,
+      pesoIndividualNovilha8a12: pesoMedioNovilha8a12,
+      pesoIndividualNovilha13a24: pesoMedioNovilha13a24,
+      pesoIndividualTouro: pesoMedioTouro,
+    };
+  }, [showReproductiveIndices, requiredMatrixes, weaningRate, bullCowRatioPercent, firstMatingAge, maleWeaningWeight, femaleWeaningWeight, animalCategories, weaningAgeMonths, pesoPrimeiraMonta, pesoMedioTouro]);
+
   const MAX_PERFORMANCE_INDICATORS = 5;
   const performanceIndicators = useMemo(() => [
     {
@@ -590,7 +821,13 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
       value: lotacaoCabHa,
       format: (value: number) => value.toFixed(2),
     },
-  ], [weaningRate, kgPerMatrix, matricesOverAverageHerd, salesPerHectare, gmdGlobal, lotacaoCabHa]);
+    {
+      id: 'producaoArrobaHa',
+      label: 'Produção de @/ha',
+      value: producaoArrobaHa,
+      format: (value: number) => `${value.toFixed(2)} @/ha`,
+    },
+  ], [weaningRate, kgPerMatrix, matricesOverAverageHerd, salesPerHectare, gmdGlobal, lotacaoCabHa, producaoArrobaHa]);
 
   const visiblePerformanceIndicators = useMemo(
     () => performanceIndicators.filter((indicator) => selectedIndicators.includes(indicator.id)),
@@ -1155,7 +1392,17 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                           </span>
                         </div>
                         <div className="flex items-start justify-between">
-                          <span className="text-[9px] text-ai-subtext leading-tight">Rebanho<br />Médio</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[9px] text-ai-subtext leading-tight">Rebanho<br />Médio</span>
+                            <button
+                              onClick={() => setIsAverageHerdModalOpen(true)}
+                              className="p-0.5 rounded hover:bg-ai-surface2 transition-colors"
+                              title="Ver detalhes do rebanho médio"
+                              aria-label="Ver detalhes do rebanho médio"
+                            >
+                              <Edit3 size={12} className="text-ai-accent" />
+                            </button>
+                          </div>
                           <span className="text-sm font-bold text-ai-text">
                             {averageHerd > 0 ? `${Math.round(averageHerd)} Cabeças` : '-'}
                           </span>
@@ -1311,6 +1558,28 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">24 meses</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] mb-0.5">
+                            <label className="text-ai-subtext">Peso a primeira monta</label>
+                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                              {pesoPrimeiraMonta} kg
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">270 kg</span>
+                            <input
+                              type="range"
+                              min={270}
+                              max={360}
+                              step={1}
+                              value={pesoPrimeiraMonta}
+                              onChange={(e) => setPesoPrimeiraMonta(parseInt(e.target.value, 10))}
+                              className="flex-1 accent-ai-accent h-1.5"
+                            />
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">360 kg</span>
                           </div>
                         </div>
                       </div>
@@ -1473,6 +1742,514 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                 className="px-4 py-2 bg-ai-accent text-white rounded-lg hover:bg-ai-accentHover transition-colors font-medium"
               >
                 Concluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal - Tabela de Rebanho Médio */}
+      {isAverageHerdModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsAverageHerdModalOpen(false);
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header do Modal */}
+            <div className="px-6 py-4 border-b border-ai-border flex items-center justify-between bg-gradient-to-r from-ai-accent/10 to-transparent">
+              <h2 className="text-lg font-bold text-ai-text">Rebanho Médio</h2>
+              <button
+                onClick={() => setIsAverageHerdModalOpen(false)}
+                className="p-2 hover:bg-ai-surface2 rounded-lg transition-colors"
+                title="Fechar"
+              >
+                <X size={20} className="text-ai-subtext" />
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-ai-surface2 border-b border-ai-border">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-ai-text">
+                        Categoria
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-ai-text">
+                        Quantidade (Cabeças)
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-ai-text">
+                        Tempo (meses)
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-ai-text">
+                        Peso Vivo (kg)
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-ai-border">
+                    <tr className="hover:bg-ai-surface2/50">
+                      <td className="px-4 py-3 text-sm text-ai-text font-medium">Matrizes</td>
+                      <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
+                        {averageHerdTable.vacas > 0 ? averageHerdTable.vacas : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm text-ai-text">
+                        {averageHerdTable.vacas > 0 ? averageHerdTable.tempoVacas : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
+                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['matrizes'] = el; }}>
+                          <span>{averageHerdTable.vacas > 0 ? Math.round(averageHerdTable.pesoIndividualVaca).toLocaleString('pt-BR') : '-'}</span>
+                          {averageHerdTable.vacas > 0 && (
+                            <>
+                              <button
+                                ref={(el) => { weightButtonRefs.current['matrizes'] = el; }}
+                                type="button"
+                                onClick={() => handleWeightInfoToggle('matrizes')}
+                                className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
+                                title="Explicação do cálculo"
+                                aria-label="Explicação do cálculo"
+                              >
+                                <Info size={10} />
+                              </button>
+                              {weightCalculationInfoOpen === 'matrizes' && popoverPositions.matrizes && (() => {
+                                const { ARROBA_TO_KG, MATRIZ_WEIGHT_FACTOR } = HERD_CONSTANTS;
+                                const vacaDescarteCategory = animalCategories.find(c => c.id === CATEGORY_IDS.VACA_DESCARTE);
+                                const pesoVacaDescarteArroba = vacaDescarteCategory?.weight || 0;
+                                const pesoCalculado = pesoVacaDescarteArroba * ARROBA_TO_KG * MATRIZ_WEIGHT_FACTOR;
+                                return (
+                                  <div
+                                    className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                    style={{
+                                      top: popoverPositions.matrizes.top,
+                                      left: popoverPositions.matrizes.left,
+                                    }}
+                                  >
+                                    <p className="font-medium text-gray-800 mb-1 text-left">1. Matrizes</p>
+                                    <p className="text-[10px] space-y-1 text-left">
+                                      <div>• <strong>Fórmula:</strong> Peso Vaca Descarte (@) × 30 × 97%</div>
+                                      <div>• O peso da Vaca Descarte é convertido de arrobas para kg (× 30)</div>
+                                      <div>• Aplicado 97% para refletir o peso médio das matrizes em produção</div>
+                                      <div className="mt-2 pt-2 border-t border-gray-200">
+                                        <strong>Exemplo:</strong> {pesoVacaDescarteArroba} @ × 30 × 0,97 = <strong>{pesoCalculado.toFixed(1)} kg</strong>
+                                      </div>
+          </p>
+        </div>
+                                );
+                              })()}
+                            </>
+                          )}
+      </div>
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-ai-surface2/50">
+                      <td className="px-4 py-3 text-sm text-ai-text font-medium">Bezerros mamando</td>
+                      <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
+                        {averageHerdTable.bezerrosMamando > 0 ? averageHerdTable.bezerrosMamando : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm text-ai-text">
+                        <div className="flex items-center justify-center gap-2">
+                          <span>{averageHerdTable.bezerrosMamando > 0 ? averageHerdTable.tempoBezerros : '-'}</span>
+                          {averageHerdTable.bezerrosMamando > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setIsWeaningAgeOpen((v) => !v)}
+                              className="p-1 rounded hover:bg-ai-surface2 transition-colors"
+                              title="Selecione a idade ao desmame"
+                              aria-label="Selecione a idade ao desmame"
+                            >
+                              <Edit3 size={12} className="text-ai-accent" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
+                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['bezerros'] = el; }}>
+                          <span>{averageHerdTable.bezerrosMamando > 0 ? Math.round(averageHerdTable.pesoIndividualBezerro).toLocaleString('pt-BR') : '-'}</span>
+                          {averageHerdTable.bezerrosMamando > 0 && (
+                            <>
+                              <button
+                                ref={(el) => { weightButtonRefs.current['bezerros'] = el; }}
+                                type="button"
+                                onClick={() => handleWeightInfoToggle('bezerros')}
+                                className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
+                                title="Explicação do cálculo"
+                                aria-label="Explicação do cálculo"
+                              >
+                                <Info size={10} />
+                              </button>
+                              {weightCalculationInfoOpen === 'bezerros' && popoverPositions.bezerros && (() => {
+                                const { BEZERRO_WEIGHT_ADJUSTMENT } = HERD_CONSTANTS;
+                                const pesoMedioDesmame = (maleWeaningWeight + femaleWeaningWeight) / 2;
+                                const pesoMedioAjustado = pesoMedioDesmame - BEZERRO_WEIGHT_ADJUSTMENT;
+                                const pesoMedioBezerroMamando = pesoMedioAjustado / 2;
+                                return (
+                                  <div
+                                    className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                    style={{
+                                      top: popoverPositions.bezerros.top,
+                                      left: popoverPositions.bezerros.left,
+                                    }}
+                                  >
+                                    <p className="font-medium text-gray-800 mb-1 text-left">2. Bezerros mamando</p>
+                                    <p className="text-[10px] space-y-1 text-left">
+                                      <div><strong>Passo 1:</strong> Peso médio ao desmame = (Peso machos + Peso fêmeas) / 2</div>
+                                      <div><strong>Passo 2:</strong> Peso médio ao desmame - {BEZERRO_WEIGHT_ADJUSTMENT} kg</div>
+                                      <div><strong>Passo 3:</strong> Resultado do Passo 2 / 2</div>
+                                      <div className="mt-2 pt-2 border-t border-gray-200">
+                                        <strong>Exemplo:</strong><br />
+                                        Passo 1: ({maleWeaningWeight} + {femaleWeaningWeight}) / 2 = <strong>{pesoMedioDesmame.toFixed(1)} kg</strong><br />
+                                        Passo 2: {pesoMedioDesmame.toFixed(1)} - {BEZERRO_WEIGHT_ADJUSTMENT} = <strong>{pesoMedioAjustado.toFixed(1)} kg</strong><br />
+                                        Passo 3: {pesoMedioAjustado.toFixed(1)} / 2 = <strong>{pesoMedioBezerroMamando.toFixed(1)} kg</strong>
+                                      </div>
+                                    </p>
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {isWeaningAgeOpen && averageHerdTable.bezerrosMamando > 0 && (
+                      <tr className="bg-ai-surface2/30">
+                        <td colSpan={4} className="px-4 py-3">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-ai-text">
+                                Selecione a idade ao desmame
+                              </span>
+                              <span className="text-xs font-bold text-ai-text">
+                                {weaningAgeMonths} meses
+                              </span>
+                            </div>
+
+                            <input
+                              type="range"
+                              min={4}
+                              max={8}
+                              step={1}
+                              value={weaningAgeMonths}
+                              onChange={(e) => {
+                                const next = parseInt(e.target.value, 10);
+                                setWeaningAgeMonths(isFinite(next) ? next : 7);
+                              }}
+                              className="w-full accent-ai-accent h-2"
+                            />
+
+                            <div className="flex items-center justify-between text-[10px] text-ai-subtext">
+                              <span>4 meses</span>
+                              <span>8 meses</span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    <tr className="hover:bg-ai-surface2/50">
+                      <td className="px-4 py-3 text-sm text-ai-text font-medium">
+                        Novilhas {weaningAgeMonths + 1} a 12 meses
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
+                        {averageHerdTable.novilhas8a12 > 0 ? averageHerdTable.novilhas8a12 : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm text-ai-text">
+                        {averageHerdTable.novilhas8a12 > 0 ? averageHerdTable.tempoNovilhas8a12 : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
+                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['novilhas8a12'] = el; }}>
+                          <span>{averageHerdTable.novilhas8a12 > 0 ? Math.round(averageHerdTable.pesoIndividualNovilha8a12).toLocaleString('pt-BR') : '-'}</span>
+                          {averageHerdTable.novilhas8a12 > 0 && (
+                            <>
+                              <button
+                                ref={(el) => { weightButtonRefs.current['novilhas8a12'] = el; }}
+                                type="button"
+                                onClick={() => handleWeightInfoToggle('novilhas8a12')}
+                                className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
+                                title="Explicação do cálculo"
+                                aria-label="Explicação do cálculo"
+                              >
+                                <Info size={10} />
+                              </button>
+                              {weightCalculationInfoOpen === 'novilhas8a12' && popoverPositions.novilhas8a12 && (() => {
+                                const periodoAteMonta = firstMatingAge - weaningAgeMonths;
+                                const ganhoTotal = pesoPrimeiraMonta - femaleWeaningWeight;
+                                const ganhoMensal = periodoAteMonta > 0 ? ganhoTotal / periodoAteMonta : 0;
+                                const mesesAte12Meses = 12 - weaningAgeMonths;
+                                const pesoAos12Meses = femaleWeaningWeight + (ganhoMensal * mesesAte12Meses);
+                                return (
+                                  <div
+                                    className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                    style={{
+                                      top: popoverPositions.novilhas8a12.top,
+                                      left: popoverPositions.novilhas8a12.left,
+                                    }}
+                                  >
+                                    <p className="font-medium text-gray-800 mb-1 text-left">3. Novilhas {weaningAgeMonths + 1} a 12 meses</p>
+                                    <p className="text-[10px] space-y-1 text-left">
+                                      <div>• A novilha entra em monta aos <strong>{pesoPrimeiraMonta} kg</strong> aos <strong>{firstMatingAge} meses</strong></div>
+                                      <div>• <strong>Ganho Total:</strong> {pesoPrimeiraMonta} kg - Peso ao Desmame ({femaleWeaningWeight} kg) = <strong>{ganhoTotal} kg</strong></div>
+                                      <div>• <strong>Período:</strong> {firstMatingAge} meses - {weaningAgeMonths} meses = <strong>{periodoAteMonta} meses</strong></div>
+                                      {periodoAteMonta > 0 && (
+                                        <>
+                                          <div>• <strong>Ganho Mensal:</strong> {ganhoTotal} kg ÷ {periodoAteMonta} meses = <strong>{ganhoMensal.toFixed(2)} kg/mês</strong></div>
+                                          <div>• <strong>Peso aos 12 meses:</strong> {femaleWeaningWeight} kg + ({ganhoMensal.toFixed(2)} × {mesesAte12Meses}) = <strong>{pesoAos12Meses.toFixed(1)} kg</strong></div>
+                                          <div>• <strong>Peso Médio:</strong> ({femaleWeaningWeight} + {pesoAos12Meses.toFixed(1)}) / 2 = <strong>{averageHerdTable.pesoIndividualNovilha8a12.toFixed(1)} kg</strong></div>
+                                        </>
+                                      )}
+                                    </p>
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-ai-surface2/50">
+                      <td className="px-4 py-3 text-sm text-ai-text font-medium">Novilhas 13 a 24 meses</td>
+                      <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
+                        {averageHerdTable.novilhas13a24 > 0 ? averageHerdTable.novilhas13a24 : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm text-ai-text">
+                        {averageHerdTable.novilhas13a24 > 0 ? averageHerdTable.tempoNovilhas13a24 : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
+                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['novilhas13a24'] = el; }}>
+                          <span>{averageHerdTable.novilhas13a24 > 0 ? Math.round(averageHerdTable.pesoIndividualNovilha13a24).toLocaleString('pt-BR') : '-'}</span>
+                          {averageHerdTable.novilhas13a24 > 0 && (
+                            <>
+                              <button
+                                ref={(el) => { weightButtonRefs.current['novilhas13a24'] = el; }}
+                                type="button"
+                                onClick={() => handleWeightInfoToggle('novilhas13a24')}
+                                className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
+                                title="Explicação do cálculo"
+                                aria-label="Explicação do cálculo"
+                              >
+                                <Info size={10} />
+                              </button>
+                              {weightCalculationInfoOpen === 'novilhas13a24' && popoverPositions.novilhas13a24 && (() => {
+                                const periodoAteMonta = firstMatingAge - weaningAgeMonths;
+                                const ganhoTotal = pesoPrimeiraMonta - femaleWeaningWeight;
+                                const ganhoMensal = periodoAteMonta > 0 ? ganhoTotal / periodoAteMonta : 0;
+                                const mesesAte13Meses = 13 - weaningAgeMonths;
+                                const pesoAos13Meses = femaleWeaningWeight + (ganhoMensal * mesesAte13Meses);
+                                return (
+                                  <div
+                                    className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                    style={{
+                                      top: popoverPositions.novilhas13a24.top,
+                                      left: popoverPositions.novilhas13a24.left,
+                                    }}
+                                  >
+                                    <p className="font-medium text-gray-800 mb-1 text-left">4. Novilhas 13 a 24 meses</p>
+                                    <p className="text-[10px] space-y-1 text-left">
+                                      <div>• A novilha entra em monta aos <strong>{pesoPrimeiraMonta} kg</strong> aos <strong>{firstMatingAge} meses</strong></div>
+                                      <div>• <strong>Ganho Total:</strong> {pesoPrimeiraMonta} kg - Peso ao Desmame ({femaleWeaningWeight} kg) = <strong>{ganhoTotal} kg</strong></div>
+                                      <div>• <strong>Período:</strong> {firstMatingAge} meses - {weaningAgeMonths} meses = <strong>{periodoAteMonta} meses</strong></div>
+                                      {periodoAteMonta > 0 && (
+                                        <>
+                                          <div>• <strong>Ganho Mensal:</strong> {ganhoTotal} kg ÷ {periodoAteMonta} meses = <strong>{ganhoMensal.toFixed(2)} kg/mês</strong></div>
+                                          <div>• <strong>Peso aos 13 meses:</strong> {femaleWeaningWeight} kg + ({ganhoMensal.toFixed(2)} × {mesesAte13Meses}) = <strong>{pesoAos13Meses.toFixed(1)} kg</strong></div>
+                                          <div>• <strong>Peso Médio:</strong> ({pesoAos13Meses.toFixed(1)} + {pesoPrimeiraMonta}) / 2 = <strong>{averageHerdTable.pesoIndividualNovilha13a24.toFixed(1)} kg</strong></div>
+                                        </>
+                                      )}
+                                    </p>
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    <tr className="hover:bg-ai-surface2/50">
+                      <td className="px-4 py-3 text-sm text-ai-text font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>Touros</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsBullCowRatioOpen((v) => !v)}
+                            className="p-1 rounded hover:bg-ai-surface2 transition-colors"
+                            title="Relação Matrizes/Touro (%)"
+                            aria-label="Relação Matrizes/Touro (%)"
+                          >
+                            <Edit3 size={12} className="text-ai-accent" />
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
+                        {averageHerdTable.touros > 0 ? averageHerdTable.touros : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm text-ai-text">
+                        {averageHerdTable.touros > 0 ? averageHerdTable.tempoTouros : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
+                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['touros'] = el; }}>
+                          <span>{averageHerdTable.touros > 0 ? Math.round(averageHerdTable.pesoIndividualTouro).toLocaleString('pt-BR') : '-'}</span>
+                          {averageHerdTable.touros > 0 && (
+                            <>
+                              <button
+                                ref={(el) => { weightButtonRefs.current['touros'] = el; }}
+                                type="button"
+                                onClick={() => handleWeightInfoToggle('touros')}
+                                className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
+                                title="Explicação do cálculo"
+                                aria-label="Explicação do cálculo"
+                              >
+                                <Info size={10} />
+                              </button>
+                              {weightCalculationInfoOpen === 'touros' && popoverPositions.touros && (
+                                <div
+                                  className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                  style={{
+                                    top: popoverPositions.touros.top,
+                                    left: popoverPositions.touros.left,
+                                  }}
+                                >
+                                  <p className="font-medium text-gray-800 mb-1 text-left">5. Touros</p>
+                                  <p className="text-[10px] space-y-1 text-left">
+                                    <div>• <strong>Peso Individual:</strong> {pesoMedioTouro} kg</div>
+                                    <div>• Este valor pode ser ajustado na faixa de 600 a 900 kg</div>
+                                    <div>• Representa o peso médio de touros adultos utilizados na reprodução</div>
+                                  </p>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {isBullCowRatioOpen && (
+                      <tr className="bg-ai-surface2/30">
+                        <td colSpan={4} className="px-4 py-3">
+                          {(() => {
+                            const vacas = averageHerdTable.vacas;
+                            const totalTouros =
+                              bullCowRatioPercent > 0 ? Math.ceil(vacas * (bullCowRatioPercent / 100)) : 0;
+                            const matrizesPorTouro = totalTouros > 0 ? safeDivide(vacas, totalTouros) : 0;
+                            const matrizesPorTouroDisplay = totalTouros > 0 ? Math.round(matrizesPorTouro) : 0;
+                            const bullPercentLabel = `${bullCowRatioPercent.toFixed(1).replace('.', ',')}%`;
+
+                            return (
+                              <div className="space-y-3">
+                                <div className="grid grid-cols-2 gap-4">
+                                  {/* Slider de Relação Matrizes/Touro */}
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs font-semibold text-ai-text">
+                                        Relação Matrizes/touro (%)
+                                      </span>
+                                      <span className="text-xs font-bold text-ai-text">
+                                        {bullPercentLabel}
+                                      </span>
+                                    </div>
+                                    <input
+                                      type="range"
+                                      min={0}
+                                      max={6}
+                                      step={0.5}
+                                      value={bullCowRatioPercent}
+                                      onChange={(e) => {
+                                        const next = parseFloat(e.target.value);
+                                        setBullCowRatioPercent(isFinite(next) ? next : 0);
+                                      }}
+                                      className="w-full accent-ai-accent h-2"
+                                    />
+                                    <div className="text-xs font-semibold text-ai-text mt-1">
+                                      {totalTouros > 0 ? `${matrizesPorTouroDisplay} matrizes por touro` : '- matrizes por touro'}
+                                    </div>
+                                  </div>
+
+                                  {/* Slider de Peso Médio */}
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs font-semibold text-ai-text">
+                                        Peso Médio (kg)
+                                      </span>
+                                      <span className="text-xs font-bold text-ai-text">
+                                        {pesoMedioTouro} kg
+                                      </span>
+                                    </div>
+                                    <input
+                                      type="range"
+                                      min={600}
+                                      max={900}
+                                      step={1}
+                                      value={pesoMedioTouro}
+                                      onChange={(e) => {
+                                        const next = parseInt(e.target.value, 10);
+                                        setPesoMedioTouro(isFinite(next) ? next : 710);
+                                      }}
+                                      className="w-full accent-ai-accent h-2"
+                                    />
+                                    <div className="flex items-center justify-between text-[7px] text-ai-subtext mt-1">
+                                      <span>600 kg</span>
+                                      <span>900 kg</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                  <tfoot className="bg-ai-surface2 border-t-2 border-ai-border">
+                    <tr>
+                      <td className="px-4 py-3 text-sm text-ai-text font-bold">Total</td>
+                      <td className="px-4 py-3 text-center text-sm font-bold text-ai-text">
+                        {averageHerdTable.vacas + averageHerdTable.bezerrosMamando + averageHerdTable.novilhas8a12 + averageHerdTable.novilhas13a24 + averageHerdTable.touros > 0 
+                          ? averageHerdTable.vacas + averageHerdTable.bezerrosMamando + averageHerdTable.novilhas8a12 + averageHerdTable.novilhas13a24 + averageHerdTable.touros 
+                          : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm text-ai-text font-bold">-</td>
+                      <td className="px-4 py-3 text-center text-sm font-bold text-ai-text">
+                        {(() => {
+                          // Peso Médio Ponderado = Σ(Quantidade × Peso Individual) / Σ(Quantidade)
+                          const somaProdutoPesoQuantidade = 
+                            averageHerdTable.pesoVivoVacas + 
+                            averageHerdTable.pesoVivoBezerros + 
+                            averageHerdTable.pesoVivoNovilhas8a12 + 
+                            averageHerdTable.pesoVivoNovilhas13a24 + 
+                            averageHerdTable.pesoVivoTouros;
+                          
+                          const somaQuantidades = 
+                            averageHerdTable.vacas + 
+                            averageHerdTable.bezerrosMamando + 
+                            averageHerdTable.novilhas8a12 + 
+                            averageHerdTable.novilhas13a24 + 
+                            averageHerdTable.touros;
+                          
+                          const pesoMedioPonderado = somaQuantidades > 0 
+                            ? safeDivide(somaProdutoPesoQuantidade, somaQuantidades) 
+                            : 0;
+                          
+                          return pesoMedioPonderado > 0 
+                            ? Math.round(pesoMedioPonderado).toLocaleString('pt-BR')
+                            : '-';
+                        })()}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="px-6 py-4 border-t border-ai-border bg-ai-surface flex items-center justify-end">
+              <button
+                onClick={() => setIsAverageHerdModalOpen(false)}
+                className="px-4 py-2 bg-ai-accent text-white rounded-lg hover:bg-ai-accentHover transition-colors font-medium"
+              >
+                Fechar
               </button>
             </div>
           </div>
