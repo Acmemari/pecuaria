@@ -3,7 +3,7 @@ import { useClient } from '../contexts/ClientContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Farm, Client } from '../types';
 import { supabase } from '../lib/supabase';
-import { Building2, Loader2, AlertCircle, CheckCircle2, Plus, Trash2, Edit3, X, ListChecks, Info } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Plus, Trash2, Edit3, X, ListChecks, Info } from 'lucide-react';
 
 // ============================================================================
 // TIPOS E INTERFACES
@@ -46,11 +46,14 @@ const CATEGORY_IDS = {
 // FUNÇÕES AUXILIARES PURAS
 // ============================================================================
 
-/** Formata valor monetário em R$ */
+/** Formata valor monetário em R$ (otimizado com cache e validação) */
 const formatCurrency = (value: number | undefined | null): string => {
-  if (value === undefined || value === null || !isFinite(value) || value === 0) {
+  // Validação rápida
+  if (!isValidNumber(value) || value === 0) {
     return 'R$ 0,00';
   }
+  
+  // Usa Intl.NumberFormat para formatação precisa e localizada
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -81,13 +84,25 @@ const parseNumberFromComma = (value: string): number => {
   return isFinite(num) ? num : 0;
 };
 
-/** Divisão segura - retorna 0 se divisor for 0 ou resultado inválido */
+/** Divisão segura - retorna 0 se divisor for 0 ou resultado inválido (otimizado) */
 const safeDivide = (numerator: number, denominator: number): number => {
-  if (denominator === 0 || !isFinite(numerator) || !isFinite(denominator)) {
-    return 0;
-  }
+  // Validação rápida com early return
+  if (denominator === 0) return 0;
+  if (!isFinite(numerator) || !isFinite(denominator)) return 0;
+  
   const result = numerator / denominator;
   return isFinite(result) ? result : 0;
+};
+
+/** Type guard para verificar se um valor é um número válido */
+const isValidNumber = (value: unknown): value is number => {
+  return typeof value === 'number' && isFinite(value) && !isNaN(value);
+};
+
+/** Valida e sanitiza um valor numérico, retornando 0 se inválido */
+const sanitizeNumber = (value: unknown, defaultValue = 0): number => {
+  if (isValidNumber(value)) return value;
+  return defaultValue;
 };
 
 /** Retorna configuração de margem baseada no sistema de produção */
@@ -176,7 +191,7 @@ const HERD_CONSTANTS = {
 } as const;
 
 /** Tipo para identificar categorias na tabela de rebanho médio */
-type WeightInfoCategory = 'matrizes' | 'bezerros' | 'novilhas8a12' | 'novilhas13a24' | 'touros';
+type WeightInfoCategory = 'matrizes' | 'bezerros' | 'novilhas8a12' | 'novilhas13a24' | 'touros' | 'cowSlaughter' | 'tempoMatrizes';
 
 /** Interface para os dados da tabela de rebanho médio */
 interface AverageHerdData {
@@ -242,6 +257,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   const [percentage, setPercentage] = useState(4);
   const [productionSystem, setProductionSystem] = useState<Farm['productionSystem'] | ''>('');
   const [expectedMargin, setExpectedMargin] = useState(40);
+  const [analysisMethod, setAnalysisMethod] = useState<'ancoragem' | 'desempenho'>('ancoragem');
 
   // Relação Matrizes/Touro (para o modal de Rebanho Médio)
   const [bullCowRatioPercent, setBullCowRatioPercent] = useState(4); // 0% a 6%, default 4%
@@ -265,15 +281,17 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   const [femaleWeaningWeight, setFemaleWeaningWeight] = useState(200);
   const [firstMatingAge, setFirstMatingAge] = useState(14);
   const [pesoPrimeiraMonta, setPesoPrimeiraMonta] = useState(300); // 270 a 360 kg, default 300
+  const [matingPeriodDays, setMatingPeriodDays] = useState(90); // 40 a 120 dias, default 90
+  const [cowSlaughterDays, setCowSlaughterDays] = useState(30); // 0 a 90 dias, default 30
   
   // Estado de categorias
   const [animalCategories, setAnimalCategories] = useState<AnimalCategory[]>(getDefaultCategories);
   const [selectedIndicators, setSelectedIndicators] = useState<string[]>([
     'weaningRate',
     'kgPerMatrix',
-    'matricesOverAverageHerd',
     'gmdGlobal',
     'lotacaoCabHa',
+    'producaoArrobaHa',
   ]);
   
   // ============================================================================
@@ -517,41 +535,97 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   }, [selectedFarm?.pastureArea, requiredSales]);
 
   // ============================================================================
-  // CÁLCULOS FINANCEIROS
+  // CÁLCULOS FINANCEIROS (OTIMIZADO - Consolidado)
   // ============================================================================
 
-  /** Receita: Valor médio por cabeça × Vendas necessárias */
-  const revenue = useMemo(() => {
-    if (!isPercentageSumValid || averageValue <= 0 || requiredSales <= 0) return 0;
-    return averageValue * requiredSales;
-  }, [isPercentageSumValid, averageValue, requiredSales]);
+  /** Cálculos financeiros consolidados para melhor performance */
+  const financialCalculations = useMemo(() => {
+    const pastureArea = selectedFarm?.pastureArea ?? 0;
+    const herdValue = selectedFarm?.herdValue ?? 0;
+    const propertyValue = selectedFarm?.propertyValue ?? 0;
+    
+    // Receita: Valor médio por cabeça × Vendas necessárias
+    const revenue = (!isPercentageSumValid || averageValue <= 0 || requiredSales <= 0) 
+      ? 0 
+      : averageValue * requiredSales;
+    
+    // Desembolso total: Receita - Valor calculado
+    const totalDisbursement = revenue <= 0 ? 0 : revenue - calculatedValue;
+    
+    // Resultado: Receita - Desembolso
+    const result = revenue - totalDisbursement;
+    
+    // Cálculos derivados
+    const resultPerHectare = (pastureArea <= 0 || result <= 0) 
+      ? 0 
+      : safeDivide(result, pastureArea);
+    
+    const marginOverSale = (revenue <= 0 || result <= 0) 
+      ? 0 
+      : safeDivide(result, revenue) * 100;
+    
+    const resultPerHead = (result <= 0 || requiredSales <= 0) 
+      ? 0 
+      : safeDivide(result, requiredSales);
+    
+    const resultOnLivestockAsset = (result <= 0 || herdValue <= 0) 
+      ? 0 
+      : safeDivide(result, herdValue) * 100;
+    
+    const resultOnLandValue = (result <= 0 || propertyValue <= 0) 
+      ? 0 
+      : safeDivide(result, propertyValue) * 100;
+    
+    const disbursementPerCalf = (totalDisbursement <= 0 || requiredSales <= 0) 
+      ? 0 
+      : safeDivide(totalDisbursement, requiredSales);
+    
+    const averageMonthlyDisbursement = totalDisbursement <= 0 
+      ? 0 
+      : safeDivide(totalDisbursement, 12);
+    
+    return {
+      revenue,
+      totalDisbursement,
+      result,
+      resultPerHectare,
+      marginOverSale,
+      resultPerHead,
+      resultOnLivestockAsset,
+      resultOnLandValue,
+      disbursementPerCalf,
+      averageMonthlyDisbursement,
+    };
+  }, [
+    isPercentageSumValid,
+    averageValue,
+    requiredSales,
+    calculatedValue,
+    selectedFarm?.pastureArea,
+    selectedFarm?.herdValue,
+    selectedFarm?.propertyValue,
+  ]);
 
-  /** Desembolso total: Receita - Valor calculado */
-  const totalDisbursement = useMemo(() => {
-    if (revenue <= 0) return 0;
-    return revenue - calculatedValue;
-  }, [revenue, calculatedValue]);
+  // Desestruturação para manter compatibilidade com código existente
+  const { 
+    revenue, 
+    totalDisbursement, 
+    result, 
+    resultPerHectare, 
+    marginOverSale,
+    resultPerHead,
+    resultOnLivestockAsset,
+    resultOnLandValue,
+    disbursementPerCalf,
+    averageMonthlyDisbursement,
+  } = financialCalculations;
 
-  /** Resultado: Receita - Desembolso */
-  const result = useMemo(() => {
-    return revenue - totalDisbursement;
-  }, [revenue, totalDisbursement]);
-
-  /** Resultado/ha: Resultado ÷ Área pecuária */
-  const resultPerHectare = useMemo(() => {
-    if (!selectedFarm?.pastureArea || selectedFarm.pastureArea <= 0 || result <= 0) return 0;
-    return safeDivide(result, selectedFarm.pastureArea);
-  }, [selectedFarm?.pastureArea, result]);
-
-  /** Margem Sobre a venda: (Resultado ÷ Receita) × 100% */
-  const marginOverSale = useMemo(() => {
-    if (revenue <= 0 || result <= 0) return 0;
-    return safeDivide(result, revenue) * 100;
-  }, [revenue, result]);
-
-  /** Calcula quantidade para uma categoria */
+  /** Calcula quantidade para uma categoria (otimizado com validação) */
   const calculateQuantity = useCallback((categoryPercentage: number): number => {
-    if (!isPercentageSumValid || requiredSales === 0) return 0;
+    // Validação rápida com early return
+    if (!isPercentageSumValid || requiredSales === 0 || categoryPercentage <= 0) return 0;
+    if (!isValidNumber(categoryPercentage)) return 0;
+    
     return Math.round(safeDivide(requiredSales * categoryPercentage, 100));
   }, [isPercentageSumValid, requiredSales]);
 
@@ -610,45 +684,60 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     };
   }, [showReproductiveIndices, isPercentageSumValid, requiredSales, requiredMatrixes, animalCategories, calculateQuantity, firstMatingAge]);
 
-  /** Passo 1: indice_tempo = idade_primeira_monta - 12 */
-  const indiceTempo = useMemo(() => {
-    return Math.max(0, firstMatingAge - 12);
-  }, [firstMatingAge]);
+  /** Cálculos do índice de rebanho consolidados para melhor performance */
+  const herdIndexCalculations = useMemo(() => {
+    if (!showReproductiveIndices) {
+      return {
+        indiceTempo: 0,
+        indiceNovilhas: 0,
+        indexValorRebanho: 0,
+        matricesOverAverageHerd: 0,
+        averageHerd: 0,
+      };
+    }
 
-  /** Passo 2: indice_novilhas = (indice_tempo × 37.5) ÷ 12 */
-  const indiceNovilhas = useMemo(() => {
-    return safeDivide(indiceTempo * 37.5, 12);
-  }, [indiceTempo]);
+    // Passo 1: indice_tempo = idade_primeira_monta - 12
+    const indiceTempo = Math.max(0, firstMatingAge - 12);
+    
+    // Passo 2: indice_novilhas = (indice_tempo × 37.5) ÷ 12
+    const indiceNovilhas = safeDivide(indiceTempo * 37.5, 12);
+    
+    // Passo 3: index_valor_rebanho = indice_novilhas + 163.375
+    const indexValorRebanho = indiceNovilhas + 163.375;
+    
+    // Passo 4: matrizes_sobre_rebanho_medio = 100 / index_valor_rebanho
+    const matricesOverAverageHerd = indexValorRebanho <= 0 
+      ? 0 
+      : safeDivide(100, indexValorRebanho);
+    
+    // Rebanho médio para exibição = Matrizes necessárias / Matrizes sobre rebanho médio
+    const averageHerd = (matricesOverAverageHerd <= 0 || requiredMatrixes <= 0) 
+      ? 0 
+      : safeDivide(requiredMatrixes, matricesOverAverageHerd);
 
-  /** Passo 3: index_valor_rebanho = indice_novilhas + 163.375 */
-  const indexValorRebanho = useMemo(() => {
-    if (!showReproductiveIndices) return 0;
-    return indiceNovilhas + 163.375;
-  }, [indiceNovilhas, showReproductiveIndices]);
+    return {
+      indiceTempo,
+      indiceNovilhas,
+      indexValorRebanho,
+      matricesOverAverageHerd,
+      averageHerd,
+    };
+  }, [showReproductiveIndices, firstMatingAge, requiredMatrixes]);
 
-  /** Passo 4: matrizes_sobre_rebanho_medio = 100 / index_valor_rebanho */
-  const matricesOverAverageHerd = useMemo(() => {
-    if (indexValorRebanho <= 0) return 0;
-    return safeDivide(100, indexValorRebanho);
-  }, [indexValorRebanho]);
-
-  /** Rebanho médio para exibição = Matrizes necessárias / Matrizes sobre rebanho médio */
-  const averageHerd = useMemo(() => {
-    if (!showReproductiveIndices || matricesOverAverageHerd <= 0 || requiredMatrixes <= 0) return 0;
-    return safeDivide(requiredMatrixes, matricesOverAverageHerd);
-  }, [showReproductiveIndices, matricesOverAverageHerd, requiredMatrixes]);
+  // Desestruturação para manter compatibilidade
+  const { 
+    indiceTempo, 
+    indiceNovilhas, 
+    indexValorRebanho, 
+    matricesOverAverageHerd, 
+    averageHerd 
+  } = herdIndexCalculations;
 
   /** Desembolso por cabeça mês: (Desembolso ÷ Rebanho médio) ÷ 12 */
   const disbursementPerHeadMonth = useMemo(() => {
     if (!showReproductiveIndices || averageHerd <= 0 || totalDisbursement <= 0) return 0;
     return safeDivide(safeDivide(totalDisbursement, averageHerd), 12);
   }, [showReproductiveIndices, averageHerd, totalDisbursement]);
-
-  /** Lotação: Rebanho médio ÷ área pecuária */
-  const lotacaoCabHa = useMemo(() => {
-    if (!showReproductiveIndices || averageHerd <= 0 || !farm?.pastureArea) return 0;
-    return safeDivide(averageHerd, farm.pastureArea);
-  }, [showReproductiveIndices, averageHerd, farm?.pastureArea]);
 
   /** GMD global: soma(quantidade × peso em kg) ÷ rebanho médio ÷ 365 */
   const gmdGlobal = useMemo(() => {
@@ -662,24 +751,51 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     return safeDivide(safeDivide(totalPesoKg, averageHerd), 365);
   }, [showReproductiveIndices, averageHerd, animalCategories, calculateQuantity]);
 
-  /** Produção de @/ha: soma(quantidade × peso em @) ÷ área pecuária */
-  const producaoArrobaHa = useMemo(() => {
-    if (!selectedFarm?.pastureArea || selectedFarm.pastureArea <= 0) return 0;
+  /** Total de arrobas produzidas: soma(quantidade × peso em @) (otimizado) */
+  const totalArroba = useMemo(() => {
+    if (!animalCategories.length) return 0;
     
-    const totalArroba = animalCategories.reduce((sum, category) => {
+    return animalCategories.reduce((sum, category) => {
       const quantity = calculateQuantity(category.percentage);
       if (quantity <= 0) return sum;
       
-      // Converter peso para @ (arrobas)
+      // Converter peso para @ (arrobas) - otimizado
       const weightArroba = isKgCategory(category.id) 
-        ? category.weight / 30  // kg → @ (divide por 30)
+        ? category.weight / HERD_CONSTANTS.ARROBA_TO_KG  // Usa constante
         : category.weight;      // Já está em @
+      
+      if (!isValidNumber(weightArroba)) return sum;
       
       return sum + (quantity * weightArroba);
     }, 0);
-    
+  }, [animalCategories, calculateQuantity]);
+
+  /** Produção de @/ha: total de arrobas ÷ área pecuária */
+  const producaoArrobaHa = useMemo(() => {
+    if (!selectedFarm?.pastureArea || selectedFarm.pastureArea <= 0) return 0;
     return safeDivide(totalArroba, selectedFarm.pastureArea);
-  }, [selectedFarm?.pastureArea, animalCategories, calculateQuantity]);
+  }, [selectedFarm?.pastureArea, totalArroba]);
+
+  /** Desembolso/@: Desembolso total ÷ Total de arrobas produzidas */
+  const disbursementPerArroba = useMemo(() => {
+    if (totalDisbursement <= 0 || totalArroba <= 0) return 0;
+    return safeDivide(totalDisbursement, totalArroba);
+  }, [totalDisbursement, totalArroba]);
+
+  // Função auxiliar para verificar se indicadores estão implementados
+  const formatIndicatorValue = useCallback((value: number | undefined, format: 'currency' | 'percentage', hasRequiredData: boolean): string => {
+    if (!hasRequiredData) return '!!!';
+    if (!isFinite(value) || value === 0) return '-';
+    return format === 'currency' ? formatCurrency(value) : `${value.toFixed(1)}%`;
+  }, []);
+
+  // Verificações de disponibilidade de dados para cada indicador (usando useMemo para performance)
+  const hasDisbursementPerArrobaData = useMemo(() => totalDisbursement > 0 && totalArroba > 0, [totalDisbursement, totalArroba]);
+  const hasDisbursementPerCalfData = useMemo(() => totalDisbursement > 0 && requiredSales > 0, [totalDisbursement, requiredSales]);
+  const hasAverageMonthlyDisbursementData = useMemo(() => totalDisbursement > 0, [totalDisbursement]);
+  const hasResultPerHeadData = useMemo(() => result > 0 && requiredSales > 0, [result, requiredSales]);
+  const hasResultOnLivestockAssetData = useMemo(() => result > 0 && (selectedFarm?.herdValue ?? 0) > 0, [result, selectedFarm?.herdValue]);
+  const hasResultOnLandValueData = useMemo(() => result > 0 && (selectedFarm?.propertyValue ?? 0) > 0, [result, selectedFarm?.propertyValue]);
 
   /** Cálculos para tabela de Rebanho Médio */
   const averageHerdTable = useMemo((): AverageHerdData => {
@@ -692,7 +808,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
       novilhas8a12: 0,
       novilhas13a24: 0,
       touros: 0,
-      tempoVacas: TEMPO_MATRIZES,
+      tempoVacas: (282 + matingPeriodDays + cowSlaughterDays) / 30.4,
       tempoBezerros: weaningAgeMonths,
       tempoNovilhas8a12: TEMPO_NOVILHAS_8_12,
       tempoNovilhas13a24: Math.max(0, firstMatingAge - 12),
@@ -719,7 +835,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
 
     // === MATRIZES ===
     const vacas = Math.round(requiredMatrixes);
-    const tempoVacas = TEMPO_MATRIZES;
+    // Fórmula: (282 + tempo de monta + dias para abate) / 30,4
+    const tempoVacas = (282 + matingPeriodDays + cowSlaughterDays) / 30.4;
     const pesoMedioVaca = pesoVacaDescarteArroba * ARROBA_TO_KG * MATRIZ_WEIGHT_FACTOR;
     const pesoVivoVacas = vacas * pesoMedioVaca;
 
@@ -781,7 +898,47 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
       pesoIndividualNovilha13a24: pesoMedioNovilha13a24,
       pesoIndividualTouro: pesoMedioTouro,
     };
-  }, [showReproductiveIndices, requiredMatrixes, weaningRate, bullCowRatioPercent, firstMatingAge, maleWeaningWeight, femaleWeaningWeight, animalCategories, weaningAgeMonths, pesoPrimeiraMonta, pesoMedioTouro]);
+  }, [showReproductiveIndices, requiredMatrixes, weaningRate, bullCowRatioPercent, firstMatingAge, maleWeaningWeight, femaleWeaningWeight, animalCategories, weaningAgeMonths, pesoPrimeiraMonta, pesoMedioTouro, matingPeriodDays, cowSlaughterDays]);
+
+  /** Rebanho Médio calculado: Σ(quantidade × tempo) / 12 */
+  const rebanhoMedioCalculado = useMemo(() => {
+    if (!showReproductiveIndices) return 0;
+    const categorias = [
+      { quantidade: averageHerdTable.vacas, tempo: averageHerdTable.tempoVacas },
+      { quantidade: averageHerdTable.bezerrosMamando, tempo: averageHerdTable.tempoBezerros },
+      { quantidade: averageHerdTable.novilhas8a12, tempo: averageHerdTable.tempoNovilhas8a12 },
+      { quantidade: averageHerdTable.novilhas13a24, tempo: averageHerdTable.tempoNovilhas13a24 },
+      { quantidade: averageHerdTable.touros, tempo: averageHerdTable.tempoTouros },
+    ];
+    const somaQtdTempo = categorias.reduce((sum, c) => sum + (c.quantidade * c.tempo), 0);
+    return somaQtdTempo / 12;
+  }, [showReproductiveIndices, averageHerdTable]);
+
+  /** Total de UAs: Σ(quantidade × tempo × peso) / 12 / 450 */
+  const totalUAsCalculado = useMemo(() => {
+    if (!showReproductiveIndices) return 0;
+    const categorias = [
+      { quantidade: averageHerdTable.vacas, tempo: averageHerdTable.tempoVacas, peso: averageHerdTable.pesoIndividualVaca },
+      { quantidade: averageHerdTable.bezerrosMamando, tempo: averageHerdTable.tempoBezerros, peso: averageHerdTable.pesoIndividualBezerro },
+      { quantidade: averageHerdTable.novilhas8a12, tempo: averageHerdTable.tempoNovilhas8a12, peso: averageHerdTable.pesoIndividualNovilha8a12 },
+      { quantidade: averageHerdTable.novilhas13a24, tempo: averageHerdTable.tempoNovilhas13a24, peso: averageHerdTable.pesoIndividualNovilha13a24 },
+      { quantidade: averageHerdTable.touros, tempo: averageHerdTable.tempoTouros, peso: averageHerdTable.pesoIndividualTouro },
+    ];
+    const somaQtdTempoPeso = categorias.reduce((sum, c) => sum + (c.quantidade * c.tempo * c.peso), 0);
+    return somaQtdTempoPeso / 12 / 450;
+  }, [showReproductiveIndices, averageHerdTable]);
+
+  /** Lotação: Total de UAs ÷ área pecuária */
+  const lotacaoCabHa = useMemo(() => {
+    if (!showReproductiveIndices || totalUAsCalculado <= 0 || !farm?.pastureArea) return 0;
+    return safeDivide(totalUAsCalculado, farm.pastureArea);
+  }, [showReproductiveIndices, totalUAsCalculado, farm?.pastureArea]);
+
+  /** Lotação Cab./ha: Rebanho médio ÷ área pecuária */
+  const lotacaoCabecasHa = useMemo(() => {
+    if (!showReproductiveIndices || rebanhoMedioCalculado <= 0 || !farm?.pastureArea) return 0;
+    return safeDivide(rebanhoMedioCalculado, farm.pastureArea);
+  }, [showReproductiveIndices, rebanhoMedioCalculado, farm?.pastureArea]);
 
   const MAX_PERFORMANCE_INDICATORS = 5;
   const performanceIndicators = useMemo(() => [
@@ -817,7 +974,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     },
     {
       id: 'lotacaoCabHa',
-      label: 'Lotação Cab/ha',
+      label: 'Lotação UA/ha',
       value: lotacaoCabHa,
       format: (value: number) => value.toFixed(2),
     },
@@ -827,7 +984,13 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
       value: producaoArrobaHa,
       format: (value: number) => `${value.toFixed(2)} @/ha`,
     },
-  ], [weaningRate, kgPerMatrix, matricesOverAverageHerd, salesPerHectare, gmdGlobal, lotacaoCabHa, producaoArrobaHa]);
+    {
+      id: 'lotacaoCabecasHa',
+      label: 'Lotação Cab./ha',
+      value: lotacaoCabecasHa,
+      format: (value: number) => value.toFixed(2),
+    },
+  ], [weaningRate, kgPerMatrix, matricesOverAverageHerd, salesPerHectare, gmdGlobal, lotacaoCabHa, producaoArrobaHa, lotacaoCabecasHa]);
 
   const visiblePerformanceIndicators = useMemo(
     () => performanceIndicators.filter((indicator) => selectedIndicators.includes(indicator.id)),
@@ -855,20 +1018,25 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   // ============================================================================
 
   const loadFarmsForClient = useCallback(async (clientId: string) => {
-    if (!clientId) {
+    // Validação de entrada
+    if (!clientId || typeof clientId !== 'string' || clientId.trim() === '') {
       setFarms([]);
       return;
     }
     
     try {
-      // Carregar fazendas do localStorage
+      // Carregar fazendas do localStorage com tratamento de erros robusto
       let allFarms: Farm[] = [];
       
       if (typeof window !== 'undefined' && window.localStorage) {
         try {
           const storedFarms = localStorage.getItem('agro-farms');
-      if (storedFarms) {
-          allFarms = JSON.parse(storedFarms) || [];
+          if (storedFarms) {
+            const parsed = JSON.parse(storedFarms);
+            // Validação de tipo
+            if (Array.isArray(parsed)) {
+              allFarms = parsed;
+            }
           }
         } catch (parseError) {
           console.error('[AgilePlanning] Error parsing farms from localStorage:', parseError);
@@ -889,9 +1057,15 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
         return;
       }
 
-      if (clientFarmsData && allFarms.length > 0) {
-        const farmIds = new Set(clientFarmsData.map(cf => cf.farm_id));
-        const farmsForClient = allFarms.filter(f => farmIds.has(f.id));
+      // Processar e filtrar fazendas com validação
+      if (clientFarmsData && Array.isArray(clientFarmsData) && allFarms.length > 0) {
+        const farmIds = new Set(
+          clientFarmsData
+            .map(cf => cf?.farm_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        );
+        
+        const farmsForClient = allFarms.filter(f => f?.id && farmIds.has(f.id));
         setFarms(farmsForClient);
         
         if (farmsForClient.length > 0) {
@@ -901,7 +1075,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
         setFarms([]);
       }
     } catch (err) {
-      console.error('[AgilePlanning] Unexpected error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      console.error('[AgilePlanning] Unexpected error:', errorMessage, err);
       onToast?.('Erro inesperado ao carregar fazendas.', 'error');
       setFarms([]);
     }
@@ -925,6 +1100,12 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
         // Carregar clientes diretamente aqui para evitar dependência circular
         const fetchClients = async () => {
           try {
+            // Validação de user
+            if (!user?.id) {
+              console.warn('[AgilePlanning] User ID not available');
+              return;
+            }
+
             let query = supabase.from('clients').select('*');
             
             // Analista vê apenas seus clientes; admin vê todos
@@ -941,16 +1122,19 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
               return;
             }
 
-            if (data) {
-              const mappedClients: Client[] = data.map(client => ({
-                id: client.id,
-                name: client.name,
-                phone: client.phone || '',
-                email: client.email,
-                analystId: client.analyst_id,
-                createdAt: client.created_at,
-                updatedAt: client.updated_at
-              }));
+            if (data && Array.isArray(data)) {
+              // Mapeamento com validação de dados
+              const mappedClients: Client[] = data
+                .filter(client => client?.id && client?.name) // Validação básica
+                .map(client => ({
+                  id: client.id,
+                  name: client.name,
+                  phone: client.phone || '',
+                  email: client.email || '',
+                  analystId: client.analyst_id || null,
+                  createdAt: client.created_at || new Date().toISOString(),
+                  updatedAt: client.updated_at || new Date().toISOString()
+                }));
               
               setClients(mappedClients);
               if (mappedClients.length > 0) {
@@ -958,7 +1142,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
               }
             }
           } catch (err) {
-            console.error('[AgilePlanning] Unexpected error:', err);
+            const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+            console.error('[AgilePlanning] Unexpected error:', errorMessage, err);
             onToast?.('Erro inesperado ao carregar clientes.', 'error');
           }
         };
@@ -1123,25 +1308,40 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     );
   }
 
+  // Handlers memoizados para melhor performance
+  const handleProductionSystemChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as Farm['productionSystem'] | '';
+    // Validação de segurança
+    if (value === '' || ['Cria', 'Ciclo Completo', 'Recria-Engorda'].includes(value)) {
+      setProductionSystem(value);
+    }
+  }, []);
+
+  const handleAnalysisMethodChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value as 'ancoragem' | 'desempenho';
+    // Validação de segurança
+    if (value === 'ancoragem' || value === 'desempenho') {
+      setAnalysisMethod(value);
+    }
+  }, []);
+
   // Tela principal do Planejamento Ágil
   return (
     <div className="h-full flex flex-col p-6 bg-ai-bg">
       {/* Header - Sistema de Produção e Informações da Fazenda */}
       <div className="mb-6 flex-shrink-0">
-        <div className="flex items-center gap-4 text-sm text-ai-subtext overflow-x-auto overflow-y-visible">
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Building2 size={16} />
-            <span className="whitespace-nowrap">Fazenda: <strong className="text-ai-text">{selectedFarm?.name}</strong></span>
-          </div>
-
+        <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm text-ai-subtext flex-wrap">
           {/* Sistema de Produção */}
           {selectedFarm && (
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <label className="text-ai-subtext text-sm whitespace-nowrap">Sistema de Produção:</label>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <label className="text-ai-subtext text-xs leading-tight">
+                <span className="block">Sistema de</span>
+                <span className="block">Produção:</span>
+              </label>
               <select
                 value={productionSystem}
-                onChange={(e) => setProductionSystem(e.target.value as Farm['productionSystem'] | '')}
-                className="px-3 py-1.5 bg-ai-surface2 border border-ai-border rounded-md text-ai-text text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent min-w-[180px] flex-shrink-0"
+                onChange={handleProductionSystemChange}
+                className="px-2 py-1 bg-ai-surface2 border border-ai-border rounded-md text-ai-text text-xs focus:outline-none focus:ring-2 focus:ring-ai-accent min-w-[130px] max-w-[150px] flex-shrink-0"
               >
                 <option value="">Selecione...</option>
                 <option value="Cria">Cria</option>
@@ -1151,45 +1351,61 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
             </div>
           )}
 
+          {/* Método de Análise */}
+          {selectedFarm && (
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <label className="text-ai-subtext text-xs whitespace-nowrap">Método:</label>
+              <select
+                value={analysisMethod}
+                onChange={handleAnalysisMethodChange}
+                disabled={true}
+                className="px-2 py-1 bg-ai-surface2 border border-ai-border rounded-md text-ai-text text-xs focus:outline-none focus:ring-2 focus:ring-ai-accent min-w-[130px] max-w-[150px] flex-shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <option value="ancoragem">Ancoragem de Resultado</option>
+                <option value="desempenho">Resultado pelo Desempenho</option>
+              </select>
+            </div>
+          )}
+
           {/* Informações da Fazenda */}
           {selectedFarm && (
-            <div className="flex items-start gap-3 pl-3 border-l border-ai-border flex-shrink-0 min-w-0">
+            <div className="flex items-start gap-2 pl-2 border-l border-ai-border flex-shrink-0 min-w-0">
               {/* Valor Total da Fazenda */}
-              {(selectedFarm as any).propertyValue && (
+              {farm?.propertyValue && isValidNumber(farm.propertyValue) && (
                 <div className="flex flex-col gap-0.5 whitespace-nowrap">
-                  <span className="text-ai-subtext text-xs">Valor Total</span>
-                  <span className="font-semibold text-ai-text text-sm">
-                    {formatCurrency((selectedFarm as any).propertyValue)}
+                  <span className="text-ai-subtext text-[10px]">Valor Total</span>
+                  <span className="font-semibold text-ai-text text-xs">
+                    {formatCurrency(farm.propertyValue)}
                   </span>
                 </div>
               )}
 
               {/* Valor Operação Pecuária */}
-              {(selectedFarm as any).operationPecuary && (
+              {farm?.operationPecuary && isValidNumber(farm.operationPecuary) && (
                 <>
-                  <div className="h-8 w-px bg-ai-border flex-shrink-0 self-stretch" />
+                  <div className="h-7 w-px bg-ai-border flex-shrink-0 self-stretch" />
                   <div className="flex flex-col gap-0.5 whitespace-nowrap">
-                    <span className="text-ai-subtext text-xs">Op. Pecuária</span>
-                    <span className="font-semibold text-ai-text text-sm">
-                      {formatCurrency((selectedFarm as any).operationPecuary)}
+                    <span className="text-ai-subtext text-[10px]">Op. Pecuária</span>
+                    <span className="font-semibold text-ai-text text-xs">
+                      {formatCurrency(farm.operationPecuary)}
                     </span>
                   </div>
                 </>
               )}
 
               {/* Área Produtiva Pecuária */}
-              {selectedFarm.pastureArea && (
+              {selectedFarm.pastureArea && isValidNumber(selectedFarm.pastureArea) && (
                 <>
-                  <div className="h-8 w-px bg-ai-border flex-shrink-0 self-stretch" />
+                  <div className="h-7 w-px bg-ai-border flex-shrink-0 self-stretch" />
                   <div className="flex flex-col gap-0.5 whitespace-nowrap flex-shrink-0 min-w-fit">
-                    <span className="text-ai-subtext text-xs">Área Pecuária</span>
-                    <span className="font-semibold text-ai-text text-sm">
+                    <span className="text-ai-subtext text-[10px]">Área Pecuária</span>
+                    <span className="font-semibold text-ai-text text-xs">
                       {formatArea(selectedFarm.pastureArea)}
                     </span>
-          </div>
+                  </div>
                 </>
               )}
-          </div>
+            </div>
           )}
         </div>
       </div>
@@ -1203,10 +1419,10 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
               {/* Barra de Percentual de Investimento com Valor Calculado */}
               <div className="flex items-center gap-3">
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-ai-text mb-1.5">
+                  <label className="block text-xs font-medium text-ai-text mb-1">
                     Percentual de Investimento
                   </label>
-                  <div className="relative pt-4 pb-1.5">
+                  <div className="relative pt-3 pb-1">
                     {/* Track */}
                     <div className="relative h-1.5 bg-gray-200 rounded-full overflow-visible">
                       {/* Área destacada (4% a 9%) */}
@@ -1259,12 +1475,12 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                 </div>
 
                 {/* Valor Calculado - Compacto */}
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-2 border border-blue-200 min-w-[140px]">
-                  <div className="text-[9px] text-blue-700 mb-0.5 font-medium">Valor Calculado</div>
-                  <div className="text-base font-bold text-blue-900 mb-0.5">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-1.5 border border-blue-200 min-w-[140px]">
+                  <div className="text-[8px] text-blue-700 mb-0 font-medium">Valor Calculado</div>
+                  <div className="text-sm font-bold text-blue-900">
                     {formatCurrency(calculatedValue)}
                   </div>
-                  <div className="text-[8px] text-blue-600 bg-blue-50 rounded px-1 py-0.5 border border-blue-200">
+                  <div className="text-[7px] text-blue-600 bg-blue-50 rounded px-1 py-0.5 border border-blue-200 mt-0.5">
                     {percentage.toFixed(1)}% × {formatCurrency(operationPecuaryValue)}
                   </div>
                 </div>
@@ -1274,7 +1490,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
               {productionSystem && (
                 <div className="flex items-center gap-3">
                   <div className="flex-1">
-                    <label className="block text-xs font-medium text-ai-text mb-1.5">
+                    <label className="block text-xs font-medium text-ai-text mb-1">
                       Margem Esperada
                     </label>
                     {(() => {
@@ -1287,7 +1503,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                       }
 
                       return (
-                        <div className="relative pt-4 pb-1.5">
+                        <div className="relative pt-3 pb-1">
                           {/* Track */}
                           <div className="relative h-1.5 bg-gray-200 rounded-full overflow-visible">
                             {/* Área destacada */}
@@ -1339,12 +1555,12 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                   </div>
 
                   {/* Faturamento Necessário - Compacto */}
-                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-2 border border-purple-200 min-w-[140px]">
-                    <div className="text-[9px] text-purple-700 mb-0.5 font-medium">Faturamento Necessário</div>
-                    <div className="text-base font-bold text-purple-900 mb-0.5">
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-1.5 border border-purple-200 min-w-[140px]">
+                    <div className="text-[8px] text-purple-700 mb-0 font-medium">Faturamento Necessário</div>
+                    <div className="text-sm font-bold text-purple-900">
                       {formatCurrency(requiredRevenue)}
                     </div>
-                    <div className="text-[8px] text-purple-600 bg-purple-50 rounded px-1 py-0.5 border border-purple-200">
+                    <div className="text-[7px] text-purple-600 bg-purple-50 rounded px-1 py-0.5 border border-purple-200 mt-0.5">
                       {formatCurrency(calculatedValue)} ÷ {expectedMargin.toFixed(1)}%
                     </div>
                   </div>
@@ -1404,7 +1620,13 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                             </button>
                           </div>
                           <span className="text-sm font-bold text-ai-text">
-                            {averageHerd > 0 ? `${Math.round(averageHerd)} Cabeças` : '-'}
+                            {rebanhoMedioCalculado > 0 ? `${Math.round(rebanhoMedioCalculado)} Cabeças` : '-'}
+                          </span>
+                        </div>
+                        <div className="flex items-start justify-between pt-1 border-t border-ai-border/40">
+                          <span className="text-[9px] text-ai-subtext leading-tight">Total<br />UAs</span>
+                          <span className="text-sm font-bold text-ai-text">
+                            {totalUAsCalculado > 0 ? `${Math.round(totalUAsCalculado)} UA's` : '-'}
                           </span>
                         </div>
                       </>
@@ -1465,7 +1687,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">15%</span>
-                          </div>
+          </div>
                         </div>
 
                         <div>
@@ -1487,14 +1709,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">7%</span>
-                          </div>
-          </div>
         </div>
       </div>
 
-                    <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0">
-                      <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">Índices Reprodutivos</h3>
-                      <div className="flex flex-col justify-between flex-1 gap-2">
                         <div>
                           <div className="flex items-center justify-between text-[9px] mb-0.5">
                             <label className="text-ai-subtext">Peso ao desmame de machos</label>
@@ -1514,8 +1731,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">260 kg</span>
-        </div>
-      </div>
+                          </div>
+                        </div>
 
                         <div>
                           <div className="flex items-center justify-between text-[9px] mb-0.5">
@@ -1538,7 +1755,12 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                             <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">260 kg</span>
                           </div>
                         </div>
+                      </div>
+                    </div>
 
+                    <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0">
+                      <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">Índices Reprodutivos</h3>
+                      <div className="flex flex-col justify-between flex-1 gap-2">
                         <div>
                           <div className="flex items-center justify-between text-[9px] mb-0.5">
                             <label className="text-ai-subtext">Idade a primeira monta</label>
@@ -1580,6 +1802,76 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">360 kg</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] mb-0.5">
+                            <label className="text-ai-subtext">Tempo de monta</label>
+                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                              {matingPeriodDays} dias
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">40 dias</span>
+                            <input
+                              type="range"
+                              min={40}
+                              max={120}
+                              step={1}
+                              value={matingPeriodDays}
+                              onChange={(e) => setMatingPeriodDays(parseInt(e.target.value, 10))}
+                              className="flex-1 accent-ai-accent h-1.5"
+                            />
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">120 dias</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] mb-0.5">
+                            <div className="flex items-center gap-1 relative" ref={(el) => { weightInfoRefs.current['cowSlaughter'] = el; }}>
+                              <label className="text-ai-subtext">Dias para abate de vacas</label>
+                              <button
+                                ref={(el) => { weightButtonRefs.current['cowSlaughter'] = el; }}
+                                type="button"
+                                onClick={() => handleWeightInfoToggle('cowSlaughter')}
+                                className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
+                                title="Mais informações"
+                                aria-label="Mais informações"
+                              >
+                                <Info size={10} />
+                              </button>
+                              {weightCalculationInfoOpen === 'cowSlaughter' && popoverPositions.cowSlaughter && (
+                                <div
+                                  className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                  style={{
+                                    top: popoverPositions.cowSlaughter.top,
+                                    left: popoverPositions.cowSlaughter.left,
+                                  }}
+                                >
+                                  <p className="font-medium text-gray-800 mb-1 text-left">Dias para abate de vacas</p>
+                                  <p className="text-[10px] text-left">
+                                    Dias necessários para terminação das matrizes vazias após o desmame.
+          </p>
+        </div>
+                              )}
+      </div>
+                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                              {cowSlaughterDays} dias
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">0 dias</span>
+                            <input
+                              type="range"
+                              min={0}
+                              max={90}
+                              step={1}
+                              value={cowSlaughterDays}
+                              onChange={(e) => setCowSlaughterDays(parseInt(e.target.value, 10))}
+                              className="flex-1 accent-ai-accent h-1.5"
+                            />
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">90 dias</span>
                           </div>
                         </div>
                       </div>
@@ -1626,52 +1918,128 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
 
           {/* Bloco Finanças */}
           <div className="mb-4">
-            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-2 border border-indigo-200 overflow-x-auto">
-              <h3 className="text-[10px] font-semibold text-indigo-700 mb-1.5">Finanças</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 min-w-max">
-                <div>
-                  <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Receita</div>
-                  <div className="text-base font-bold text-indigo-900">
-                    {isFinite(revenue) && revenue !== 0 ? formatCurrency(revenue) : '-'}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Desembolso Total</div>
-                  <div className="text-base font-bold text-indigo-900">
-                    {isFinite(totalDisbursement) && totalDisbursement !== 0 ? formatCurrency(totalDisbursement) : '-'}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Resultado</div>
-                  <div className={`text-base font-bold ${isFinite(result) && result >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                    {isFinite(result) && result !== 0 ? formatCurrency(result) : '-'}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Resultado/ha</div>
-                  <div className={`text-base font-bold ${isFinite(resultPerHectare) && resultPerHectare >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                    {isFinite(resultPerHectare) && resultPerHectare !== 0 ? formatCurrency(resultPerHectare) : '-'}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Margem Sobre a Venda</div>
-                  <div className={`text-base font-bold ${isFinite(marginOverSale) && marginOverSale >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                    {isFinite(marginOverSale) && marginOverSale !== 0 ? `${marginOverSale.toFixed(1)}%` : '-'}
-                  </div>
-                </div>
-
-                {showReproductiveIndices && (
-                  <div>
-                    <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Desembolso por Cabeça/Mês</div>
-                    <div className="text-base font-bold text-indigo-900">
-                      {isFinite(disbursementPerHeadMonth) && disbursementPerHeadMonth !== 0 ? formatCurrency(disbursementPerHeadMonth) : '-'}
+            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-1.5 border border-indigo-200">
+              <h3 className="text-[8px] font-semibold text-indigo-700 mb-1">Finanças</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1.5">
+                {/* Coluna A: Receita/Desembolso/Resultado */}
+                <div className="space-y-0.5">
+                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Receita</div>
+                    <div className="text-xs font-bold text-indigo-900 leading-tight">
+                      {isFinite(revenue) && revenue !== 0 ? formatCurrency(revenue) : '-'}
                     </div>
+                    {isFinite(revenue) && revenue !== 0 && requiredSales > 0 && (
+                      <div className="text-[6px] text-indigo-500 mt-0 leading-tight">
+                        {formatCurrency(safeDivide(revenue, requiredSales))} × {requiredSales} cabeças
+                      </div>
+                    )}
                   </div>
-                )}
+
+                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso Total</div>
+                    <div className="text-xs font-bold text-indigo-900 leading-tight">
+                      {isFinite(totalDisbursement) && totalDisbursement !== 0 ? formatCurrency(totalDisbursement) : '-'}
+                    </div>
+                    <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Custo operacional efetivo</div>
+                  </div>
+
+                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Resultado</div>
+                    <div className={`text-xs font-bold leading-tight ${isFinite(result) && result >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      {isFinite(result) && result !== 0 ? formatCurrency(result) : '-'}
+                    </div>
+                    {isFinite(revenue) && isFinite(totalDisbursement) && revenue !== 0 && totalDisbursement !== 0 && (
+                      <div className="text-[6px] text-indigo-500 mt-0 leading-tight">
+                        {formatCurrency(revenue)} - {formatCurrency(totalDisbursement)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Coluna B: Desembolso/@ - Desembolso/Bez - Desembolso/Cab/mês */}
+                <div className="space-y-0.5">
+                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso/@</div>
+                    <div className="text-xs font-bold text-indigo-900 leading-tight">
+                      {formatIndicatorValue(disbursementPerArroba, 'currency', hasDisbursementPerArrobaData)}
+                    </div>
+                    <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Custo por arroba produzida</div>
+                  </div>
+
+                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso/Bezerro</div>
+                    <div className="text-xs font-bold text-indigo-900 leading-tight">
+                      {formatIndicatorValue(disbursementPerCalf, 'currency', hasDisbursementPerCalfData)}
+                    </div>
+                    <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Custo por animal desmamado</div>
+                  </div>
+
+                  {showReproductiveIndices && (
+                    <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                      <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso/Cab/Mês</div>
+                      <div className="text-xs font-bold text-indigo-900 leading-tight">
+                        {isFinite(disbursementPerHeadMonth) && disbursementPerHeadMonth !== 0 ? formatCurrency(disbursementPerHeadMonth) : '-'}
+                      </div>
+                      <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Custo de manutenção mensal</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Coluna C: Resultado por ha / Resultado por Cabeça / Margem sobre a venda */}
+                <div className="space-y-0.5">
+                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Resultado/ha</div>
+                    <div className={`text-xs font-bold leading-tight ${isFinite(resultPerHectare) && resultPerHectare >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      {isFinite(resultPerHectare) && resultPerHectare !== 0 ? formatCurrency(resultPerHectare) : '-'}
+                    </div>
+                    <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Lucro por hectare de pasto</div>
+                  </div>
+
+                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Resultado por Cabeça</div>
+                    <div className={`text-xs font-bold leading-tight ${hasResultPerHeadData && isFinite(resultPerHead) && resultPerHead >= 0 ? 'text-green-700' : hasResultPerHeadData ? 'text-red-700' : 'text-indigo-900'}`}>
+                      {formatIndicatorValue(resultPerHead, 'currency', hasResultPerHeadData)}
+                    </div>
+                    <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Lucro médio por animal</div>
+                  </div>
+
+                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Margem Sobre a Venda</div>
+                    <div className={`text-xs font-bold leading-tight ${isFinite(marginOverSale) && marginOverSale >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      {isFinite(marginOverSale) && marginOverSale !== 0 ? `${marginOverSale.toFixed(1)}%` : '-'}
+                    </div>
+                    <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Rentabilidade operacional</div>
+                  </div>
+                </div>
+
+                {/* Coluna D: Resultado sobre ativo Pecuário / Resultado sobre o valor da terra / Desembolso Médio Mensal */}
+                <div className="space-y-0.5">
+                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Resultado Sobre Ativo Pecuário</div>
+                    <div className={`text-xs font-bold leading-tight ${hasResultOnLivestockAssetData && isFinite(resultOnLivestockAsset) && resultOnLivestockAsset >= 0 ? 'text-green-700' : hasResultOnLivestockAssetData ? 'text-red-700' : 'text-indigo-900'}`}>
+                      {formatIndicatorValue(resultOnLivestockAsset, 'percentage', hasResultOnLivestockAssetData)}
+                    </div>
+                    <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Retorno sobre o rebanho</div>
+                  </div>
+
+                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Resultado Sobre Valor da Terra</div>
+                    <div className={`text-xs font-bold leading-tight ${hasResultOnLandValueData && isFinite(resultOnLandValue) && resultOnLandValue >= 0 ? 'text-green-700' : hasResultOnLandValueData ? 'text-red-700' : 'text-indigo-900'}`}>
+                      {formatIndicatorValue(resultOnLandValue, 'percentage', hasResultOnLandValueData)}
+                    </div>
+                    <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Retorno patrimonial imobiliário</div>
+                  </div>
+
+                  {showReproductiveIndices && (
+                    <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                      <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso Médio Mensal</div>
+                      <div className="text-xs font-bold text-indigo-900 leading-tight">
+                        {formatIndicatorValue(averageMonthlyDisbursement, 'currency', hasAverageMonthlyDisbursementData)}
+                      </div>
+                      <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Média de gastos operacionais</div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1801,7 +2169,41 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                         {averageHerdTable.vacas > 0 ? averageHerdTable.vacas : '-'}
                       </td>
                       <td className="px-4 py-3 text-center text-sm text-ai-text">
-                        {averageHerdTable.vacas > 0 ? averageHerdTable.tempoVacas : '-'}
+                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['tempoMatrizes'] = el; }}>
+                          <span>{averageHerdTable.vacas > 0 ? averageHerdTable.tempoVacas.toFixed(1) : '-'}</span>
+                          {averageHerdTable.vacas > 0 && (
+                            <>
+                              <button
+                                ref={(el) => { weightButtonRefs.current['tempoMatrizes'] = el; }}
+                                type="button"
+                                onClick={() => handleWeightInfoToggle('tempoMatrizes')}
+                                className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
+                                title="Explicação do cálculo"
+                                aria-label="Explicação do cálculo"
+                              >
+                                <Info size={10} />
+                              </button>
+                              {weightCalculationInfoOpen === 'tempoMatrizes' && popoverPositions.tempoMatrizes && (
+                                <div
+                                  className="fixed z-[100] w-64 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                  style={{
+                                    top: popoverPositions.tempoMatrizes.top,
+                                    left: popoverPositions.tempoMatrizes.left,
+                                  }}
+                                >
+                                  <p className="font-medium text-gray-800 mb-1 text-left">Tempo (meses) - Matrizes</p>
+                                  <p className="text-[10px] text-left mb-2">
+                                    Permanência de fêmeas em reprodução e fêmeas descarte considerando período de monta e dias para abate de vacas.
+                                  </p>
+                                  <div className="text-[10px] text-left pt-2 border-t border-gray-200">
+                                    <strong>Fórmula:</strong> (282 + Tempo de monta + Dias para abate) / 30,4<br />
+                                    <strong>Cálculo:</strong> (282 + {matingPeriodDays} + {cowSlaughterDays}) / 30,4 = <strong>{averageHerdTable.tempoVacas.toFixed(1)} meses</strong>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
                         <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['matrizes'] = el; }}>
@@ -2241,6 +2643,59 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
                   </tfoot>
                 </table>
               </div>
+            </div>
+
+            {/* Resumo Calculado */}
+            <div className="px-6 py-4 border-t border-ai-border bg-ai-surface2/50">
+              {(() => {
+                // Dados das categorias
+                const categorias = [
+                  { quantidade: averageHerdTable.vacas, tempo: averageHerdTable.tempoVacas, peso: averageHerdTable.pesoIndividualVaca },
+                  { quantidade: averageHerdTable.bezerrosMamando, tempo: averageHerdTable.tempoBezerros, peso: averageHerdTable.pesoIndividualBezerro },
+                  { quantidade: averageHerdTable.novilhas8a12, tempo: averageHerdTable.tempoNovilhas8a12, peso: averageHerdTable.pesoIndividualNovilha8a12 },
+                  { quantidade: averageHerdTable.novilhas13a24, tempo: averageHerdTable.tempoNovilhas13a24, peso: averageHerdTable.pesoIndividualNovilha13a24 },
+                  { quantidade: averageHerdTable.touros, tempo: averageHerdTable.tempoTouros, peso: averageHerdTable.pesoIndividualTouro },
+                ];
+
+                // Rebanho médio: Σ(quantidade × tempo) / 12
+                const somaQtdTempo = categorias.reduce((sum, c) => sum + (c.quantidade * c.tempo), 0);
+                const rebanhoMedio = somaQtdTempo / 12;
+
+                // Total de UAs: Σ(quantidade × tempo × peso) / 12 / 450
+                const somaQtdTempoPeso = categorias.reduce((sum, c) => sum + (c.quantidade * c.tempo * c.peso), 0);
+                const totalUAs = somaQtdTempoPeso / 12 / 450;
+
+                // Peso médio em kg: Σ(quantidade × peso × tempo) / 12 / rebanho médio
+                const pesoMedioKg = rebanhoMedio > 0 ? somaQtdTempoPeso / 12 / rebanhoMedio : 0;
+
+                // Peso médio em UA: peso médio em kg / 450
+                const pesoMedioUA = pesoMedioKg / 450;
+
+                return (
+                  <div className="grid grid-cols-4 gap-4 text-center">
+                    <div className="bg-white rounded-lg p-3 border border-ai-border/50">
+                      <div className="text-[10px] text-ai-subtext uppercase tracking-wide mb-1">Rebanho Médio</div>
+                      <div className="text-lg font-bold text-ai-text">{rebanhoMedio.toFixed(0)}</div>
+                      <div className="text-[9px] text-ai-subtext">cabeças</div>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-ai-border/50">
+                      <div className="text-[10px] text-ai-subtext uppercase tracking-wide mb-1">Total de UAs</div>
+                      <div className="text-lg font-bold text-ai-text">{totalUAs.toFixed(1)}</div>
+                      <div className="text-[9px] text-ai-subtext">unidades animais</div>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-ai-border/50">
+                      <div className="text-[10px] text-ai-subtext uppercase tracking-wide mb-1">Peso Médio</div>
+                      <div className="text-lg font-bold text-ai-text">{pesoMedioKg.toFixed(0)}</div>
+                      <div className="text-[9px] text-ai-subtext">kg</div>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-ai-border/50">
+                      <div className="text-[10px] text-ai-subtext uppercase tracking-wide mb-1">Peso Médio UA</div>
+                      <div className="text-lg font-bold text-ai-text">{pesoMedioUA.toFixed(2)}</div>
+                      <div className="text-[9px] text-ai-subtext">UA/cabeça</div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Footer do Modal */}
