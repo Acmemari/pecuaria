@@ -3,7 +3,7 @@ import { useClient } from '../contexts/ClientContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Farm, Client } from '../types';
 import { supabase } from '../lib/supabase';
-import { Building2, Loader2, AlertCircle, CheckCircle2, Plus, Trash2, Edit3, X } from 'lucide-react';
+import { Building2, Loader2, AlertCircle, CheckCircle2, Plus, Trash2, Edit3, X, ListChecks } from 'lucide-react';
 
 // ============================================================================
 // TIPOS E INTERFACES
@@ -182,6 +182,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   const [isLoading, setIsLoading] = useState(true);
   const [showSelectionModal, setShowSelectionModal] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isIndicatorsModalOpen, setIsIndicatorsModalOpen] = useState(false);
   const [editingCell, setEditingCell] = useState<{ id: string; field: keyof AnimalCategory } | null>(null);
   const [tempValue, setTempValue] = useState('');
   
@@ -202,9 +203,17 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   const [calfMortality, setCalfMortality] = useState(3.5);
   const [maleWeaningWeight, setMaleWeaningWeight] = useState(220);
   const [femaleWeaningWeight, setFemaleWeaningWeight] = useState(200);
+  const [firstMatingAge, setFirstMatingAge] = useState(14);
   
   // Estado de categorias
   const [animalCategories, setAnimalCategories] = useState<AnimalCategory[]>(getDefaultCategories);
+  const [selectedIndicators, setSelectedIndicators] = useState<string[]>([
+    'weaningRate',
+    'kgPerMatrix',
+    'matricesOverAverageHerd',
+    'gmdGlobal',
+    'lotacaoCabHa',
+  ]);
   
   // ============================================================================
   // VALORES DERIVADOS
@@ -301,8 +310,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
 
     if (cleaned === '') {
       updateCategory(id, field, 0);
-      return;
-    }
+        return;
+      }
 
     const parsed = parseNumberFromComma(cleaned);
     if (isFinite(parsed)) {
@@ -391,11 +400,215 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     return Math.ceil(safeDivide(requiredSales, weaningRate));
   }, [weaningRate, requiredSales]);
 
+  /** Vendas por hectare = Vendas necessárias ÷ Área pecuária (ha) */
+  const salesPerHectare = useMemo(() => {
+    if (!selectedFarm?.pastureArea || selectedFarm.pastureArea <= 0 || requiredSales <= 0) return 0;
+    return safeDivide(requiredSales, selectedFarm.pastureArea);
+  }, [selectedFarm?.pastureArea, requiredSales]);
+
+  // ============================================================================
+  // CÁLCULOS FINANCEIROS
+  // ============================================================================
+
+  /** Receita: Valor médio por cabeça × Vendas necessárias */
+  const revenue = useMemo(() => {
+    if (!isPercentageSumValid || averageValue <= 0 || requiredSales <= 0) return 0;
+    return averageValue * requiredSales;
+  }, [isPercentageSumValid, averageValue, requiredSales]);
+
+  /** Desembolso total: Receita - Valor calculado */
+  const totalDisbursement = useMemo(() => {
+    if (revenue <= 0) return 0;
+    return revenue - calculatedValue;
+  }, [revenue, calculatedValue]);
+
+  /** Resultado: Receita - Desembolso */
+  const result = useMemo(() => {
+    return revenue - totalDisbursement;
+  }, [revenue, totalDisbursement]);
+
+  /** Resultado/ha: Resultado ÷ Área pecuária */
+  const resultPerHectare = useMemo(() => {
+    if (!selectedFarm?.pastureArea || selectedFarm.pastureArea <= 0 || result <= 0) return 0;
+    return safeDivide(result, selectedFarm.pastureArea);
+  }, [selectedFarm?.pastureArea, result]);
+
+  /** Margem Sobre a venda: (Resultado ÷ Receita) × 100% */
+  const marginOverSale = useMemo(() => {
+    if (revenue <= 0 || result <= 0) return 0;
+    return safeDivide(result, revenue) * 100;
+  }, [revenue, result]);
+
   /** Calcula quantidade para uma categoria */
   const calculateQuantity = useCallback((categoryPercentage: number): number => {
     if (!isPercentageSumValid || requiredSales === 0) return 0;
     return Math.round(safeDivide(requiredSales * categoryPercentage, 100));
   }, [isPercentageSumValid, requiredSales]);
+
+  /** Calcula Index RB (quantidade × tempo) para cada categoria do rebanho médio */
+  const calculateIndexRB = useMemo(() => {
+    if (!showReproductiveIndices || !isPercentageSumValid || requiredSales === 0) {
+      return {
+        matricesMonta: 0,
+        bezerrosMamando: 0,
+        novilhas8a12: 0,
+        novilhas12a24: 0,
+        touros: 0,
+        total: 0
+      };
+    }
+
+    // Matizes em monta = matrizes necessárias, tempo = 12 meses
+    const matricesMonta = requiredMatrixes;
+    const tempoMatrices = 12;
+    const indexRBMatrices = matricesMonta * tempoMatrices;
+
+    // Bezerros mamando = quantidade de bezerros desmamados, tempo = 7 meses
+    const bezerroCategory = animalCategories.find(c => c.id === CATEGORY_IDS.BEZERRO);
+    const bezerrosMamando = bezerroCategory ? calculateQuantity(bezerroCategory.percentage) : 0;
+    const tempoBezerros = 7;
+    const indexRBBezerros = bezerrosMamando * tempoBezerros;
+
+    // Novilhas: dividir em duas faixas (8-12 e 12-24 meses)
+    const novilhaCategory = animalCategories.find(c => c.id === CATEGORY_IDS.NOVILHA);
+    const totalNovilhas = novilhaCategory ? calculateQuantity(novilhaCategory.percentage) : 0;
+    const novilhas8a12 = totalNovilhas / 2; // 50% das novilhas
+    const novilhas12a24 = totalNovilhas / 2; // 50% das novilhas
+    
+    const tempoNovilhas8a12 = 5; // Fixo: 5 meses
+    const tempoNovilhas12a24 = Math.max(0, firstMatingAge - 12); // Idade primeira monta - 12
+    
+    const indexRBNovilhas8a12 = novilhas8a12 * tempoNovilhas8a12;
+    const indexRBNovilhas12a24 = novilhas12a24 * tempoNovilhas12a24;
+
+    // Touros = quantidade de touros descarte, tempo = 12 meses
+    const touroCategory = animalCategories.find(c => c.id === CATEGORY_IDS.TOURO_DESCARTE);
+    const touros = touroCategory ? calculateQuantity(touroCategory.percentage) : 0;
+    const tempoTouros = 12;
+    const indexRBTouros = touros * tempoTouros;
+
+    // Soma total do Index RB
+    const totalIndexRB = indexRBMatrices + indexRBBezerros + indexRBNovilhas8a12 + indexRBNovilhas12a24 + indexRBTouros;
+
+    return {
+      matricesMonta: indexRBMatrices,
+      bezerrosMamando: indexRBBezerros,
+      novilhas8a12: indexRBNovilhas8a12,
+      novilhas12a24: indexRBNovilhas12a24,
+      touros: indexRBTouros,
+      total: totalIndexRB
+    };
+  }, [showReproductiveIndices, isPercentageSumValid, requiredSales, requiredMatrixes, animalCategories, calculateQuantity, firstMatingAge]);
+
+  /** Passo 1: indice_tempo = idade_primeira_monta - 12 */
+  const indiceTempo = useMemo(() => {
+    return Math.max(0, firstMatingAge - 12);
+  }, [firstMatingAge]);
+
+  /** Passo 2: indice_novilhas = (indice_tempo × 37.5) ÷ 12 */
+  const indiceNovilhas = useMemo(() => {
+    return safeDivide(indiceTempo * 37.5, 12);
+  }, [indiceTempo]);
+
+  /** Passo 3: index_valor_rebanho = indice_novilhas + 163.375 */
+  const indexValorRebanho = useMemo(() => {
+    if (!showReproductiveIndices) return 0;
+    return indiceNovilhas + 163.375;
+  }, [indiceNovilhas, showReproductiveIndices]);
+
+  /** Passo 4: matrizes_sobre_rebanho_medio = 100 / index_valor_rebanho */
+  const matricesOverAverageHerd = useMemo(() => {
+    if (indexValorRebanho <= 0) return 0;
+    return safeDivide(100, indexValorRebanho);
+  }, [indexValorRebanho]);
+
+  /** Rebanho médio para exibição = Matrizes necessárias / Matrizes sobre rebanho médio */
+  const averageHerd = useMemo(() => {
+    if (!showReproductiveIndices || matricesOverAverageHerd <= 0 || requiredMatrixes <= 0) return 0;
+    return safeDivide(requiredMatrixes, matricesOverAverageHerd);
+  }, [showReproductiveIndices, matricesOverAverageHerd, requiredMatrixes]);
+
+  /** Desembolso por cabeça mês: (Desembolso ÷ Rebanho médio) ÷ 12 */
+  const disbursementPerHeadMonth = useMemo(() => {
+    if (!showReproductiveIndices || averageHerd <= 0 || totalDisbursement <= 0) return 0;
+    return safeDivide(safeDivide(totalDisbursement, averageHerd), 12);
+  }, [showReproductiveIndices, averageHerd, totalDisbursement]);
+
+  /** Lotação: Rebanho médio ÷ área pecuária */
+  const lotacaoCabHa = useMemo(() => {
+    if (!showReproductiveIndices || averageHerd <= 0 || !farm?.pastureArea) return 0;
+    return safeDivide(averageHerd, farm.pastureArea);
+  }, [showReproductiveIndices, averageHerd, farm?.pastureArea]);
+
+  /** GMD global: soma(quantidade × peso em kg) ÷ rebanho médio ÷ 365 */
+  const gmdGlobal = useMemo(() => {
+    if (!showReproductiveIndices || averageHerd <= 0) return 0;
+    const totalPesoKg = animalCategories.reduce((sum, category) => {
+      const quantity = calculateQuantity(category.percentage);
+      if (quantity <= 0) return sum;
+      const weightKg = isKgCategory(category.id) ? category.weight : category.weight * 30;
+      return sum + quantity * weightKg;
+    }, 0);
+    return safeDivide(safeDivide(totalPesoKg, averageHerd), 365);
+  }, [showReproductiveIndices, averageHerd, animalCategories, calculateQuantity]);
+
+  const MAX_PERFORMANCE_INDICATORS = 5;
+  const performanceIndicators = useMemo(() => [
+    {
+      id: 'weaningRate',
+      label: 'Taxa de Desmame',
+      value: weaningRate * 100,
+      format: (value: number) => `${value.toFixed(2)}%`,
+    },
+    {
+      id: 'kgPerMatrix',
+      label: 'Kg desm./Matriz',
+      value: kgPerMatrix,
+      format: (value: number) => `${value.toFixed(1)} kg`,
+    },
+    {
+      id: 'matricesOverAverageHerd',
+      label: 'Matrizes s/ Rebanho',
+      value: matricesOverAverageHerd * 100,
+      format: (value: number) => `${value.toFixed(1)}%`,
+    },
+    {
+      id: 'salesPerHectare',
+      label: 'Vendas/ha',
+      value: salesPerHectare,
+      format: (value: number) => value.toFixed(2),
+    },
+    {
+      id: 'gmdGlobal',
+      label: 'GMD global',
+      value: gmdGlobal,
+      format: (value: number) => `${value.toFixed(2)} kg/dia`,
+    },
+    {
+      id: 'lotacaoCabHa',
+      label: 'Lotação Cab/ha',
+      value: lotacaoCabHa,
+      format: (value: number) => value.toFixed(2),
+    },
+  ], [weaningRate, kgPerMatrix, matricesOverAverageHerd, salesPerHectare, gmdGlobal, lotacaoCabHa]);
+
+  const visiblePerformanceIndicators = useMemo(
+    () => performanceIndicators.filter((indicator) => selectedIndicators.includes(indicator.id)),
+    [performanceIndicators, selectedIndicators]
+  );
+
+  const toggleIndicatorSelection = useCallback((indicatorId: string) => {
+    setSelectedIndicators((prev) => {
+      if (prev.includes(indicatorId)) {
+        return prev.filter((id) => id !== indicatorId);
+      }
+      if (prev.length >= MAX_PERFORMANCE_INDICATORS) {
+        onToast?.('Selecione no máximo 5 indicadores.', 'warning');
+        return prev;
+      }
+      return [...prev, indicatorId];
+    });
+  }, [onToast]);
 
   /** Configuração de margem para o sistema atual */
   const marginConfig = useMemo(() => getMarginConfig(productionSystem), [productionSystem]);
@@ -541,6 +754,23 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
     setExpectedMargin(marginConfig.default);
   }, [marginConfig.default]);
 
+  // Atualizar pesos das categorias quando os sliders de peso ao desmame mudarem
+  useEffect(() => {
+    setAnimalCategories(prev =>
+      prev.map(cat => {
+        if (cat.id === CATEGORY_IDS.BEZERRO) {
+          // Peso ao desmame de machos = Bezerro Desm.
+          return { ...cat, weight: maleWeaningWeight };
+        }
+        if (cat.id === CATEGORY_IDS.BEZERRA) {
+          // Peso ao desmame de fêmeas = Bezerra Desm.
+          return { ...cat, weight: femaleWeaningWeight };
+        }
+        return cat;
+      })
+    );
+  }, [maleWeaningWeight, femaleWeaningWeight]);
+
   // ============================================================================
   // HANDLERS
   // ============================================================================
@@ -660,7 +890,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
   return (
     <div className="h-full flex flex-col p-6 bg-ai-bg">
       {/* Header - Sistema de Produção e Informações da Fazenda */}
-      <div className="mb-6">
+      <div className="mb-6 flex-shrink-0">
         <div className="flex items-center gap-4 text-sm text-ai-subtext overflow-x-auto overflow-y-visible">
           <div className="flex items-center gap-2 flex-shrink-0">
             <Building2 size={16} />
@@ -728,7 +958,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
       </div>
 
       {/* Conteúdo principal */}
-      <div className="flex-1 bg-white rounded-lg border border-ai-border p-4">
+      <div className="bg-white rounded-lg border border-ai-border p-4 min-h-0">
         <div className="max-w-6xl mx-auto">
           {/* Barras de Deslizamento com Valores ao Lado */}
           <div className="mb-4">
@@ -888,40 +1118,53 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
 
           {/* Valor Médio de Venda */}
           <div className="mb-4">
-            <div className="flex items-start gap-4">
+            <div className="flex items-stretch gap-4">
               {/* Caixa de Valor Médio */}
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200 min-w-[180px]">
-                <div className="text-[10px] text-orange-700 mb-1 font-medium">Valor Médio de Venda</div>
+              <div className="bg-white border border-ai-border/70 rounded-lg p-2 min-w-[180px] flex flex-col">
+                <div className="pb-1.5 mb-2 border-b border-ai-border/60">
+                  <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">Valores</h3>
+                </div>
                 {isPercentageSumValid ? (
-                  <>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="text-xl font-bold text-orange-900">
-                        {formatCurrency(averageValue)}
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between pb-2 border-b border-ai-border/60">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] text-ai-subtext leading-tight">Valor Médio de<br />Venda</span>
+                        <button
+                          onClick={() => setIsModalOpen(true)}
+                          className="p-0.5 rounded hover:bg-ai-surface2 transition-colors"
+                          title="Editar categorias"
+                          aria-label="Editar categorias"
+                        >
+                          <Edit3 size={12} className="text-ai-accent" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="p-1 rounded hover:bg-orange-200/60 transition-colors"
-                        title="Editar categorias"
-                        aria-label="Editar categorias"
-                      >
-                        <Edit3 size={16} className="text-ai-accent" />
-                      </button>
+                      <span className="text-sm font-bold text-ai-text">{formatCurrency(averageValue)}</span>
                     </div>
-                    <div className="text-[10px] text-orange-700 mb-1 font-medium">Vendas Necessárias</div>
-                    <div className="text-xl font-bold text-orange-900 mb-2">
-                      {requiredSales > 0 ? `${requiredSales} Cabeças` : '-'}
+                    <div className={`flex items-start justify-between ${showReproductiveIndices ? 'pb-2 border-b border-ai-border/60' : ''}`}>
+                      <span className="text-[9px] text-ai-subtext leading-tight">Vendas<br />Necessárias</span>
+                      <span className="text-sm font-bold text-ai-text">
+                        {requiredSales > 0 ? `${requiredSales} Cabeças` : '-'}
+                      </span>
                     </div>
                     {showReproductiveIndices && (
                       <>
-                        <div className="text-[10px] text-orange-700 mb-1 font-medium">Matrizes Necessárias</div>
-                        <div className="text-xl font-bold text-orange-900">
-                          {requiredMatrixes > 0 ? `${requiredMatrixes} Matrizes` : '-'}
+                        <div className="flex items-start justify-between pb-2 border-b border-ai-border/60">
+                          <span className="text-[9px] text-ai-subtext leading-tight">Matrizes<br />Necessárias</span>
+                          <span className="text-sm font-bold text-ai-text">
+                            {requiredMatrixes > 0 ? `${requiredMatrixes} Matrizes` : '-'}
+                          </span>
+                        </div>
+                        <div className="flex items-start justify-between">
+                          <span className="text-[9px] text-ai-subtext leading-tight">Rebanho<br />Médio</span>
+                          <span className="text-sm font-bold text-ai-text">
+                            {averageHerd > 0 ? `${Math.round(averageHerd)} Cabeças` : '-'}
+                          </span>
                         </div>
                       </>
                     )}
-                  </>
+                  </div>
                 ) : (
-                  <div className="text-sm font-semibold text-red-600 mb-2 flex items-center gap-1">
+                  <div className="text-sm font-semibold text-red-600 flex items-center gap-1">
                     <AlertCircle size={16} />
                     Soma deve ser 100%
                   </div>
@@ -929,134 +1172,181 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
               </div>
 
               {showReproductiveIndices && (
-                <div className="flex gap-3 flex-1">
-                  <div className="flex-1 bg-ai-surface2/40 border border-ai-border rounded-lg p-2">
-                    <h3 className="text-xs font-semibold text-ai-text mb-1.5">Índices Reprodutivos</h3>
-                    <div className="space-y-2">
-                    <div>
-                      <div className="flex items-center justify-between text-[10px] mb-0.5">
-                        <label className="text-ai-subtext">Fertilidade</label>
-                        <span className="font-semibold text-ai-text">{fertility.toFixed(1)}%</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[8px] text-ai-subtext w-8 flex-shrink-0">70%</span>
-                        <input
-                          type="range"
-                          min={70}
-                          max={90}
-                          step={0.5}
-                          value={fertility}
-                          onChange={(e) => setFertility(parseFloat(e.target.value))}
-                          className="flex-1 accent-ai-accent h-1"
-                        />
-                        <span className="text-[8px] text-ai-subtext w-8 flex-shrink-0 text-right">90%</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between text-[10px] mb-0.5">
-                        <label className="text-ai-subtext">Perda Pré Parto</label>
-                        <span className="font-semibold text-ai-text">{prePartumLoss.toFixed(1)}%</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[8px] text-ai-subtext w-8 flex-shrink-0">3%</span>
-                        <input
-                          type="range"
-                          min={3}
-                          max={15}
-                          step={0.5}
-                          value={prePartumLoss}
-                          onChange={(e) => setPrePartumLoss(parseFloat(e.target.value))}
-                          className="flex-1 accent-ai-accent h-1"
-                        />
-                        <span className="text-[8px] text-ai-subtext w-8 flex-shrink-0 text-right">15%</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between text-[10px] mb-0.5">
-                        <label className="text-ai-subtext">Mortalidade de Bezerros</label>
-                        <span className="font-semibold text-ai-text">{calfMortality.toFixed(1)}%</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[8px] text-ai-subtext w-8 flex-shrink-0">1,5%</span>
-                        <input
-                          type="range"
-                          min={1.5}
-                          max={7}
-                          step={0.1}
-                          value={calfMortality}
-                          onChange={(e) => setCalfMortality(parseFloat(e.target.value))}
-                          className="flex-1 accent-ai-accent h-1"
-                        />
-                        <span className="text-[8px] text-ai-subtext w-8 flex-shrink-0 text-right">7%</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between text-[10px] mb-0.5">
-                        <label className="text-ai-subtext">Peso ao desmame de machos</label>
-                        <span className="font-semibold text-ai-text">{maleWeaningWeight} kg</span>
-                      </div>
+                <div className="flex gap-3 flex-1 items-stretch">
+                  <div className="grid grid-cols-2 gap-3 flex-1 min-w-0">
+                    <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0">
+                      <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">Índices Reprodutivos</h3>
+                      <div className="flex flex-col justify-between flex-1 gap-2">
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] mb-0.5">
+                            <label className="text-ai-subtext">Fertilidade</label>
+                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                              {fertility.toFixed(1)}%
+                            </span>
+                          </div>
           <div className="flex items-center gap-2">
-                        <span className="text-[8px] text-ai-subtext w-10 flex-shrink-0">160 kg</span>
-                        <input
-                          type="range"
-                          min={160}
-                          max={270}
-                          step={1}
-                          value={maleWeaningWeight}
-                          onChange={(e) => setMaleWeaningWeight(parseInt(e.target.value, 10))}
-                          className="flex-1 accent-ai-accent h-1"
-                        />
-                        <span className="text-[8px] text-ai-subtext w-10 flex-shrink-0 text-right">270 kg</span>
-                      </div>
-                    </div>
+                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0">70%</span>
+                            <input
+                              type="range"
+                              min={70}
+                              max={90}
+                              step={0.5}
+                              value={fertility}
+                              onChange={(e) => setFertility(parseFloat(e.target.value))}
+                              className="flex-1 accent-ai-accent h-1.5"
+                            />
+                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">90%</span>
+                          </div>
+                        </div>
 
-                    <div>
-                      <div className="flex items-center justify-between text-[10px] mb-0.5">
-                        <label className="text-ai-subtext">Peso ao desmame de fêmeas</label>
-                        <span className="font-semibold text-ai-text">{femaleWeaningWeight} kg</span>
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] mb-0.5">
+                            <label className="text-ai-subtext">Perda Pré Parto</label>
+                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                              {prePartumLoss.toFixed(1)}%
+                            </span>
           </div>
           <div className="flex items-center gap-2">
-                        <span className="text-[8px] text-ai-subtext w-10 flex-shrink-0">140 kg</span>
-                        <input
-                          type="range"
-                          min={140}
-                          max={250}
-                          step={1}
-                          value={femaleWeaningWeight}
-                          onChange={(e) => setFemaleWeaningWeight(parseInt(e.target.value, 10))}
-                          className="flex-1 accent-ai-accent h-1"
-                        />
-                        <span className="text-[8px] text-ai-subtext w-10 flex-shrink-0 text-right">250 kg</span>
-                      </div>
+                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0">3%</span>
+                            <input
+                              type="range"
+                              min={3}
+                              max={15}
+                              step={0.5}
+                              value={prePartumLoss}
+                              onChange={(e) => setPrePartumLoss(parseFloat(e.target.value))}
+                              className="flex-1 accent-ai-accent h-1.5"
+                            />
+                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">15%</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] mb-0.5">
+                            <label className="text-ai-subtext">Mortalidade de Bezerros</label>
+                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                              {calfMortality.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0">1,5%</span>
+                            <input
+                              type="range"
+                              min={1.5}
+                              max={7}
+                              step={0.1}
+                              value={calfMortality}
+                              onChange={(e) => setCalfMortality(parseFloat(e.target.value))}
+                              className="flex-1 accent-ai-accent h-1.5"
+                            />
+                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">7%</span>
+                          </div>
           </div>
         </div>
       </div>
 
-                {/* Card de Outputs Calculados */}
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-2 border border-blue-200 min-w-[180px]">
-                  <h3 className="text-xs font-semibold text-blue-700 mb-2">Resultados</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="text-[9px] text-blue-600 mb-0.5 font-medium">Taxa de Desmame</div>
-                      <div className="text-base font-bold text-blue-900">
-                        {(weaningRate * 100).toFixed(2)}%
-                      </div>
-                      <div className="text-[8px] text-blue-600/80 mt-0.5">
-                        {fertility.toFixed(1)}% × (1 - {prePartumLoss.toFixed(1)}%) × (1 - {calfMortality.toFixed(1)}%)
+                    <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0">
+                      <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">Índices Reprodutivos</h3>
+                      <div className="flex flex-col justify-between flex-1 gap-2">
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] mb-0.5">
+                            <label className="text-ai-subtext">Peso ao desmame de machos</label>
+                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                              {maleWeaningWeight} kg
+                            </span>
+          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">170 kg</span>
+                            <input
+                              type="range"
+                              min={170}
+                              max={260}
+                              step={1}
+                              value={maleWeaningWeight}
+                              onChange={(e) => setMaleWeaningWeight(parseInt(e.target.value, 10))}
+                              className="flex-1 accent-ai-accent h-1.5"
+                            />
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">260 kg</span>
+        </div>
+      </div>
+
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] mb-0.5">
+                            <label className="text-ai-subtext">Peso ao desmame de fêmeas</label>
+                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                              {femaleWeaningWeight} kg
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">170 kg</span>
+                            <input
+                              type="range"
+                              min={170}
+                              max={260}
+                              step={1}
+                              value={femaleWeaningWeight}
+                              onChange={(e) => setFemaleWeaningWeight(parseInt(e.target.value, 10))}
+                              className="flex-1 accent-ai-accent h-1.5"
+                            />
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">260 kg</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between text-[9px] mb-0.5">
+                            <label className="text-ai-subtext">Idade a primeira monta</label>
+                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                              {firstMatingAge} meses
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">12 meses</span>
+                            <input
+                              type="range"
+                              min={12}
+                              max={24}
+                              step={1}
+                              value={firstMatingAge}
+                              onChange={(e) => setFirstMatingAge(parseInt(e.target.value, 10))}
+                              className="flex-1 accent-ai-accent h-1.5"
+                            />
+                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">24 meses</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <div className="text-[9px] text-blue-600 mb-0.5 font-medium">Kg desm./Matriz</div>
-                      <div className="text-base font-bold text-blue-900">
-                        {kgPerMatrix.toFixed(1)} kg
+                  </div>
+
+                  {/* Card de Outputs Calculados */}
+                  <div className="bg-white border border-ai-border/70 rounded-lg p-2 min-w-[150px] flex flex-col">
+                  <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-ai-border/60">
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">Resultados de Performance</h3>
+                    <button
+                      onClick={() => setIsIndicatorsModalOpen(true)}
+                      className="p-1 rounded hover:bg-ai-surface2 transition-colors"
+                      title="Selecionar indicadores"
+                      aria-label="Selecionar indicadores"
+                    >
+                      <ListChecks size={14} className="text-ai-subtext" />
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {visiblePerformanceIndicators.map((indicator, index, list) => (
+                        <div
+                          key={indicator.id}
+                          className={`flex items-center justify-between ${index < list.length - 1 ? 'pb-2 border-b border-ai-border/60' : ''}`}
+                        >
+                          <span className="text-[9px] text-ai-subtext">{indicator.label}</span>
+                          <span className="text-sm font-bold text-ai-text">
+                            {indicator.value > 0 ? indicator.format(indicator.value) : '-'}
+                          </span>
+                        </div>
+                      ))}
+                    {visiblePerformanceIndicators.length === 0 && (
+                      <div className="text-[9px] text-ai-subtext">
+                        Selecione indicadores
                       </div>
-                      <div className="text-[8px] text-blue-600/80 mt-0.5">
-                        {(weaningRate * 100).toFixed(2)}% × {((maleWeaningWeight + femaleWeaningWeight) / 2).toFixed(1)} kg
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1065,21 +1355,129 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFar
             </div>
           </div>
 
-          {/* Conteúdo adicional */}
-          <div className="text-center py-8">
-          <div className="w-16 h-16 rounded-full bg-ai-accent/10 flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-8 h-8 text-ai-accent" />
+          {/* Bloco Finanças */}
+          <div className="mb-4">
+            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-2 border border-indigo-200 overflow-x-auto">
+              <h3 className="text-[10px] font-semibold text-indigo-700 mb-1.5">Finanças</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 min-w-max">
+                <div>
+                  <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Receita</div>
+                  <div className="text-base font-bold text-indigo-900">
+                    {isFinite(revenue) && revenue !== 0 ? formatCurrency(revenue) : '-'}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Desembolso Total</div>
+                  <div className="text-base font-bold text-indigo-900">
+                    {isFinite(totalDisbursement) && totalDisbursement !== 0 ? formatCurrency(totalDisbursement) : '-'}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Resultado</div>
+                  <div className={`text-base font-bold ${isFinite(result) && result >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {isFinite(result) && result !== 0 ? formatCurrency(result) : '-'}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Resultado/ha</div>
+                  <div className={`text-base font-bold ${isFinite(resultPerHectare) && resultPerHectare >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {isFinite(resultPerHectare) && resultPerHectare !== 0 ? formatCurrency(resultPerHectare) : '-'}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Margem Sobre a Venda</div>
+                  <div className={`text-base font-bold ${isFinite(marginOverSale) && marginOverSale >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    {isFinite(marginOverSale) && marginOverSale !== 0 ? `${marginOverSale.toFixed(1)}%` : '-'}
+                  </div>
+                </div>
+
+                {showReproductiveIndices && (
+                  <div>
+                    <div className="text-[9px] text-indigo-600 mb-0.5 font-medium">Desembolso por Cabeça/Mês</div>
+                    <div className="text-base font-bold text-indigo-900">
+                      {isFinite(disbursementPerHeadMonth) && disbursementPerHeadMonth !== 0 ? formatCurrency(disbursementPerHeadMonth) : '-'}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-          <h2 className="text-xl font-semibold text-ai-text mb-2">
-            Planejamento Ágil
-          </h2>
-          <p className="text-ai-subtext">
-            Funcionalidade em desenvolvimento. Aqui será implementado o sistema de planejamento ágil
-            vinculado ao cliente <strong>{selectedClient?.name}</strong> e à fazenda <strong>{selectedFarm?.name}</strong>.
-          </p>
+
         </div>
       </div>
-      </div>
+
+      {/* Modal - Seleção de Indicadores */}
+      {isIndicatorsModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setIsIndicatorsModalOpen(false);
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-ai-border flex items-center justify-between bg-gradient-to-r from-ai-accent/10 to-transparent">
+              <div className="flex flex-col">
+                <h2 className="text-base font-bold text-ai-text">Selecionar Indicadores</h2>
+                <span className="text-[10px] text-ai-subtext">Escolha até {MAX_PERFORMANCE_INDICATORS}</span>
+              </div>
+              <button
+                onClick={() => setIsIndicatorsModalOpen(false)}
+                className="p-2 hover:bg-ai-surface2 rounded-lg transition-colors"
+                title="Fechar"
+              >
+                <X size={18} className="text-ai-subtext" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="space-y-3">
+                {performanceIndicators.map((indicator) => {
+                  const isChecked = selectedIndicators.includes(indicator.id);
+                  const isDisabled = !isChecked && selectedIndicators.length >= MAX_PERFORMANCE_INDICATORS;
+                  return (
+                    <label
+                      key={indicator.id}
+                      className={`flex items-center justify-between gap-3 rounded-lg border border-ai-border/70 px-3 py-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-ai-surface2/50'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          disabled={isDisabled}
+                          onChange={() => toggleIndicatorSelection(indicator.id)}
+                          className="accent-ai-accent"
+                        />
+                        <span className="text-sm text-ai-text">{indicator.label}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-ai-border bg-ai-surface flex items-center justify-between">
+              <span className="text-xs text-ai-subtext">
+                Selecionados: {selectedIndicators.length}/{MAX_PERFORMANCE_INDICATORS}
+              </span>
+              <button
+                onClick={() => setIsIndicatorsModalOpen(false)}
+                className="px-4 py-2 bg-ai-accent text-white rounded-lg hover:bg-ai-accentHover transition-colors font-medium"
+              >
+                Concluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal - Tabela de Categorias */}
       {isModalOpen && (

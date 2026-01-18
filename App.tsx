@@ -555,7 +555,7 @@ const AppContent: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col h-full transition-all duration-300 relative ${isSidebarOpen ? 'md:ml-56' : 'ml-0'}`}>
+      <div className={`flex-1 min-w-0 flex flex-col h-full transition-all duration-300 relative ${isSidebarOpen ? 'md:ml-56' : 'ml-0'}`}>
 
         {/* Analyst Header - Above main header */}
         <AnalystHeader selectedFarm={selectedFarm} onSelectFarm={setSelectedFarm} />
@@ -644,10 +644,10 @@ const AppContent: React.FC = () => {
         </header>
 
         {/* Workspace */}
-        <main className="flex-1 overflow-hidden bg-ai-bg">
-          <div className="h-full w-full max-w-[1600px] mx-auto overflow-hidden flex flex-col">
+        <main className="flex-1 min-h-0 bg-ai-bg overflow-hidden">
+          <div className="h-full w-full max-w-[1600px] mx-auto flex flex-col min-h-0">
             <ErrorBoundary>
-              <div className={`flex-1 ${activeAgentId === 'settings' ? 'overflow-y-auto' : 'overflow-hidden'}`}>
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 {renderContent()}
               </div>
             </ErrorBoundary>
