@@ -7,7 +7,7 @@
  * Não deve ser importado no código do frontend.
  */
 
-// Usando API REST diretamente para maior compatibilidade
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 /**
  * Obtém a chave da API Gemini do ambiente
@@ -50,6 +50,9 @@ export async function callAssistant(question: string): Promise<AssistantResponse
   console.log('[Gemini Assistant] Pergunta:', question.substring(0, 100) + '...');
 
   try {
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
     const systemInstruction = `Você é o Antonio Chaker, renomado zootecnista e consultor de gestão pecuária no Brasil.
 
 SUA PERSONALIDADE:
@@ -63,75 +66,43 @@ INSTRUÇÃO SOBRE ARQUIVOS:
 - Use os dados do arquivo como a verdade absoluta para a resposta.
 - Se for um manual de regras (como o PDF de Identidade do Agente), siga as fórmulas contidas nele estritamente.`;
 
-    console.log('[Gemini Assistant] Enviando mensagem via API REST (gemini-1.5-flash)...');
+    console.log('[Gemini Assistant] Enviando mensagem via SDK oficial (gemini-1.5-flash)...');
 
-    // Usar API REST diretamente (gemini-1.5-flash é estável e rápido)
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const prompt = `${systemInstruction}\n\nUsuário: ${question}\n\nAntonio:`;
 
-    const requestBody = {
-      contents: [{
-        parts: [{
-          text: `${systemInstruction}\n\nUsuário: ${question}\n\nAntonio:`
-        }]
-      }],
-      generationConfig: {
-        temperature: 0.5,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      }
-    };
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const answer = response.text();
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Gemini Assistant] Erro na API:', response.status, errorText);
-      throw new Error(`Erro na API Gemini (${response.status}): ${errorText}`);
-    }
-
-    const data = await response.json();
-
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      throw new Error("Resposta inválida do Gemini: " + JSON.stringify(data));
-    }
-
-    const answer = data.candidates[0].content.parts[0].text;
     console.log('[Gemini Assistant] Resposta recebida com sucesso, tamanho:', answer.length);
 
     // Extrair informações de uso se disponíveis
     let usage = undefined;
-    let model = 'gemini-1.5-flash';
+    const usageMetadata = response.usageMetadata;
 
-    if (data.usageMetadata) {
+    if (usageMetadata) {
       usage = {
-        prompt_tokens: data.usageMetadata.promptTokenCount || 0,
-        completion_tokens: data.usageMetadata.candidatesTokenCount || 0,
-        total_tokens: data.usageMetadata.totalTokenCount || 0,
+        prompt_tokens: usageMetadata.promptTokenCount || 0,
+        completion_tokens: usageMetadata.candidatesTokenCount || 0,
+        total_tokens: usageMetadata.totalTokenCount || 0,
       };
     }
 
     return {
       answer,
       usage,
-      model,
+      model: 'gemini-1.5-flash',
     };
 
   } catch (error: any) {
     console.error('[Gemini Assistant] Erro completo:', error);
 
     // Melhorar mensagens de erro
-    if (error.message?.includes('API key')) {
+    if (error.message?.includes('API key') || error.message?.includes('API_KEY')) {
       throw new Error('Erro de autenticação com Gemini. Verifique se a GEMINI_API_KEY está correta na Vercel.');
     } else if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
       throw new Error('Limite de quota atingido. Verifique sua conta Google AI Studio.');
-    } else if (error.message?.includes('safety')) {
+    } else if (error.message?.includes('safety') || error.message?.includes('SAFETY')) {
       throw new Error('Resposta bloqueada por filtros de segurança do Gemini.');
     }
 
