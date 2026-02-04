@@ -21,7 +21,7 @@ function getGeminiApiKey(): string {
     console.error('[Gemini Assistant]', errorMsg);
     throw new Error(errorMsg);
   }
-  
+
   return apiKey.trim();
 }
 
@@ -45,10 +45,10 @@ export interface AssistantResponse {
  */
 export async function callAssistant(question: string): Promise<AssistantResponse> {
   const GEMINI_API_KEY = getGeminiApiKey();
-  
+
   console.log('[Gemini Assistant] Iniciando chamada para Gemini');
   console.log('[Gemini Assistant] Pergunta:', question.substring(0, 100) + '...');
-  
+
   try {
     const systemInstruction = `Você é o Antonio Chaker, renomado zootecnista e consultor de gestão pecuária no Brasil.
 
@@ -63,11 +63,11 @@ INSTRUÇÃO SOBRE ARQUIVOS:
 - Use os dados do arquivo como a verdade absoluta para a resposta.
 - Se for um manual de regras (como o PDF de Identidade do Agente), siga as fórmulas contidas nele estritamente.`;
 
-    console.log('[Gemini Assistant] Enviando mensagem via API REST...');
-    
-    // Usar API REST diretamente (gemini-2.0-flash é estável; evite -exp que pode retornar 404)
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-    
+    console.log('[Gemini Assistant] Enviando mensagem via API REST (gemini-1.5-flash)...');
+
+    // Usar API REST diretamente (gemini-1.5-flash é estável e rápido)
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
     const requestBody = {
       contents: [{
         parts: [{
@@ -107,8 +107,8 @@ INSTRUÇÃO SOBRE ARQUIVOS:
 
     // Extrair informações de uso se disponíveis
     let usage = undefined;
-    let model = 'gemini-2.0-flash';
-    
+    let model = 'gemini-1.5-flash';
+
     if (data.usageMetadata) {
       usage = {
         prompt_tokens: data.usageMetadata.promptTokenCount || 0,
@@ -122,20 +122,19 @@ INSTRUÇÃO SOBRE ARQUIVOS:
       usage,
       model,
     };
-    
+
   } catch (error: any) {
     console.error('[Gemini Assistant] Erro completo:', error);
-    
+
     // Melhorar mensagens de erro
     if (error.message?.includes('API key')) {
-      throw new Error('Erro de autenticação com Gemini. Verifique se a GEMINI_API_KEY está correta.');
+      throw new Error('Erro de autenticação com Gemini. Verifique se a GEMINI_API_KEY está correta na Vercel.');
     } else if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
       throw new Error('Limite de quota atingido. Verifique sua conta Google AI Studio.');
     } else if (error.message?.includes('safety')) {
       throw new Error('Resposta bloqueada por filtros de segurança do Gemini.');
     }
-    
+
     throw error;
   }
 }
-
