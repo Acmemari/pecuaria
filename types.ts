@@ -120,6 +120,25 @@ export interface CattleScenario {
   updated_at: string;
 }
 
+export interface SavedQuestionnaireAnswer {
+  questionId: string;
+  answer: 'Sim' | 'Não';
+  isPositive: boolean;
+}
+
+export interface SavedQuestionnaire {
+  id: string;
+  user_id: string;
+  name: string;
+  farm_id?: string;
+  farm_name?: string;
+  production_system?: string;
+  questionnaire_id?: string;
+  answers: SavedQuestionnaireAnswer[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Farm {
   id: string;
   name: string;

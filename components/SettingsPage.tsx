@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { User } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -107,6 +108,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   // Questions state (apenas para admin)
   const [questions, setQuestions] = useState<any[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  const [questionsTableMissing, setQuestionsTableMissing] = useState(false);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
   const [questionForm, setQuestionForm] = useState({
@@ -117,12 +119,33 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     applicableTypes: [] as ('Cria' | 'Recria-Engorda' | 'Ciclo Completo')[]
   });
 
+  // Filtros na listagem de perguntas (apenas visualização; não altera ordem de preenchimento)
+  const [filterQuestionCategory, setFilterQuestionCategory] = useState<string>('');
+  const [filterQuestionGroup, setFilterQuestionGroup] = useState<string>('');
+
   // Estrutura de categorias e grupos
   const categoriesAndGroups = {
     'Gente': ['Liderança', 'Valores', 'Autonomia', 'Domínio', 'Propósito'],
     'Gestão': ['Projeto', 'Execução', 'Gerenciamento'],
     'Produção': ['Cuidados com Solo', 'Manejo de Pastagens', 'Estratégia de Entressafra', 'Layout', 'Suplementação de Precisão', 'Genética Melhoradora', 'Reprodução', 'Sanidade Forte', 'Bem estar animal']
   };
+
+  // Perguntas filtradas por categoria/grupo (só na gestão; preenchimento continua randomizado)
+  const filteredQuestionsForList = useMemo(() => {
+    return questions.filter(
+      (q) =>
+        (!filterQuestionCategory || q.category === filterQuestionCategory) &&
+        (!filterQuestionGroup || q.group === filterQuestionGroup)
+    );
+  }, [questions, filterQuestionCategory, filterQuestionGroup]);
+
+  const filterGroupOptions = useMemo(() => {
+    const subset = filterQuestionCategory
+      ? questions.filter((q) => q.category === filterQuestionCategory)
+      : questions;
+    const groups = [...new Set(subset.map((q) => q.group).filter(Boolean))].sort();
+    return groups;
+  }, [questions, filterQuestionCategory]);
 
   const tabs: Tab[] = [
     { id: 'profile', label: 'Perfil', icon: <UserIcon size={18} /> },
@@ -158,138 +181,43 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     }
   }, [activeTab]);
 
+  const mapDbToApp = (row: any) => ({
+    id: row.id,
+    category: row.category,
+    group: row.group,
+    question: row.question,
+    positiveAnswer: row.positive_answer,
+    applicableTypes: row.applicable_types || [],
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  });
+
   const loadQuestions = async () => {
     setIsLoadingQuestions(true);
+    setQuestionsTableMissing(false);
     try {
-      // Questionário pré-cadastrado "Gente/Gestão/Produção" - 83 perguntas para Ciclo Completo
-      const defaultQuestions: any[] = [
-        // GENTE - Domínio (1-4)
-        { id: '1', category: 'Gente', group: 'Domínio', question: 'A equipe possui treinamento técnico atualizado para as funções que exerce?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '2', category: 'Gente', group: 'Domínio', question: 'Os colaboradores demonstram conhecimento técnico adequado para suas funções?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '3', category: 'Gente', group: 'Domínio', question: 'Existe um programa de capacitação contínua para a equipe?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '4', category: 'Gente', group: 'Domínio', question: 'A equipe tem acesso a informações técnicas atualizadas sobre pecuária?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // GENTE - Propósito (5-7)
-        { id: '5', category: 'Gente', group: 'Propósito', question: 'A equipe compreende claramente os objetivos e metas da fazenda?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '6', category: 'Gente', group: 'Propósito', question: 'Os colaboradores se sentem parte importante do sucesso da propriedade?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '7', category: 'Gente', group: 'Propósito', question: 'Existe alinhamento entre os objetivos pessoais e os da fazenda?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // GENTE - Valores (8-11)
-        { id: '8', category: 'Gente', group: 'Valores', question: 'A equipe compartilha valores como responsabilidade e comprometimento?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '9', category: 'Gente', group: 'Valores', question: 'Existe respeito e colaboração entre os membros da equipe?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '10', category: 'Gente', group: 'Valores', question: 'A integridade e ética são valores praticados no dia a dia?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '11', category: 'Gente', group: 'Valores', question: 'A segurança no trabalho é uma prioridade para todos?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // GENTE - Autonomia (12-15)
-        { id: '12', category: 'Gente', group: 'Autonomia', question: 'Os colaboradores têm liberdade para tomar decisões operacionais no dia a dia?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '13', category: 'Gente', group: 'Autonomia', question: 'A equipe pode propor melhorias e soluções para os processos?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '14', category: 'Gente', group: 'Autonomia', question: 'Existe confiança para que os colaboradores resolvam problemas rotineiros?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '15', category: 'Gente', group: 'Autonomia', question: 'Os colaboradores se sentem empoderados para agir quando necessário?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // GESTÃO - Projeto (16-20)
-        { id: '16', category: 'Gestão', group: 'Projeto', question: 'Existe um planejamento estratégico definido para a fazenda?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '17', category: 'Gestão', group: 'Projeto', question: 'As metas e objetivos são claramente definidos e comunicados?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '18', category: 'Gestão', group: 'Projeto', question: 'Existe um plano de investimentos para os próximos anos?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '19', category: 'Gestão', group: 'Projeto', question: 'O planejamento financeiro é feito de forma sistemática?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '20', category: 'Gestão', group: 'Projeto', question: 'Existe um cronograma de atividades para o ano?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // GESTÃO - Execução (21-26)
-        { id: '21', category: 'Gestão', group: 'Execução', question: 'As atividades planejadas são executadas conforme o cronograma?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '22', category: 'Gestão', group: 'Execução', question: 'Existe acompanhamento regular do desempenho das atividades?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '23', category: 'Gestão', group: 'Execução', question: 'Os processos são documentados e seguidos corretamente?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '24', category: 'Gestão', group: 'Execução', question: 'Existe um sistema de controle de qualidade nas operações?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '25', category: 'Gestão', group: 'Execução', question: 'As não conformidades são identificadas e corrigidas rapidamente?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '26', category: 'Gestão', group: 'Execução', question: 'A equipe tem os recursos necessários para executar bem suas funções?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // GESTÃO - Gerenciamento (27-33)
-        { id: '27', category: 'Gestão', group: 'Gerenciamento', question: 'Existe um controle rigoroso de entrada e saída de insumos?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '28', category: 'Gestão', group: 'Gerenciamento', question: 'Os custos são monitorados e controlados regularmente?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '29', category: 'Gestão', group: 'Gerenciamento', question: 'Existe um sistema de registro de todas as operações?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '30', category: 'Gestão', group: 'Gerenciamento', question: 'As informações são organizadas e facilmente acessíveis?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '31', category: 'Gestão', group: 'Gerenciamento', question: 'Existe análise periódica dos resultados e indicadores?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '32', category: 'Gestão', group: 'Gerenciamento', question: 'As decisões são tomadas com base em dados e informações?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '33', category: 'Gestão', group: 'Gerenciamento', question: 'Existe comunicação eficiente entre todos os níveis da organização?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Manejo de Pastagens (34-40)
-        { id: '34', category: 'Produção', group: 'Manejo de Pastagens', question: 'É feita a medição de altura de entrada e saída dos animais nos piquetes?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '35', category: 'Produção', group: 'Manejo de Pastagens', question: 'O sistema de pastejo rotacionado é utilizado?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '36', category: 'Produção', group: 'Manejo de Pastagens', question: 'Existe um plano de rotação de pastagens definido?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '37', category: 'Produção', group: 'Manejo de Pastagens', question: 'A lotação é ajustada conforme a disponibilidade de forragem?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '38', category: 'Produção', group: 'Manejo de Pastagens', question: 'É realizado o descanso adequado das pastagens?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '39', category: 'Produção', group: 'Manejo de Pastagens', question: 'A qualidade das pastagens é monitorada regularmente?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '40', category: 'Produção', group: 'Manejo de Pastagens', question: 'Existe controle de plantas invasoras nas pastagens?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Solo (41-46)
-        { id: '41', category: 'Produção', group: 'Cuidados com Solo', question: 'É realizada análise de solo periodicamente?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '42', category: 'Produção', group: 'Cuidados com Solo', question: 'Encontro alguns pontos de solo descoberto na fazenda', positiveAnswer: 'Não', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '43', category: 'Produção', group: 'Cuidados com Solo', question: 'Encontro alguns pontos com presença de plantas invasoras na fazenda', positiveAnswer: 'Não', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '44', category: 'Produção', group: 'Manejo de Pastagens', question: 'Encontro alguns pontos de pasto abaixo do ponto de manejo na fazenda', positiveAnswer: 'Não', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '45', category: 'Produção', group: 'Cuidados com Solo', question: 'Encontro alguns pontos com erosão na fazenda', positiveAnswer: 'Não', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '46', category: 'Produção', group: 'Cuidados com Solo', question: 'É feita correção de solo quando necessário?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Suplementação (47-50)
-        { id: '47', category: 'Produção', group: 'Suplementação de Precisão', question: 'Reconheço que alguns lotes chegam a apresentar escore corporal abaixo de 3', positiveAnswer: 'Não', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '48', category: 'Produção', group: 'Suplementação de Precisão', question: 'A suplementação é ajustada conforme a necessidade nutricional?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '49', category: 'Produção', group: 'Suplementação de Precisão', question: 'Existe um programa de suplementação definido por categoria?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '50', category: 'Produção', group: 'Suplementação de Precisão', question: 'A qualidade dos suplementos é monitorada?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Sanidade (51-54)
-        { id: '51', category: 'Produção', group: 'Sanidade Forte', question: 'Tenho algumas aguadas naturais (rio, lago ou cacimba)', positiveAnswer: 'Não', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '52', category: 'Produção', group: 'Sanidade Forte', question: 'O calendário sanitário é seguido rigorosamente em 100% do rebanho?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '53', category: 'Produção', group: 'Sanidade Forte', question: 'Existe controle de doenças e parasitas?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '54', category: 'Produção', group: 'Sanidade Forte', question: 'Os animais doentes são identificados e tratados rapidamente?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Manejo de Pastagens (55-58)
-        { id: '55', category: 'Produção', group: 'Manejo de Pastagens', question: 'Reconheço que muitas vezes meu pasto passa da altura ideal', positiveAnswer: 'Não', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '56', category: 'Produção', group: 'Manejo de Pastagens', question: 'Reconheço que muitas vezes meu pasto rebaixa abaixo do recomendado', positiveAnswer: 'Não', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '57', category: 'Produção', group: 'Manejo de Pastagens', question: 'A altura do pasto é mantida dentro da faixa ideal?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '58', category: 'Produção', group: 'Manejo de Pastagens', question: 'Existe monitoramento da taxa de lotação?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Layout (59-61)
-        { id: '59', category: 'Produção', group: 'Layout', question: 'O layout da propriedade facilita o manejo dos animais?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '60', category: 'Produção', group: 'Layout', question: 'Existe infraestrutura adequada para todas as operações?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '61', category: 'Produção', group: 'Layout', question: 'Os piquetes são de tamanho adequado para o manejo?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Solo (62-65)
-        { id: '62', category: 'Produção', group: 'Cuidados com Solo', question: 'É realizado manejo adequado para preservar o solo?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '63', category: 'Produção', group: 'Cuidados com Solo', question: 'Existe cobertura vegetal adequada em toda a propriedade?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '64', category: 'Produção', group: 'Cuidados com Solo', question: 'Para alta produção, preciso reformar meus pastos a cada 5 anos ou menos', positiveAnswer: 'Não', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '65', category: 'Produção', group: 'Cuidados com Solo', question: 'O solo é mantido produtivo sem necessidade de reformas frequentes?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Bem estar Animal (66-70)
-        { id: '66', category: 'Produção', group: 'Bem estar animal', question: 'Os animais têm acesso adequado a água de qualidade?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '67', category: 'Produção', group: 'Bem estar animal', question: 'Existe sombra adequada para os animais?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '68', category: 'Produção', group: 'Bem estar animal', question: 'Os animais são manejados de forma tranquila e sem estresse?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '69', category: 'Produção', group: 'Bem estar animal', question: 'No verão, frequentemente observo animais deitados ofegantes por conta do calor intenso', positiveAnswer: 'Não', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '70', category: 'Produção', group: 'Bem estar animal', question: 'Existe monitoramento do bem-estar dos animais?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Reprodução (71-74)
-        { id: '71', category: 'Produção', group: 'Reprodução', question: 'Existe um programa reprodutivo definido?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '72', category: 'Produção', group: 'Reprodução', question: 'A taxa de prenhez é monitorada e controlada?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '73', category: 'Produção', group: 'Reprodução', question: 'Os touros são selecionados e avaliados adequadamente?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '74', category: 'Produção', group: 'Reprodução', question: 'Existe controle de estação de monta?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Genética (75)
-        { id: '75', category: 'Produção', group: 'Genética Melhoradora', question: 'Existe um programa de melhoramento genético?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // GENTE - Liderança (76-77)
-        { id: '76', category: 'Gente', group: 'Liderança', question: 'Existe liderança clara e efetiva na propriedade?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '77', category: 'Gente', group: 'Liderança', question: 'A liderança promove o desenvolvimento da equipe?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Estratégia de Entressafra (78-80)
-        { id: '78', category: 'Produção', group: 'Estratégia de Entressafra', question: 'Existe uma estratégia definida para o período de entressafra?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '79', category: 'Produção', group: 'Estratégia de Entressafra', question: 'A produção de forragem é planejada para todo o ano?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '80', category: 'Produção', group: 'Estratégia de Entressafra', question: 'Existe reserva de forragem para períodos críticos?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        
-        // PRODUÇÃO - Genética (81-83)
-        { id: '81', category: 'Produção', group: 'Genética Melhoradora', question: 'Os animais são selecionados com base em critérios genéticos?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '82', category: 'Produção', group: 'Genética Melhoradora', question: 'Existe acompanhamento do desempenho genético do rebanho?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '83', category: 'Produção', group: 'Genética Melhoradora', question: 'O programa genético está alinhado com os objetivos da propriedade?', positiveAnswer: 'Sim', applicableTypes: ['Ciclo Completo'], created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-      ];
-      setQuestions(defaultQuestions);
-    } catch (error) {
-      console.error('Erro ao carregar perguntas:', error);
-      onToast('Erro ao carregar perguntas', 'error');
+      const { data, error } = await supabase
+        .from('questionnaire_questions')
+        .select('*')
+        .order('perg_number', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setQuestions((data || []).map(mapDbToApp));
+    } catch (err: any) {
+      console.error('Erro ao carregar perguntas:', err);
+      setQuestions([]);
+      const msg = err?.message || String(err);
+      const code = err?.code || '';
+      const tableMissing =
+        code === '42P01' ||
+        /relation.*does not exist|tabela.*não existe/i.test(msg) ||
+        /questionnaire_questions/i.test(msg);
+      if (tableMissing) {
+        setQuestionsTableMissing(true);
+      } else {
+        onToast('Erro ao carregar perguntas. Tente novamente ou verifique a conexão.', 'error');
+      }
     } finally {
       setIsLoadingQuestions(false);
     }
@@ -307,25 +235,36 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     }
 
     try {
-      // Por enquanto apenas estrutura - será implementado posteriormente
-      const questionData = {
-        id: editingQuestion?.id || Date.now().toString(),
-        category: questionForm.category,
-        group: questionForm.group,
-        question: questionForm.question,
-        positiveAnswer: questionForm.positiveAnswer,
-        applicableTypes: questionForm.applicableTypes,
-        created_at: editingQuestion?.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
       if (editingQuestion) {
-        // Atualizar
-        setQuestions(questions.map(q => q.id === editingQuestion.id ? questionData : q));
+        const { error } = await supabase
+          .from('questionnaire_questions')
+          .update({
+            category: questionForm.category,
+            group: questionForm.group,
+            question: questionForm.question,
+            positive_answer: questionForm.positiveAnswer,
+            applicable_types: questionForm.applicableTypes,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingQuestion.id);
+
+        if (error) throw error;
         onToast('Pergunta atualizada com sucesso!', 'success');
       } else {
-        // Criar
-        setQuestions([...questions, questionData]);
+        const { data: inserted, error } = await supabase
+          .from('questionnaire_questions')
+          .insert({
+            category: questionForm.category,
+            group: questionForm.group,
+            question: questionForm.question,
+            positive_answer: questionForm.positiveAnswer,
+            applicable_types: questionForm.applicableTypes
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        if (inserted) setQuestions(prev => [...prev, mapDbToApp(inserted)]);
         onToast('Pergunta criada com sucesso!', 'success');
       }
 
@@ -347,6 +286,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const handleDeleteQuestion = async (questionId: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta pergunta?')) {
       try {
+        const { error } = await supabase
+          .from('questionnaire_questions')
+          .delete()
+          .eq('id', questionId);
+
+        if (error) throw error;
         setQuestions(questions.filter(q => q.id !== questionId));
         onToast('Pergunta excluída com sucesso!', 'success');
       } catch (error) {
@@ -1371,152 +1316,199 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
 
   // Função para converter códigos de sistema para o formato aplicável
   const convertSystemCodes = (systemCode: string): ('Cria' | 'Recria-Engorda' | 'Ciclo Completo')[] => {
-    const codes = systemCode.split(';').map(c => c.trim());
+    const raw = systemCode.replace(/,/g, ';');
+    const parts = raw.split(';').map(p => p.trim());
     const result: ('Cria' | 'Recria-Engorda' | 'Ciclo Completo')[] = [];
-    
-    if (codes.includes('CC')) {
-      result.push('Ciclo Completo');
+    const upper = (s: string) => s.toUpperCase();
+    for (const p of parts) {
+      const u = upper(p);
+      if (u === 'CC' || u.startsWith('CC ') || u.startsWith('CC-') || u.startsWith('CICLO')) {
+        if (!result.includes('Ciclo Completo')) result.push('Ciclo Completo');
+      } else if (u === 'CR' || u.startsWith('CR ') || u.startsWith('CR-') || u === 'CRIA') {
+        if (!result.includes('Cria')) result.push('Cria');
+      } else if (u === 'RE' || u.startsWith('RE ') || u.startsWith('RE-') || u.startsWith('RECRIA')) {
+        if (!result.includes('Recria-Engorda')) result.push('Recria-Engorda');
+      }
     }
-    if (codes.includes('CR')) {
-      result.push('Cria');
-    }
-    if (codes.includes('RE')) {
-      result.push('Recria-Engorda');
-    }
-    
     return result;
   };
 
-  // Função para processar e importar CSV
-  const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const parseCsvLine = (line: string, delimiter: string): string[] => {
+    const values: string[] = [];
+    let current = '';
+    let insideQuotes = false;
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      if (char === '"') {
+        insideQuotes = !insideQuotes;
+      } else if (char === delimiter && !insideQuotes) {
+        values.push(current.trim().replace(/^"|"$/g, ''));
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    values.push(current.trim().replace(/^"|"$/g, ''));
+    return values;
+  };
+
+  const detectDelimiter = (firstLine: string): string => {
+    const colsWithComma = parseCsvLine(firstLine, ',').length;
+    const colsWithSemicolon = parseCsvLine(firstLine, ';').length;
+    return colsWithSemicolon >= colsWithComma && colsWithSemicolon >= 4 ? ';' : ',';
+  };
+
+  const normalizeCategory = (raw: string): string | null => {
+    const s = raw.trim();
+    const lower = s.toLowerCase();
+    if (lower === 'gente') return 'Gente';
+    if (lower === 'gestão' || lower === 'gestao') return 'Gestão';
+    if (lower === 'produção' || lower === 'producao') return 'Produção';
+    return null;
+  };
+
+  const normalizePositiveAnswer = (raw: string): 'Sim' | 'Não' | null => {
+    const s = raw.trim().toLowerCase();
+    if (['sim', 's', 'yes', 'y'].includes(s)) return 'Sim';
+    if (['não', 'nao', 'n', 'no'].includes(s)) return 'Não';
+    return null;
+  };
+
+  const parseRowsFromFile = async (file: File): Promise<string[][]> => {
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const firstSheet = wb.SheetNames[0];
+      if (!firstSheet) return [];
+      const sheet = wb.Sheets[firstSheet];
+      const rawRows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: '' });
+      return rawRows.map(row => (Array.isArray(row) ? row : []).map(cell => String(cell ?? '').trim()));
+    }
+    let text = await file.text();
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = text.split('\n').filter(line => line.trim() !== '');
+    if (lines.length < 2) return [];
+    const firstLine = lines[0].replace(/^\uFEFF/, '');
+    const delimiter = detectDelimiter(firstLine);
+    const rows: string[][] = [];
+    for (let i = 0; i < lines.length; i++) rows.push(parseCsvLine(lines[i], delimiter));
+    return rows;
+  };
+
+  const processRowsToQuestions = (rows: string[][]): any[] => {
+    if (rows.length < 2) return [];
+    const header = rows[0].map(h => h.trim());
+    const pergIdx = header.findIndex(h => {
+      const lower = h.toLowerCase().trim();
+      return lower === 'per' || lower === 'per.' || lower === 'perg' || lower === 'perg.' || (lower.startsWith('perg') && !lower.includes('pergunta'));
+    });
+    const categoryIdx = header.findIndex(h => h.toLowerCase().includes('categoria') || h.toLowerCase().includes('category'));
+    const groupIdx = header.findIndex(h => h.toLowerCase().includes('grupo') || h.toLowerCase().includes('group'));
+    const questionIdx = header.findIndex(h => (h.toLowerCase().includes('pergunta') || h.toLowerCase().includes('question')) && !/^per\.?$/i.test(h.trim()) && !/^perg\.?$/i.test(h.trim()));
+    const positiveAnswerIdx = header.findIndex(h => h.toLowerCase().includes('resposta') || h.toLowerCase().includes('positive') || h.toLowerCase().includes('resp'));
+    const systemIdx = header.findIndex(h => h.toLowerCase().includes('sistema') || h.toLowerCase().includes('system'));
+
+    if (categoryIdx === -1 || groupIdx === -1 || questionIdx === -1 || positiveAnswerIdx === -1 || systemIdx === -1) {
+      return [];
+    }
+
+    const importedQuestions: any[] = [];
+    let idCounter = 1;
+    const maxIdx = Math.max(categoryIdx, groupIdx, questionIdx, positiveAnswerIdx, systemIdx);
+
+    for (let i = 1; i < rows.length; i++) {
+      const values = rows[i];
+      if (values.length <= maxIdx) continue;
+
+      const categoryRaw = values[categoryIdx]?.trim() || '';
+      const group = values[groupIdx]?.trim() || '';
+      const question = values[questionIdx]?.trim() || '';
+      const positiveAnswerRaw = values[positiveAnswerIdx]?.trim() || '';
+      const systemCode = values[systemIdx]?.trim() || '';
+      const pergNum = pergIdx >= 0 ? (values[pergIdx]?.trim() || '') : '';
+
+      if (!group || !question || !systemCode) continue;
+
+      const category = normalizeCategory(categoryRaw);
+      if (!category) continue;
+      const positiveAnswer = normalizePositiveAnswer(positiveAnswerRaw);
+      if (!positiveAnswer) continue;
+      const applicableTypes = convertSystemCodes(systemCode);
+      if (applicableTypes.length === 0) continue;
+
+      const questionId = pergNum ? String(pergNum) : String(idCounter++);
+      importedQuestions.push({
+        id: questionId,
+        category,
+        group,
+        question,
+        positiveAnswer,
+        applicableTypes,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+    return importedQuestions;
+  };
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Verificar se é um arquivo CSV
-    if (!file.name.endsWith('.csv')) {
-      onToast('Por favor, selecione um arquivo CSV', 'error');
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.csv') && !name.endsWith('.xlsx') && !name.endsWith('.xls')) {
+      onToast('Selecione um arquivo CSV ou Excel (.xlsx, .xls)', 'error');
       return;
     }
 
     try {
-      const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim() !== '');
-      
-      if (lines.length < 2) {
-        onToast('O arquivo CSV está vazio ou não possui dados', 'error');
+      const rows = await parseRowsFromFile(file);
+      if (rows.length < 2) {
+        onToast('O arquivo está vazio ou não possui dados suficientes.', 'error');
         return;
       }
 
-      // Parsear cabeçalho (primeira linha)
-      const header = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-      
-      // Encontrar índices das colunas esperadas
-      const categoryIdx = header.findIndex(h => 
-        h.toLowerCase().includes('categoria') || h.toLowerCase().includes('category')
-      );
-      const groupIdx = header.findIndex(h => 
-        h.toLowerCase().includes('grupo') || h.toLowerCase().includes('group')
-      );
-      const questionIdx = header.findIndex(h => 
-        h.toLowerCase().includes('pergunta') || h.toLowerCase().includes('question')
-      );
-      const positiveAnswerIdx = header.findIndex(h => 
-        h.toLowerCase().includes('resposta') || h.toLowerCase().includes('positive') || h.toLowerCase().includes('resp')
-      );
-      const systemIdx = header.findIndex(h => 
-        h.toLowerCase().includes('sistema') || h.toLowerCase().includes('system')
-      );
-
-      if (categoryIdx === -1 || groupIdx === -1 || questionIdx === -1 || positiveAnswerIdx === -1 || systemIdx === -1) {
-        onToast('Formato CSV inválido. Colunas esperadas: Categoria, Grupo, Pergunta, Resposta positiva, SISTEMA', 'error');
-        return;
-      }
-
-      // Processar linhas de dados
-      const importedQuestions: any[] = [];
-      let idCounter = 1;
-
-      for (let i = 1; i < lines.length; i++) {
-        // Parsear linha (considerando aspas e vírgulas dentro de campos)
-        const line = lines[i];
-        const values: string[] = [];
-        let currentValue = '';
-        let insideQuotes = false;
-
-        for (let j = 0; j < line.length; j++) {
-          const char = line[j];
-          
-          if (char === '"') {
-            insideQuotes = !insideQuotes;
-          } else if (char === ',' && !insideQuotes) {
-            values.push(currentValue.trim());
-            currentValue = '';
-          } else {
-            currentValue += char;
-          }
-        }
-        values.push(currentValue.trim()); // Adicionar último valor
-
-        if (values.length < Math.max(categoryIdx, groupIdx, questionIdx, positiveAnswerIdx, systemIdx) + 1) {
-          continue; // Pular linhas incompletas
-        }
-
-        const category = values[categoryIdx]?.replace(/^"|"$/g, '').trim();
-        const group = values[groupIdx]?.replace(/^"|"$/g, '').trim();
-        const question = values[questionIdx]?.replace(/^"|"$/g, '').trim();
-        const positiveAnswer = values[positiveAnswerIdx]?.replace(/^"|"$/g, '').trim();
-        const systemCode = values[systemIdx]?.replace(/^"|"$/g, '').trim();
-
-        if (!category || !group || !question || !positiveAnswer || !systemCode) {
-          continue; // Pular linhas com campos obrigatórios vazios
-        }
-
-        // Validar categoria
-        if (!['Gente', 'Gestão', 'Produção'].includes(category)) {
-          console.warn(`Categoria inválida na linha ${i + 1}: ${category}`);
-          continue;
-        }
-
-        // Validar resposta positiva
-        if (!['Sim', 'Não', 'sim', 'não', 'SIM', 'NÃO'].includes(positiveAnswer)) {
-          console.warn(`Resposta positiva inválida na linha ${i + 1}: ${positiveAnswer}`);
-          continue;
-        }
-
-        // Converter códigos de sistema
-        const applicableTypes = convertSystemCodes(systemCode);
-
-        if (applicableTypes.length === 0) {
-          console.warn(`Código de sistema inválido na linha ${i + 1}: ${systemCode}`);
-          continue;
-        }
-
-        importedQuestions.push({
-          id: String(idCounter++),
-          category: category,
-          group: group,
-          question: question,
-          positiveAnswer: positiveAnswer.charAt(0).toUpperCase() + positiveAnswer.slice(1).toLowerCase() as 'Sim' | 'Não',
-          applicableTypes: applicableTypes,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
-      }
-
+      const importedQuestions = processRowsToQuestions(rows);
       if (importedQuestions.length === 0) {
-        onToast('Nenhuma pergunta válida foi encontrada no arquivo CSV', 'error');
+        onToast(
+          'Nenhuma pergunta válida. Colunas esperadas: Categoria, Grupo, Pergunta, Resposta positiva, Sistema. Categoria = Gente/Gestão/Produção; Resposta = Sim/Não; Sistema = CC, CR ou RE (ou CC;CR;RE).',
+          'error'
+        );
         return;
       }
 
-      // Substituir todas as perguntas pelas importadas
-      setQuestions(importedQuestions);
-      onToast(`${importedQuestions.length} pergunta(s) importada(s) com sucesso!`, 'success');
+      const { data: existing } = await supabase.from('questionnaire_questions').select('id');
+      if (existing?.length) {
+        const { error: deleteError } = await supabase
+          .from('questionnaire_questions')
+          .delete()
+          .in('id', existing.map(r => r.id));
+        if (deleteError) throw deleteError;
+      }
 
-      // Limpar o input para permitir reimportação do mesmo arquivo
+      const toInsert = importedQuestions.map(q => ({
+        perg_number: /^\d+$/.test(q.id) ? parseInt(q.id, 10) : null,
+        category: q.category,
+        group: q.group,
+        question: q.question,
+        positive_answer: q.positiveAnswer,
+        applicable_types: q.applicableTypes
+      }));
+
+      const { data: inserted, error: insertError } = await supabase
+        .from('questionnaire_questions')
+        .insert(toInsert)
+        .select();
+
+      if (insertError) throw insertError;
+      setQuestions((inserted || []).map(mapDbToApp));
+      onToast(`${importedQuestions.length} pergunta(s) importada(s) e salvas com sucesso!`, 'success');
+
       event.target.value = '';
     } catch (error) {
-      console.error('Erro ao importar CSV:', error);
-      onToast('Erro ao processar arquivo CSV. Verifique o formato do arquivo.', 'error');
+      console.error('Erro ao importar:', error);
+      onToast('Erro ao processar arquivo. Verifique se é CSV ou Excel (.xlsx) com as colunas corretas.', 'error');
     }
   };
 
@@ -1535,11 +1527,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors cursor-pointer">
               <Upload size={18} />
-              Importar CSV
+              Importar CSV / Excel
               <input
                 type="file"
-                accept=".csv"
-                onChange={handleImportCSV}
+                accept=".csv,.xlsx,.xls"
+                onChange={handleImportFile}
                 className="hidden"
               />
             </label>
@@ -1562,6 +1554,64 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
             </button>
           </div>
         </div>
+
+        {/* Filtros por categoria e grupo (só para localizar perguntas; não altera ordem no preenchimento) */}
+        {questions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3 mb-4 p-3 bg-ai-surface/50 rounded-lg border border-ai-border">
+            <span className="text-sm font-medium text-ai-text">Classificar / Filtrar:</span>
+            <select
+              value={filterQuestionCategory}
+              onChange={(e) => {
+                setFilterQuestionCategory(e.target.value);
+                setFilterQuestionGroup('');
+              }}
+              className="px-3 py-2 text-sm border border-ai-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-ai-accent"
+            >
+              <option value="">Todas as categorias</option>
+              <option value="Gente">Gente</option>
+              <option value="Gestão">Gestão</option>
+              <option value="Produção">Produção</option>
+            </select>
+            <select
+              value={filterQuestionGroup}
+              onChange={(e) => setFilterQuestionGroup(e.target.value)}
+              className="px-3 py-2 text-sm border border-ai-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-ai-accent min-w-[180px]"
+            >
+              <option value="">Todos os grupos</option>
+              {filterGroupOptions.map((g) => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+            {(filterQuestionCategory || filterQuestionGroup) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterQuestionCategory('');
+                  setFilterQuestionGroup('');
+                }}
+                className="px-3 py-2 text-sm border border-ai-border text-ai-text rounded-lg hover:bg-ai-surface2 transition-colors"
+              >
+                Limpar filtros
+              </button>
+            )}
+            <span className="text-xs text-ai-subtext ml-auto">
+              {filteredQuestionsForList.length} de {questions.length} pergunta{questions.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+
+        {questionsTableMissing && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 text-sm">
+            <p className="font-medium">Tabela de perguntas ainda não existe no banco.</p>
+            <p className="mt-1">
+              No Supabase: <strong>SQL Editor</strong> → New query → copie todo o conteúdo do arquivo{' '}
+              <code className="bg-amber-100 px-1 rounded">lib/supabase/run_questionnaire_table.sql</code> → Run.
+            </p>
+            <p className="mt-1 text-amber-700">
+              Depois recarregue esta página. O aviso some quando a tabela existir.
+            </p>
+          </div>
+        )}
 
         {showQuestionForm && (
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
@@ -1722,7 +1772,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ai-border">
-                  {questions.map((question) => (
+                  {filteredQuestionsForList.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-ai-subtext">
+                        Nenhuma pergunta encontrada com esses filtros. Tente outra categoria ou grupo, ou limpe os filtros.
+                      </td>
+                    </tr>
+                  ) : (
+                  filteredQuestionsForList.map((question) => (
                     <tr key={question.id} className="hover:bg-ai-surface/50 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex flex-col">
@@ -1774,12 +1831,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                             className="p-1.5 text-ai-subtext hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="Excluir"
                           >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  ))
+                  )}
                 </tbody>
               </table>
             </div>

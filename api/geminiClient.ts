@@ -65,8 +65,8 @@ INSTRUÇÃO SOBRE ARQUIVOS:
 
     console.log('[Gemini Assistant] Enviando mensagem via API REST...');
     
-    // Usar API REST diretamente
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`;
+    // Usar API REST diretamente (gemini-2.0-flash é estável; evite -exp que pode retornar 404)
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
     
     const requestBody = {
       contents: [{
@@ -107,7 +107,7 @@ INSTRUÇÃO SOBRE ARQUIVOS:
 
     // Extrair informações de uso se disponíveis
     let usage = undefined;
-    let model = 'gemini-2.0-flash-exp';
+    let model = 'gemini-2.0-flash';
     
     if (data.usageMetadata) {
       usage = {

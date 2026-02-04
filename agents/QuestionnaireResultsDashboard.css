@@ -1,0 +1,65 @@
+/* Dashboard de resultados - Ajustes de Impressão Enterprise */
+
+@media print {
+  @page {
+    margin: 10mm;
+    size: A4;
+  }
+
+  body {
+    background-color: white !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    /* Remover barras de rolagem e overflow desnecessário */
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Ocultar TUDO por padrão */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Exibir apenas o conteúdo do relatório de impressão */
+  .questionnaire-print-container,
+  .questionnaire-print-container * {
+    visibility: visible;
+  }
+
+  /* Posicionar o container de impressão no topo absoluto */
+  .questionnaire-print-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+    z-index: 9999;
+  }
+
+  /* Garantir que elementos ocultos não ocupem espaço */
+  .no-print,
+  nav,
+  header,
+  aside,
+  .sidebar {
+    display: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Evita quebra de gráficos e tabelas */
+  .print-break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 2rem;
+  }
+
+  /* Ajustes para Recharts na impressão */
+  .recharts-wrapper {
+    width: 100% !important;
+  }
+}

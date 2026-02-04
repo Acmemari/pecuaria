@@ -45,6 +45,7 @@ const AppContent: React.FC = () => {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
   const [comparatorScenarios, setComparatorScenarios] = useState<any>(null);
+  const [editingQuestionnaire, setEditingQuestionnaire] = useState<any>(null);
   const [selectedFarm, setSelectedFarm] = useState<any>(() => {
     // Carregar fazenda do localStorage se existir
     const savedFarmId = localStorage.getItem('selectedFarmId');
@@ -448,6 +449,10 @@ const AppContent: React.FC = () => {
                 setViewMode('comparator');
                 setActiveAgentId('cattle-profit');
               }}
+              onEditQuestionnaire={(q) => {
+                setEditingQuestionnaire(q);
+                setActiveAgentId('questionnaire-gente-gestao-producao');
+              }}
               onToast={addToast}
             />
           </Suspense>
@@ -525,7 +530,13 @@ const AppContent: React.FC = () => {
       case 'questionnaire-gente-gestao-producao':
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <QuestionnaireFiller questionnaireId="gente-gestao-producao" />
+            <QuestionnaireFiller
+              questionnaireId="gente-gestao-producao"
+              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+              selectedFarm={selectedFarm}
+              initialData={editingQuestionnaire}
+              onClearInitialData={() => setEditingQuestionnaire(null)}
+            />
           </Suspense>
         );
       default:

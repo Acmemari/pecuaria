@@ -1,19 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, Download } from 'lucide-react';
-import { CattleScenario, ComparatorResult, CalculationResults } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, Download, FileCheck, X, FileText } from 'lucide-react';
+import { CattleScenario, ComparatorResult, CalculationResults, SavedQuestionnaire } from '../types';
 import { getSavedScenarios, deleteScenario, getScenario } from '../lib/scenarios';
+import { getSavedQuestionnaires, getSavedQuestionnaire, deleteSavedQuestionnaire, updateSavedQuestionnaireName } from '../lib/savedQuestionnaires';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocation } from '../contexts/LocationContext';
 import EditScenarioNameModal from '../components/EditScenarioNameModal';
 import { updateScenario } from '../lib/scenarios';
 import { CattleCalculatorInputs } from '../types';
 import { generateReportPDF } from '../lib/generateReportPDF';
+import QuestionnaireResultsDashboard from './QuestionnaireResultsDashboard';
+
+type SavedItem = { type: 'scenario'; data: CattleScenario } | { type: 'questionnaire'; data: SavedQuestionnaire };
 
 interface SavedScenariosProps {
   onLoadScenario: (inputs: CattleCalculatorInputs) => void;
   onNavigateToCalculator: () => void;
   onLoadComparator?: (scenarios: any[]) => void;
   onNavigateToComparator?: () => void;
+  onEditQuestionnaire?: (q: SavedQuestionnaire) => void;
   onToast?: (toast: { id: string; message: string; type: 'success' | 'error' | 'info' }) => void;
 }
 
@@ -22,24 +27,51 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   onNavigateToCalculator,
   onLoadComparator,
   onNavigateToComparator,
+  onEditQuestionnaire,
   onToast
 }) => {
   const { user } = useAuth();
   const { country, currencySymbol } = useLocation();
   const [scenarios, setScenarios] = useState<CattleScenario[]>([]);
+  const [questionnaires, setQuestionnaires] = useState<SavedQuestionnaire[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingScenario, setEditingScenario] = useState<CattleScenario | null>(null);
+  const [editingQuestionnaire, setEditingQuestionnaire] = useState<SavedQuestionnaire | null>(null);
+  const [viewingQuestionnaire, setViewingQuestionnaire] = useState<SavedQuestionnaire | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingQuestionnaireId, setDeletingQuestionnaireId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isAutoPrint, setIsAutoPrint] = useState(false);
+  const [isAutoDownloadPdf, setIsAutoDownloadPdf] = useState(false); // New state
+  const [downloadModalQuestionnaire, setDownloadModalQuestionnaire] = useState<SavedQuestionnaire | null>(null);
+  const [includeInsightsInDownload, setIncludeInsightsInDownload] = useState(false);
+
+  const savedItems: SavedItem[] = useMemo(() => {
+    const scenarioItems: SavedItem[] = scenarios.map((s) => ({ type: 'scenario' as const, data: s }));
+    const questionnaireItems: SavedItem[] = questionnaires.map((q) => ({ type: 'questionnaire' as const, data: q }));
+    return [...scenarioItems, ...questionnaireItems].sort(
+      (a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime()
+    );
+  }, [scenarios, questionnaires]);
 
   useEffect(() => {
     if (user) {
-      loadScenarios();
+      loadData();
     }
   }, [user]);
 
-  const loadScenarios = async () => {
+  // Refetch when the tab becomes visible (ex.: usuário voltou do Questionário)
+  useEffect(() => {
+    if (!user) return;
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') loadData();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [user]);
+
+  const loadData = async () => {
     if (!user) {
       setError('Usuário não autenticado');
       setIsLoading(false);
@@ -49,12 +81,15 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getSavedScenarios(user.id);
-      setScenarios(data);
+      const [scenariosData, questionnairesData] = await Promise.all([
+        getSavedScenarios(user.id),
+        getSavedQuestionnaires(user.id).catch(() => [])
+      ]);
+      setScenarios(scenariosData);
+      setQuestionnaires(questionnairesData);
     } catch (err: any) {
-      console.error('Error loading scenarios:', err);
-      const errorMessage = err.message || 'Erro ao carregar cenários salvos';
-      setError(errorMessage);
+      console.error('Error loading saved items:', err);
+      setError(err.message || 'Erro ao carregar itens salvos');
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +105,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     setDeletingId(scenarioId);
     try {
       await deleteScenario(scenarioId, user.id);
-      setScenarios(scenarios.filter(s => s.id !== scenarioId));
+      setScenarios((prev) => prev.filter((s) => s.id !== scenarioId));
       onToast?.({
         id: Date.now().toString(),
         message: 'Cenário excluído com sucesso',
@@ -125,27 +160,89 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     }
   };
 
-  const handleEdit = (scenario: CattleScenario) => {
-    setEditingScenario(scenario);
+  const handleEdit = (item: SavedItem) => {
+    if (item.type === 'scenario') {
+      setEditingScenario(item.data);
+      setEditingQuestionnaire(null); // Clear questionnaire editing state
+    } else { // item.type === 'questionnaire'
+      // If we have an edit handler for questionnaire content, use it.
+      // Otherwise, fallback to renaming (which was the default behavior before).
+      if (onEditQuestionnaire) {
+        onEditQuestionnaire(item.data);
+        setEditingScenario(null); // Clear scenario editing state
+        setEditingQuestionnaire(null); // Clear internal questionnaire editing state as external handler is used
+      } else {
+        setEditingQuestionnaire(item.data);
+        setEditingScenario(null); // Clear scenario editing state
+      }
+    }
   };
 
   const handleSaveEdit = async (name: string) => {
-    if (!editingScenario || !user) return;
+    if (!user) return;
 
-    setIsUpdating(true);
-    try {
-      await updateScenario(editingScenario.id, user.id, { name });
-      await loadScenarios();
-      setEditingScenario(null);
-    } catch (err: any) {
-      onToast?.({
-        id: Date.now().toString(),
-        message: err.message || 'Erro ao atualizar cenário',
-        type: 'error'
-      });
-    } finally {
-      setIsUpdating(false);
+    if (editingScenario) {
+      setIsUpdating(true);
+      try {
+        await updateScenario(editingScenario.id, user.id, { name });
+        await loadData();
+        setEditingScenario(null);
+        onToast?.({ id: Date.now().toString(), message: 'Cenário atualizado', type: 'success' });
+      } catch (err: any) {
+        onToast?.({ id: Date.now().toString(), message: err.message || 'Erro ao atualizar cenário', type: 'error' });
+      } finally {
+        setIsUpdating(false);
+      }
+      return;
     }
+
+    if (editingQuestionnaire) {
+      setIsUpdating(true);
+      try {
+        await updateSavedQuestionnaireName(editingQuestionnaire.id, user.id, name);
+        await loadData();
+        setEditingQuestionnaire(null);
+        onToast?.({ id: Date.now().toString(), message: 'Questionário atualizado', type: 'success' });
+      } catch (err: any) {
+        onToast?.({ id: Date.now().toString(), message: err.message || 'Erro ao atualizar', type: 'error' });
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
+  const handleDeleteQuestionnaire = async (id: string) => {
+    if (!user || !confirm('Tem certeza que deseja excluir este questionário?')) return;
+    setDeletingQuestionnaireId(id);
+    try {
+      await deleteSavedQuestionnaire(id, user.id);
+      setQuestionnaires((prev) => prev.filter((q) => q.id !== id));
+      onToast?.({ id: Date.now().toString(), message: 'Questionário excluído com sucesso', type: 'success' });
+    } catch (err: any) {
+      onToast?.({ id: Date.now().toString(), message: err.message || 'Erro ao excluir', type: 'error' });
+    } finally {
+      setDeletingQuestionnaireId(null);
+    }
+  };
+
+  const handleDownloadQuestionnaire = (q: SavedQuestionnaire) => {
+    setDownloadModalQuestionnaire(q);
+    setIncludeInsightsInDownload(false);
+  };
+
+  const handleConfirmDownload = () => {
+    if (downloadModalQuestionnaire) {
+      setViewingQuestionnaire(downloadModalQuestionnaire);
+      setIsAutoPrint(false); // Don't use print
+      setIsAutoDownloadPdf(false); // Don't auto download, let user click button in UI
+      setDownloadModalQuestionnaire(null);
+    }
+  };
+
+  const handleViewQuestionnaire = (q: SavedQuestionnaire) => {
+    setViewingQuestionnaire(q);
+    setIsAutoPrint(false);
+    setIsAutoDownloadPdf(false);
   };
 
   const handleDownloadReport = async (scenario: CattleScenario) => {
@@ -254,7 +351,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
               <h3 className="text-sm font-bold text-red-900 mb-1">Erro ao carregar cenários</h3>
               <p className="text-xs text-red-700 mb-4">{error}</p>
               <button
-                onClick={loadScenarios}
+                onClick={loadData}
                 className="text-xs px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
               >
                 Tentar novamente
@@ -262,6 +359,26 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (viewingQuestionnaire) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white overflow-hidden">
+        <QuestionnaireResultsDashboard
+          questionnaire={viewingQuestionnaire}
+          onClose={() => {
+            setViewingQuestionnaire(null);
+            setIsAutoPrint(false);
+            setIsAutoDownloadPdf(false);
+            setIncludeInsightsInDownload(false);
+          }}
+          onToast={(msg, type) => onToast?.({ id: Date.now().toString(), message: msg, type })}
+          autoPrint={isAutoPrint}
+          autoDownloadPdf={isAutoDownloadPdf}
+          autoGenerateInsights={includeInsightsInDownload}
+        />
       </div>
     );
   }
@@ -275,21 +392,21 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
           <h1 className="text-xl font-bold text-ai-text">Meus Salvos</h1>
         </div>
         <p className="text-sm text-ai-subtext">
-          {scenarios.length === 0
-            ? 'Você ainda não salvou nenhum cenário.'
-            : `${scenarios.length} cenário${scenarios.length !== 1 ? 's' : ''} salvo${scenarios.length !== 1 ? 's' : ''}`
+          {savedItems.length === 0
+            ? 'Você ainda não salvou cenários nem questionários.'
+            : `${savedItems.length} item${savedItems.length !== 1 ? 'ns' : ''} salvo${savedItems.length !== 1 ? 's' : ''} (${scenarios.length} cenário${scenarios.length !== 1 ? 's' : ''}, ${questionnaires.length} questionário${questionnaires.length !== 1 ? 's' : ''})`
           }
         </p>
       </div>
 
-      {/* Scenarios List */}
-      {scenarios.length === 0 ? (
+      {/* List */}
+      {savedItems.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Save size={48} className="mx-auto mb-4 text-ai-subtext opacity-30" />
-            <h3 className="text-lg font-medium text-ai-text mb-2">Nenhum cenário salvo</h3>
+            <h3 className="text-lg font-medium text-ai-text mb-2">Nenhum item salvo</h3>
             <p className="text-sm text-ai-subtext mb-4">
-              Salve cenários da calculadora para acessá-los aqui depois.
+              Salve cenários da calculadora ou questionários preenchidos para acessá-los aqui.
             </p>
             <button
               onClick={onNavigateToCalculator}
@@ -302,160 +419,262 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       ) : (
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {scenarios.map((scenario) => (
-              <div
-                key={scenario.id}
-                className="bg-white rounded-lg border border-ai-border p-4 hover:shadow-md transition-shadow"
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-semibold text-ai-text flex-1 pr-2 truncate" title={scenario.name}>
-                    {scenario.name}
-                  </h3>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => handleView(scenario.id)}
-                      className="p-1.5 text-ai-subtext hover:text-ai-accent hover:bg-ai-surface rounded transition-colors"
-                      title="Visualizar"
-                    >
-                      <Eye size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDownloadReport(scenario)}
-                      disabled={!scenario.results}
-                      className="p-1.5 text-ai-subtext hover:text-purple-600 hover:bg-ai-surface rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Download Relatório PDF"
-                    >
-                      <Download size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleEdit(scenario)}
-                      className="p-1.5 text-ai-subtext hover:text-blue-600 hover:bg-ai-surface rounded transition-colors"
-                      title="Editar nome"
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(scenario.id)}
-                      disabled={deletingId === scenario.id}
-                      className="p-1.5 text-ai-subtext hover:text-red-600 hover:bg-ai-surface rounded transition-colors disabled:opacity-50"
-                      title="Excluir"
-                    >
-                      {deletingId === scenario.id ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <Trash2 size={16} />
-                      )}
-                    </button>
+            {savedItems.map((item) => (
+              item.type === 'scenario' ? (
+                <div
+                  key={`s-${item.data.id}`}
+                  className="bg-white rounded-lg border border-ai-border p-4 hover:shadow-md transition-shadow"
+                >
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-semibold text-ai-text flex-1 pr-2 truncate" title={item.data.name}>
+                      {item.data.name}
+                    </h3>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => handleView(item.data.id)}
+                        className="p-1.5 text-ai-subtext hover:text-ai-accent hover:bg-ai-surface rounded transition-colors"
+                        title="Visualizar"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDownloadReport(item.data)}
+                        disabled={!item.data.results}
+                        className="p-1.5 text-ai-subtext hover:text-purple-600 hover:bg-ai-surface rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Download Relatório PDF"
+                      >
+                        <Download size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleEdit({ type: 'scenario', data: item.data })}
+                        className="p-1.5 text-ai-subtext hover:text-blue-600 hover:bg-ai-surface rounded transition-colors"
+                        title="Editar nome"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(item.data.id)}
+                        disabled={deletingId === item.data.id}
+                        className="p-1.5 text-ai-subtext hover:text-red-600 hover:bg-ai-surface rounded transition-colors disabled:opacity-50"
+                        title="Excluir"
+                      >
+                        {deletingId === item.data.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Date */}
+                  <div className="flex items-center gap-1.5 text-xs text-ai-subtext mb-3">
+                    <Calendar size={12} />
+                    <span>{formatDate(item.data.created_at)}</span>
+                  </div>
+
+                  {/* Summary */}
+                  {(() => {
+                    const scenario = item.data;
+                    const results = scenario.results;
+                    const isComparatorPDF = results && 'type' in results && results.type === 'comparator_pdf';
+
+                    if (isComparatorPDF) {
+                      return (
+                        <div className="pt-3 border-t border-ai-border">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                              Análise Comparativa
+                            </div>
+                          </div>
+                          <p className="text-xs text-ai-subtext">
+                            Comparação de 3 cenários com relatório PDF completo.
+                            Clique no ícone de download para visualizar o relatório.
+                          </p>
+                        </div>
+                      );
+                    } else if (results && !('type' in results)) {
+                      const calcResults = results as CalculationResults;
+                      return (
+                        <div className="pt-3 border-t border-ai-border">
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-ai-subtext">Resultado:</span>
+                              <span className={`ml-1 font-medium ${(calcResults.resultadoPorBoi || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {currencySymbol} {(calcResults.resultadoPorBoi || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-ai-subtext">Margem:</span>
+                              <span className={`ml-1 font-medium ${(calcResults.margemVenda || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {(calcResults.margemVenda || 0).toFixed(2)}%
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-ai-subtext">Permanência:</span>
+                              <span className="ml-1 font-medium text-ai-text">{(calcResults.diasPermanencia || 0).toFixed(0)} dias</span>
+                            </div>
+                            <div>
+                              <span className="text-ai-subtext">Arrobas:</span>
+                              <span className="ml-1 font-medium text-ai-text">{(calcResults.arrobasProduzidas || 0).toFixed(2)} @</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="pt-3 border-t border-ai-border">
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-ai-subtext">Peso Compra:</span>
+                              <span className="ml-1 font-medium text-ai-text">{scenario.inputs.pesoCompra} kg</span>
+                            </div>
+                            <div>
+                              <span className="text-ai-subtext">Valor Compra:</span>
+                              <span className="ml-1 font-medium text-ai-text">
+                                {currencySymbol} {scenario.inputs.valorCompra.toFixed(2)}/kg
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-ai-subtext">Peso Abate:</span>
+                              <span className="ml-1 font-medium text-ai-text">{scenario.inputs.pesoAbate} kg</span>
+                            </div>
+                            <div>
+                              <span className="text-ai-subtext">Valor Venda:</span>
+                              <span className="ml-1 font-medium text-ai-text">{currencySymbol} {scenario.inputs.valorVenda}{country === 'PY' ? '/kg' : '/@'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+              ) : (
+                <div
+                  key={`q-${item.data.id}`}
+                  className="bg-white rounded-lg border border-ai-border p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-semibold text-ai-text flex-1 pr-2 truncate" title={item.data.name}>
+                      {item.data.name}
+                    </h3>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => handleViewQuestionnaire(item.data)}
+                        className="p-1.5 text-ai-subtext hover:text-ai-accent hover:bg-ai-surface rounded transition-colors"
+                        title="Visualizar"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDownloadQuestionnaire(item.data)}
+                        className="p-1.5 text-ai-subtext hover:text-purple-600 hover:bg-ai-surface rounded transition-colors"
+                        title="Download PDF"
+                      >
+                        <Download size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleEdit({ type: 'questionnaire', data: item.data })}
+                        className="p-1.5 text-ai-subtext hover:text-blue-600 hover:bg-ai-surface rounded transition-colors"
+                        title={onEditQuestionnaire ? "Editar questionário" : "Editar nome"}
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteQuestionnaire(item.data.id)}
+                        disabled={deletingQuestionnaireId === item.data.id}
+                        className="p-1.5 text-ai-subtext hover:text-red-600 hover:bg-ai-surface rounded transition-colors disabled:opacity-50"
+                        title="Excluir"
+                      >
+                        {deletingQuestionnaireId === item.data.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={16} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-ai-subtext mb-3">
+                    <Calendar size={12} />
+                    <span>{formatDate(item.data.created_at)}</span>
+                  </div>
+                  <div className="pt-3 border-t border-ai-border">
+                    <div className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium inline-block mb-2">
+                      Questionário
+                    </div>
+                    {item.data.farm_name && (
+                      <p className="text-xs text-ai-subtext">Fazenda: {item.data.farm_name}</p>
+                    )}
+                    <p className="text-xs text-ai-subtext">{item.data.answers?.length || 0} respostas</p>
                   </div>
                 </div>
-
-                {/* Date */}
-                <div className="flex items-center gap-1.5 text-xs text-ai-subtext mb-3">
-                  <Calendar size={12} />
-                  <span>{formatDate(scenario.created_at)}</span>
-                </div>
-
-                {/* Summary */}
-                {(() => {
-                  const results = scenario.results;
-                  const isComparatorPDF = results && 'type' in results && results.type === 'comparator_pdf';
-
-                  if (isComparatorPDF) {
-                    // É um comparativo salvo
-                    return (
-                      <div className="pt-3 border-t border-ai-border">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
-                            Análise Comparativa
-                          </div>
-                        </div>
-                        <p className="text-xs text-ai-subtext">
-                          Comparação de 3 cenários com relatório PDF completo.
-                          Clique no ícone de download para visualizar o relatório.
-                        </p>
-                      </div>
-                    );
-                  } else if (results && !('type' in results)) {
-                    // É um cenário normal com resultados
-                    // We know it is CalculationResults here
-                    const calcResults = results as CalculationResults;
-
-                    return (
-                      <div className="pt-3 border-t border-ai-border">
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <span className="text-ai-subtext">Resultado:</span>
-                            <span className={`ml-1 font-medium ${(calcResults.resultadoPorBoi || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                              }`}>
-                              {currencySymbol} {(calcResults.resultadoPorBoi || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-ai-subtext">Margem:</span>
-                            <span className={`ml-1 font-medium ${(calcResults.margemVenda || 0) >= 0 ? 'text-green-600' : 'text-red-600'
-                              }`}>
-                              {(calcResults.margemVenda || 0).toFixed(2)}%
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-ai-subtext">Permanência:</span>
-                            <span className="ml-1 font-medium text-ai-text">
-                              {(calcResults.diasPermanencia || 0).toFixed(0)} dias
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-ai-subtext">Arrobas:</span>
-                            <span className="ml-1 font-medium text-ai-text">
-                              {(calcResults.arrobasProduzidas || 0).toFixed(2)} @
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  } else {
-                    // Cenário sem resultados - mostrar inputs
-                    return (
-                      <div className="pt-3 border-t border-ai-border">
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <span className="text-ai-subtext">Peso Compra:</span>
-                            <span className="ml-1 font-medium text-ai-text">{scenario.inputs.pesoCompra} kg</span>
-                          </div>
-                          <div>
-                            <span className="text-ai-subtext">Valor Compra:</span>
-                            <span className="ml-1 font-medium text-ai-text">
-                              {currencySymbol} {scenario.inputs.valorCompra.toFixed(2)}/kg
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-ai-subtext">Peso Abate:</span>
-                            <span className="ml-1 font-medium text-ai-text">{scenario.inputs.pesoAbate} kg</span>
-                          </div>
-                          <div>
-                            <span className="text-ai-subtext">Valor Venda:</span>
-                            <span className="ml-1 font-medium text-ai-text">{currencySymbol} {scenario.inputs.valorVenda}{country === 'PY' ? '/kg' : '/@'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                })()}
-              </div>
-            ))}
+              )))}
           </div>
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editingScenario && (
+      {/* Edit Modal - Cenário ou Questionário */}
+      {(editingScenario || editingQuestionnaire) && (
         <EditScenarioNameModal
           isOpen={true}
-          onClose={() => setEditingScenario(null)}
+          onClose={() => { setEditingScenario(null); setEditingQuestionnaire(null); }}
           onSave={handleSaveEdit}
-          currentName={editingScenario.name}
+          currentName={editingScenario?.name ?? editingQuestionnaire?.name ?? ''}
           isLoading={isUpdating}
         />
+      )}
+
+      {/* Download Configuration Modal */}
+      {downloadModalQuestionnaire && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setDownloadModalQuestionnaire(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-ai-border">
+              <div className="flex items-center gap-2">
+                <FileText size={20} className="text-ai-accent" />
+                <h3 className="font-semibold text-ai-text">Configurar Download</h3>
+              </div>
+              <button onClick={() => setDownloadModalQuestionnaire(null)} className="p-1.5 text-ai-subtext hover:bg-ai-surface rounded">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-ai-subtext">
+                Configure as opções do relatório PDF antes de baixar.
+              </p>
+
+              <label className="flex items-start gap-3 p-3 border border-ai-border rounded-lg hover:bg-ai-surface cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded border-ai-border text-ai-accent focus:ring-ai-accent"
+                  checked={includeInsightsInDownload}
+                  onChange={(e) => setIncludeInsightsInDownload(e.target.checked)}
+                />
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-ai-text">Incluir Insights da IA</div>
+                  <div className="text-xs text-ai-subtext mt-0.5">
+                    Adiciona análise e recomendações geradas por inteligência artificial ao relatório.
+                  </div>
+                </div>
+              </label>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setDownloadModalQuestionnaire(null)}
+                  className="flex-1 px-4 py-2 border border-ai-border text-ai-text rounded-lg font-medium hover:bg-ai-surface transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmDownload}
+                  className="flex-1 px-4 py-2 bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors"
+                >
+                  Baixar PDF
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
