@@ -30,6 +30,7 @@ const QuestionnaireFiller = lazy(() => import('./agents/QuestionnaireFiller'));
 const ClientManagement = lazy(() => import('./agents/ClientManagement'));
 const AgilePlanning = lazy(() => import('./agents/AgilePlanning'));
 const AnalystManagement = lazy(() => import('./agents/AnalystManagement'));
+const ClientDocuments = lazy(() => import('./agents/ClientDocuments'));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full">
@@ -177,11 +178,22 @@ const AppContent: React.FC = () => {
         status: (user?.role === 'admin' || user?.qualification === 'analista') ? 'active' : 'locked'
       };
 
+      // Add Client Documents for analysts, admins and clients
+      const clientDocumentsAgent: Agent = {
+        id: 'client-documents',
+        name: 'Documentos',
+        description: 'Gerenciar documentos da mentoria',
+        icon: 'folder',
+        category: 'admin',
+        status: 'active' // Todos podem ver, mas permissões são controladas no componente
+      };
+
       // Dynamically add Admin tools if user is admin
       if (user?.role === 'admin') {
         return [
           ...baseAgents,
           clientManagementAgent,
+          clientDocumentsAgent,
           {
             id: 'agile-planning',
             name: 'Planejamento Ágil',
@@ -222,6 +234,7 @@ const AppContent: React.FC = () => {
         return [
           ...baseAgents,
           clientManagementAgent,
+          clientDocumentsAgent,
           {
             id: 'agile-planning',
             name: 'Planejamento Ágil',
@@ -233,7 +246,8 @@ const AppContent: React.FC = () => {
         ];
       }
 
-      return baseAgents;
+      // Usuários regulares (clientes) também veem Documentos
+      return [...baseAgents, clientDocumentsAgent];
     } catch (error) {
       console.error('Erro ao calcular agents:', error);
       // Retornar pelo menos os agents básicos em caso de erro
@@ -536,6 +550,14 @@ const AppContent: React.FC = () => {
               selectedFarm={selectedFarm}
               initialData={editingQuestionnaire}
               onClearInitialData={() => setEditingQuestionnaire(null)}
+            />
+          </Suspense>
+        );
+      case 'client-documents':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <ClientDocuments
+              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
             />
           </Suspense>
         );

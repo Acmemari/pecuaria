@@ -4,6 +4,7 @@ import { CattleScenario, ComparatorResult, CalculationResults, SavedQuestionnair
 import { getSavedScenarios, deleteScenario, getScenario } from '../lib/scenarios';
 import { getSavedQuestionnaires, getSavedQuestionnaire, deleteSavedQuestionnaire, updateSavedQuestionnaireName } from '../lib/savedQuestionnaires';
 import { useAuth } from '../contexts/AuthContext';
+import { useAnalyst } from '../contexts/AnalystContext';
 import { useLocation } from '../contexts/LocationContext';
 import EditScenarioNameModal from '../components/EditScenarioNameModal';
 import { updateScenario } from '../lib/scenarios';
@@ -31,7 +32,11 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   onToast
 }) => {
   const { user } = useAuth();
+  const { selectedAnalyst } = useAnalyst();
   const { country, currencySymbol } = useLocation();
+
+  // Determine target user ID (admin viewing analyst's data or regular user)
+  const targetUserId = (user?.role === 'admin' && selectedAnalyst) ? selectedAnalyst.id : user?.id;
   const [scenarios, setScenarios] = useState<CattleScenario[]>([]);
   const [questionnaires, setQuestionnaires] = useState<SavedQuestionnaire[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,8 +77,8 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   }, [user]);
 
   const loadData = async () => {
-    if (!user) {
-      setError('Usuário não autenticado');
+    if (!targetUserId) {
+      setError('Usuário não identificado');
       setIsLoading(false);
       return;
     }
@@ -82,8 +87,8 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     setError(null);
     try {
       const [scenariosData, questionnairesData] = await Promise.all([
-        getSavedScenarios(user.id),
-        getSavedQuestionnaires(user.id).catch(() => [])
+        getSavedScenarios(targetUserId),
+        getSavedQuestionnaires(targetUserId).catch(() => [])
       ]);
       setScenarios(scenariosData);
       setQuestionnaires(questionnairesData);
@@ -96,7 +101,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   };
 
   const handleDelete = async (scenarioId: string) => {
-    if (!user) return;
+    if (!targetUserId) return;
 
     if (!confirm('Tem certeza que deseja excluir este cenário?')) {
       return;
@@ -104,7 +109,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
 
     setDeletingId(scenarioId);
     try {
-      await deleteScenario(scenarioId, user.id);
+      await deleteScenario(scenarioId, targetUserId);
       setScenarios((prev) => prev.filter((s) => s.id !== scenarioId));
       onToast?.({
         id: Date.now().toString(),
@@ -123,10 +128,10 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   };
 
   const handleView = async (scenarioId: string) => {
-    if (!user) return;
+    if (!targetUserId) return;
 
     try {
-      const scenario = await getScenario(scenarioId, user.id);
+      const scenario = await getScenario(scenarioId, targetUserId!);
       if (scenario) {
         // Verificar se é um comparativo
         const results = scenario.results;
@@ -179,12 +184,12 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   };
 
   const handleSaveEdit = async (name: string) => {
-    if (!user) return;
+    if (!targetUserId) return;
 
     if (editingScenario) {
       setIsUpdating(true);
       try {
-        await updateScenario(editingScenario.id, user.id, { name });
+        await updateScenario(editingScenario.id, targetUserId!, { name });
         await loadData();
         setEditingScenario(null);
         onToast?.({ id: Date.now().toString(), message: 'Cenário atualizado', type: 'success' });
@@ -199,7 +204,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     if (editingQuestionnaire) {
       setIsUpdating(true);
       try {
-        await updateSavedQuestionnaireName(editingQuestionnaire.id, user.id, name);
+        await updateSavedQuestionnaireName(editingQuestionnaire.id, targetUserId!, name);
         await loadData();
         setEditingQuestionnaire(null);
         onToast?.({ id: Date.now().toString(), message: 'Questionário atualizado', type: 'success' });
@@ -212,10 +217,11 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   };
 
   const handleDeleteQuestionnaire = async (id: string) => {
-    if (!user || !confirm('Tem certeza que deseja excluir este questionário?')) return;
+    if (!targetUserId || !confirm('Tem certeza que deseja excluir este questionário?')) return;
+    setDeletingQuestionnaireId(id);
     setDeletingQuestionnaireId(id);
     try {
-      await deleteSavedQuestionnaire(id, user.id);
+      await deleteSavedQuestionnaire(id, targetUserId!);
       setQuestionnaires((prev) => prev.filter((q) => q.id !== id));
       onToast?.({ id: Date.now().toString(), message: 'Questionário excluído com sucesso', type: 'success' });
     } catch (err: any) {

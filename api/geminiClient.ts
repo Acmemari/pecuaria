@@ -51,27 +51,39 @@ export async function callAssistant(question: string): Promise<AssistantResponse
 
   try {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'models/gemini-2.5-flash' });
 
-    const systemInstruction = `Você é o Antonio Chaker, renomado zootecnista e consultor de gestão pecuária no Brasil.
+    const systemInstruction = `Você é um consultor especializado em gestão pecuária.
 
-SUA PERSONALIDADE:
-- Pragmático, direto e focado em resultados financeiros.
-- Você usa termos técnicos do setor (GMD, Lotação, Desembolso Cabeça/Mês, Margem sobre Venda, R$/@).
-- Você fala "na língua do pecuarista", usando expressões como "companheiro", "o boi é o caixa", "fazenda é empresa a céu aberto".
-- Você valoriza dados: "Quem não mede não gerencia".
+INSTRUÇÕES:
+- Seja direto, pragmático e focado em resultados financeiros
+- Use termos técnicos do setor quando apropriado (GMD, Lotação, Desembolso Cabeça/Mês, etc.)
+- Baseie suas recomendações nos dados fornecidos
+- IMPORTANTE: Sempre inicie sua resposta com "Analisando seus resultados, pudemos observar que..."
+- Não use expressões informais como "companheiro" ou similares
+- Mantenha um tom profissional e consultivo`;
 
-INSTRUÇÃO SOBRE ARQUIVOS:
-- Se o usuário enviar um arquivo (PDF, Imagem, Texto), analise-o profundamente.
-- Use os dados do arquivo como a verdade absoluta para a resposta.
-- Se for um manual de regras (como o PDF de Identidade do Agente), siga as fórmulas contidas nele estritamente.`;
+    console.log('[Gemini Assistant] Enviando mensagem via SDK oficial (gemini-2.5-flash)...');
 
-    console.log('[Gemini Assistant] Enviando mensagem via SDK oficial (gemini-1.5-flash)...');
-
-    const prompt = `${systemInstruction}\n\nUsuário: ${question}\n\nAntonio:`;
+    const prompt = `${systemInstruction}\n\n${question}\n\nResposta:`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
+
+    // Verificar se a resposta foi bloqueada
+    if (!response || !response.candidates || response.candidates.length === 0) {
+      console.error('[Gemini Assistant] Resposta bloqueada ou vazia');
+      throw new Error('Resposta bloqueada por filtros de segurança ou sem candidatos disponíveis');
+    }
+
+    const candidate = response.candidates[0];
+    if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+      console.error('[Gemini Assistant] Resposta finalizada com motivo:', candidate.finishReason);
+      if (candidate.finishReason === 'SAFETY') {
+        throw new Error('Resposta bloqueada por filtros de segurança do Gemini');
+      }
+    }
+
     const answer = response.text();
 
     console.log('[Gemini Assistant] Resposta recebida com sucesso, tamanho:', answer.length);
@@ -91,14 +103,22 @@ INSTRUÇÃO SOBRE ARQUIVOS:
     return {
       answer,
       usage,
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
     };
 
   } catch (error: any) {
-    console.error('[Gemini Assistant] Erro completo:', error);
+    console.error('[Gemini Assistant] Erro:', {
+      message: error.message,
+      type: error.constructor?.name,
+      status: error.status,
+      statusText: error.statusText,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
 
     // Melhorar mensagens de erro
-    if (error.message?.includes('API key') || error.message?.includes('API_KEY')) {
+    if (error.status === 404 || error.message?.includes('404') || error.message?.includes('Not Found')) {
+      throw new Error('Modelo não encontrado (404). Verifique se a chave da API está correta e se o modelo "gemini-1.5-flash" está disponível.');
+    } else if (error.message?.includes('API key') || error.message?.includes('API_KEY')) {
       throw new Error('Erro de autenticação com Gemini. Verifique se a GEMINI_API_KEY está correta na Vercel.');
     } else if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
       throw new Error('Limite de quota atingido. Verifique sua conta Google AI Studio.');

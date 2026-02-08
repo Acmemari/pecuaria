@@ -189,3 +189,42 @@ export interface ClientAnalyst {
   analystId: string; // ID do usuário analista
   createdAt: string;
 }
+
+// ============================================================================
+// DOCUMENTOS DE CLIENTE (MENTORIA)
+// ============================================================================
+
+export type DocumentCategory = 'geral' | 'contrato' | 'relatorio' | 'financeiro' | 'tecnico' | 'outro';
+export type DocumentFileType = 'pdf' | 'docx' | 'doc' | 'xlsx' | 'xls';
+
+export interface ClientDocument {
+  id: string;
+  clientId: string;
+  uploadedBy: string;
+  fileName: string;
+  originalName: string;
+  fileType: DocumentFileType;
+  fileSize: number; // em bytes
+  storagePath: string;
+  category: DocumentCategory;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  // Campos calculados/join
+  uploaderName?: string;
+  clientName?: string;
+}
+
+export interface DocumentUploadParams {
+  clientId: string;
+  file: File;
+  category?: DocumentCategory;
+  description?: string;
+}
+
+export interface DocumentFilter {
+  clientId?: string;
+  category?: DocumentCategory;
+  fileType?: DocumentFileType;
+  searchTerm?: string;
+}

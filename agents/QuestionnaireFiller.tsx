@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FileCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useAnalyst } from '../contexts/AnalystContext';
 import { Farm, SavedQuestionnaire } from '../types';
 import { saveQuestionnaire, getSavedQuestionnaires, updateSavedQuestionnaireName, deleteSavedQuestionnaire, updateSavedQuestionnaire } from '../lib/savedQuestionnaires';
 import QuestionnaireResultsDashboard from './QuestionnaireResultsDashboard';
@@ -29,7 +30,11 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   onClearInitialData
 }) => {
   const { user } = useAuth();
+  const { selectedAnalyst } = useAnalyst();
   const { questions, loading: loadingQuestions } = useQuestions();
+
+  // Determine target user ID (admin viewing analyst's data or regular user)
+  const targetUserId = (user?.role === 'admin' && selectedAnalyst) ? selectedAnalyst.id : user?.id;
 
   // Internal state for farms (used only when no external farm is provided)
   const [farms, setFarms] = useState<Farm[]>([]);
@@ -114,11 +119,11 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
 
   // Load saved questionnaires
   const loadSavedForFarm = useCallback(() => {
-    if (!user?.id || !selectedFarm) {
+    if (!targetUserId || !selectedFarm) {
       setSavedForFarm([]);
       return;
     }
-    getSavedQuestionnaires(user.id)
+    getSavedQuestionnaires(targetUserId)
       .then((all) => {
         const forFarm = all.filter(
           (q) => q.farm_id === selectedFarm.id || (q.farm_name && q.farm_name === selectedFarm.name)
@@ -129,7 +134,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
         console.error('Erro ao carregar questionários salvos:', err);
         setSavedForFarm([]);
       });
-  }, [user?.id, selectedFarm]);
+  }, [targetUserId, selectedFarm]);
 
   useEffect(() => {
     loadSavedForFarm();
@@ -206,7 +211,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   }, []);
 
   const handleUpdateName = useCallback(async (id: string, newName: string) => {
-    if (!user?.id) return;
+    if (!targetUserId) return;
 
     const validation = validateQuestionnaireName(newName);
     if (!validation.valid) {
@@ -216,7 +221,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
 
     setIsUpdating(true);
     try {
-      await updateSavedQuestionnaireName(id, user.id, newName);
+      await updateSavedQuestionnaireName(id, targetUserId, newName);
       loadSavedForFarm();
       onToast?.('Nome atualizado.', 'success');
     } catch (err: any) {
@@ -224,16 +229,16 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
     } finally {
       setIsUpdating(false);
     }
-  }, [user?.id, loadSavedForFarm, onToast]);
+  }, [targetUserId, loadSavedForFarm, onToast]);
 
   const handleDelete = useCallback(async (id: string) => {
-    if (!user?.id) return;
+    if (!targetUserId) return;
     if (!window.confirm('Tem certeza que deseja excluir este questionário?')) return;
 
     const wasOnlyOne = savedForFarm.length <= 1;
     setDeletingId(id);
     try {
-      await deleteSavedQuestionnaire(id, user.id);
+      await deleteSavedQuestionnaire(id, targetUserId);
       loadSavedForFarm();
       if (wasOnlyOne) setShowResultsList(false);
       onToast?.('Questionário excluído.', 'success');
@@ -242,10 +247,10 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
     } finally {
       setDeletingId(null);
     }
-  }, [user?.id, savedForFarm.length, loadSavedForFarm, onToast]);
+  }, [targetUserId, savedForFarm.length, loadSavedForFarm, onToast]);
 
   const handleManualSave = useCallback(async () => {
-    if (!user?.id || !selectedFarm || !viewResultsQuestionnaire) return;
+    if (!targetUserId || !selectedFarm || !viewResultsQuestionnaire) return;
 
     // Only save if it doesn't have an ID (i.e., it's a new unsaved one)
     // OR if we are updating an existing one (editingQuestionnaireId is set)
@@ -257,7 +262,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
     try {
       if (editingQuestionnaireId) {
         // UPDATE existing
-        await updateSavedQuestionnaire(editingQuestionnaireId, user.id, viewResultsQuestionnaire.answers!);
+        await updateSavedQuestionnaire(editingQuestionnaireId, targetUserId!, viewResultsQuestionnaire.answers!);
         onToast?.('Questionário atualizado com sucesso!', 'success');
 
         // Refresh and clear edit state
@@ -272,7 +277,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
         // CREATE new
         const name = generateQuestionnaireName(selectedFarm.name);
 
-        const newQuestionnaire = await saveQuestionnaire(user.id, name, {
+        const newQuestionnaire = await saveQuestionnaire(targetUserId!, name, {
           farmId: selectedFarm.id,
           farmName: selectedFarm.name,
           productionSystem: selectedFarm.productionSystem,
@@ -287,7 +292,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
     } catch (err: any) {
       handleQuestionnaireError(err, 'saveQuestionnaire', onToast);
     }
-  }, [user?.id, selectedFarm, viewResultsQuestionnaire, questionnaireId, loadSavedForFarm, onToast, editingQuestionnaireId, savedForFarm]);
+  }, [targetUserId, selectedFarm, viewResultsQuestionnaire, questionnaireId, loadSavedForFarm, onToast, editingQuestionnaireId, savedForFarm]);
 
   const handleEditQuestionnaire = useCallback((q: SavedQuestionnaire) => {
     setEditingQuestionnaireId(q.id);
