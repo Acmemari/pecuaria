@@ -8,8 +8,16 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { callAssistant } from './geminiClient';
 import { EXPERT_RULES } from './expert-knowledge';
 
+function setCors(res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Configurar CORS manual para garantir que preflight funcione
+  setCors(res);
+
+  // Responder OPTIONS (preflight CORS)
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -19,7 +27,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  console.log('[questionnaire-insights] Iniciando requisição. API Key exists?', !!apiKey);
+  console.log('[questionnaire-insights] Iniciando requisição. API Key exists?', !!apiKey, 'Key length:', apiKey?.length);
+
+  if (!apiKey || apiKey.trim() === '') {
+    return res.status(500).json({
+      error: 'GEMINI_API_KEY não está configurada no servidor. Configure nas variáveis de ambiente do Vercel.',
+    });
+  }
 
   try {
     const { summary, farmName } = req.body || {};
@@ -43,13 +57,14 @@ Siga estritamente o "FORMATO DA RESPOSTA" definido nas regras.`;
     return res.status(200).json({ answer });
   } catch (err: any) {
     console.error('[questionnaire-insights] Erro:', err);
-    // Retornar stack em erro 500 para facilitar debug
     return res.status(500).json({
       error: err.message || 'Erro ao gerar insights com IA.',
       debug: {
         message: err.message,
-        stack: err.stack,
-        apiKeyExists: !!apiKey
+        apiKeyExists: !!apiKey,
+        apiKeyLength: apiKey?.length,
+        nodeEnv: process.env.NODE_ENV,
+        vercel: !!process.env.VERCEL,
       }
     });
   }
