@@ -64,7 +64,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     if (user) {
       loadData();
     }
-  }, [user]);
+  }, [user, targetUserId]);
 
   // Refetch when the tab becomes visible (ex.: usuário voltou do Questionário)
   useEffect(() => {
