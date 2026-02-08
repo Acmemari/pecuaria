@@ -77,11 +77,12 @@ CREATE POLICY "client_documents_select_policy" ON client_documents
       AND up.qualification = 'analista'
     )
     OR
-    -- Cliente vê seus próprios documentos (via user_profile.client_id se existir)
+    -- Cliente vê seus próprios documentos (via user_profiles.email, NÃO auth.users)
     EXISTS (
       SELECT 1 FROM clients c
+      JOIN user_profiles up ON up.id = auth.uid()
       WHERE c.id = client_documents.client_id
-      AND c.email = (SELECT email FROM auth.users WHERE id = auth.uid())
+      AND c.email = up.email
     )
   );
 
@@ -107,11 +108,12 @@ CREATE POLICY "client_documents_insert_policy" ON client_documents
       AND up.qualification = 'analista'
     )
     OR
-    -- Cliente pode inserir em seu próprio registro
+    -- Cliente pode inserir em seu próprio registro (via user_profiles.email, NÃO auth.users)
     EXISTS (
       SELECT 1 FROM clients c
+      JOIN user_profiles up ON up.id = auth.uid()
       WHERE c.id = client_documents.client_id
-      AND c.email = (SELECT email FROM auth.users WHERE id = auth.uid())
+      AND c.email = up.email
     )
   );
 

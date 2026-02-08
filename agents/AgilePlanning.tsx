@@ -276,6 +276,17 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   const weightInfoRefs = useRef<Partial<Record<WeightInfoCategory, HTMLDivElement | null>>>({});
   const weightButtonRefs = useRef<Partial<Record<WeightInfoCategory, HTMLButtonElement | null>>>({});
   
+  // Estados de índices de Recria-Engorda
+  const [recriaGmd, setRecriaGmd] = useState(0.65); // Ganho Médio Diário: 0.4 a 1.1 kg/dia, default 0.65
+  const [recriaMortalidade, setRecriaMortalidade] = useState(0.8); // Mortalidade: 0.2% a 2%, default 0.8%
+  const [recriaRendimentoCarcaca, setRecriaRendimentoCarcaca] = useState(54.5); // Rendimento de Carcaça: 50% a 60%, default 54.5%
+
+  // Estados de Compra e Venda - Recria-Engorda
+  const [recriaPesoCompra, setRecriaPesoCompra] = useState(220);       // Peso de Compra: 160 a 400 kg, default 220
+  const [recriaValorCompra, setRecriaValorCompra] = useState(15);       // Valor de Compra: R$ 10 a R$ 20/kg, default R$ 15
+  const [recriaPesoVenda, setRecriaPesoVenda] = useState(550);          // Peso de Venda: 360 a 600 kg, default 550
+  const [recriaValorVenda, setRecriaValorVenda] = useState(310);        // Valor de Venda: R$ 260 a R$ 360/@, default R$ 310
+
   // Estados de índices reprodutivos
   const [fertility, setFertility] = useState(85);
   const [prePartumLoss, setPrePartumLoss] = useState(6);
@@ -917,6 +928,34 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     return somaQtdTempo / 12;
   }, [showReproductiveIndices, averageHerdTable]);
 
+  /** Rebanho Médio Recria-Engorda: vendas × (ciclo em meses / 12) */
+  const recriaRebanhoMedio = useMemo(() => {
+    if (productionSystem !== 'Recria-Engorda' || recriaGmd <= 0 || requiredSales <= 0) return 0;
+    const cicloDias = (recriaPesoVenda - recriaPesoCompra) / recriaGmd;
+    const cicloMeses = cicloDias / 30.4;
+    return requiredSales * (cicloMeses / 12);
+  }, [productionSystem, recriaPesoVenda, recriaPesoCompra, recriaGmd, requiredSales]);
+
+  /** Tempo de Permanência Recria-Engorda (meses): (Peso final - Peso inicial) / GMD / 30,4166666667 */
+  const DIAS_POR_MES = 30.4166666667;
+  const recriaTempoPermanenciaMeses = useMemo(() => {
+    if (productionSystem !== 'Recria-Engorda' || recriaGmd <= 0) return 0;
+    const meses = (recriaPesoVenda - recriaPesoCompra) / recriaGmd / DIAS_POR_MES;
+    return meses > 0 ? meses : 0;
+  }, [productionSystem, recriaPesoVenda, recriaPesoCompra, recriaGmd]);
+
+  /** Giro de Estoque Recria-Engorda: 12 / tempo de permanência (meses) × 100 */
+  const recriaGiroEstoque = useMemo(() => {
+    if (productionSystem !== 'Recria-Engorda' || recriaTempoPermanenciaMeses <= 0) return 0;
+    return (12 / recriaTempoPermanenciaMeses) * 100;
+  }, [productionSystem, recriaTempoPermanenciaMeses]);
+
+  /** Peso em @ Recria-Engorda: Peso de venda (kg) × (Rendimento de carcaça % / 100) / 15 */
+  const recriaPesoArroba = useMemo(() => {
+    if (productionSystem !== 'Recria-Engorda') return 0;
+    return (recriaPesoVenda * (recriaRendimentoCarcaca / 100)) / 15;
+  }, [productionSystem, recriaPesoVenda, recriaRendimentoCarcaca]);
+
   /** Total de UAs: Σ(quantidade × tempo × peso) / 12 / 450 */
   const totalUAsCalculado = useMemo(() => {
     if (!showReproductiveIndices) return 0;
@@ -1174,6 +1213,19 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     }
   }, [productionSystem]);
 
+  // Sincronizar valor de venda do slider com a tabela de categorias (Recria-Engorda)
+  useEffect(() => {
+    if (productionSystem === 'Recria-Engorda') {
+      setAnimalCategories(prev =>
+        prev.map(cat =>
+          cat.id === CATEGORY_IDS.BOI_GORDO
+            ? { ...cat, valuePerKg: recriaValorVenda }
+            : cat
+        )
+      );
+    }
+  }, [productionSystem, recriaValorVenda]);
+
   // Atualizar margem esperada quando sistema de produção mudar
   useEffect(() => {
     setExpectedMargin(marginConfig.default);
@@ -1203,13 +1255,13 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   const handleConfirmSelection = useCallback(() => {
     if (tempSelectedClient && tempSelectedFarm) {
       setSelectedClient(tempSelectedClient);
-      onSelectFarm(tempSelectedFarm);
+      setSelectedFarm(tempSelectedFarm);
       setShowSelectionModal(false);
       onToast?.('Cliente e fazenda selecionados com sucesso!', 'success');
     } else {
       onToast?.('Por favor, selecione um cliente e uma fazenda', 'warning');
     }
-  }, [tempSelectedClient, tempSelectedFarm, setSelectedClient, onSelectFarm, onToast]);
+  }, [tempSelectedClient, tempSelectedFarm, setSelectedClient, setSelectedFarm, onToast]);
 
   // Handlers memoizados para melhor performance (devem estar antes de qualquer return condicional)
   const handleProductionSystemChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -1596,12 +1648,20 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                       </div>
                       <span className="text-sm font-bold text-ai-text">{formatCurrency(averageValue)}</span>
                     </div>
-                    <div className={`flex items-start justify-between ${showReproductiveIndices ? 'pb-2 border-b border-ai-border/60' : ''}`}>
+                    <div className={`flex items-start justify-between ${(showReproductiveIndices || productionSystem === 'Recria-Engorda') ? 'pb-2 border-b border-ai-border/60' : ''}`}>
                       <span className="text-[9px] text-ai-subtext leading-tight">Vendas<br />Necessárias</span>
                       <span className="text-sm font-bold text-ai-text">
                         {requiredSales > 0 ? `${requiredSales} Cabeças` : '-'}
                       </span>
                     </div>
+                    {productionSystem === 'Recria-Engorda' && (
+                      <div className="flex items-start justify-between">
+                        <span className="text-[9px] text-ai-subtext leading-tight">Rebanho<br />Médio</span>
+                        <span className="text-sm font-bold text-ai-text">
+                          {recriaRebanhoMedio > 0 ? `${Math.round(recriaRebanhoMedio)} Cabeças` : '-'}
+                        </span>
+                      </div>
+                    )}
                     {showReproductiveIndices && (
                       <>
                         <div className="flex items-start justify-between pb-2 border-b border-ai-border/60">
@@ -1642,6 +1702,224 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                   </div>
                 )}
               </div>
+
+              {/* Card de Índices de Referência - Recria-Engorda (na mesma linha que Valores) */}
+              {productionSystem === 'Recria-Engorda' && (
+                <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex-1 flex flex-col min-w-0">
+                  <div className="pb-1.5 mb-2 border-b border-ai-border/60">
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">Índices de Referência</h3>
+                  </div>
+                  <div className="flex flex-col justify-between flex-1 gap-2">
+                    {/* Ganho Médio Diário */}
+                    <div>
+                      <div className="flex items-center justify-between text-[9px] mb-0.5">
+                        <label className="text-ai-subtext">Ganho Médio Diário</label>
+                        <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                          {recriaGmd.toFixed(2)} kg/dia
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0">0,40</span>
+                        <input
+                          type="range"
+                          min={0.4}
+                          max={1.1}
+                          step={0.01}
+                          value={recriaGmd}
+                          onChange={(e) => setRecriaGmd(parseFloat(e.target.value))}
+                          className="flex-1 accent-ai-accent h-1.5"
+                        />
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">1,10</span>
+                      </div>
+                    </div>
+
+                    {/* Mortalidade */}
+                    <div>
+                      <div className="flex items-center justify-between text-[9px] mb-0.5">
+                        <label className="text-ai-subtext">Mortalidade</label>
+                        <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                          {recriaMortalidade.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0">0,2%</span>
+                        <input
+                          type="range"
+                          min={0.2}
+                          max={2}
+                          step={0.1}
+                          value={recriaMortalidade}
+                          onChange={(e) => setRecriaMortalidade(parseFloat(e.target.value))}
+                          className="flex-1 accent-ai-accent h-1.5"
+                        />
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">2,0%</span>
+                      </div>
+                    </div>
+
+                    {/* Rendimento de Carcaça */}
+                    <div>
+                      <div className="flex items-center justify-between text-[9px] mb-0.5">
+                        <label className="text-ai-subtext">Rend. de Carcaça</label>
+                        <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                          {recriaRendimentoCarcaca.toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0">50%</span>
+                        <input
+                          type="range"
+                          min={50}
+                          max={60}
+                          step={0.5}
+                          value={recriaRendimentoCarcaca}
+                          onChange={(e) => setRecriaRendimentoCarcaca(parseFloat(e.target.value))}
+                          className="flex-1 accent-ai-accent h-1.5"
+                        />
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">60%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Card de Valores de Compra e Venda - Recria-Engorda */}
+              {productionSystem === 'Recria-Engorda' && (
+                <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex-1 flex flex-col min-w-0">
+                  <div className="pb-1.5 mb-2 border-b border-ai-border/60">
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">Valores de Compra e Venda</h3>
+                  </div>
+                  <div className="flex flex-col justify-between flex-1 gap-2">
+                    {/* Peso de Compra */}
+                    <div>
+                      <div className="flex items-center justify-between text-[9px] mb-0.5">
+                        <label className="text-ai-subtext">Peso de Compra</label>
+                        <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                          {recriaPesoCompra} kg
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0">160</span>
+                        <input
+                          type="range"
+                          min={160}
+                          max={400}
+                          step={5}
+                          value={recriaPesoCompra}
+                          onChange={(e) => setRecriaPesoCompra(parseFloat(e.target.value))}
+                          className="flex-1 accent-ai-accent h-1.5"
+                        />
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">400</span>
+                      </div>
+                    </div>
+
+                    {/* Valor de Compra */}
+                    <div>
+                      <div className="flex items-center justify-between text-[9px] mb-0.5">
+                        <label className="text-ai-subtext">Valor de Compra</label>
+                        <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                          R$ {recriaValorCompra.toFixed(2)}/kg
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0">R$10</span>
+                        <input
+                          type="range"
+                          min={10}
+                          max={20}
+                          step={0.5}
+                          value={recriaValorCompra}
+                          onChange={(e) => setRecriaValorCompra(parseFloat(e.target.value))}
+                          className="flex-1 accent-ai-accent h-1.5"
+                        />
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">R$20</span>
+                      </div>
+                    </div>
+
+                    {/* Peso de Venda */}
+                    <div>
+                      <div className="flex items-center justify-between text-[9px] mb-0.5">
+                        <label className="text-ai-subtext">Peso de Venda</label>
+                        <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                          {recriaPesoVenda} kg
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0">360</span>
+                        <input
+                          type="range"
+                          min={360}
+                          max={600}
+                          step={5}
+                          value={recriaPesoVenda}
+                          onChange={(e) => setRecriaPesoVenda(parseFloat(e.target.value))}
+                          className="flex-1 accent-ai-accent h-1.5"
+                        />
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">600</span>
+                      </div>
+                    </div>
+
+                    {/* Valor de Venda */}
+                    <div>
+                      <div className="flex items-center justify-between text-[9px] mb-0.5">
+                        <label className="text-ai-subtext">Valor de Venda</label>
+                        <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                          R$ {recriaValorVenda.toFixed(2)}/@
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0">R$260</span>
+                        <input
+                          type="range"
+                          min={260}
+                          max={360}
+                          step={5}
+                          value={recriaValorVenda}
+                          onChange={(e) => setRecriaValorVenda(parseFloat(e.target.value))}
+                          className="flex-1 accent-ai-accent h-1.5"
+                        />
+                        <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">R$360</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Resultados de Performance - Recria-Engorda */}
+              {productionSystem === 'Recria-Engorda' && (
+                <div className="bg-white border border-ai-border/70 rounded-lg p-2 min-w-[150px] flex flex-col">
+                  <div className="pb-1.5 mb-2 border-b border-ai-border/60">
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">Resultados de Performance</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-ai-border/60">
+                      <span className="text-[9px] text-ai-subtext">Tempo Perm.</span>
+                      <span className="text-sm font-bold text-ai-text">
+                        {recriaTempoPermanenciaMeses > 0 ? `${recriaTempoPermanenciaMeses.toFixed(1)} meses` : '-'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between pb-2 border-b border-ai-border/60">
+                      <span className="text-[9px] text-ai-subtext">Peso em @</span>
+                      <span className="text-sm font-bold text-ai-text">
+                        {recriaPesoArroba > 0 ? `${recriaPesoArroba.toFixed(1)} @` : '-'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between pb-2 border-b border-ai-border/60">
+                      <span className="text-[9px] text-ai-subtext">Produção de @/ha/ano</span>
+                      <span className="text-sm font-bold text-ai-text">-</span>
+                    </div>
+                    <div className="flex items-center justify-between pb-2 border-b border-ai-border/60">
+                      <span className="text-[9px] text-ai-subtext">Giro de Estoque</span>
+                      <span className="text-sm font-bold text-ai-text">
+                        {recriaGiroEstoque > 0 ? `${recriaGiroEstoque.toFixed(1)}%` : '-'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-ai-subtext">Taxa de Desfrute</span>
+                      <span className="text-sm font-bold text-ai-text">-</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {showReproductiveIndices && (
                 <div className="flex gap-3 flex-1 items-stretch">

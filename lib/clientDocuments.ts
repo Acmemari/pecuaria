@@ -132,12 +132,13 @@ export async function uploadDocument(params: DocumentUploadParams): Promise<{ su
  */
 export async function listDocuments(filter: DocumentFilter = {}): Promise<{ documents: ClientDocument[]; error?: string }> {
   try {
+    // Não fazer join com auth.users (uploaded_by) - anon/authenticated não têm permissão.
+    // Apenas client_documents + clients.
     let query = supabase
       .from('client_documents')
       .select(`
         *,
-        clients(name),
-        uploader:uploaded_by(name)
+        clients(name)
       `)
       .order('created_at', { ascending: false });
 
@@ -164,7 +165,7 @@ export async function listDocuments(filter: DocumentFilter = {}): Promise<{ docu
 
     const documents = (data || []).map((doc: any) => ({
       ...mapDocumentFromDatabase(doc),
-      uploaderName: doc.uploader?.name || 'Desconhecido',
+      uploaderName: '—', // auth.users não acessível pelo cliente; exibir placeholder
       clientName: doc.clients?.name || 'Cliente'
     }));
 
