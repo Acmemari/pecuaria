@@ -5,8 +5,8 @@
  * Usa Gemini para análise executiva e recomendações.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { callAssistant } from './geminiClient';
-import { EXPERT_RULES } from './expert-knowledge';
+import { callAssistant } from './_lib/geminiClient';
+import { EXPERT_RULES } from './_lib/expert-knowledge';
 
 function setCors(res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
