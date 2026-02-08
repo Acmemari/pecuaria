@@ -2,12 +2,94 @@
  * API: Gerar insights com IA a partir dos resultados do questionário.
  * POST /api/questionnaire-insights
  * Body: { summary: string, farmName?: string }
- * Usa Gemini para análise executiva e recomendações.
+ *
+ * NOTA: Este arquivo é auto-contido (sem imports de _lib) para evitar
+ * problemas de bundling no Vercel serverless functions.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { callAssistant } from './_lib/geminiClient';
-import { EXPERT_RULES } from './_lib/expert-knowledge';
+import { GoogleGenAI } from '@google/genai';
 
+/* ─── Regras do especialista (inline) ─── */
+const EXPERT_RULES = `
+DIRETRIZES DE CONSULTORIA (MÉTODO ANTONIO CHAKER):
+
+PERSONALIDADE:
+- Seja direto, pragmático e focado em lucro (R$/ha).
+- Use frases curtas. Evite "corporativês".
+- Se a nota for baixa, seja "duro" na análise (ex: "Sem medição, não há gestão").
+- Se a nota for alta, parabenize mas alerte sobre a "zona de conforto".
+- VOCABULÁRIO PROIBIDO: Nunca use a palavra "chão". Use sempre "Solo" ou "Terra".
+
+REGRAS DE GATILHO POR PILAR:
+
+1. GENTE (Equipe e Liderança):
+   - Se Score < 70% (Regular/Ruim/Crítico):
+     * OBRIGATÓRIO recomendar: "Definição clara de funções e metas individuais".
+     * OBRIGATÓRIO recomendar: "Reunião matinal de alinhamento".
+     * Frase chave: "Equipe sem meta não sabe para onde vai".
+   - Se Score >= 70% (Bom/Excelente):
+     * Recomendar: "Bônus por resultado atrelado a metas claras".
+
+2. GESTÃO (Processos e Financeiro):
+   - Se Score < 70% (Regular/Ruim/Crítico):
+     * OBRIGATÓRIO recomendar: "Implantar Fluxo de Caixa Projetado 12 meses".
+     * OBRIGATÓRIO recomendar: "Controle de estoque de insumos".
+     * Frase chave: "Fazenda é empresa a céu aberto, mas o caixa não aceita desaforo".
+   - Se Score >= 70% (Bom/Excelente):
+     * Recomendar: "Análise de Sensibilidade (Cenários de estresse)".
+
+3. PRODUÇÃO (Zootecnia e Campo):
+   - Se Score < 70% (Regular/Ruim/Crítico):
+     * OBRIGATÓRIO recomendar: "Ajuste de carga animal (Lotação) x Capacidade de suporte".
+     * OBRIGATÓRIO recomendar: "Manejo de pastagem por altura de entrada e saída".
+     * Frase chave: "Pasto rapado é dinheiro jogado fora".
+   - Se Score >= 70% (Bom/Excelente):
+     * Recomendar: "ILPF ou Adubação intensiva de pastagens".
+
+FORMATO DA RESPOSTA:
+1. ANÁLISE EXECUTIVA (Max 3 linhas por parágrafo):
+   - Vá direto ao ponto onde a fazenda está perdendo dinheiro.
+   - Cite os números do diagnóstico.
+
+2. PLANO DE AÇÃO (3 Passos):
+   - Ação 1 (Imediata - Dói menos e dá resultado rápido)
+   - Ação 2 (Estruturante - Resolve a causa raiz)
+   - Ação 3 (Estratégica - Prepara para o futuro)
+
+3. O "PULO DO GATO" (Conclusão):
+   - Uma frase impactante resumindo o diagnóstico.
+`;
+
+/* ─── Gemini client (inline) ─── */
+const MODEL = 'gemini-2.5-flash';
+
+const SYSTEM_INSTRUCTION = `Você é um consultor especializado em gestão pecuária.
+
+INSTRUÇÕES:
+- Seja direto, pragmático e focado em resultados financeiros
+- Use termos técnicos do setor quando apropriado (GMD, Lotação, Desembolso Cabeça/Mês, etc.)
+- Baseie suas recomendações nos dados fornecidos
+- IMPORTANTE: Sempre inicie sua resposta com "Analisando seus resultados, pudemos observar que..."
+- Não use expressões informais como "companheiro" ou similares
+- Mantenha um tom profissional e consultivo`;
+
+async function callGemini(prompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY!;
+  const ai = new GoogleGenAI({ apiKey });
+
+  const response = await ai.models.generateContent({
+    model: MODEL,
+    contents: `${SYSTEM_INSTRUCTION}\n\n${prompt}\n\nResposta:`,
+  });
+
+  const answer = response.text ?? '';
+  if (!answer) {
+    throw new Error('Resposta vazia do Gemini.');
+  }
+  return answer;
+}
+
+/* ─── Handler ─── */
 function setCors(res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -17,7 +99,6 @@ function setCors(res: VercelResponse) {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res);
 
-  // Responder OPTIONS (preflight CORS)
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -27,18 +108,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
-  console.log('[questionnaire-insights] Iniciando requisição. API Key exists?', !!apiKey, 'Key length:', apiKey?.length);
-
   if (!apiKey || apiKey.trim() === '') {
     return res.status(500).json({
-      error: 'GEMINI_API_KEY não está configurada no servidor. Configure nas variáveis de ambiente do Vercel.',
+      error: 'GEMINI_API_KEY não está configurada no servidor.',
     });
   }
 
   try {
     const { summary, farmName } = req.body || {};
     if (!summary || typeof summary !== 'string') {
-      return res.status(400).json({ error: "O campo 'summary' é obrigatório e deve ser uma string (JSON dos resultados)." });
+      return res.status(400).json({
+        error: "O campo 'summary' é obrigatório e deve ser uma string.",
+      });
     }
 
     const prompt = `Você é um consultor sênior de gestão pecuária (Método Instituto Inttegra). Analise os resultados do diagnóstico abaixo.
@@ -53,19 +134,12 @@ ${summary}
 Sua tarefa é cruzar os "DADOS DO DIAGNÓSTICO" com as "DIRETRIZES DE CONSULTORIA" acima e gerar um relatório.
 Siga estritamente o "FORMATO DA RESPOSTA" definido nas regras.`;
 
-    const { answer } = await callAssistant(prompt);
+    const answer = await callGemini(prompt);
     return res.status(200).json({ answer });
   } catch (err: any) {
     console.error('[questionnaire-insights] Erro:', err);
     return res.status(500).json({
       error: err.message || 'Erro ao gerar insights com IA.',
-      debug: {
-        message: err.message,
-        apiKeyExists: !!apiKey,
-        apiKeyLength: apiKey?.length,
-        nodeEnv: process.env.NODE_ENV,
-        vercel: !!process.env.VERCEL,
-      }
     });
   }
 }
