@@ -136,8 +136,8 @@ export async function listDocuments(filter: DocumentFilter = {}): Promise<{ docu
       .from('client_documents')
       .select(`
         *,
-        clients!inner(name),
-        user_profiles:uploaded_by(name)
+        clients(name),
+        uploader:uploaded_by(name)
       `)
       .order('created_at', { ascending: false });
 
@@ -164,7 +164,7 @@ export async function listDocuments(filter: DocumentFilter = {}): Promise<{ docu
 
     const documents = (data || []).map((doc: any) => ({
       ...mapDocumentFromDatabase(doc),
-      uploaderName: doc.user_profiles?.name || 'Desconhecido',
+      uploaderName: doc.uploader?.name || 'Desconhecido',
       clientName: doc.clients?.name || 'Cliente'
     }));
 
