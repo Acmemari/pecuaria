@@ -7,6 +7,8 @@ import SaveScenarioModal from '../components/SaveScenarioModal';
 import { saveScenario } from '../lib/scenarios';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocation } from '../contexts/LocationContext';
+import { useClient } from '../contexts/ClientContext';
+import { useFarm } from '../contexts/FarmContext';
 import { Toast } from '../components/Toast';
 import { generateReportPDF } from '../lib/generateReportPDF';
 
@@ -21,6 +23,8 @@ import { calculateLivestockIRR, convertMonthlyToAnnualRate } from '../lib/calcul
 const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initialInputs, onToast, onNavigateToSaved }) => {
   const { user } = useAuth();
   const { country, currencySymbol } = useLocation();
+  const { selectedClient } = useClient();
+  const { selectedFarm } = useFarm();
   const defaultInputs = useMemo(() => ({
     pesoCompra: 200,        // 1. Peso de compra (kg)
     valorCompra: 14.50,     // 2. Valor de compra (R$/kg)
@@ -393,7 +397,11 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
 
     setIsSaving(true);
     try {
-      await saveScenario(user.id, name, inputs, results);
+      await saveScenario(user.id, name, inputs, results, {
+        clientId: selectedClient?.id || null,
+        farmId: selectedFarm?.id || null,
+        farmName: selectedFarm?.name || null
+      });
       setIsSaveModalOpen(false);
       if (onToast) {
         onToast({

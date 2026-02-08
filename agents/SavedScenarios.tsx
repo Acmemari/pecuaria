@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, Download, FileCheck, X, FileText } from 'lucide-react';
+import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, Download, FileCheck, X, FileText, Building2, Filter } from 'lucide-react';
 import { CattleScenario, ComparatorResult, CalculationResults, SavedQuestionnaire } from '../types';
 import { getSavedScenarios, deleteScenario, getScenario } from '../lib/scenarios';
-import { getSavedQuestionnaires, getSavedQuestionnaire, deleteSavedQuestionnaire, updateSavedQuestionnaireName } from '../lib/savedQuestionnaires';
+import { getSavedQuestionnaires, getSavedQuestionnaire, deleteSavedQuestionnaire, updateSavedQuestionnaireName, updateSavedQuestionnaire } from '../lib/savedQuestionnaires';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
+import { useClient } from '../contexts/ClientContext';
+import { useFarm } from '../contexts/FarmContext';
 import { useLocation } from '../contexts/LocationContext';
 import EditScenarioNameModal from '../components/EditScenarioNameModal';
 import { updateScenario } from '../lib/scenarios';
@@ -33,10 +35,16 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
 }) => {
   const { user } = useAuth();
   const { selectedAnalyst } = useAnalyst();
+  const { selectedClient } = useClient();
+  const { selectedFarm } = useFarm();
   const { country, currencySymbol } = useLocation();
 
   // Determine target user ID (admin viewing analyst's data or regular user)
   const targetUserId = (user?.role === 'admin' && selectedAnalyst) ? selectedAnalyst.id : user?.id;
+  
+  // Verificar se o usuário é analista ou admin
+  const isAnalystOrAdmin = user?.qualification === 'analista' || user?.role === 'admin';
+  
   const [scenarios, setScenarios] = useState<CattleScenario[]>([]);
   const [questionnaires, setQuestionnaires] = useState<SavedQuestionnaire[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,9 +56,12 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   const [deletingQuestionnaireId, setDeletingQuestionnaireId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isAutoPrint, setIsAutoPrint] = useState(false);
-  const [isAutoDownloadPdf, setIsAutoDownloadPdf] = useState(false); // New state
+  const [isAutoDownloadPdf, setIsAutoDownloadPdf] = useState(false);
   const [downloadModalQuestionnaire, setDownloadModalQuestionnaire] = useState<SavedQuestionnaire | null>(null);
   const [includeInsightsInDownload, setIncludeInsightsInDownload] = useState(false);
+  
+  // Filtro local para mostrar todos ou apenas da fazenda selecionada
+  const [filterMode, setFilterMode] = useState<'all' | 'farm'>('farm');
 
   const savedItems: SavedItem[] = useMemo(() => {
     const scenarioItems: SavedItem[] = scenarios.map((s) => ({ type: 'scenario' as const, data: s }));
@@ -60,11 +71,12 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     );
   }, [scenarios, questionnaires]);
 
+  // Recarregar quando cliente, fazenda ou filtro mudar
   useEffect(() => {
     if (user) {
       loadData();
     }
-  }, [user, targetUserId]);
+  }, [user, targetUserId, selectedClient?.id, selectedFarm?.id, filterMode]);
 
   // Refetch when the tab becomes visible (ex.: usuário voltou do Questionário)
   useEffect(() => {
@@ -86,9 +98,22 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     setIsLoading(true);
     setError(null);
     try {
+      // Construir filtros baseado no contexto
+      const filters: { clientId?: string; farmId?: string } = {};
+      
+      // Para analistas/admins com cliente selecionado
+      if (isAnalystOrAdmin && selectedClient) {
+        filters.clientId = selectedClient.id;
+        
+        // Se tiver fazenda selecionada e filtro por fazenda ativo
+        if (selectedFarm && filterMode === 'farm') {
+          filters.farmId = selectedFarm.id;
+        }
+      }
+      
       const [scenariosData, questionnairesData] = await Promise.all([
-        getSavedScenarios(targetUserId),
-        getSavedQuestionnaires(targetUserId).catch(() => [])
+        getSavedScenarios(targetUserId, Object.keys(filters).length > 0 ? filters : undefined),
+        getSavedQuestionnaires(targetUserId, Object.keys(filters).length > 0 ? filters : undefined).catch(() => [])
       ]);
       setScenarios(scenariosData);
       setQuestionnaires(questionnairesData);
@@ -369,6 +394,17 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     );
   }
 
+  const handleUpdateQuestionnaire = async () => {
+    if (!targetUserId || !viewingQuestionnaire?.id || !viewingQuestionnaire.answers) return;
+    try {
+      await updateSavedQuestionnaire(viewingQuestionnaire.id, targetUserId, viewingQuestionnaire.answers);
+      onToast?.({ id: Date.now().toString(), message: 'Questionário atualizado com sucesso!', type: 'success' });
+      await loadData();
+    } catch (err: any) {
+      onToast?.({ id: Date.now().toString(), message: err.message || 'Erro ao atualizar', type: 'error' });
+    }
+  };
+
   if (viewingQuestionnaire) {
     return (
       <div className="fixed inset-0 z-50 bg-white overflow-hidden">
@@ -384,6 +420,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
           autoPrint={isAutoPrint}
           autoDownloadPdf={isAutoDownloadPdf}
           autoGenerateInsights={includeInsightsInDownload}
+          onUpdate={viewingQuestionnaire.id ? handleUpdateQuestionnaire : undefined}
         />
       </div>
     );
@@ -393,13 +430,66 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     <div className="h-full flex flex-col p-4 md:p-6">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 mb-2">
-          <Save size={20} className="text-ai-accent" />
-          <h1 className="text-xl font-bold text-ai-text">Meus Salvos</h1>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Save size={20} className="text-ai-accent" />
+            <h1 className="text-xl font-bold text-ai-text">Meus Salvos</h1>
+          </div>
+          
+          {/* Filtros para analistas/admins */}
+          {isAnalystOrAdmin && selectedClient && selectedFarm && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setFilterMode('farm')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
+                  filterMode === 'farm'
+                    ? 'bg-ai-accent text-white'
+                    : 'bg-ai-surface text-ai-subtext hover:bg-ai-border'
+                }`}
+              >
+                <Building2 size={14} />
+                {selectedFarm.name}
+              </button>
+              <button
+                onClick={() => setFilterMode('all')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
+                  filterMode === 'all'
+                    ? 'bg-ai-accent text-white'
+                    : 'bg-ai-surface text-ai-subtext hover:bg-ai-border'
+                }`}
+              >
+                <Filter size={14} />
+                Todas as Fazendas
+              </button>
+            </div>
+          )}
         </div>
+        
+        {/* Contexto atual */}
+        {isAnalystOrAdmin && (
+          <div className="flex items-center gap-2 mb-2">
+            {selectedClient ? (
+              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                Cliente: {selectedClient.name}
+              </span>
+            ) : (
+              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
+                Selecione um cliente no cabeçalho
+              </span>
+            )}
+            {selectedFarm && filterMode === 'farm' && (
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                Fazenda: {selectedFarm.name}
+              </span>
+            )}
+          </div>
+        )}
+        
         <p className="text-sm text-ai-subtext">
           {savedItems.length === 0
-            ? 'Você ainda não salvou cenários nem questionários.'
+            ? isAnalystOrAdmin && !selectedClient
+              ? 'Selecione um cliente para ver os itens salvos.'
+              : 'Nenhum item salvo encontrado.'
             : `${savedItems.length} item${savedItems.length !== 1 ? 'ns' : ''} salvo${savedItems.length !== 1 ? 's' : ''} (${scenarios.length} cenário${scenarios.length !== 1 ? 's' : ''}, ${questionnaires.length} questionário${questionnaires.length !== 1 ? 's' : ''})`
           }
         </p>
@@ -410,16 +500,33 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Save size={48} className="mx-auto mb-4 text-ai-subtext opacity-30" />
-            <h3 className="text-lg font-medium text-ai-text mb-2">Nenhum item salvo</h3>
+            <h3 className="text-lg font-medium text-ai-text mb-2">
+              {isAnalystOrAdmin && !selectedClient 
+                ? 'Selecione um cliente' 
+                : 'Nenhum item salvo'}
+            </h3>
             <p className="text-sm text-ai-subtext mb-4">
-              Salve cenários da calculadora ou questionários preenchidos para acessá-los aqui.
+              {isAnalystOrAdmin && !selectedClient 
+                ? 'Use o seletor no cabeçalho para escolher um cliente e visualizar seus itens salvos.'
+                : isAnalystOrAdmin && selectedFarm && filterMode === 'farm'
+                  ? `Nenhum item encontrado para a fazenda "${selectedFarm.name}". Tente ver todos os itens do cliente.`
+                  : 'Salve cenários da calculadora ou questionários preenchidos para acessá-los aqui.'}
             </p>
-            <button
-              onClick={onNavigateToCalculator}
-              className="px-4 py-2 bg-ai-accent text-white rounded-lg hover:bg-ai-accent/90 transition-colors text-sm font-medium"
-            >
-              Ir para Calculadora
-            </button>
+            {isAnalystOrAdmin && selectedFarm && filterMode === 'farm' && savedItems.length === 0 ? (
+              <button
+                onClick={() => setFilterMode('all')}
+                className="px-4 py-2 bg-ai-accent text-white rounded-lg hover:bg-ai-accent/90 transition-colors text-sm font-medium"
+              >
+                Ver todos do cliente
+              </button>
+            ) : !isAnalystOrAdmin || selectedClient ? (
+              <button
+                onClick={onNavigateToCalculator}
+                className="px-4 py-2 bg-ai-accent text-white rounded-lg hover:bg-ai-accent/90 transition-colors text-sm font-medium"
+              >
+                Ir para Calculadora
+              </button>
+            ) : null}
           </div>
         </div>
       ) : (
@@ -474,11 +581,19 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                     </div>
                   </div>
 
-                  {/* Date */}
+                  {/* Date and Farm */}
                   <div className="flex items-center gap-1.5 text-xs text-ai-subtext mb-3">
                     <Calendar size={12} />
                     <span>{formatDate(item.data.created_at)}</span>
                   </div>
+                  
+                  {/* Farm name - mostrar quando filtro é "all" ou quando cenário tem farm_name */}
+                  {item.data.farm_name && filterMode === 'all' && (
+                    <div className="flex items-center gap-1.5 text-xs text-ai-subtext mb-3 bg-ai-surface px-2 py-1 rounded">
+                      <Building2 size={12} />
+                      <span>{item.data.farm_name}</span>
+                    </div>
+                  )}
 
                   {/* Summary */}
                   {(() => {

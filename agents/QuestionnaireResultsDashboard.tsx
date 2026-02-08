@@ -9,6 +9,7 @@ import {
   Target,
   Save,
   Download,
+  RefreshCw,
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import {
@@ -47,6 +48,7 @@ interface QuestionnaireResultsDashboardProps {
   autoDownloadPdf?: boolean;
   autoGenerateInsights?: boolean;
   onSave?: () => void;
+  onUpdate?: () => void;
 }
 
 const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps> = ({
@@ -57,6 +59,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
   autoDownloadPdf = false,
   autoGenerateInsights = false,
   onSave,
+  onUpdate,
 }) => {
   const { questionsMap, loading: loadingQuestions } = useQuestions();
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -254,6 +257,31 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
               <h1 className="text-xl font-bold text-ai-text">Diagnóstico de Performance</h1>
             </div>
             <div className="flex items-center gap-2">
+              {/* Botão Salvar - aparece apenas se não foi salvo */}
+              {onSave && (
+                <button
+                  onClick={onSave}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg font-medium text-sm transition-colors shadow-sm"
+                  title="Salvar em Meus Salvos"
+                >
+                  <Save size={16} />
+                  Salvar
+                </button>
+              )}
+              
+              {/* Botão Atualizar - aparece apenas para questionários já salvos */}
+              {onUpdate && (
+                <button
+                  onClick={onUpdate}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white hover:bg-amber-600 rounded-lg font-medium text-sm transition-colors shadow-sm"
+                  title="Atualizar em Meus Salvos"
+                >
+                  <RefreshCw size={16} />
+                  Atualizar
+                </button>
+              )}
+              
+              {/* Botão Download */}
               <button
                 onClick={handleDownloadPdf}
                 disabled={isGeneratingPdf}
@@ -263,16 +291,6 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
                 {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                 Download
               </button>
-
-              {onSave && (
-                <button
-                  onClick={onSave}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white hover:bg-green-700 rounded-lg font-medium text-sm transition-colors border border-green-700"
-                >
-                  <Save size={16} />
-                  Salvar
-                </button>
-              )}
             </div>
           </div>
 
@@ -291,10 +309,17 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
                   <CheckCircle2 size={14} />
                   {results.totalQuestions} Pontos de Controle
                 </span>
-                <span className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
-                  <CheckCircle2 size={12} />
-                  Salvo em Meus Salvos
-                </span>
+                {questionnaire.id ? (
+                  <span className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                    <CheckCircle2 size={12} />
+                    Salvo em Meus Salvos
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+                    <Save size={12} />
+                    Não salvo
+                  </span>
+                )}
               </div>
               {questionnaire.farm_name && (
                 <p className="text-sm text-ai-text mt-1 font-medium">Fazenda: {questionnaire.farm_name}</p>

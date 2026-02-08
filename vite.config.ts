@@ -17,10 +17,15 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    optimizeDeps: {
+      // Forçar reconstrução do cache em cada restart
+      force: true,
+    },
     plugins: [react()],
     define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      // IMPORTANTE: NÃO expor GEMINI_API_KEY no frontend!
+      // A chave Gemini deve ser usada APENAS nas serverless functions (pasta api/)
+      // Variáveis do frontend devem usar o prefixo VITE_
     },
     resolve: {
       alias: {

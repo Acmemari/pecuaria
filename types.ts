@@ -113,6 +113,9 @@ export interface ComparatorResult {
 export interface CattleScenario {
   id: string;
   user_id: string;
+  client_id?: string | null;
+  farm_id?: string | null;
+  farm_name?: string | null;
   name: string;
   inputs: CattleCalculatorInputs;
   results?: CalculationResults | ComparatorResult;
@@ -129,6 +132,7 @@ export interface SavedQuestionnaireAnswer {
 export interface SavedQuestionnaire {
   id: string;
   user_id: string;
+  client_id?: string | null;
   name: string;
   farm_id?: string;
   farm_name?: string;

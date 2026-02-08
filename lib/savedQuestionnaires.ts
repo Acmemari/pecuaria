@@ -1,12 +1,35 @@
 import { supabase } from './supabase';
 import { SavedQuestionnaire, SavedQuestionnaireAnswer } from '../types';
 
-export const getSavedQuestionnaires = async (userId: string): Promise<SavedQuestionnaire[]> => {
-  const { data, error } = await supabase
+export interface QuestionnaireFilters {
+  clientId?: string | null;
+  farmId?: string | null;
+}
+
+export const getSavedQuestionnaires = async (
+  userId: string,
+  filters?: QuestionnaireFilters
+): Promise<SavedQuestionnaire[]> => {
+  let query = supabase
     .from('saved_questionnaires')
     .select('*')
-    .eq('user_id', userId)
     .order('created_at', { ascending: false });
+
+  // Se tiver filtro por cliente, buscar por client_id OU user_id (para itens legados sem client_id)
+  if (filters?.clientId) {
+    query = query.or(`client_id.eq.${filters.clientId},and(client_id.is.null,user_id.eq.${userId})`);
+  }
+  
+  if (filters?.farmId) {
+    query = query.eq('farm_id', filters.farmId);
+  }
+  
+  // Se não tiver filtros de cliente/fazenda, filtrar por user_id
+  if (!filters?.clientId && !filters?.farmId) {
+    query = query.eq('user_id', userId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     if (error.code === '42P01') return [];
@@ -16,6 +39,7 @@ export const getSavedQuestionnaires = async (userId: string): Promise<SavedQuest
   return (data || []).map((row) => ({
     id: row.id,
     user_id: row.user_id,
+    client_id: row.client_id,
     name: row.name,
     farm_id: row.farm_id,
     farm_name: row.farm_name,
@@ -31,6 +55,7 @@ export const saveQuestionnaire = async (
   userId: string,
   name: string,
   payload: {
+    clientId?: string;
     farmId: string;
     farmName: string;
     productionSystem: string;
@@ -42,6 +67,7 @@ export const saveQuestionnaire = async (
     .from('saved_questionnaires')
     .insert({
       user_id: userId,
+      client_id: payload.clientId || null,
       name: name.trim(),
       farm_id: payload.farmId,
       farm_name: payload.farmName,
@@ -59,6 +85,7 @@ export const saveQuestionnaire = async (
 
   return {
     ...data,
+    client_id: data.client_id,
     answers: data.answers || [],
   };
 };

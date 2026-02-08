@@ -3,16 +3,39 @@ import { CattleScenario, CattleCalculatorInputs, CalculationResults } from '../t
 
 const MAX_SCENARIOS = 10;
 
+export interface ScenarioFilters {
+  clientId?: string | null;
+  farmId?: string | null;
+}
+
 /**
- * Get all saved scenarios for the current user
+ * Get all saved scenarios for the current user or filtered by client/farm
  */
-export const getSavedScenarios = async (userId: string): Promise<CattleScenario[]> => {
+export const getSavedScenarios = async (
+  userId: string,
+  filters?: ScenarioFilters
+): Promise<CattleScenario[]> => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('cattle_scenarios')
       .select('*')
-      .eq('user_id', userId)
       .order('created_at', { ascending: false });
+
+    // Se tiver filtro por cliente, buscar por client_id OU user_id (para itens legados sem client_id)
+    if (filters?.clientId) {
+      query = query.or(`client_id.eq.${filters.clientId},and(client_id.is.null,user_id.eq.${userId})`);
+    }
+    
+    if (filters?.farmId) {
+      query = query.eq('farm_id', filters.farmId);
+    }
+    
+    // Se não tiver filtros de cliente/fazenda, filtrar por user_id
+    if (!filters?.clientId && !filters?.farmId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching scenarios:', error);
@@ -44,6 +67,9 @@ export const getSavedScenarios = async (userId: string): Promise<CattleScenario[
       return {
         id: scenario.id,
         user_id: scenario.user_id,
+        client_id: scenario.client_id,
+        farm_id: scenario.farm_id,
+        farm_name: scenario.farm_name,
         name: scenario.name,
         inputs: scenario.inputs as CattleCalculatorInputs,
         results: scenario.results ? (scenario.results as CalculationResults) : undefined,
@@ -103,6 +129,12 @@ const validateScenarioData = (name?: string, inputs?: CattleCalculatorInputs) =>
   }
 };
 
+export interface SaveScenarioOptions {
+  clientId?: string | null;
+  farmId?: string | null;
+  farmName?: string | null;
+}
+
 /**
  * Save a new scenario
  */
@@ -110,7 +142,8 @@ export const saveScenario = async (
   userId: string,
   name: string,
   inputs: CattleCalculatorInputs,
-  results?: CalculationResults
+  results?: CalculationResults,
+  options?: SaveScenarioOptions
 ): Promise<CattleScenario> => {
   // Validate inputs
   validateScenarioData(name, inputs);
@@ -125,6 +158,9 @@ export const saveScenario = async (
     .from('cattle_scenarios')
     .insert({
       user_id: userId,
+      client_id: options?.clientId || null,
+      farm_id: options?.farmId || null,
+      farm_name: options?.farmName || null,
       name: name.trim(),
       inputs,
       results
@@ -151,6 +187,9 @@ export const saveScenario = async (
 
   return {
     ...data,
+    client_id: data.client_id,
+    farm_id: data.farm_id,
+    farm_name: data.farm_name,
     inputs: data.inputs as CattleCalculatorInputs,
     results: data.results as CalculationResults | undefined
   };

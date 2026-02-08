@@ -3,27 +3,29 @@ import { User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useClient } from '../contexts/ClientContext';
 import { useAnalyst } from '../contexts/AnalystContext';
+import { useFarm } from '../contexts/FarmContext';
 import ClientSelector from './ClientSelector';
 import FarmSelector from './FarmSelector';
 import AnalystSelector from './AnalystSelector';
-import { Farm } from '../types';
 
 interface AnalystHeaderProps {
-  selectedFarm: Farm | null;
-  onSelectFarm: (farm: Farm | null) => void;
+  // Props mantidas para retrocompatibilidade, mas agora usamos o contexto
+  selectedFarm?: any;
+  onSelectFarm?: (farm: any) => void;
 }
 
-const AnalystHeader: React.FC<AnalystHeaderProps> = ({ selectedFarm, onSelectFarm }) => {
+const AnalystHeader: React.FC<AnalystHeaderProps> = () => {
   const { user } = useAuth();
   const { selectedClient, setSelectedClient } = useClient();
   const { selectedAnalyst } = useAnalyst();
+  const { selectedFarm, setSelectedFarm, clearFarm } = useFarm();
 
   // Limpar cliente quando mudar de analista (apenas para admin)
   useEffect(() => {
     if (user?.role === 'admin' && selectedAnalyst && selectedClient) {
       if (selectedClient.analystId !== selectedAnalyst.id) {
         setSelectedClient(null);
-        onSelectFarm(null);
+        clearFarm();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,7 +74,7 @@ const AnalystHeader: React.FC<AnalystHeaderProps> = ({ selectedFarm, onSelectFar
                 <div className="h-6 w-px bg-ai-border" />
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-ai-subtext font-medium">Fazenda:</span>
-                  <FarmSelector selectedFarm={selectedFarm} onSelectFarm={onSelectFarm} />
+                  <FarmSelector selectedFarm={selectedFarm} onSelectFarm={setSelectedFarm} />
                 </div>
               </>
             )}

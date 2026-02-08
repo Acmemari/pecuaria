@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LocationProvider, useLocation } from './contexts/LocationContext';
 import { ClientProvider } from './contexts/ClientContext';
 import { AnalystProvider } from './contexts/AnalystContext';
+import { FarmProvider, useFarm } from './contexts/FarmContext';
 import AnalystHeader from './components/AnalystHeader';
 import { Agent } from './types';
 import { Menu, Construction, Loader2, Grid3X3, ArrowLeftRight, ArrowLeft, Plus } from 'lucide-react';
@@ -41,21 +42,13 @@ const LoadingFallback: React.FC = () => (
 const AppContent: React.FC = () => {
   const { user, isLoading, logout, checkPermission, upgradePlan, isPasswordRecovery, clearPasswordRecovery } = useAuth() as any;
   const { country } = useLocation();
+  const { selectedFarm, setSelectedFarm } = useFarm();
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
   const [viewMode, setViewMode] = useState<'simulator' | 'comparator'>('simulator');
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
   const [comparatorScenarios, setComparatorScenarios] = useState<any>(null);
   const [editingQuestionnaire, setEditingQuestionnaire] = useState<any>(null);
-  const [selectedFarm, setSelectedFarm] = useState<any>(() => {
-    // Carregar fazenda do localStorage se existir
-    const savedFarmId = localStorage.getItem('selectedFarmId');
-    if (savedFarmId) {
-      // A fazenda será carregada pelo FarmSelector quando o cliente for carregado
-      return null; // Retornar null aqui, o FarmSelector vai restaurar
-    }
-    return null;
-  });
   const [authPage, setAuthPage] = useState<'login' | 'forgot-password'>('login');
   // Sidebar starts closed on mobile, open on desktop
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -533,8 +526,6 @@ const AppContent: React.FC = () => {
         return (user.role === 'admin' || user.qualification === 'analista') ? (
           <Suspense fallback={<LoadingFallback />}>
             <AgilePlanning
-              selectedFarm={selectedFarm}
-              onSelectFarm={setSelectedFarm}
               onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
             />
           </Suspense>
@@ -547,7 +538,6 @@ const AppContent: React.FC = () => {
             <QuestionnaireFiller
               questionnaireId="gente-gestao-producao"
               onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
-              selectedFarm={selectedFarm}
               initialData={editingQuestionnaire}
               onClearInitialData={() => setEditingQuestionnaire(null)}
             />
@@ -591,7 +581,7 @@ const AppContent: React.FC = () => {
       <div className={`flex-1 min-w-0 flex flex-col h-full transition-all duration-300 relative ${isSidebarOpen ? 'md:ml-56' : 'ml-0'}`}>
 
         {/* Analyst Header - Above main header */}
-        <AnalystHeader selectedFarm={selectedFarm} onSelectFarm={setSelectedFarm} />
+        <AnalystHeader />
 
         {/* Header - Minimalist with hamburger button */}
         <header className="h-12 bg-ai-bg border-b border-ai-border flex items-center justify-between px-4 shrink-0 sticky top-12 z-40">
@@ -699,9 +689,11 @@ const App: React.FC = () => {
     <AuthProvider>
       <LocationProvider>
         <ClientProvider>
-          <AnalystProvider>
-            <AppContent />
-          </AnalystProvider>
+          <FarmProvider>
+            <AnalystProvider>
+              <AppContent />
+            </AnalystProvider>
+          </FarmProvider>
         </ClientProvider>
       </LocationProvider>
     </AuthProvider>

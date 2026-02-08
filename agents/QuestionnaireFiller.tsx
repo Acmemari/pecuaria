@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FileCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
+import { useClient } from '../contexts/ClientContext';
+import { useFarm } from '../contexts/FarmContext';
 import { Farm, SavedQuestionnaire } from '../types';
 import { saveQuestionnaire, getSavedQuestionnaires, updateSavedQuestionnaireName, deleteSavedQuestionnaire, updateSavedQuestionnaire } from '../lib/savedQuestionnaires';
 import QuestionnaireResultsDashboard from './QuestionnaireResultsDashboard';
@@ -31,6 +33,8 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
 }) => {
   const { user } = useAuth();
   const { selectedAnalyst } = useAnalyst();
+  const { selectedClient } = useClient();
+  const { selectedFarm: contextSelectedFarm } = useFarm();
   const { questions, loading: loadingQuestions } = useQuestions();
 
   // Determine target user ID (admin viewing analyst's data or regular user)
@@ -40,9 +44,11 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   const [farms, setFarms] = useState<Farm[]>([]);
   const [internalSelectedFarm, setInternalSelectedFarm] = useState<Farm | null>(null);
 
-  // Use external farm if provided (controlled mode), otherwise use internal state
-  const selectedFarm = externalSelectedFarm !== undefined ? externalSelectedFarm : internalSelectedFarm;
-  const isControlled = externalSelectedFarm !== undefined;
+  // Use external farm if provided, then context farm, otherwise use internal state
+  const selectedFarm = externalSelectedFarm !== undefined 
+    ? externalSelectedFarm 
+    : contextSelectedFarm || internalSelectedFarm;
+  const isControlled = externalSelectedFarm !== undefined || contextSelectedFarm !== null;
 
   // Questionnaire State
   const [showQuestionnaire, setShowQuestionnaire] = useState(false);
@@ -274,10 +280,11 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
         if (updated) setViewResultsQuestionnaire(updated);
 
       } else {
-        // CREATE new
+        // CREATE new - usar user.id (auth.uid) para INSERT respeitar RLS
         const name = generateQuestionnaireName(selectedFarm.name);
 
-        const newQuestionnaire = await saveQuestionnaire(targetUserId!, name, {
+        const newQuestionnaire = await saveQuestionnaire(user!.id, name, {
+          clientId: selectedClient?.id,
           farmId: selectedFarm.id,
           farmName: selectedFarm.name,
           productionSystem: selectedFarm.productionSystem,
@@ -372,13 +379,17 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
 
   // View Results View
   if (selectedFarm && viewResultsQuestionnaire) {
+    const isNewQuestionnaire = !viewResultsQuestionnaire.id;
+    const isEditing = !!editingQuestionnaireId;
+    
     return (
       <div className="h-full flex flex-col overflow-hidden">
         <QuestionnaireResultsDashboard
           questionnaire={viewResultsQuestionnaire}
           onClose={() => setViewResultsQuestionnaire(null)}
           onToast={onToast}
-          onSave={!viewResultsQuestionnaire.id ? handleManualSave : undefined}
+          onSave={isNewQuestionnaire ? handleManualSave : undefined}
+          onUpdate={!isNewQuestionnaire || isEditing ? handleManualSave : undefined}
         />
       </div>
     );

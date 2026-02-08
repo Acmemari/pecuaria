@@ -4,6 +4,8 @@ import { CattleCalculatorInputs, CalculationResults } from '../types';
 import { Edit2, Check, X, TrendingUp, Download, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocation } from '../contexts/LocationContext';
+import { useClient } from '../contexts/ClientContext';
+import { useFarm } from '../contexts/FarmContext';
 import { Toast } from '../components/Toast';
 import { generateComparatorPDF, generateComparatorPDFAsBase64 } from '../lib/generateReportPDF';
 import { saveScenario } from '../lib/scenarios';
@@ -117,6 +119,8 @@ function calculateResults(inputs: CattleCalculatorInputs, country?: string): Cal
 const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) => {
   const { user } = useAuth();
   const { country, currencySymbol } = useLocation();
+  const { selectedClient } = useClient();
+  const { selectedFarm } = useFarm();
 
   const defaultInputs: CattleCalculatorInputs = {
     pesoCompra: 200,
@@ -392,7 +396,12 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
         user.id,
         saveName.trim(),
         {} as CattleCalculatorInputs, // Inputs vazios para compatibilidade
-        comparatorData as any // Armazenar PDF e dados dos cenários no campo results
+        comparatorData as any, // Armazenar PDF e dados dos cenários no campo results
+        {
+          clientId: selectedClient?.id || null,
+          farmId: selectedFarm?.id || null,
+          farmName: selectedFarm?.name || null
+        }
       );
 
       setIsSaveModalOpen(false);

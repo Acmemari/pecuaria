@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useClient } from '../contexts/ClientContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useFarm } from '../contexts/FarmContext';
 import { Farm, Client } from '../types';
 import { supabase } from '../lib/supabase';
 import { Loader2, AlertCircle, CheckCircle2, Plus, Trash2, Edit3, X, ListChecks, Info } from 'lucide-react';
@@ -222,14 +223,16 @@ interface AverageHerdData {
 // ============================================================================
 
 interface AgilePlanningProps {
-  selectedFarm: Farm | null;
-  onSelectFarm: (farm: Farm | null) => void;
+  // Props mantidas para retrocompatibilidade
+  selectedFarm?: Farm | null;
+  onSelectFarm?: (farm: Farm | null) => void;
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
-const AgilePlanning: React.FC<AgilePlanningProps> = ({ selectedFarm, onSelectFarm, onToast }) => {
+const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   const { user } = useAuth();
   const { selectedClient, setSelectedClient } = useClient();
+  const { selectedFarm, setSelectedFarm } = useFarm();
   
   // Cast para ExtendedFarm para acesso seguro ao operationPecuary
   const farm = selectedFarm as ExtendedFarm | null;
