@@ -9,7 +9,8 @@ import {
   AlertCircle,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  Search
 } from 'lucide-react';
 import { Client, Farm } from '../types';
 import { supabase } from '../lib/supabase';
