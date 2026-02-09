@@ -656,7 +656,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
             {/* Resultado por Boi */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">{country === 'PY' ? '1. RESULTADO POR CABEZA' : '1. RESULTADO POR BOI'}</h3>
+              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">{country === 'PY' ? '1. Resultado por cabeça' : '1. Resultado por cabeça'}</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-blue-700 font-medium">{scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:</span>

@@ -639,7 +639,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({ initial
                 : "Lucro ou prejuízo por arroba final. Diferença entre o valor de venda por arroba e o desembolso por arroba final."
               }
             />
-            <ResultCard label={country === 'PY' ? '16. RESULT. POR HECTÁREA' : '16. Result./ha/ano'} value={`${currencySymbol} ${results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} description="Resultado financeiro por hectare por ano. Calculado como: (Resultado por Boi / Tempo de Permanência em Meses) × 12 × Lotação em Cabeças." />
+            <ResultCard label={country === 'PY' ? '16. RESULT. POR HECTÁREA' : '16. Result./ha/ano'} value={`${currencySymbol} ${results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`} description="Resultado financeiro por hectare por ano. Calculado como: (Resultado por cabeça / Tempo de Permanência em Meses) × 12 × Lotação em Cabeças." />
           </div>
 
           {/* Charts Section - Expands to fill remaining space */}

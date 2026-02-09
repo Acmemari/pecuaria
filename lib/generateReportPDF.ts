@@ -137,7 +137,7 @@ export function generateReportPDF(data: PDFReportData): void {
   yPos = addSectionHeader('INDICADORES CHAVE', yPos);
 
   const keyIndicators = [
-    { label: 'RESULTADO POR BOI', value: formatCurrency(results.resultadoPorBoi), color: results.resultadoPorBoi >= 0 ? [34, 139, 34] : [220, 20, 60] },
+    { label: 'Resultado por cabeça', value: formatCurrency(results.resultadoPorBoi), color: results.resultadoPorBoi >= 0 ? [34, 139, 34] : [220, 20, 60] },
     { label: 'TIR MENSAL', value: `${formatPercent(results.resultadoMensal)} a.m.`, color: results.resultadoMensal >= 0 ? [34, 139, 34] : [220, 20, 60] },
     { label: 'MARGEM %', value: formatPercent(results.margemVenda), color: results.margemVenda >= 0 ? [34, 139, 34] : [220, 20, 60] },
     { label: 'RESULTADO POR HECTARE', value: formatCurrency(results.resultadoPorHectareAno), color: results.resultadoPorHectareAno >= 0 ? [34, 139, 34] : [220, 20, 60] }

@@ -1012,7 +1012,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
   // Form View
   return (
-    <div className="h-full flex flex-col p-4 md:p-6 overflow-hidden">
+    <div className="h-full flex flex-col p-4 md:p-6 min-h-0 overflow-y-auto">
       <style>{`
         /* Estilos customizados para barras de rolagem dos selects */
         select::-webkit-scrollbar {
@@ -1037,8 +1037,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         }
       `}</style>
 
-      <form onSubmit={handleSubmit} className="max-w-7xl w-full bg-white rounded-lg border border-ai-border p-4 flex-1 min-h-0 flex flex-col">
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      <form onSubmit={handleSubmit} className="max-w-7xl w-full bg-white rounded-lg border border-ai-border p-4 flex flex-col">
+        <div className="flex flex-col min-h-0">
         {/* Alerta se não houver cliente selecionado */}
         {!editingFarm && !selectedClient && (
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
