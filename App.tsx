@@ -118,51 +118,53 @@ const AppContent: React.FC = () => {
     }
 
     try {
-      const baseAgents: Agent[] = [
-        {
-          id: 'cattle-profit',
-          name: 'Calculadoras',
-          description: 'Análise econômica completa.',
-          icon: 'calculator',
-          category: 'financeiro',
-          status: checkPermission('Calculadora') ? 'active' : 'locked'
-        },
-        {
-          id: 'saved-scenarios',
-          name: country === 'PY' ? 'Mis Guardados' : 'Meus Salvos',
-          description: 'Cenários e simulações salvos.',
-          icon: 'save',
-          category: 'financeiro',
-          status: checkPermission('Calculadora') ? 'active' : 'locked'
-        },
-        {
-          id: 'ask-antonio',
-          name: country === 'PY' ? 'PREGUNTE /Antonio' : 'Pergunte p/ Antonio',
-          description: 'Consultor virtual especialista.',
-          icon: 'nutrition',
-          category: 'consultoria',
-          status: 'active'
-        },
-        {
-          id: 'market-trends',
-          name: 'Tendências',
-          description: 'Ciclo pecuário e reposição.',
-          icon: 'chart',
-          category: 'mercado',
-          status: 'locked'
-        },
-        {
-          id: 'farm-management',
-          name: 'Cadastro de Fazendas',
-          description: 'Gerenciar propriedades rurais.',
-          icon: 'farm',
-          category: 'zootecnico',
-          status: 'active'
-        }
-      ];
+      // Define all potential agents
+      const farmManagement: Agent = {
+        id: 'farm-management',
+        name: 'Cadastro de Fazendas',
+        description: 'Gerenciar propriedades rurais.',
+        icon: 'farm',
+        category: 'zootecnico',
+        status: 'active'
+      };
 
-      // Add Client Management for analysts and admins
-      const clientManagementAgent: Agent = {
+      const cattleProfit: Agent = {
+        id: 'cattle-profit',
+        name: 'Calculadoras',
+        description: 'Análise econômica completa.',
+        icon: 'calculator',
+        category: 'financeiro',
+        status: checkPermission('Calculadora') ? 'active' : 'locked'
+      };
+
+      const agilePlanning: Agent = {
+        id: 'agile-planning',
+        name: 'Planejamento Ágil',
+        description: 'Planejamento estratégico vinculado a cliente e fazenda.',
+        icon: 'target',
+        category: 'zootecnico',
+        status: 'active'
+      };
+
+      const questionnairesAgent: Agent = {
+        id: 'questionnaires',
+        name: 'Questionários',
+        description: 'Questionários de avaliação',
+        icon: 'file-check',
+        category: 'zootecnico',
+        status: 'active'
+      };
+
+      const clientDocuments: Agent = {
+        id: 'client-documents',
+        name: 'Documentos',
+        description: 'Gerenciar documentos da mentoria',
+        icon: 'folder',
+        category: 'admin',
+        status: 'active'
+      };
+
+      const clientManagement: Agent = {
         id: 'client-management',
         name: 'Gestão de Clientes',
         description: 'Cadastrar e gerenciar clientes',
@@ -171,79 +173,92 @@ const AppContent: React.FC = () => {
         status: (user?.role === 'admin' || user?.qualification === 'analista') ? 'active' : 'locked'
       };
 
-      // Add Client Documents for analysts, admins and clients
-      const clientDocumentsAgent: Agent = {
-        id: 'client-documents',
-        name: 'Documentos',
-        description: 'Gerenciar documentos da mentoria',
-        icon: 'folder',
-        category: 'admin',
-        status: 'active' // Todos podem ver, mas permissões são controladas no componente
+      const savedScenarios: Agent = {
+        id: 'saved-scenarios',
+        name: country === 'PY' ? 'Mis Guardados' : 'Meus Salvos',
+        description: 'Cenários e simulações salvos.',
+        icon: 'save',
+        category: 'financeiro',
+        status: checkPermission('Calculadora') ? 'active' : 'locked'
       };
 
-      // Dynamically add Admin tools if user is admin
+      const askAntonio: Agent = {
+        id: 'ask-antonio',
+        name: country === 'PY' ? 'PREGUNTE /Antonio' : 'Pergunte p/ Antonio',
+        description: 'Consultor virtual especialista.',
+        icon: 'nutrition',
+        category: 'consultoria',
+        status: 'active'
+      };
+
+      const analystManagement: Agent = {
+        id: 'analyst-management',
+        name: 'Gerenciamento de Analistas',
+        description: 'Visualize analistas, clientes e fazendas de forma hierárquica',
+        icon: 'users',
+        category: 'admin',
+        status: 'active'
+      };
+
+      const agentTraining: Agent = {
+        id: 'agent-training',
+        name: 'Treinar Antonio',
+        description: 'Configurar e treinar o agente',
+        icon: 'brain',
+        category: 'admin',
+        status: 'active'
+      };
+
+      const adminDashboard: Agent = {
+        id: 'admin-dashboard',
+        name: 'Gestão de Usuários',
+        description: 'Painel mestre administrativo',
+        icon: 'users',
+        category: 'admin',
+        status: 'active'
+      };
+
+      // Build the ordered list
+      const orderedList: Agent[] = [];
+
+      // 1. Cadastro de Fazendas
+      orderedList.push(farmManagement);
+
+      // 2. Calculadoras
+      orderedList.push(cattleProfit);
+
+      // 3. Planejamento Ágil (Admin/Analyst)
+      if (user?.role === 'admin' || user?.qualification === 'analista') {
+        orderedList.push(agilePlanning);
+      }
+
+      // 4. Questionários
+      orderedList.push(questionnairesAgent);
+
+      // 5. Documentos
+      orderedList.push(clientDocuments);
+
+      // 6. Gestão de Clientes (Admin/Analyst)
+      if (user?.role === 'admin' || user?.qualification === 'analista') {
+        orderedList.push(clientManagement);
+      }
+
+      // Others (at the end)
+      orderedList.push(savedScenarios);
+      orderedList.push(askAntonio);
+
+      // Admin exclusives
       if (user?.role === 'admin') {
-        return [
-          ...baseAgents,
-          clientManagementAgent,
-          clientDocumentsAgent,
-          {
-            id: 'agile-planning',
-            name: 'Planejamento Ágil',
-            description: 'Planejamento estratégico vinculado a cliente e fazenda.',
-            icon: 'target',
-            category: 'zootecnico',
-            status: 'active'
-          } as Agent,
-          {
-            id: 'analyst-management',
-            name: 'Gerenciamento de Analistas',
-            description: 'Visualize analistas, clientes e fazendas de forma hierárquica',
-            icon: 'users',
-            category: 'admin',
-            status: 'active'
-          } as Agent,
-          {
-            id: 'agent-training',
-            name: 'Treinar Antonio',
-            description: 'Configurar e treinar o agente',
-            icon: 'brain',
-            category: 'admin',
-            status: 'active'
-          } as Agent,
-          {
-            id: 'admin-dashboard',
-            name: 'Gestão de Usuários',
-            description: 'Painel mestre administrativo',
-            icon: 'users',
-            category: 'admin',
-            status: 'active'
-          } as Agent
-        ];
+        orderedList.push(analystManagement);
+        orderedList.push(agentTraining);
+        orderedList.push(adminDashboard);
       }
 
-      // Add Client Management and Agile Planning for analysts
-      if (user?.qualification === 'analista') {
-        return [
-          ...baseAgents,
-          clientManagementAgent,
-          clientDocumentsAgent,
-          {
-            id: 'agile-planning',
-            name: 'Planejamento Ágil',
-            description: 'Planejamento estratégico vinculado a cliente e fazenda.',
-            icon: 'target',
-            category: 'zootecnico',
-            status: 'active'
-          } as Agent
-        ];
-      }
+      return orderedList;
 
-      // Usuários regulares (clientes) também veem Documentos
-      return [...baseAgents, clientDocumentsAgent];
     } catch (error) {
       console.error('Erro ao calcular agents:', error);
-      // Retornar pelo menos os agents básicos em caso de erro
+      // Fallback
       return [
         {
           id: 'cattle-profit',

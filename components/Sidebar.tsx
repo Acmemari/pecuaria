@@ -49,8 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
     ]);
   }, []);
 
-  // Encontrar o índice do "Cadastro de Fazendas" para inserir "Questionários" logo após
-  const farmManagementIndex = agents.findIndex(agent => agent.id === 'farm-management');
+
 
   return (
     <>
@@ -97,9 +96,9 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
               title="Brasil"
             >
               <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0 cursor-pointer" xmlns="http://www.w3.org/2000/svg">
-                <rect width="20" height="14" fill="#009739"/>
-                <path d="M10 0L20 7L10 14L0 7Z" fill="#FEDD00"/>
-                <circle cx="10" cy="7" r="4.5" fill="#012169"/>
+                <rect width="20" height="14" fill="#009739" />
+                <path d="M10 0L20 7L10 14L0 7Z" fill="#FEDD00" />
+                <circle cx="10" cy="7" r="4.5" fill="#012169" />
               </svg>
               <span className="text-[8px] font-semibold">BR</span>
             </button>
@@ -110,9 +109,9 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
               title="Paraguai"
             >
               <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0 cursor-pointer" xmlns="http://www.w3.org/2000/svg">
-                <rect width="20" height="4.67" y="0" fill="#CE1126"/>
-                <rect width="20" height="4.67" y="4.67" fill="#FFFFFF"/>
-                <rect width="20" height="4.66" y="9.34" fill="#0038A8"/>
+                <rect width="20" height="4.67" y="0" fill="#CE1126" />
+                <rect width="20" height="4.67" y="4.67" fill="#FFFFFF" />
+                <rect width="20" height="4.66" y="9.34" fill="#0038A8" />
               </svg>
               <span className="text-[8px] font-semibold">PY</span>
             </button>
@@ -128,42 +127,10 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
               const isActive = activeAgentId === agent.id;
               const isLocked = agent.status !== 'active';
 
-              return (
-                <React.Fragment key={agent.id}>
-                  <button
-                    onClick={() => !isLocked && onSelectAgent(agent.id)}
-                    disabled={isLocked}
-                    className={`
-                      w-full flex items-center px-3 py-2 rounded-md transition-all relative group
-                      ${isActive
-                        ? 'bg-ai-accent/10 text-ai-accent'
-                        : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                      }
-                      ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                    `}
-                    title={agent.name}
-                  >
-                    <div className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}>
-                      {agent.icon === 'calculator' && <Calculator size={16} />}
-                      {agent.icon === 'save' && <Save size={16} />}
-                      {agent.icon === 'chart' && <TrendingUp size={16} />}
-                      {agent.icon === 'nutrition' && <Sprout size={16} />}
-                      {agent.icon === 'users' && <Users size={16} />}
-                      {agent.icon === 'brain' && <Brain size={16} />}
-                      {agent.icon === 'farm' && <Building2 size={16} />}
-                      {agent.icon === 'target' && <Target size={16} />}
-                      {agent.icon === 'folder' && <FolderOpen size={16} />}
-                    </div>
-
-                    <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
-
-                    {isLocked && (
-                      <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />
-                    )}
-                  </button>
-
-                  {/* Inserir Questionários logo após Cadastro de Fazendas */}
-                  {agent.id === 'farm-management' && (
+              // Tratamento especial para o item Questionários (Menu Accordion)
+              if (agent.id === 'questionnaires') {
+                return (
+                  <React.Fragment key={agent.id}>
                     <div className="space-y-0.5">
                       <button
                         onClick={() => setIsQuestionnairesOpen(!isQuestionnairesOpen)}
@@ -206,7 +173,44 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                         </div>
                       )}
                     </div>
-                  )}
+                  </React.Fragment>
+                );
+              }
+
+              return (
+                <React.Fragment key={agent.id}>
+                  <button
+                    onClick={() => !isLocked && onSelectAgent(agent.id)}
+                    disabled={isLocked}
+                    className={`
+                      w-full flex items-center px-3 py-2 rounded-md transition-all relative group
+                      ${isActive
+                        ? 'bg-ai-accent/10 text-ai-accent'
+                        : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                      }
+                      ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                    `}
+                    title={agent.name}
+                  >
+                    <div className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}>
+                      {agent.icon === 'calculator' && <Calculator size={16} />}
+                      {agent.icon === 'save' && <Save size={16} />}
+                      {agent.icon === 'chart' && <TrendingUp size={16} />}
+                      {agent.icon === 'nutrition' && <Sprout size={16} />}
+                      {agent.icon === 'users' && <Users size={16} />}
+                      {agent.icon === 'brain' && <Brain size={16} />}
+                      {agent.icon === 'farm' && <Building2 size={16} />}
+                      {agent.icon === 'target' && <Target size={16} />}
+                      {agent.icon === 'folder' && <FolderOpen size={16} />}
+                      {agent.icon === 'file-check' && <FileCheck size={16} />}
+                    </div>
+
+                    <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
+
+                    {isLocked && (
+                      <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />
+                    )}
+                  </button>
                 </React.Fragment>
               );
             })}

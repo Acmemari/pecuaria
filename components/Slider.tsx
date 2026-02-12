@@ -14,6 +14,12 @@ interface SliderProps {
   index?: number;
   highlightBorder?: boolean; // Se true, usa borda colorida
   highlightColor?: string; // Cor customizada para highlight (default: #F5DEB3 amarelo palha)
+  /** Valor exibido após o label (ex.: indicador calculado na barra 7) */
+  labelBadge?: string;
+  /** Estilo do badge (ex.: cores verde/amarelo/vermelho por faixa) */
+  labelBadgeStyle?: React.CSSProperties;
+  /** Tooltip ao passar o mouse no badge */
+  labelBadgeTitle?: string;
 }
 
 const Slider: React.FC<SliderProps> = ({ 
@@ -27,7 +33,10 @@ const Slider: React.FC<SliderProps> = ({
   description,
   index,
   highlightBorder = false,
-  highlightColor = '#F5DEB3' // amarelo palha padrão
+  highlightColor = '#F5DEB3', // amarelo palha padrão
+  labelBadge,
+  labelBadgeStyle,
+  labelBadgeTitle
 }) => {
   const { currencySymbol } = useLocation();
   const [showInfo, setShowInfo] = useState(false);
@@ -72,6 +81,11 @@ const Slider: React.FC<SliderProps> = ({
         <label className="text-[0.675rem] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1 flex-shrink-1 min-w-0 overflow-visible max-w-[60%] md:max-w-none">
           {index && <span className="opacity-70 flex-shrink-0">{index}.</span>}
           <span className="truncate">{label}</span>
+          {labelBadge != null && labelBadge !== '' && (
+            <span className="text-[0.6rem] font-bold rounded px-1.5 py-0.5 flex-shrink-0" style={labelBadgeStyle} title={labelBadgeTitle}>
+              {labelBadge}
+            </span>
+          )}
         </label>
 
         {/* Lado Direito: Valor e Unidade */}
