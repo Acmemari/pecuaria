@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, Download, FileCheck, X, FileText, Building2, Filter } from 'lucide-react';
+import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, Download, FileCheck, X, FileText, Building2, Filter, FileBarChart, Calculator, GitCompare } from 'lucide-react';
 import { CattleScenario, ComparatorResult, CalculationResults, SavedQuestionnaire } from '../types';
 import { getSavedScenarios, deleteScenario, getScenario } from '../lib/scenarios';
 import { getSavedQuestionnaires, getSavedQuestionnaire, deleteSavedQuestionnaire, updateSavedQuestionnaireName, updateSavedQuestionnaire } from '../lib/savedQuestionnaires';
@@ -63,6 +63,11 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   // Filtro local para mostrar todos ou apenas da fazenda selecionada
   const [filterMode, setFilterMode] = useState<'all' | 'farm'>('farm');
 
+  // Filtro por tipo: questionários, calculadora, comparador (default todos marcados)
+  const [filterQuestionnaires, setFilterQuestionnaires] = useState(true);
+  const [filterCalculadora, setFilterCalculadora] = useState(true);
+  const [filterComparador, setFilterComparador] = useState(true);
+
   const savedItems: SavedItem[] = useMemo(() => {
     const scenarioItems: SavedItem[] = scenarios.map((s) => ({ type: 'scenario' as const, data: s }));
     const questionnaireItems: SavedItem[] = questionnaires.map((q) => ({ type: 'questionnaire' as const, data: q }));
@@ -70,6 +75,18 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       (a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime()
     );
   }, [scenarios, questionnaires]);
+
+  const isScenarioComparador = (s: CattleScenario) =>
+    s.results && 'type' in s.results && s.results.type === 'comparator_pdf';
+
+  const filteredSavedItems: SavedItem[] = useMemo(() => {
+    return savedItems.filter((item) => {
+      if (item.type === 'questionnaire') return filterQuestionnaires;
+      const isComparador = isScenarioComparador(item.data);
+      if (isComparador) return filterComparador;
+      return filterCalculadora;
+    });
+  }, [savedItems, filterQuestionnaires, filterCalculadora, filterComparador]);
 
   // Recarregar quando cliente, fazenda ou filtro mudar
   useEffect(() => {
@@ -485,32 +502,71 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
           </div>
         )}
         
-        <p className="text-sm text-ai-subtext">
+        {/* Filtro por tipo: Questionários, Calculadora, Comparador */}
+        <div className="flex flex-wrap items-center gap-4 mt-3 p-3 bg-ai-surface/50 rounded-lg border border-ai-border/60">
+          <span className="text-xs font-semibold text-ai-subtext">Exibir:</span>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={filterQuestionnaires}
+              onChange={(e) => setFilterQuestionnaires(e.target.checked)}
+              className="rounded border-ai-border text-ai-accent focus:ring-ai-accent"
+            />
+            <FileBarChart size={14} className="text-ai-subtext" />
+            <span className="text-xs text-ai-text">Questionários</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={filterCalculadora}
+              onChange={(e) => setFilterCalculadora(e.target.checked)}
+              className="rounded border-ai-border text-ai-accent focus:ring-ai-accent"
+            />
+            <Calculator size={14} className="text-ai-subtext" />
+            <span className="text-xs text-ai-text">Calculadora</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={filterComparador}
+              onChange={(e) => setFilterComparador(e.target.checked)}
+              className="rounded border-ai-border text-ai-accent focus:ring-ai-accent"
+            />
+            <GitCompare size={14} className="text-ai-subtext" />
+            <span className="text-xs text-ai-text">Comparador</span>
+          </label>
+        </div>
+
+        <p className="text-sm text-ai-subtext mt-3">
           {savedItems.length === 0
             ? isAnalystOrAdmin && !selectedClient
               ? 'Selecione um cliente para ver os itens salvos.'
               : 'Nenhum item salvo encontrado.'
-            : `${savedItems.length} item${savedItems.length !== 1 ? 'ns' : ''} salvo${savedItems.length !== 1 ? 's' : ''} (${scenarios.length} cenário${scenarios.length !== 1 ? 's' : ''}, ${questionnaires.length} questionário${questionnaires.length !== 1 ? 's' : ''})`
+            : `${filteredSavedItems.length} de ${savedItems.length} item${savedItems.length !== 1 ? 'ns' : ''} (${scenarios.length} cenário${scenarios.length !== 1 ? 's' : ''}, ${questionnaires.length} questionário${questionnaires.length !== 1 ? 's' : ''})`
           }
         </p>
       </div>
 
       {/* List */}
-      {savedItems.length === 0 ? (
+      {filteredSavedItems.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <Save size={48} className="mx-auto mb-4 text-ai-subtext opacity-30" />
             <h3 className="text-lg font-medium text-ai-text mb-2">
               {isAnalystOrAdmin && !selectedClient 
                 ? 'Selecione um cliente' 
-                : 'Nenhum item salvo'}
+                : savedItems.length > 0 
+                  ? 'Nenhum item nos filtros' 
+                  : 'Nenhum item salvo'}
             </h3>
             <p className="text-sm text-ai-subtext mb-4">
               {isAnalystOrAdmin && !selectedClient 
                 ? 'Use o seletor no cabeçalho para escolher um cliente e visualizar seus itens salvos.'
-                : isAnalystOrAdmin && selectedFarm && filterMode === 'farm'
-                  ? `Nenhum item encontrado para a fazenda "${selectedFarm.name}". Tente ver todos os itens do cliente.`
-                  : 'Salve cenários da calculadora ou questionários preenchidos para acessá-los aqui.'}
+                : savedItems.length > 0 
+                  ? 'Marque ao menos um tipo (Questionários, Calculadora ou Comparador) acima para exibir itens.'
+                  : isAnalystOrAdmin && selectedFarm && filterMode === 'farm'
+                    ? `Nenhum item encontrado para a fazenda "${selectedFarm.name}". Tente ver todos os itens do cliente.`
+                    : 'Salve cenários da calculadora ou questionários preenchidos para acessá-los aqui.'}
             </p>
             {isAnalystOrAdmin && selectedFarm && filterMode === 'farm' && savedItems.length === 0 ? (
               <button
@@ -532,7 +588,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       ) : (
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {savedItems.map((item) => (
+            {filteredSavedItems.map((item) => (
               item.type === 'scenario' ? (
                 <div
                   key={`s-${item.data.id}`}
