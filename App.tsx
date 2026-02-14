@@ -32,6 +32,10 @@ const ClientManagement = lazy(() => import('./agents/ClientManagement'));
 const AgilePlanning = lazy(() => import('./agents/AgilePlanning'));
 const AnalystManagement = lazy(() => import('./agents/AnalystManagement'));
 const ClientDocuments = lazy(() => import('./agents/ClientDocuments'));
+const InitiativesOverview = lazy(() => import('./agents/InitiativesOverview'));
+const InitiativesActivities = lazy(() => import('./agents/InitiativesActivities'));
+const PeopleManagement = lazy(() => import('./agents/PeopleManagement'));
+const CalendarAgent = lazy(() => import('./agents/CalendarAgent'));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full">
@@ -64,6 +68,8 @@ const AppContent: React.FC = () => {
   const [isFarmFormView, setIsFarmFormView] = useState(false);
   // Estado para controlar se está no formulário de clientes
   const [isClientFormView, setIsClientFormView] = useState(false);
+  // Estado para controlar se está no formulário de pessoas
+  const [isPeopleFormView, setIsPeopleFormView] = useState(false);
 
   // Handle window resize to adjust sidebar state
   useEffect(() => {
@@ -100,6 +106,18 @@ const AppContent: React.FC = () => {
     window.addEventListener('clientViewChange', handleClientViewChange as EventListener);
     return () => {
       window.removeEventListener('clientViewChange', handleClientViewChange as EventListener);
+    };
+  }, []);
+
+  // Escutar mudanças de view do PeopleManagement
+  useEffect(() => {
+    const handlePeopleViewChange = (e: CustomEvent) => {
+      setIsPeopleFormView(e.detail === 'form');
+    };
+
+    window.addEventListener('peopleViewChange', handlePeopleViewChange as EventListener);
+    return () => {
+      window.removeEventListener('peopleViewChange', handlePeopleViewChange as EventListener);
     };
   }, []);
 
@@ -173,6 +191,24 @@ const AppContent: React.FC = () => {
         status: (user?.role === 'admin' || user?.qualification === 'analista') ? 'active' : 'locked'
       };
 
+      const peopleManagement: Agent = {
+        id: 'people-management',
+        name: 'Cadastro de Pessoas',
+        description: 'Colaboradores, consultores, fornecedores e clientes familiares',
+        icon: 'users',
+        category: 'admin',
+        status: 'active'
+      };
+
+      const calendarAgent: Agent = {
+        id: 'calendar',
+        name: 'Calendário',
+        description: 'Visualização de eventos em calendário mensal, semanal e diário',
+        icon: 'calendar',
+        category: 'zootecnico',
+        status: 'active'
+      };
+
       const savedScenarios: Agent = {
         id: 'saved-scenarios',
         name: country === 'PY' ? 'Mis Guardados' : 'Meus Salvos',
@@ -242,6 +278,12 @@ const AppContent: React.FC = () => {
       if (user?.role === 'admin' || user?.qualification === 'analista') {
         orderedList.push(clientManagement);
       }
+
+      // 7. Cadastro de Pessoas
+      orderedList.push(peopleManagement);
+
+      // 8. Calendário
+      orderedList.push(calendarAgent);
 
       // Others (at the end)
       orderedList.push(savedScenarios);
@@ -401,6 +443,10 @@ const AppContent: React.FC = () => {
   const activeAgent = agents.find(a => a.id === activeAgentId);
   const isSubscriptionPage = activeAgentId === 'subscription';
   const isSettingsPage = activeAgentId === 'settings';
+  const isIniciativasOverview = activeAgentId === 'iniciativas-overview';
+  const isIniciativasAtividades = activeAgentId === 'iniciativas-atividades';
+  const isCalendar = activeAgentId === 'calendar';
+  const headerTitle = isIniciativasOverview ? 'Visão Geral' : isIniciativasAtividades ? 'Atividades' : isCalendar ? 'Calendário' : activeAgent?.name;
 
   const renderContent = () => {
     if (activeAgentId === 'settings') {
@@ -525,6 +571,14 @@ const AppContent: React.FC = () => {
         ) : (
           <div>Acesso negado.</div>
         );
+      case 'people-management':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <PeopleManagement
+              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+            />
+          </Suspense>
+        );
       case 'analyst-management':
         return user.role === 'admin' ? (
           <Suspense fallback={<LoadingFallback />}>
@@ -564,6 +618,24 @@ const AppContent: React.FC = () => {
             <ClientDocuments
               onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
             />
+          </Suspense>
+        );
+      case 'iniciativas-overview':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <InitiativesOverview />
+          </Suspense>
+        );
+      case 'iniciativas-atividades':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <InitiativesActivities onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })} />
+          </Suspense>
+        );
+      case 'calendar':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <CalendarAgent />
           </Suspense>
         );
       default:
@@ -611,7 +683,7 @@ const AppContent: React.FC = () => {
               <Menu size={20} />
             </button>
             <h1 className="text-sm font-semibold text-ai-text flex items-center gap-2 truncate max-w-[120px] md:max-w-none">
-              {isSettingsPage ? 'Configurações' : isSubscriptionPage ? 'Assinatura e Planos' : activeAgent?.name}
+              {isSettingsPage ? 'Configurações' : isSubscriptionPage ? 'Assinatura e Planos' : headerTitle}
             </h1>
           </div>
 
@@ -633,6 +705,18 @@ const AppContent: React.FC = () => {
               <button
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent('clientCancelForm'));
+                }}
+                className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
+              >
+                <ArrowLeft size={16} />
+                Voltar para lista
+              </button>
+            )}
+            {/* Botão Voltar para lista quando estiver no formulário de pessoas */}
+            {activeAgentId === 'people-management' && isPeopleFormView && (
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('peopleCancelForm'));
                 }}
                 className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
               >

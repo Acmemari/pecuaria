@@ -116,9 +116,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { summary, farmName } = req.body || {};
+
+    // Validação de entrada
     if (!summary || typeof summary !== 'string') {
       return res.status(400).json({
         error: "O campo 'summary' é obrigatório e deve ser uma string.",
+      });
+    }
+
+    // Validação de tamanho para prevenir abuso
+    if (summary.length > 50000) {
+      return res.status(400).json({
+        error: 'O resumo é muito longo (máximo 50.000 caracteres).',
+      });
+    }
+
+    if (summary.trim().length < 10) {
+      return res.status(400).json({
+        error: 'O resumo é muito curto (mínimo 10 caracteres).',
+      });
+    }
+
+    // Validação opcional de farmName
+    if (farmName && typeof farmName !== 'string') {
+      return res.status(400).json({
+        error: "O campo 'farmName' deve ser uma string.",
+      });
+    }
+
+    if (farmName && farmName.length > 200) {
+      return res.status(400).json({
+        error: 'O nome da fazenda é muito longo (máximo 200 caracteres).',
       });
     }
 
@@ -138,8 +166,30 @@ Siga estritamente o "FORMATO DA RESPOSTA" definido nas regras.`;
     return res.status(200).json({ answer });
   } catch (err: any) {
     console.error('[questionnaire-insights] Erro:', err);
-    return res.status(500).json({
-      error: err.message || 'Erro ao gerar insights com IA.',
+
+    // Categorizar erros para melhor tratamento
+    let statusCode = 500;
+    let errorMessage = 'Erro ao gerar insights com IA.';
+
+    if (err.message?.includes('API key')) {
+      statusCode = 500;
+      errorMessage = 'Erro de configuração do servidor. Contate o suporte.';
+    } else if (err.message?.includes('timeout') || err.message?.includes('ETIMEDOUT')) {
+      statusCode = 504;
+      errorMessage = 'Tempo limite excedido. Tente novamente.';
+    } else if (err.message?.includes('rate limit') || err.message?.includes('quota')) {
+      statusCode = 429;
+      errorMessage = 'Limite de requisições excedido. Aguarde alguns momentos.';
+    } else if (err.message?.includes('network') || err.message?.includes('fetch')) {
+      statusCode = 503;
+      errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+    } else if (err.message) {
+      errorMessage = err.message;
+    }
+
+    return res.status(statusCode).json({
+      error: errorMessage,
+      code: err.code || 'UNKNOWN_ERROR',
     });
   }
 }

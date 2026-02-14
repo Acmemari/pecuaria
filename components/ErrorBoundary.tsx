@@ -1,26 +1,34 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
+import { logger } from '../lib/logger';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
   hasError: boolean;
   error: Error | null;
+  errorCount: number;
 }
 
 class ErrorBoundary extends Component<Props, State> {
+  // Declaração explícita de props para TypeScript
+  readonly props: Props;
+
   constructor(props: Props) {
     super(props);
+    this.props = props;
     this.state = {
       hasError: false,
       error: null,
+      errorCount: 0,
     };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return {
       hasError: true,
       error,
@@ -28,9 +36,38 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-    // Aqui você pode enviar o erro para um serviço de logging
-    // Ex: logErrorToService(error, errorInfo);
+    logger.error('ErrorBoundary caught error', error, {
+      component: 'ErrorBoundary',
+      componentStack: errorInfo.componentStack,
+    });
+
+    // Chamar callback de erro se fornecido
+    if (this.props && this.props.onError) {
+      this.props.onError(error, errorInfo);
+    }
+
+    // Incrementar contador e verificar loop infinito
+    this.setState(
+      (prev) => ({
+        errorCount: prev.errorCount + 1,
+      }),
+      () => {
+        // Auto-reset após muitos erros (possível loop infinito)
+        // Usar callback do setState para garantir que temos o valor atualizado
+        if (this.state.errorCount > 5) {
+          logger.error('Too many errors detected, clearing state', undefined, {
+            component: 'ErrorBoundary',
+            errorCount: this.state.errorCount,
+          });
+
+          // Limpar localStorage e redirecionar
+          setTimeout(() => {
+            localStorage.clear();
+            window.location.href = '/';
+          }, 2000);
+        }
+      }
+    );
   }
 
   handleReset = () => {
@@ -40,39 +77,78 @@ class ErrorBoundary extends Component<Props, State> {
     });
   };
 
+  handleGoHome = () => {
+    window.location.href = '/';
+  };
+
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
       }
 
+      const isDevelopment = import.meta.env?.DEV === true;
+      const tooManyErrors = this.state.errorCount > 5;
+
       return (
         <div className="flex flex-col items-center justify-center h-full p-8 bg-ai-surface">
           <div className="bg-white rounded-xl border border-ai-border shadow-sm p-8 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle size={24} className="text-rose-500" />
-              <h2 className="text-lg font-semibold text-ai-text">Algo deu errado</h2>
+              <h2 className="text-lg font-semibold text-ai-text">
+                {tooManyErrors ? 'Erro Crítico' : 'Algo deu errado'}
+              </h2>
             </div>
+
             <p className="text-sm text-ai-subtext mb-6">
-              Ocorreu um erro inesperado. Por favor, tente recarregar a página ou entre em contato com o suporte se o problema persistir.
+              {tooManyErrors
+                ? 'Detectamos múltiplos erros. A aplicação será reiniciada em breve...'
+                : 'Ocorreu um erro inesperado. Por favor, tente recarregar a página ou entre em contato com o suporte se o problema persistir.'}
             </p>
-            {this.state.error && (
+
+            {this.state.error && (isDevelopment || !tooManyErrors) && (
               <details className="mb-4">
                 <summary className="text-xs text-ai-subtext cursor-pointer mb-2">
-                  Detalhes do erro
+                  Detalhes do erro {isDevelopment && '(desenvolvimento)'}
                 </summary>
                 <pre className="text-xs bg-ai-surface p-3 rounded border border-ai-border overflow-auto max-h-32">
                   {this.state.error.toString()}
+                  {isDevelopment && this.state.error.stack && (
+                    <>
+                      {'\n\n'}
+                      {this.state.error.stack}
+                    </>
+                  )}
                 </pre>
               </details>
             )}
-            <button
-              onClick={this.handleReset}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-ai-text text-white rounded-lg hover:bg-black transition-colors font-medium text-sm"
-            >
-              <RefreshCw size={16} />
-              Tentar novamente
-            </button>
+
+            {!tooManyErrors && (
+              <div className="flex gap-3">
+                <button
+                  onClick={this.handleReset}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-ai-text text-white rounded-lg hover:bg-black transition-colors font-medium text-sm"
+                >
+                  <RefreshCw size={16} />
+                  Tentar novamente
+                </button>
+
+                <button
+                  onClick={this.handleGoHome}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium text-sm"
+                >
+                  <Home size={16} />
+                  Ir para Início
+                </button>
+              </div>
+            )}
+
+            {tooManyErrors && (
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ai-text mx-auto"></div>
+                <p className="text-xs text-ai-subtext mt-2">Reiniciando...</p>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -83,4 +159,5 @@ class ErrorBoundary extends Component<Props, State> {
 }
 
 export default ErrorBoundary;
+
 
