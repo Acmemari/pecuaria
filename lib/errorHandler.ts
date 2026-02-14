@@ -35,6 +35,35 @@ export const ERROR_CODES = {
     NOT_FOUND: 'NOT_FOUND',
 } as const;
 
+// Debounce de toasts para evitar spam de notificações repetidas
+const recentToasts = new Map<string, number>();
+const TOAST_DEBOUNCE_MS = 3000;
+
+function shouldShowToast(message: string): boolean {
+    const now = Date.now();
+    const lastShown = recentToasts.get(message);
+    if (lastShown && now - lastShown < TOAST_DEBOUNCE_MS) return false;
+    recentToasts.set(message, now);
+    // Limpar toasts antigos para evitar memory leak
+    if (recentToasts.size > 20) {
+        const cutoff = now - TOAST_DEBOUNCE_MS * 2;
+        for (const [key, time] of recentToasts) {
+            if (time < cutoff) recentToasts.delete(key);
+        }
+    }
+    return true;
+}
+
+// Mensagens genéricas para produção (não vazar detalhes internos)
+const SAFE_USER_MESSAGES: Record<string, string> = {
+    [ERROR_CODES.NETWORK_ERROR]: 'Erro de conexão. Verifique sua internet e tente novamente.',
+    [ERROR_CODES.TIMEOUT_ERROR]: 'Tempo limite excedido. Tente novamente.',
+    [ERROR_CODES.UNAUTHORIZED]: 'Sessão expirada. Faça login novamente.',
+    [ERROR_CODES.RATE_LIMIT_ERROR]: 'Muitas requisições. Aguarde um momento.',
+    [ERROR_CODES.SERVER_ERROR]: 'Erro no servidor. Tente novamente em alguns instantes.',
+    [ERROR_CODES.NOT_FOUND]: 'Recurso não encontrado.',
+};
+
 export const handleQuestionnaireError = (
     error: unknown,
     context: string,
@@ -57,28 +86,28 @@ export const handleQuestionnaireError = (
         userMessage = error.userMessage;
         errorCode = error.code;
     } else if (error instanceof Error) {
+        const msg = error.message.toLowerCase();
         // Categorizar erros comuns
-        if (error.message.includes('network') || error.message.includes('fetch')) {
-            userMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+        if (msg.includes('network') || msg.includes('fetch') || msg.includes('econnrefused')) {
             errorCode = ERROR_CODES.NETWORK_ERROR;
-        } else if (error.message.includes('timeout')) {
-            userMessage = 'Tempo limite excedido. Tente novamente.';
+        } else if (msg.includes('timeout') || msg.includes('etimedout')) {
             errorCode = ERROR_CODES.TIMEOUT_ERROR;
-        } else if (error.message.includes('unauthorized') || error.message.includes('401')) {
-            userMessage = 'Sessão expirada. Faça login novamente.';
+        } else if (msg.includes('unauthorized') || msg.includes('401')) {
             errorCode = ERROR_CODES.UNAUTHORIZED;
-        } else {
-            userMessage = error.message;
+        } else if (msg.includes('429') || msg.includes('rate limit')) {
+            errorCode = ERROR_CODES.RATE_LIMIT_ERROR;
+        } else if (msg.includes('500') || msg.includes('502') || msg.includes('503')) {
+            errorCode = ERROR_CODES.SERVER_ERROR;
         }
+
+        // Em produção, nunca vazar mensagem interna do erro
+        userMessage = SAFE_USER_MESSAGES[errorCode]
+            || (import.meta.env?.PROD ? 'Ocorreu um erro inesperado.' : error.message);
     }
 
-    // Mostrar toast para o usuário
-    onToast?.(userMessage, 'error');
-
-    // Em produção, enviar para serviço de monitoramento
-    if (import.meta.env?.PROD) {
-        // TODO: Integrar com Sentry, LogRocket, etc.
-        // Sentry.captureException(error, { tags: { context, errorCode } });
+    // Mostrar toast com debounce (evita spam)
+    if (onToast && shouldShowToast(userMessage)) {
+        onToast(userMessage, 'error');
     }
 };
 

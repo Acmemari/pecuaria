@@ -12,11 +12,15 @@ interface EnvConfig {
 const requiredEnvVars = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'] as const;
 const optionalEnvVars = ['GEMINI_API_KEY'] as const;
 
+let _cachedEnv: EnvConfig | null = null;
+
 /**
  * Valida se todas as variáveis de ambiente obrigatórias estão definidas
  * @throws {Error} Se alguma variável obrigatória estiver faltando
  */
 export function validateEnv(): EnvConfig {
+  if (_cachedEnv) return _cachedEnv;
+
   const missing: string[] = [];
 
   for (const varName of requiredEnvVars) {
@@ -28,21 +32,34 @@ export function validateEnv(): EnvConfig {
   if (missing.length > 0) {
     throw new Error(
       `Variáveis de ambiente obrigatórias não encontradas: ${missing.join(', ')}\n` +
-        'Por favor, crie um arquivo .env.local com as variáveis necessárias.\n' +
-        'Veja .env.example para referência.',
+      'Por favor, crie um arquivo .env.local com as variáveis necessárias.\n' +
+      'Veja .env.example para referência.',
     );
   }
 
-  return {
-    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+  // Validar formato da URL do Supabase
+  try {
+    const url = new URL(supabaseUrl);
+    if (!url.hostname.includes('supabase')) {
+      console.warn('VITE_SUPABASE_URL não parece ser uma URL do Supabase válida');
+    }
+  } catch {
+    throw new Error('VITE_SUPABASE_URL não é uma URL válida');
+  }
+
+  _cachedEnv = {
+    VITE_SUPABASE_URL: supabaseUrl,
     VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
     GEMINI_API_KEY: import.meta.env.GEMINI_API_KEY,
   };
+
+  return _cachedEnv;
 }
 
 /**
- * Obtém variáveis de ambiente com validação
- * Retorna valores validados ou lança erro se faltar algo obrigatório
+ * Obtém variáveis de ambiente com validação (resultado é cacheado)
  */
 export function getEnv(): EnvConfig {
   return validateEnv();

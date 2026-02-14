@@ -35,17 +35,20 @@ export function sanitizeText(input: string): string {
 
 /**
  * Sanitiza entrada para uso em SQL (previne SQL injection básico)
- * NOTA: Use prepared statements sempre que possível
+ * NOTA: Use prepared statements sempre que possível. Supabase já faz isso.
+ * Esta função é uma camada extra de defesa (defense-in-depth).
  */
 export function sanitizeSql(input: string): string {
     if (!input) return '';
 
     return input
         .replace(/'/g, "''")
+        .replace(/\\/g, '\\\\')  // Escapar backslashes
         .replace(/;/g, '')
         .replace(/--/g, '')
         .replace(/\/\*/g, '')
-        .replace(/\*\//g, '');
+        .replace(/\*\//g, '')
+        .replace(/\x00/g, '');   // Remover null bytes
 }
 
 /**
@@ -54,19 +57,32 @@ export function sanitizeSql(input: string): string {
 export function sanitizeUrl(url: string): string {
     if (!url) return '';
 
-    const trimmed = url.trim().toLowerCase();
+    const trimmed = url.trim();
+    const lower = trimmed.toLowerCase();
 
     // Bloquear protocolos perigosos
     if (
-        trimmed.startsWith('javascript:') ||
-        trimmed.startsWith('data:') ||
-        trimmed.startsWith('vbscript:') ||
-        trimmed.startsWith('file:')
+        lower.startsWith('javascript:') ||
+        lower.startsWith('data:') ||
+        lower.startsWith('vbscript:') ||
+        lower.startsWith('file:') ||
+        lower.startsWith('blob:') ||
+        lower.includes('\x00')  // Null byte injection
     ) {
         return '';
     }
 
-    return url.trim();
+    // Verificar URL é válida
+    try {
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) {
+            return trimmed;
+        }
+        // Se não tem protocolo, adicionar https://
+        new URL(`https://${trimmed}`);
+        return trimmed;
+    } catch {
+        return '';
+    }
 }
 
 /**
@@ -122,17 +138,28 @@ export function sanitizeNumber(input: string | number): number | null {
 /**
  * Sanitiza objeto recursivamente
  */
-export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
+const MAX_SANITIZE_DEPTH = 10;
+
+export function sanitizeObject<T extends Record<string, any>>(obj: T, depth = 0): T {
+    if (depth > MAX_SANITIZE_DEPTH) {
+        // Evitar recursão infinita em objetos circulares ou muito profundos
+        return obj;
+    }
+
     const sanitized = {} as T;
 
     for (const [key, value] of Object.entries(obj)) {
         if (typeof value === 'string') {
             sanitized[key as keyof T] = sanitizeText(value) as any;
         } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-            sanitized[key as keyof T] = sanitizeObject(value);
+            sanitized[key as keyof T] = sanitizeObject(value, depth + 1);
         } else if (Array.isArray(value)) {
             sanitized[key as keyof T] = value.map(item =>
-                typeof item === 'string' ? sanitizeText(item) : item
+                typeof item === 'string'
+                    ? sanitizeText(item)
+                    : typeof item === 'object' && item !== null
+                        ? sanitizeObject(item, depth + 1)
+                        : item
             ) as any;
         } else {
             sanitized[key as keyof T] = value;
@@ -187,16 +214,16 @@ export function detectXss(input: string): boolean {
 /**
  * Detecta tentativas de SQL Injection
  */
+// Padrões compilados uma única vez para evitar ReDoS e melhorar performance
+const SQL_PATTERNS = [
+    /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE|TRUNCATE)\b)/i,
+    /(\bUNION\s+(ALL\s+)?SELECT\b)/i,
+    /(';|\-\-\s|#|\/\*)/,
+    /(\bOR\b\s+['"]?\d+['"]?\s*=\s*['"]?\d+['"]?)/i,
+    /(\bOR\s+['"]\w+['"]\s*=\s*['"]\w+['"])/i,
+] as const;
+
 export function detectSqlInjection(input: string): boolean {
     if (!input) return false;
-
-    const sqlPatterns = [
-        /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|EXECUTE)\b)/i,
-        /(\bUNION\b.*\bSELECT\b)/i,
-        /(;|\-\-|\/\*|\*\/)/,
-        /(\bOR\b.*=.*)/i,
-        /(\bAND\b.*=.*)/i,
-    ];
-
-    return sqlPatterns.some(pattern => pattern.test(input));
+    return SQL_PATTERNS.some(pattern => pattern.test(input));
 }

@@ -25,12 +25,33 @@ export class ApiError extends Error {
 }
 
 /**
- * Timeout para requisições
+ * Timeout para requisições com cleanup automático
  */
-function createTimeoutSignal(timeout: number): AbortSignal {
+function createTimeoutController(timeout: number): { signal: AbortSignal; cleanup: () => void } {
     const controller = new AbortController();
-    setTimeout(() => controller.abort(), timeout);
-    return controller.signal;
+    const timer = setTimeout(() => controller.abort(), timeout);
+    return {
+        signal: controller.signal,
+        cleanup: () => clearTimeout(timer),
+    };
+}
+
+/**
+ * Sanitiza URL para logs (remove tokens/keys)
+ */
+function sanitizeUrlForLog(url: string): string {
+    try {
+        const u = new URL(url, 'https://placeholder.com');
+        // Remover parâmetros sensíveis
+        for (const key of ['key', 'token', 'apikey', 'api_key', 'secret', 'password', 'access_token']) {
+            if (u.searchParams.has(key)) {
+                u.searchParams.set(key, '***');
+            }
+        }
+        return u.pathname + u.search;
+    } catch {
+        return url.split('?')[0]; // fallback: só o path
+    }
 }
 
 /**
@@ -47,21 +68,20 @@ export async function apiClient<T = any>(
         ...fetchOptions
     } = options;
 
-    const operationName = `API ${fetchOptions.method || 'GET'} ${url}`;
+    const operationName = `API ${fetchOptions.method || 'GET'} ${sanitizeUrlForLog(url)}`;
 
     return withApiRetry(
         async () => {
             const startTime = performance.now();
+            const { signal: timeoutSignal, cleanup: cleanupTimeout } = createTimeoutController(timeout);
 
             logger.debug(`${operationName}: Starting`, {
                 component: 'ApiClient',
-                url,
+                url: sanitizeUrlForLog(url),
                 method: fetchOptions.method || 'GET',
             });
 
             try {
-                // Criar signal de timeout
-                const timeoutSignal = createTimeoutSignal(timeout);
                 const combinedSignal = fetchOptions.signal
                     ? AbortSignal.any([fetchOptions.signal, timeoutSignal])
                     : timeoutSignal;
@@ -105,7 +125,19 @@ export async function apiClient<T = any>(
                 }
 
                 // Parse resposta
-                const data = await response.json();
+                let data: T;
+                const contentType = response.headers.get('content-type');
+                if (contentType?.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    // Fallback para text quando resposta não é JSON
+                    const text = await response.text();
+                    try {
+                        data = JSON.parse(text);
+                    } catch {
+                        data = text as unknown as T;
+                    }
+                }
 
                 logger.debug(`${operationName}: Success`, {
                     component: 'ApiClient',
@@ -113,7 +145,7 @@ export async function apiClient<T = any>(
                     duration: `${duration.toFixed(2)}ms`,
                 });
 
-                return data as T;
+                return data;
             } catch (error) {
                 const duration = performance.now() - startTime;
 
@@ -150,6 +182,9 @@ export async function apiClient<T = any>(
                     0,
                     'NETWORK_ERROR'
                 );
+            } finally {
+                // Limpar timer do timeout (evita memory leak)
+                cleanupTimeout();
             }
         },
         operationName

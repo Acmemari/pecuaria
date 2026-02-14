@@ -2,6 +2,7 @@ import { User } from '../../types';
 import { supabase } from '../supabase';
 import { mapUserProfile } from './mapUserProfile';
 import { createUserProfileIfMissing } from './createProfile';
+import { logger } from '../logger';
 
 /**
  * Carrega perfil de usuário do Supabase com lógica de retry
@@ -24,17 +25,11 @@ export const loadUserProfile = async (
         .single();
 
       if (error) {
-        // Não logar erro completo em produção para evitar poluição do console
-        if (process.env.NODE_ENV === 'development') {
-          console.error(`Error loading user profile (attempt ${i + 1}/${retries}):`, {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint
-          });
-        } else {
-          console.warn(`Error loading user profile (attempt ${i + 1}/${retries}):`, error.message);
-        }
+        logger.warn(`Error loading user profile (attempt ${i + 1}/${retries})`, {
+          component: 'loadUserProfile',
+          errorCode: error.code,
+          errorMessage: error.message,
+        });
 
         // If profile doesn't exist (PGRST116), try to create it
         if (error.code === 'PGRST116' || error.message?.includes('No rows')) {
@@ -42,7 +37,7 @@ export const loadUserProfile = async (
             // Get user info from auth
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-              console.log('Profile not found, attempting to create...');
+              logger.info('Profile not found, attempting to create...', { component: 'loadUserProfile' });
               await createUserProfileIfMissing(userId);
               // Wait a bit for the profile to be created
               await new Promise(resolve => setTimeout(resolve, 1000));
@@ -51,7 +46,9 @@ export const loadUserProfile = async (
           }
 
           if (i < retries - 1) {
-            console.log(`Profile not found for user ${userId}, retrying... (${i + 1}/${retries})`);
+            logger.debug(`Profile not found for user, retrying... (${i + 1}/${retries})`, {
+              component: 'loadUserProfile',
+            });
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
           }
@@ -60,7 +57,9 @@ export const loadUserProfile = async (
         // If it's a 500 error (server error), it might be RLS or trigger issue
         // Try again with more delay
         if (i < retries - 1 && (error.code === 'PGRST301' || error.message?.includes('500'))) {
-          console.log(`Server error (possibly RLS), retrying with longer delay... (${i + 1}/${retries})`);
+          logger.debug(`Server error (possibly RLS), retrying with longer delay... (${i + 1}/${retries})`, {
+            component: 'loadUserProfile',
+          });
           await new Promise(resolve => setTimeout(resolve, delay * 2));
           continue;
         }
@@ -69,11 +68,13 @@ export const loadUserProfile = async (
       }
 
       if (profile) {
-        console.log('Profile loaded successfully:', profile.email);
+        logger.debug('Profile loaded successfully', { component: 'loadUserProfile' });
         return mapUserProfile(profile);
       }
-    } catch (error: any) {
-      console.error('Error loading user profile:', error);
+    } catch (err: unknown) {
+      logger.error('Error loading user profile', err instanceof Error ? err : new Error(String(err)), {
+        component: 'loadUserProfile',
+      });
       if (i < retries - 1) {
         await new Promise(resolve => setTimeout(resolve, delay));
       }

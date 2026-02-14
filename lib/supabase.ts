@@ -8,7 +8,19 @@ export const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_AN
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
-  }
+    detectSessionInUrl: true,
+    // Configurações de robustez para auth
+    flowType: 'pkce',
+  },
+  global: {
+    headers: {
+      'x-client-info': 'pecuaria-web',
+    },
+  },
+  // Configurações de performance para realtime
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
 });
-

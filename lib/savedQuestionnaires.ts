@@ -1,5 +1,14 @@
 import { supabase } from './supabase';
 import { SavedQuestionnaire, SavedQuestionnaireAnswer } from '../types';
+import { sanitizeText } from './inputSanitizer';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateId(id: string, fieldName: string): void {
+  if (!id || !UUID_REGEX.test(id)) {
+    throw new Error(`${fieldName} inválido.`);
+  }
+}
 
 export interface QuestionnaireFilters {
   clientId?: string | null;
@@ -19,11 +28,11 @@ export const getSavedQuestionnaires = async (
   if (filters?.clientId) {
     query = query.or(`client_id.eq.${filters.clientId},and(client_id.is.null,user_id.eq.${userId})`);
   }
-  
+
   if (filters?.farmId) {
     query = query.eq('farm_id', filters.farmId);
   }
-  
+
   // Se não tiver filtros de cliente/fazenda, filtrar por user_id
   if (!filters?.clientId && !filters?.farmId) {
     query = query.eq('user_id', userId);
@@ -63,12 +72,17 @@ export const saveQuestionnaire = async (
     answers: SavedQuestionnaireAnswer[];
   }
 ): Promise<SavedQuestionnaire> => {
+  const sanitizedName = sanitizeText(name);
+  if (!sanitizedName || sanitizedName.length > 300) {
+    throw new Error('Nome do questionário inválido (1-300 caracteres).');
+  }
+
   const { data, error } = await supabase
     .from('saved_questionnaires')
     .insert({
       user_id: userId,
       client_id: payload.clientId || null,
-      name: name.trim(),
+      name: sanitizedName,
       farm_id: payload.farmId,
       farm_name: payload.farmName,
       production_system: payload.productionSystem,
@@ -95,6 +109,9 @@ export const updateSavedQuestionnaire = async (
   userId: string,
   answers: SavedQuestionnaireAnswer[]
 ): Promise<void> => {
+  validateId(id, 'ID do questionário');
+  validateId(userId, 'ID do usuário');
+
   const { error } = await supabase
     .from('saved_questionnaires')
     .update({
@@ -120,9 +137,17 @@ export const getSavedQuestionnaire = async (id: string, userId: string): Promise
 };
 
 export const updateSavedQuestionnaireName = async (id: string, userId: string, name: string): Promise<void> => {
+  validateId(id, 'ID do questionário');
+  validateId(userId, 'ID do usuário');
+
+  const sanitizedName = sanitizeText(name);
+  if (!sanitizedName || sanitizedName.length > 300) {
+    throw new Error('Nome inválido (1-300 caracteres).');
+  }
+
   const { error } = await supabase
     .from('saved_questionnaires')
-    .update({ name: name.trim(), updated_at: new Date().toISOString() })
+    .update({ name: sanitizedName, updated_at: new Date().toISOString() })
     .eq('id', id)
     .eq('user_id', userId);
 
@@ -130,6 +155,9 @@ export const updateSavedQuestionnaireName = async (id: string, userId: string, n
 };
 
 export const deleteSavedQuestionnaire = async (id: string, userId: string): Promise<void> => {
+  validateId(id, 'ID do questionário');
+  validateId(userId, 'ID do usuário');
+
   const { error } = await supabase
     .from('saved_questionnaires')
     .delete()

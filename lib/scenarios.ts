@@ -1,7 +1,15 @@
 import { supabase } from './supabase';
 import { CattleScenario, CattleCalculatorInputs, CalculationResults } from '../types';
+import { sanitizeText } from './inputSanitizer';
 
 const MAX_SCENARIOS = 10;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateUUID(id: string, fieldName: string): void {
+  if (!id || !UUID_REGEX.test(id)) {
+    throw new Error(`${fieldName} inválido.`);
+  }
+}
 
 export interface ScenarioFilters {
   clientId?: string | null;
@@ -25,11 +33,11 @@ export const getSavedScenarios = async (
     if (filters?.clientId) {
       query = query.or(`client_id.eq.${filters.clientId},and(client_id.is.null,user_id.eq.${userId})`);
     }
-    
+
     if (filters?.farmId) {
       query = query.eq('farm_id', filters.farmId);
     }
-    
+
     // Se não tiver filtros de cliente/fazenda, filtrar por user_id
     if (!filters?.clientId && !filters?.farmId) {
       query = query.eq('user_id', userId);
@@ -103,8 +111,13 @@ export const checkScenarioLimit = async (userId: string): Promise<boolean> => {
 
 // Validation helper
 const validateScenarioData = (name?: string, inputs?: CattleCalculatorInputs) => {
-  if (name !== undefined && (!name || name.trim() === '')) {
-    throw new Error('O nome do cenário é obrigatório');
+  if (name !== undefined) {
+    if (!name || name.trim() === '') {
+      throw new Error('O nome do cenário é obrigatório');
+    }
+    if (name.trim().length > 200) {
+      throw new Error('O nome do cenário é muito longo (máx 200 caracteres)');
+    }
   }
 
   if (inputs !== undefined) {
@@ -112,18 +125,22 @@ const validateScenarioData = (name?: string, inputs?: CattleCalculatorInputs) =>
       throw new Error('Dados de entrada inválidos');
     }
 
-    // Check for required numeric fields if inputs are provided
-    // This is a basic check; stricter validation could be added if needed
-    const requiredFields: (keyof CattleCalculatorInputs)[] = ['pesoCompra', 'valorCompra', 'pesoAbate', 'rendimentoCarcaca', 'valorVenda', 'gmd', 'custoMensal', 'lotacao'];
+    const requiredFields: (keyof CattleCalculatorInputs)[] = [
+      'pesoCompra', 'valorCompra', 'pesoAbate', 'rendimentoCarcaca',
+      'valorVenda', 'gmd', 'custoMensal', 'lotacao'
+    ];
 
     for (const field of requiredFields) {
-      if (inputs[field] === undefined || inputs[field] === null || isNaN(Number(inputs[field]))) {
-        // Allow partial inputs for draft saving if needed, but for now we enforce validity for calculation scenarios
-        // If we want to allow saving incomplete drafts, we might relax this.
-        // However, let's just log a warning for now to not break existing flexible usage, 
-        // or strictly enforce if we are sure all clients send complete data.
-        // Given the context, robust apps usually validate. 
-        // Let's check for at least one critical field to ensure it's not empty object
+      const value = inputs[field];
+      if (value === undefined || value === null || isNaN(Number(value))) {
+        throw new Error(`Campo obrigatório inválido: ${field}`);
+      }
+      // Validar limites razoáveis (evitar valores absurdos)
+      if (Number(value) < 0) {
+        throw new Error(`O campo ${field} não pode ser negativo`);
+      }
+      if (Number(value) > 1_000_000) {
+        throw new Error(`O valor de ${field} parece excessivo (máx 1.000.000)`);
       }
     }
   }
@@ -145,8 +162,12 @@ export const saveScenario = async (
   results?: CalculationResults,
   options?: SaveScenarioOptions
 ): Promise<CattleScenario> => {
-  // Validate inputs
-  validateScenarioData(name, inputs);
+  // Validar IDs
+  validateUUID(userId, 'ID do usuário');
+
+  // Sanitizar e validar dados
+  const sanitizedName = sanitizeText(name);
+  validateScenarioData(sanitizedName, inputs);
 
   // Check limit
   const atLimit = await checkScenarioLimit(userId);
@@ -161,7 +182,7 @@ export const saveScenario = async (
       client_id: options?.clientId || null,
       farm_id: options?.farmId || null,
       farm_name: options?.farmName || null,
-      name: name.trim(),
+      name: sanitizedName,
       inputs,
       results
     })
@@ -207,7 +228,12 @@ export const updateScenario = async (
     results?: CalculationResults;
   }
 ): Promise<CattleScenario> => {
+  // Validar IDs
+  validateUUID(scenarioId, 'ID do cenário');
+  validateUUID(userId, 'ID do usuário');
+
   // Validate updates
+  if (updates.name) updates.name = sanitizeText(updates.name);
   validateScenarioData(updates.name, updates.inputs);
 
   const { data, error } = await supabase
@@ -234,6 +260,9 @@ export const updateScenario = async (
  * Delete a scenario
  */
 export const deleteScenario = async (scenarioId: string, userId: string): Promise<void> => {
+  validateUUID(scenarioId, 'ID do cenário');
+  validateUUID(userId, 'ID do usuário');
+
   const { error } = await supabase
     .from('cattle_scenarios')
     .delete()
@@ -250,6 +279,9 @@ export const deleteScenario = async (scenarioId: string, userId: string): Promis
  * Get a single scenario by ID
  */
 export const getScenario = async (scenarioId: string, userId: string): Promise<CattleScenario | null> => {
+  validateUUID(scenarioId, 'ID do cenário');
+  validateUUID(userId, 'ID do usuário');
+
   const { data, error } = await supabase
     .from('cattle_scenarios')
     .select('*')

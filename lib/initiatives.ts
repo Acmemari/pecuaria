@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { sanitizeText } from './inputSanitizer';
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -55,9 +56,20 @@ export interface CreateInitiativePayload {
 
 // ─── Validação local ────────────────────────────────────────────────────────
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function validateUUID(id: string, fieldName: string): void {
+  if (!id || !UUID_REGEX.test(id)) {
+    throw new Error(`${fieldName} inválido.`);
+  }
+}
+
 function validatePayload(payload: CreateInitiativePayload): void {
   if (!payload.name?.trim()) {
     throw new Error('O nome da iniciativa é obrigatório.');
+  }
+  if (payload.name.trim().length > 300) {
+    throw new Error('O nome da iniciativa é muito longo (máx 300 caracteres).');
   }
   if (!payload.start_date?.trim()) {
     throw new Error('A data de início é obrigatória (dd/mm/aa).');
@@ -74,13 +86,18 @@ function validatePayload(payload: CreateInitiativePayload): void {
   if (payload.start_date && payload.end_date && payload.start_date > payload.end_date) {
     throw new Error('A data de início não pode ser posterior à data final.');
   }
+  if (payload.description && payload.description.length > 5000) {
+    throw new Error('A descrição é muito longa (máx 5000 caracteres).');
+  }
+  if (payload.milestones.length > 50) {
+    throw new Error('Máximo de 50 marcos por iniciativa.');
+  }
   const totalPercent = payload.milestones
     .filter((m) => m.title?.trim())
     .reduce((s, m) => s + (m.percent || 0), 0);
   if (totalPercent > 100) {
     throw new Error(`A soma dos marcos (${totalPercent}%) excede 100%.`);
   }
-  // Validar due_date dos marcos dentro do intervalo da iniciativa
   for (const m of payload.milestones.filter((mil) => mil.title?.trim() && mil.due_date)) {
     if (payload.start_date && m.due_date! < payload.start_date) {
       throw new Error(`Data limite do marco "${m.title}" não pode ser anterior ao início da iniciativa.`);
@@ -204,13 +221,15 @@ export async function createInitiative(
 ): Promise<InitiativeRow> {
   validatePayload(payload);
 
+  const sanitizedName = sanitizeText(payload.name);
+
   const { data: initiative, error: initError } = await supabase
     .from('initiatives')
     .insert({
       created_by: createdBy,
-      name: payload.name.trim(),
-      tags: payload.tags?.trim() || null,
-      description: payload.description?.trim() || null,
+      name: sanitizedName,
+      tags: payload.tags ? sanitizeText(payload.tags) : null,
+      description: payload.description ? sanitizeText(payload.description) : null,
       start_date: payload.start_date || null,
       end_date: payload.end_date || null,
       status: payload.status || 'Não Iniciado',
@@ -275,12 +294,14 @@ export async function updateInitiative(
   if (!initiativeId) throw new Error('ID da iniciativa é obrigatório.');
   validatePayload(payload);
 
+  const sanitizedName = sanitizeText(payload.name);
+
   const { data: initiative, error: initError } = await supabase
     .from('initiatives')
     .update({
-      name: payload.name.trim(),
-      tags: payload.tags?.trim() || null,
-      description: payload.description?.trim() || null,
+      name: sanitizedName,
+      tags: payload.tags ? sanitizeText(payload.tags) : null,
+      description: payload.description ? sanitizeText(payload.description) : null,
       start_date: payload.start_date || null,
       end_date: payload.end_date || null,
       status: payload.status || 'Não Iniciado',

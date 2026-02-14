@@ -2,7 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { logger } from '../lib/logger';
 
-interface Props {
+interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
@@ -14,13 +14,11 @@ interface State {
   errorCount: number;
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  // Declaração explícita de props para TypeScript
-  readonly props: Props;
-
-  constructor(props: Props) {
+class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
+  declare readonly props: Readonly<ErrorBoundaryProps>;
+  declare state: Readonly<State>;
+  constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.props = props;
     this.state = {
       hasError: false,
       error: null,
@@ -38,13 +36,11 @@ class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     logger.error('ErrorBoundary caught error', error, {
       component: 'ErrorBoundary',
-      componentStack: errorInfo.componentStack,
+      componentStack: errorInfo.componentStack || '',
     });
 
     // Chamar callback de erro se fornecido
-    if (this.props && this.props.onError) {
-      this.props.onError(error, errorInfo);
-    }
+    this.props.onError?.(error, errorInfo);
 
     // Incrementar contador e verificar loop infinito
     this.setState(
@@ -52,17 +48,24 @@ class ErrorBoundary extends Component<Props, State> {
         errorCount: prev.errorCount + 1,
       }),
       () => {
-        // Auto-reset após muitos erros (possível loop infinito)
-        // Usar callback do setState para garantir que temos o valor atualizado
         if (this.state.errorCount > 5) {
-          logger.error('Too many errors detected, clearing state', undefined, {
+          logger.error('Too many errors detected, resetting app state', undefined, {
             component: 'ErrorBoundary',
             errorCount: this.state.errorCount,
           });
 
-          // Limpar localStorage e redirecionar
+          // Limpar apenas dados da aplicação, não todo o localStorage
           setTimeout(() => {
-            localStorage.clear();
+            try {
+              const keysToRemove = [];
+              for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.startsWith('sb-') || key.startsWith('pecuaria-'))) {
+                  keysToRemove.push(key);
+                }
+              }
+              keysToRemove.forEach(k => localStorage.removeItem(k));
+            } catch { /* ignore storage errors */ }
             window.location.href = '/';
           }, 2000);
         }

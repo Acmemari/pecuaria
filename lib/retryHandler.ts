@@ -12,6 +12,7 @@ export interface RetryOptions {
     backoffMultiplier?: number;
     shouldRetry?: (error: unknown) => boolean;
     onRetry?: (attempt: number, error: unknown) => void;
+    signal?: AbortSignal; // Permite cancelar retries pendentes
 }
 
 const DEFAULT_OPTIONS: Required<RetryOptions> = {
@@ -21,6 +22,7 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
     backoffMultiplier: 2,
     shouldRetry: () => true,
     onRetry: () => { },
+    signal: undefined as unknown as AbortSignal,
 };
 
 /**
@@ -48,7 +50,11 @@ export function isRetryableError(error: unknown): boolean {
             message.includes('timeout') ||
             message.includes('fetch') ||
             message.includes('econnrefused') ||
-            message.includes('enotfound')
+            message.includes('enotfound') ||
+            message.includes('econnreset') ||
+            message.includes('etimedout') ||
+            message.includes('socket hang up') ||
+            message.includes('dns')
         ) {
             return true;
         }
@@ -56,6 +62,11 @@ export function isRetryableError(error: unknown): boolean {
         // Erros HTTP retryable (5xx, 429)
         if (message.includes('500') || message.includes('502') || message.includes('503') || message.includes('429')) {
             return true;
+        }
+
+        // Erros de abort (usuário cancelou) -> NÃO fazer retry
+        if (error.name === 'AbortError') {
+            return false;
         }
     }
 
@@ -74,6 +85,11 @@ export async function withRetry<T>(
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= opts.maxAttempts; attempt++) {
+        // Verificar se foi cancelado antes de tentar
+        if (opts.signal?.aborted) {
+            throw new Error(`${operationName}: Cancelado pelo usuário`);
+        }
+
         try {
             logger.debug(`${operationName}: Attempt ${attempt}/${opts.maxAttempts}`, {
                 component: 'RetryHandler',
@@ -92,6 +108,11 @@ export async function withRetry<T>(
             return result;
         } catch (error) {
             lastError = error;
+
+            // Se cancelado, não fazer retry
+            if (opts.signal?.aborted) {
+                throw error;
+            }
 
             logger.warn(`${operationName}: Attempt ${attempt} failed`, {
                 component: 'RetryHandler',
@@ -114,14 +135,20 @@ export async function withRetry<T>(
             // Callback de retry
             opts.onRetry(attempt, error);
 
-            // Aguardar antes da próxima tentativa
+            // Aguardar antes da próxima tentativa (com suporte a cancelamento)
             const delay = calculateDelay(attempt, opts);
             logger.debug(`${operationName}: Retrying in ${delay.toFixed(0)}ms`, {
                 component: 'RetryHandler',
                 delay,
             });
 
-            await new Promise(resolve => setTimeout(resolve, delay));
+            await new Promise<void>((resolve, reject) => {
+                const timer = setTimeout(resolve, delay);
+                opts.signal?.addEventListener('abort', () => {
+                    clearTimeout(timer);
+                    reject(new Error('Cancelado'));
+                }, { once: true });
+            });
         }
     }
 

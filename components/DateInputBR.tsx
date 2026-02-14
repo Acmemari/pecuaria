@@ -1,147 +1,162 @@
-import React from 'react';
-import DatePicker from 'react-datepicker';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import DatePicker, { registerLocale } from 'react-datepicker';
 import { ptBR } from 'date-fns/locale';
 import 'react-datepicker/dist/react-datepicker.css';
+import { Calendar as CalendarIcon } from 'lucide-react';
 
-function formatDisplay(date: Date | null): string {
-  if (!date) return '';
-  const dd = `${date.getDate()}`.padStart(2, '0');
-  const mm = `${date.getMonth() + 1}`.padStart(2, '0');
-  const yyyy = `${date.getFullYear()}`.padStart(4, '0');
-  return `${dd}/${mm}/${yyyy}`;
+registerLocale('pt-BR', ptBR);
+
+/* ── helpers ────────────────────────────────────────────── */
+
+function parseIso(v?: string): Date | null {
+  if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const [y, m, d] = v.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return isFinite(dt.getTime()) ? dt : null;
 }
 
-function parseIsoDate(value?: string): Date | null {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const [y, m, d] = value.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  return Number.isNaN(date.getTime()) ? null : date;
+function toIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function toIsoDate(date: Date | null): string {
-  if (!date) return '';
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
+function fmtBR(d: Date | null): string {
+  if (!d) return '';
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 }
 
-function maskDisplayDate(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+function parseBR(s: string): Date | null {
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return null;
+  const dt = new Date(+m[3], +m[2] - 1, +m[1]);
+  if (dt.getDate() !== +m[1] || dt.getMonth() !== +m[2] - 1) return null;
+  return isFinite(dt.getTime()) ? dt : null;
 }
 
-function parseDisplayToDate(display: string): Date | null {
-  if (!display) return null;
-  const match = display.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!match) return null;
-
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = Number(match[3]);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-
-  const date = new Date(year, month - 1, day);
-  if (
-    Number.isNaN(date.getTime()) ||
-    date.getDate() !== day ||
-    date.getMonth() !== month - 1 ||
-    date.getFullYear() !== year
-  ) {
-    return null;
-  }
-  return date;
+function mask(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`;
+  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
 }
+
+/* ── componente ────────────────────────────────────────── */
 
 interface DateInputBRProps {
-  value: string; // YYYY-MM-DD
-  onChange: (value: string) => void;
+  value?: string;          // YYYY-MM-DD
+  onChange: (v: string) => void;
   placeholder?: string;
-  min?: string; // YYYY-MM-DD
-  max?: string; // YYYY-MM-DD
-  required?: boolean;
   className?: string;
+  disabled?: boolean;
+  required?: boolean;
+  min?: string;
+  max?: string;
   id?: string;
 }
 
-/**
- * Seletor de data em formato dd/mm/aaaa (pt-BR).
- * Internamente usa YYYY-MM-DD para compatibilidade com API.
- */
-export function DateInputBR({
-  value,
-  onChange,
-  placeholder = 'dd/mm/aaaa',
-  min,
-  max,
-  required,
-  className = '',
-  id,
-}: DateInputBRProps) {
-  const selectedDate = React.useMemo(() => parseIsoDate(value), [value]);
-  const minDate = React.useMemo(() => parseIsoDate(min), [min]);
-  const maxDate = React.useMemo(() => parseIsoDate(max), [max]);
-  const [inputValue, setInputValue] = React.useState<string>(formatDisplay(selectedDate));
+const DateInputBR: React.FC<DateInputBRProps> = ({
+  value, onChange, placeholder = 'dd/mm/aaaa',
+  className = '', disabled = false, required = false,
+  min, max, id,
+}) => {
+  const selected = useMemo(() => parseIso(value), [value]);
+  const minD = useMemo(() => parseIso(min), [min]);
+  const maxD = useMemo(() => parseIso(max), [max]);
 
-  React.useEffect(() => {
-    setInputValue(formatDisplay(selectedDate));
-  }, [selectedDate]);
+  const [text, setText] = useState(fmtBR(selected));
+  const [showCal, setShowCal] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
-  const applyTypedValue = React.useCallback(
-    (typed: string) => {
-      const parsed = parseDisplayToDate(typed);
-      if (!parsed) return false;
-      if (minDate && parsed < minDate) return false;
-      if (maxDate && parsed > maxDate) return false;
-      onChange(toIsoDate(parsed));
-      return true;
-    },
-    [onChange, minDate, maxDate]
-  );
+  // Sincroniza texto quando value externo muda
+  useEffect(() => { setText(fmtBR(selected)); }, [selected]);
+
+  // Fecha calendário ao clicar fora
+  useEffect(() => {
+    if (!showCal) return;
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setShowCal(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showCal]);
+
+  const commitTyped = useCallback((s: string) => {
+    const d = parseBR(s);
+    if (d) {
+      onChange(toIso(d));
+      setText(fmtBR(d));
+    }
+  }, [onChange]);
+
+  const handleBlur = useCallback(() => {
+    if (!text.trim()) { onChange(''); return; }
+    const d = parseBR(text);
+    if (d) {
+      onChange(toIso(d));
+      setText(fmtBR(d));
+    } else {
+      setText(fmtBR(selected));   // reverte
+    }
+  }, [text, selected, onChange]);
 
   return (
-    <DatePicker
-      id={id}
-      selected={selectedDate}
-      onChange={(date) => {
-        onChange(toIsoDate(date));
-        setInputValue(formatDisplay(date));
-      }}
-      value={inputValue}
-      onChangeRaw={(e) => {
-        const target = e.target as HTMLInputElement;
-        const masked = maskDisplayDate(target.value);
-        setInputValue(masked);
-        if (masked.length === 10) {
-          applyTypedValue(masked);
-        }
-      }}
-      onBlur={() => {
-        if (!inputValue.trim()) {
-          onChange('');
-          return;
-        }
-        const ok = applyTypedValue(inputValue);
-        if (!ok) {
-          setInputValue(formatDisplay(selectedDate));
-        } else {
-          setInputValue((prev) => formatDisplay(parseDisplayToDate(prev)));
-        }
-      }}
-      locale={ptBR}
-      dateFormat="dd/MM/yyyy"
-      placeholderText={placeholder}
-      minDate={minDate || undefined}
-      maxDate={maxDate || undefined}
-      isClearable={!required}
-      required={required}
-      className={className}
-      title="Formato: dd/mm/aaaa"
-      autoComplete="off"
-      showPopperArrow={false}
-      popperPlacement="bottom-start"
-    />
+    <div ref={wrapRef} className={`relative ${className}`}>
+      {/* Campo de texto – digitação livre */}
+      <input
+        id={id}
+        type="text"
+        value={text}
+        disabled={disabled}
+        required={required}
+        placeholder={placeholder}
+        autoComplete="off"
+        className="w-full pl-3 pr-10 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent/20 transition-all placeholder:text-ai-subtext/40"
+        onChange={(e) => {
+          const m = mask(e.target.value);
+          setText(m);
+          if (m.length === 10) commitTyped(m);
+        }}
+        onBlur={handleBlur}
+        onKeyDown={(e) => {
+          if (!/[0-9/]/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'].includes(e.key)) {
+            e.preventDefault();
+          }
+        }}
+      />
+
+      {/* Botão do calendário – abre/fecha o popup */}
+      <button
+        type="button"
+        disabled={disabled}
+        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-ai-subtext/60 hover:text-ai-accent hover:bg-ai-surface2 transition-colors"
+        title="Abrir calendário"
+        onClick={() => setShowCal((p) => !p)}
+      >
+        <CalendarIcon size={16} />
+      </button>
+
+      {/* Popup do calendário */}
+      {showCal && (
+        <div className="absolute z-[9999] mt-1 left-0">
+          <DatePicker
+            selected={selected}
+            onChange={(date: Date | null) => {
+              if (date) {
+                onChange(toIso(date));
+                setText(fmtBR(date));
+              }
+              setShowCal(false);
+            }}
+            inline
+            locale="pt-BR"
+            minDate={minD || undefined}
+            maxDate={maxD || undefined}
+          />
+        </div>
+      )}
+    </div>
   );
-}
+};
+
+export default DateInputBR;

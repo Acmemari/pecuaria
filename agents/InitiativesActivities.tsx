@@ -29,10 +29,11 @@ import {
   toggleMilestoneCompleted,
   deleteInitiative,
   type InitiativeWithProgress,
+  type InitiativeMilestoneRow,
 } from '../lib/initiatives';
 import { fetchPeople, type Person } from '../lib/people';
 import { EvidenciaEntregaModal } from '../components/EvidenciaEntregaModal';
-import { DateInputBR } from '../components/DateInputBR';
+import DateInputBR from '../components/DateInputBR';
 
 const STATUS_OPTIONS = ['Não Iniciado', 'Em Andamento', 'Suspenso', 'Concluído', 'Atrasado'];
 
@@ -89,10 +90,13 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   const [activeTab, setActiveTab] = useState<'geral' | 'time'>('geral');
   const [togglingMilestone, setTogglingMilestone] = useState<string | null>(null);
   const [deletingInitiativeId, setDeletingInitiativeId] = useState<string | null>(null);
-  const [viewingEvidenceMilestone, setViewingEvidenceMilestone] = useState<
-    { milestone: import('../lib/initiatives').InitiativeMilestoneRow; initiativeName: string } | null
-  >(null);
+  const [viewingEvidenceMilestone, setViewingEvidenceMilestone] = useState<{
+    milestone: InitiativeMilestoneRow;
+    initiativeName: string;
+  } | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
+  const [initiativeToDelete, setInitiativeToDelete] = useState<InitiativeWithProgress | null>(null);
+  const [isDeletingLoading, setIsDeletingLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     tags: '',
@@ -194,12 +198,12 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         milestones:
           milestones.length > 0
             ? milestones.map((m) => ({
-                id: m.id,
-                title: m.title,
-                percent: m.percent,
-                dueDate: m.due_date ? m.due_date.slice(0, 10) : '',
-                completed: m.completed,
-              }))
+              id: m.id,
+              title: m.title,
+              percent: m.percent,
+              dueDate: m.due_date ? m.due_date.slice(0, 10) : '',
+              completed: m.completed,
+            }))
             : [{ id: crypto.randomUUID(), title: '', percent: 0, dueDate: '' }],
       });
     } catch (e) {
@@ -440,22 +444,30 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     }
   };
 
-  const handleDeleteInitiative = async (initiative: InitiativeWithProgress) => {
-    const confirmed = window.confirm(`Deseja excluir a iniciativa "${initiative.name}"? Esta ação não pode ser desfeita.`);
-    if (!confirmed) return;
+  const handleDeleteInitiative = (initiative: InitiativeWithProgress) => {
+    setInitiativeToDelete(initiative);
+  };
 
-    setDeletingInitiativeId(initiative.id);
+  const confirmDelete = async () => {
+    if (!initiativeToDelete) return;
+
+    const id = initiativeToDelete.id;
+    setDeletingInitiativeId(id);
+    setIsDeletingLoading(true);
+
     try {
-      await deleteInitiative(initiative.id);
-      if (viewingInitiative?.id === initiative.id) {
+      await deleteInitiative(id);
+      if (viewingInitiative?.id === id) {
         setViewingInitiative(null);
       }
       onToast?.('Iniciativa excluída com sucesso.', 'success');
+      setInitiativeToDelete(null);
       await loadInitiatives();
     } catch (e) {
       onToast?.(e instanceof Error ? e.message : 'Erro ao excluir iniciativa', 'error');
     } finally {
       setDeletingInitiativeId(null);
+      setIsDeletingLoading(false);
     }
   };
 
@@ -603,22 +615,20 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
             <button
               type="button"
               onClick={() => setActiveTab('geral')}
-              className={`pb-3 text-sm font-medium transition-colors ${
-                activeTab === 'geral'
-                  ? 'text-ai-accent border-b-2 border-ai-accent'
-                  : 'text-ai-subtext hover:text-ai-text'
-              }`}
+              className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'geral'
+                ? 'text-ai-accent border-b-2 border-ai-accent'
+                : 'text-ai-subtext hover:text-ai-text'
+                }`}
             >
               Geral & Marcos
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('time')}
-              className={`pb-3 text-sm font-medium transition-colors ${
-                activeTab === 'time'
-                  ? 'text-ai-accent border-b-2 border-ai-accent'
-                  : 'text-ai-subtext hover:text-ai-text'
-              }`}
+              className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'time'
+                ? 'text-ai-accent border-b-2 border-ai-accent'
+                : 'text-ai-subtext hover:text-ai-text'
+                }`}
             >
               Time do Projeto
             </button>
@@ -674,11 +684,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                   {(v.milestones || []).map((m) => (
                     <div
                       key={m.id}
-                      className={`w-full flex items-center gap-4 p-4 rounded-lg border transition-colors cursor-pointer ${
-                        m.completed
-                          ? 'bg-ai-accent/5 border-ai-accent/30'
-                          : 'bg-ai-surface border-ai-border hover:border-ai-accent/30'
-                      }`}
+                      className={`w-full flex items-center gap-4 p-4 rounded-lg border transition-colors cursor-pointer ${m.completed
+                        ? 'bg-ai-accent/5 border-ai-accent/30'
+                        : 'bg-ai-surface border-ai-border hover:border-ai-accent/30'
+                        }`}
                     >
                       <button
                         type="button"
@@ -1016,7 +1025,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                         onChange={(v) => setFormData((p) => ({ ...p, startDate: v }))}
                         placeholder="dd/mm/aaaa"
                         required
-                        className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
+                        className="w-full"
                       />
                     </div>
                     <div>
@@ -1028,7 +1037,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                         onChange={(v) => setFormData((p) => ({ ...p, endDate: v }))}
                         placeholder="dd/mm/aaaa"
                         required
-                        className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
+                        className="w-full"
                       />
                     </div>
                   </div>
@@ -1145,14 +1154,13 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                         />
                         <span className="text-ai-subtext text-sm">%</span>
                         <div className="flex items-center gap-1.5" title="Data limite (entre início e fim da iniciativa) - dd/mm/aaaa">
-                          <Calendar size={14} className="text-ai-subtext shrink-0" />
                           <DateInputBR
                             value={m.dueDate}
                             onChange={(v) => updateMilestone(m.id, 'dueDate', v)}
                             placeholder="dd/mm/aaaa"
                             min={formData.startDate || undefined}
                             max={formData.endDate || undefined}
-                            className="w-[130px] px-2 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
+                            className="w-[140px]"
                           />
                         </div>
                         {formData.milestones.length > 1 && (
@@ -1201,6 +1209,59 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : null}
                 {editingInitiative ? 'Atualizar' : 'Salvar Projeto'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Confirmação de Exclusão */}
+      {initiativeToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => !isDeletingLoading && setInitiativeToDelete(null)}>
+          <div
+            className="bg-white dark:bg-ai-bg border border-ai-border rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4 text-red-600">
+                <div className="p-2 rounded-full bg-red-100 dark:bg-red-900/30">
+                  <AlertTriangle size={24} />
+                </div>
+                <h3 className="text-xl font-bold">Confirmar Exclusão</h3>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-ai-text font-medium text-lg">
+                  Deseja excluir a iniciativa <span className="text-ai-accent">"{initiativeToDelete.name}"</span>?
+                </p>
+                <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
+                  <p className="text-red-700 dark:text-red-400 text-sm leading-relaxed">
+                    <strong>AVISO IMPORTANTE:</strong> Esta ação é irreversível. Todos os marcos, evidências e históricos vinculados a esta iniciativa serão permanentemente removidos.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 bg-ai-surface/50 border-t border-ai-border">
+              <button
+                type="button"
+                disabled={isDeletingLoading}
+                onClick={() => setInitiativeToDelete(null)}
+                className="px-4 py-2 rounded-lg border border-ai-border text-ai-subtext hover:text-ai-text hover:bg-ai-surface px-6 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingLoading}
+                onClick={confirmDelete}
+                className="flex items-center gap-2 px-6 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50"
+              >
+                {isDeletingLoading ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Trash2 size={18} />
+                )}
+                Excluir Agora
               </button>
             </div>
           </div>

@@ -60,8 +60,36 @@ FORMATO DA RESPOSTA:
    - Uma frase impactante resumindo o diagnóstico.
 `;
 
+/* ─── Rate limiting in-memory (por IP) ─── */
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minuto
+const RATE_LIMIT_MAX = 10; // máx 10 requisições por minuto
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+
+  if (!record || now > record.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return true;
+  }
+
+  if (record.count >= RATE_LIMIT_MAX) return false;
+  record.count++;
+  return true;
+}
+
+// Limpar registros antigos periodicamente
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of rateLimitMap) {
+    if (now > record.resetAt) rateLimitMap.delete(ip);
+  }
+}, RATE_LIMIT_WINDOW_MS * 2);
+
 /* ─── Gemini client (inline) ─── */
 const MODEL = 'gemini-2.5-flash';
+const GEMINI_TIMEOUT_MS = 60_000; // 60 segundos
 
 const SYSTEM_INSTRUCTION = `Você é um consultor especializado em gestão pecuária.
 
@@ -77,16 +105,24 @@ async function callGemini(prompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY!;
   const ai = new GoogleGenAI({ apiKey });
 
-  const response = await ai.models.generateContent({
-    model: MODEL,
-    contents: `${SYSTEM_INSTRUCTION}\n\n${prompt}\n\nResposta:`,
-  });
+  // Timeout para a chamada ao Gemini
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
 
-  const answer = response.text ?? '';
-  if (!answer) {
-    throw new Error('Resposta vazia do Gemini.');
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL,
+      contents: `${SYSTEM_INSTRUCTION}\n\n${prompt}\n\nResposta:`,
+    });
+
+    const answer = response.text ?? '';
+    if (!answer) {
+      throw new Error('Resposta vazia do Gemini.');
+    }
+    return answer;
+  } finally {
+    clearTimeout(timer);
   }
-  return answer;
 }
 
 /* ─── Handler ─── */
@@ -105,6 +141,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método não permitido' });
+  }
+
+  // Rate limiting
+  const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+    || req.socket?.remoteAddress || 'unknown';
+  if (!checkRateLimit(clientIp)) {
+    return res.status(429).json({
+      error: 'Limite de requisições excedido. Aguarde um minuto e tente novamente.',
+    });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
