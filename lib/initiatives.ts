@@ -120,18 +120,18 @@ export async function fetchInitiatives(
   effectiveUserId: string,
   filters?: FetchInitiativesFilters
 ): Promise<InitiativeWithProgress[]> {
-  if (!effectiveUserId) return [];
+  if (!effectiveUserId?.trim()) return [];
 
   let q = supabase
     .from('initiatives')
     .select('*')
     .eq('created_by', effectiveUserId)
-    .order('created_at', { ascending: false });
+    .order('start_date', { ascending: true, nullsFirst: false });
 
-  if (filters?.clientId) {
+  if (filters?.clientId?.trim()) {
     q = q.eq('client_id', filters.clientId);
   }
-  if (filters?.farmId) {
+  if (filters?.farmId?.trim()) {
     q = q.eq('farm_id', filters.farmId);
   }
 
@@ -156,7 +156,7 @@ export async function fetchInitiatives(
 
   return initiatives.map((i) => {
     const list = byInitiative[i.id] || [];
-    const progress = Math.min(100, list.filter((m) => m.completed).reduce((s, m) => s + m.percent, 0));
+    const progress = Math.min(100, Math.max(0, list.filter((m) => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0)));
     return {
       ...i,
       progress,
@@ -472,7 +472,7 @@ export async function fetchInitiativeDetail(
     .order('sort_order');
 
   const milestones = (milRows || []) as InitiativeMilestoneRow[];
-  const progress = Math.min(100, milestones.filter((m) => m.completed).reduce((s, m) => s + m.percent, 0));
+  const progress = Math.min(100, Math.max(0, milestones.filter((m) => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0)));
 
   return {
     ...initiative,

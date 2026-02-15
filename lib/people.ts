@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
 
+// ─── Tipos ──────────────────────────────────────────────────────────────────
+
 export interface Person {
   id: string;
   created_by: string;
@@ -14,6 +16,7 @@ export interface Person {
   base: string | null;
   photo_url: string | null;
   main_activities: string | null;
+  farm_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -30,79 +33,162 @@ export type PersonFormData = Omit<Person, 'id' | 'created_by' | 'created_at' | '
   base?: string;
   photo_url?: string | null;
   main_activities?: string;
+  farm_id?: string | null;
 };
 
-export async function fetchPeople(userId: string): Promise<Person[]> {
-  const { data, error } = await supabase
+export interface FetchPeopleFilters {
+  farmId?: string;
+}
+
+// ─── Validação ──────────────────────────────────────────────────────────────
+
+const MAX_NAME_LENGTH = 300;
+const MAX_TEXT_LENGTH = 2000;
+
+function validateUserId(userId: string): void {
+  if (!userId || typeof userId !== 'string' || !userId.trim()) {
+    throw new Error('ID do usuário é obrigatório.');
+  }
+}
+
+function validatePersonId(id: string): void {
+  if (!id || typeof id !== 'string' || !id.trim()) {
+    throw new Error('ID da pessoa é obrigatório.');
+  }
+}
+
+// ─── Funções ────────────────────────────────────────────────────────────────
+
+export async function fetchPeople(userId: string, filters?: FetchPeopleFilters): Promise<Person[]> {
+  validateUserId(userId);
+
+  let q = supabase
     .from('people')
     .select('*')
     .eq('created_by', userId)
     .order('full_name', { ascending: true });
-  if (error) throw error;
+
+  if (filters?.farmId?.trim()) {
+    q = q.eq('farm_id', filters.farmId);
+  }
+
+  const { data, error } = await q;
+  if (error) {
+    console.error('[fetchPeople] Erro:', error.message);
+    throw error;
+  }
   return (data || []) as Person[];
 }
 
 export async function createPerson(userId: string, payload: Partial<PersonFormData>): Promise<Person> {
+  validateUserId(userId);
+
+  const fullName = (payload.full_name || '').trim();
+  if (!fullName) throw new Error('Nome completo é obrigatório.');
+  if (fullName.length > MAX_NAME_LENGTH) throw new Error(`Nome muito longo (máx ${MAX_NAME_LENGTH} caracteres).`);
+
   const { data, error } = await supabase
     .from('people')
     .insert({
       created_by: userId,
-      full_name: payload.full_name || '',
-      preferred_name: payload.preferred_name || null,
+      full_name: fullName,
+      preferred_name: payload.preferred_name?.trim() || null,
       person_type: payload.person_type || 'Colaborador Fazenda',
-      job_role: payload.job_role || null,
-      phone_whatsapp: payload.phone_whatsapp || null,
-      email: payload.email || null,
-      location_farm: payload.location_farm || null,
-      location_city_uf: payload.location_city_uf || null,
-      base: payload.base || null,
+      job_role: payload.job_role?.trim() || null,
+      phone_whatsapp: payload.phone_whatsapp?.trim() || null,
+      email: payload.email?.trim().toLowerCase() || null,
+      location_farm: payload.location_farm?.trim() || null,
+      location_city_uf: payload.location_city_uf?.trim() || null,
+      base: payload.base?.trim() || null,
       photo_url: payload.photo_url || null,
-      main_activities: payload.main_activities || null,
+      main_activities: payload.main_activities?.trim()?.slice(0, MAX_TEXT_LENGTH) || null,
+      farm_id: payload.farm_id || null,
     })
     .select()
     .single();
-  if (error) throw error;
+
+  if (error) {
+    console.error('[createPerson] Erro:', error.message);
+    throw new Error(error.message || 'Erro ao cadastrar pessoa.');
+  }
+  if (!data) throw new Error('Pessoa não retornada após criação.');
   return data as Person;
 }
 
 export async function updatePerson(id: string, payload: Partial<PersonFormData>): Promise<Person> {
+  validatePersonId(id);
+
+  if (payload.full_name !== undefined) {
+    const fullName = (payload.full_name || '').trim();
+    if (!fullName) throw new Error('Nome completo é obrigatório.');
+    if (fullName.length > MAX_NAME_LENGTH) throw new Error(`Nome muito longo (máx ${MAX_NAME_LENGTH} caracteres).`);
+  }
+
   const { data, error } = await supabase
     .from('people')
     .update({
-      full_name: payload.full_name,
-      preferred_name: payload.preferred_name ?? null,
-      person_type: payload.person_type,
-      job_role: payload.job_role ?? null,
-      phone_whatsapp: payload.phone_whatsapp ?? null,
-      email: payload.email ?? null,
-      location_farm: payload.location_farm ?? null,
-      location_city_uf: payload.location_city_uf ?? null,
-      base: payload.base ?? null,
-      photo_url: payload.photo_url ?? null,
-      main_activities: payload.main_activities ?? null,
+      ...(payload.full_name !== undefined && { full_name: payload.full_name.trim() }),
+      ...(payload.preferred_name !== undefined && { preferred_name: payload.preferred_name?.trim() || null }),
+      ...(payload.person_type !== undefined && { person_type: payload.person_type }),
+      ...(payload.job_role !== undefined && { job_role: payload.job_role?.trim() || null }),
+      ...(payload.phone_whatsapp !== undefined && { phone_whatsapp: payload.phone_whatsapp?.trim() || null }),
+      ...(payload.email !== undefined && { email: payload.email?.trim().toLowerCase() || null }),
+      ...(payload.location_farm !== undefined && { location_farm: payload.location_farm?.trim() || null }),
+      ...(payload.location_city_uf !== undefined && { location_city_uf: payload.location_city_uf?.trim() || null }),
+      ...(payload.base !== undefined && { base: payload.base?.trim() || null }),
+      ...(payload.photo_url !== undefined && { photo_url: payload.photo_url || null }),
+      ...(payload.main_activities !== undefined && { main_activities: payload.main_activities?.trim()?.slice(0, MAX_TEXT_LENGTH) || null }),
+      ...(payload.farm_id !== undefined && { farm_id: payload.farm_id || null }),
     })
     .eq('id', id)
     .select()
     .single();
-  if (error) throw error;
+
+  if (error) {
+    console.error('[updatePerson] Erro:', error.message);
+    throw new Error(error.message || 'Erro ao atualizar pessoa.');
+  }
+  if (!data) throw new Error('Pessoa não retornada após atualização.');
   return data as Person;
 }
 
 export async function deletePerson(id: string): Promise<void> {
+  validatePersonId(id);
   const { error } = await supabase.from('people').delete().eq('id', id);
-  if (error) throw error;
+  if (error) {
+    console.error('[deletePerson] Erro:', error.message);
+    throw new Error(error.message || 'Erro ao excluir pessoa.');
+  }
 }
 
 const BUCKET = 'people-photos';
+const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MB
 
 export async function uploadPersonPhoto(userId: string, personId: string, file: File): Promise<string> {
+  validateUserId(userId);
+  validatePersonId(personId);
+
+  if (file.size > MAX_PHOTO_SIZE) {
+    throw new Error('A foto deve ter no máximo 5 MB.');
+  }
+
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Formato de imagem não suportado. Use JPEG, PNG, WebP ou GIF.');
+  }
+
   const ext = file.name.split('.').pop() || 'jpg';
   const path = `${userId}/${personId}-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     upsert: true,
     contentType: file.type,
   });
-  if (error) throw error;
+  if (error) {
+    console.error('[uploadPersonPhoto] Erro:', error.message);
+    throw new Error(error.message || 'Erro ao enviar foto.');
+  }
+
   const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  if (!urlData?.publicUrl) throw new Error('Não foi possível obter a URL da foto.');
   return urlData.publicUrl;
 }

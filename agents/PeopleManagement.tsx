@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Plus, ArrowLeft, Search, Trash2, Edit2, Loader2, User, Camera, X, Move, ZoomIn } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useAnalyst } from '../contexts/AnalystContext';
+import { useFarm } from '../contexts/FarmContext';
 import {
   fetchPeople,
   createPerson,
@@ -66,10 +68,13 @@ const initialForm = {
   base: '',
   photo_url: '',
   main_activities: '',
-} satisfies Record<string, string>;
+  farm_id: '' as string,
+};
 
 const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
   const { user } = useAuth();
+  const { selectedAnalyst } = useAnalyst();
+  const { selectedFarm } = useFarm();
   const [people, setPeople] = useState<Person[]>([]);
   const [view, setView] = useState<'list' | 'form'>('list');
   const [loading, setLoading] = useState(true);
@@ -88,6 +93,12 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
   const cropImageRef = useRef<HTMLImageElement | null>(null);
   const CROP_SIZE = 280;
 
+  const isAdmin = user?.role === 'admin';
+  const effectiveUserId = useMemo(
+    () => (isAdmin && selectedAnalyst ? selectedAnalyst.id : user?.id),
+    [isAdmin, selectedAnalyst, user?.id]
+  );
+
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('peopleViewChange', { detail: view }));
   }, [view]);
@@ -99,10 +110,11 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
   }, []);
 
   const loadPeople = useCallback(async () => {
-    if (!user?.id) return;
+    if (!effectiveUserId) return;
     setLoading(true);
     try {
-      const list = await fetchPeople(user.id);
+      const filters = selectedFarm?.id ? { farmId: selectedFarm.id } : undefined;
+      const list = await fetchPeople(effectiveUserId, filters);
       setPeople(list);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erro ao carregar pessoas';
@@ -110,7 +122,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, onToast]);
+  }, [effectiveUserId, selectedFarm?.id, onToast]);
 
   useEffect(() => {
     loadPeople();
@@ -118,7 +130,10 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
 
   const openNew = () => {
     setEditing(null);
-    setFormData(initialForm);
+    setFormData({
+      ...initialForm,
+      location_farm: selectedFarm?.name ?? '',
+    });
     setPhotoFile(null);
     setPhotoPreview(null);
     setView('form');
@@ -138,6 +153,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
       base: p.base ?? '',
       photo_url: p.photo_url ?? '',
       main_activities: p.main_activities ?? '',
+      farm_id: p.farm_id ?? selectedFarm?.id ?? '',
     });
     setPhotoPreview(p.photo_url);
     setPhotoFile(null);
@@ -244,13 +260,17 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.id) return;
+    if (!user?.id) {
+      onToast?.('Faça login para continuar.', 'warning');
+      return;
+    }
     if (!formData.full_name.trim()) {
       onToast?.('Informe o nome completo.', 'warning');
       return;
     }
-    if (!user?.id) {
-      onToast?.('Faça login para continuar.', 'warning');
+    const creatorId = effectiveUserId || user.id;
+    if (!creatorId) {
+      onToast?.('Não foi possível identificar o analista.', 'warning');
       return;
     }
     setSaving(true);
@@ -262,8 +282,11 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
         job_role: formData.person_type === 'Colaborador Fazenda' ? (formData.job_role || undefined) : undefined,
         phone_whatsapp: formData.phone_whatsapp.trim() || undefined,
         email: formData.email.trim() || undefined,
+        location_farm: selectedFarm?.name || formData.location_farm.trim() || undefined,
+        location_city_uf: formData.location_city_uf?.trim() || undefined,
         base: formData.base.trim() || undefined,
         main_activities: formData.main_activities.trim() || undefined,
+        farm_id: selectedFarm?.id || formData.farm_id || null,
       };
 
       if (editing) {
@@ -274,7 +297,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
         await updatePerson(editing.id, { ...payload, photo_url: photoUrl ?? undefined });
         onToast?.('Pessoa atualizada com sucesso.', 'success');
       } else {
-        const created = await createPerson(user!.id, payload);
+        const created = await createPerson(creatorId, payload);
         if (photoFile) {
           const photoUrl = await uploadPersonPhoto(user!.id, created.id, photoFile);
           await updatePerson(created.id, { photo_url: photoUrl });

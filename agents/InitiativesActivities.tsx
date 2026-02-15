@@ -15,6 +15,7 @@ import {
   User,
   AlertTriangle,
   Calendar,
+  Filter,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
@@ -97,6 +98,11 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   const [people, setPeople] = useState<Person[]>([]);
   const [initiativeToDelete, setInitiativeToDelete] = useState<InitiativeWithProgress | null>(null);
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
+  const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [filterLeader, setFilterLeader] = useState<string[]>([]);
+  const [filterTag, setFilterTag] = useState('');
+  const [openFilterDropdown, setOpenFilterDropdown] = useState<'status' | 'leader' | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     tags: '',
@@ -141,6 +147,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   const closeModal = () => {
     setShowNewModal(false);
     setEditingInitiative(null);
+    setFormErrorMessage(null);
   };
 
   // ─── Gestão (detalhe) ────────────────────────────────────────────
@@ -166,7 +173,8 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     closeGestaoView();
   };
 
-  const personDisplayName = (p: Person) => p.preferred_name?.trim() || p.full_name;
+  const personDisplayName = (p: Person | null | undefined): string =>
+    p?.preferred_name?.trim() || p?.full_name || '—';
 
   const openEditModal = async (init: InitiativeWithProgress) => {
     setEditingInitiative(init);
@@ -288,6 +296,14 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   };
 
   const totalPercent = formData.milestones.reduce((s, m) => s + m.percent, 0);
+  const isSaveDisabled =
+    saving ||
+    loadingEdit ||
+    !canCreate ||
+    !formData.name.trim() ||
+    !formData.startDate?.trim() ||
+    !formData.endDate?.trim() ||
+    !formData.leaderId?.trim();
 
   // ─── Carregar lista ───────────────────────────────────────────────
   const loadInitiatives = useCallback(async () => {
@@ -318,16 +334,65 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     loadInitiatives();
   }, [loadInitiatives]);
 
-  // Carregar pessoas para líder e time
+  // Carregar pessoas para líder e time (filtradas pela fazenda selecionada)
   useEffect(() => {
     if (!effectiveUserId) {
       setPeople([]);
       return;
     }
-    fetchPeople(effectiveUserId)
+    const filters = selectedFarm?.id ? { farmId: selectedFarm.id } : undefined;
+    fetchPeople(effectiveUserId, filters)
       .then(setPeople)
-      .catch(() => setPeople([]));
-  }, [effectiveUserId]);
+      .catch((err) => {
+        console.error('[InitiativesActivities] Erro ao carregar pessoas:', err);
+        setPeople([]);
+      });
+  }, [effectiveUserId, selectedFarm?.id]);
+
+  // ─── Filtros da lista ──────────────────────────────────────────
+  const uniqueLeaders = useMemo(() => {
+    const leaders = initiatives
+      .map((i) => i.leader)
+      .filter((l): l is string => typeof l === 'string' && l.trim().length > 0);
+    return [...new Set(leaders)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [initiatives]);
+
+  const uniqueTags = useMemo(() => {
+    const tags = initiatives
+      .flatMap((i) => (i.tags || '').split(/\s+/))
+      .filter((t) => t.startsWith('#') && t.length > 1);
+    return [...new Set(tags)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [initiatives]);
+
+  const filteredInitiatives = useMemo(() => {
+    return initiatives.filter((init) => {
+      if (filterStatus.length > 0 && !filterStatus.includes(init.status ?? 'Não Iniciado')) return false;
+      if (filterLeader.length > 0 && !filterLeader.includes(init.leader ?? '')) return false;
+      if (filterTag && !(init.tags || '').toLowerCase().includes(filterTag.toLowerCase())) return false;
+      return true;
+    });
+  }, [initiatives, filterStatus, filterLeader, filterTag]);
+
+  const hasActiveFilters = filterStatus.length > 0 || filterLeader.length > 0 || !!filterTag;
+
+  const toggleFilterValue = useCallback(
+    (
+      current: string[],
+      setter: React.Dispatch<React.SetStateAction<string[]>>,
+      value: string
+    ) => {
+      setter(current.includes(value) ? current.filter((v) => v !== value) : [...current, value]);
+    },
+    []
+  );
+
+  // Limpar filtros de valores que não existem mais após recarregar dados
+  useEffect(() => {
+    if (filterLeader.length > 0) {
+      const valid = filterLeader.filter((l) => uniqueLeaders.includes(l));
+      if (valid.length !== filterLeader.length) setFilterLeader(valid);
+    }
+  }, [uniqueLeaders]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fechar detalhe/edição se mudar de analista/cliente/fazenda
   useEffect(() => {
@@ -336,39 +401,55 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveUserId, selectedClient?.id, selectedFarm?.id]);
 
-  // Fechar modal com ESC
+  // Fechar modal com ESC / fechar dropdown de filtro ao clicar fora
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (showNewModal) closeModal();
+        if (openFilterDropdown) setOpenFilterDropdown(null);
+        else if (showNewModal) closeModal();
         else if (viewingInitiative) closeGestaoView();
       }
     };
+    const handleClickOutside = (e: MouseEvent) => {
+      if (openFilterDropdown && !(e.target as HTMLElement).closest('[data-filter-dropdown]')) {
+        setOpenFilterDropdown(null);
+      }
+    };
     document.addEventListener('keydown', handleEsc);
-    return () => document.removeEventListener('keydown', handleEsc);
-  }, [showNewModal, viewingInitiative]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('keydown', handleEsc);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNewModal, viewingInitiative, openFilterDropdown]);
 
   // ─── Salvar ───────────────────────────────────────────────────────
   const handleSave = async () => {
+    setFormErrorMessage(null);
     if (!user?.id) {
+      setFormErrorMessage('Faça login para criar iniciativas.');
       onToast?.('Faça login para criar iniciativas.', 'warning');
       return;
     }
 
     // Validação front-end
     if (!formData.name.trim()) {
+      setFormErrorMessage('Preencha os campos obrigatórios: Nome da Iniciativa.');
       onToast?.('O nome da iniciativa é obrigatório.', 'warning');
       return;
     }
     if (!formData.startDate?.trim()) {
+      setFormErrorMessage('Preencha os campos obrigatórios: Data Início.');
       onToast?.('A data de início é obrigatória (dd/mm/aa).', 'warning');
       return;
     }
     if (!formData.endDate?.trim()) {
+      setFormErrorMessage('Preencha os campos obrigatórios: Data Final.');
       onToast?.('A data final é obrigatória (dd/mm/aa).', 'warning');
       return;
     }
     if (!formData.leaderId?.trim()) {
+      setFormErrorMessage('Preencha os campos obrigatórios: Responsável (Líder).');
       onToast?.('O responsável (líder) é obrigatório.', 'warning');
       return;
     }
@@ -394,6 +475,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
 
     const creatorId = effectiveUserId;
     if (!creatorId) {
+      setFormErrorMessage('Selecione um analista antes de criar uma iniciativa.');
       onToast?.('Selecione um analista antes de criar uma iniciativa.', 'warning');
       return;
     }
@@ -402,6 +484,12 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     try {
       const leaderPerson = people.find((p) => p.id === formData.leaderId);
       const leaderName = leaderPerson ? personDisplayName(leaderPerson) : undefined;
+      if (!leaderName?.trim()) {
+        setFormErrorMessage('Responsável inválido. Selecione novamente o líder.');
+        onToast?.('Responsável inválido. Selecione novamente o líder.', 'warning');
+        setSaving(false);
+        return;
+      }
       const teamNames = formData.teamIds
         .filter((id) => id?.trim() && id !== formData.leaderId)
         .map((id) => people.find((p) => p.id === id))
@@ -438,6 +526,9 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       closeModal();
       await loadInitiatives();
     } catch (e) {
+      setFormErrorMessage(
+        e instanceof Error ? `Não foi possível salvar: ${e.message}` : 'Não foi possível salvar a iniciativa.'
+      );
       onToast?.(e instanceof Error ? e.message : 'Erro ao salvar iniciativa', 'error');
     } finally {
       setSaving(false);
@@ -783,35 +874,147 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   return (
     <div className="flex flex-col h-full min-h-0 overflow-auto bg-white dark:bg-ai-bg">
       <div className="p-4 md:p-6 w-full space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
-          <div>
-            <nav className="text-xs text-ai-subtext uppercase tracking-widest mb-2">
-              INICIATIVAS &gt; ATIVIDADES
-            </nav>
-            <h1 className="text-2xl md:text-3xl font-bold text-ai-text tracking-tight">
-              Atividades em Foco
-            </h1>
-            <p className="text-ai-subtext mt-1.5 text-base">
-              Acompanhe o status e as entregas de cada consultoria ativa.
-            </p>
+        {/* Header + Filtros na mesma linha */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 shrink-0">
+              <nav className="text-xs text-ai-subtext uppercase tracking-widest mb-0.5">
+                INICIATIVAS &gt; ATIVIDADES
+              </nav>
+              <h1 className="text-xl font-bold text-ai-text tracking-tight whitespace-nowrap">
+                Atividades em Foco
+              </h1>
+            </div>
+            {initiatives.length > 0 && (
+              <div className="flex items-center gap-1.5 ml-auto">
+                <Filter size={12} className="text-ai-subtext shrink-0" />
+
+                {/* Status — multi-select */}
+                <div className="relative" data-filter-dropdown>
+                  <button
+                    type="button"
+                    aria-haspopup="listbox"
+                    aria-expanded={openFilterDropdown === 'status'}
+                    aria-label={`Filtrar por status${filterStatus.length > 0 ? ` — ${filterStatus.length} selecionado(s)` : ''}`}
+                    onClick={() => setOpenFilterDropdown(openFilterDropdown === 'status' ? null : 'status')}
+                    className={`px-2 py-1 text-xs border rounded-md flex items-center gap-1 ${filterStatus.length > 0 ? 'border-ai-accent bg-ai-accent/10 text-ai-accent' : 'border-ai-border bg-ai-surface text-ai-text'}`}
+                  >
+                    Status{filterStatus.length > 0 && ` (${filterStatus.length})`}
+                    <ChevronRight size={10} className={`transition-transform ${openFilterDropdown === 'status' ? 'rotate-90' : ''}`} />
+                  </button>
+                  {openFilterDropdown === 'status' && (
+                    <div role="listbox" aria-label="Opções de status" className="absolute top-full left-0 mt-1 z-50 bg-white border border-ai-border rounded-lg shadow-lg py-1 min-w-[160px]">
+                      {STATUS_OPTIONS.map((s) => (
+                        <label key={s} className="flex items-center gap-2 px-3 py-1.5 text-xs text-ai-text hover:bg-ai-surface cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={filterStatus.includes(s)}
+                            onChange={() => toggleFilterValue(filterStatus, setFilterStatus, s)}
+                            className="rounded border-ai-border text-ai-accent w-3 h-3"
+                          />
+                          {s}
+                        </label>
+                      ))}
+                      {filterStatus.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFilterStatus([])}
+                          className="w-full text-left px-3 py-1.5 text-[10px] text-red-500 hover:bg-red-50 border-t border-ai-border mt-1"
+                        >
+                          Limpar
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Líder — multi-select */}
+                <div className="relative" data-filter-dropdown>
+                  <button
+                    type="button"
+                    aria-haspopup="listbox"
+                    aria-expanded={openFilterDropdown === 'leader'}
+                    aria-label={`Filtrar por líder${filterLeader.length > 0 ? ` — ${filterLeader.length} selecionado(s)` : ''}`}
+                    onClick={() => setOpenFilterDropdown(openFilterDropdown === 'leader' ? null : 'leader')}
+                    className={`px-2 py-1 text-xs border rounded-md flex items-center gap-1 ${filterLeader.length > 0 ? 'border-ai-accent bg-ai-accent/10 text-ai-accent' : 'border-ai-border bg-ai-surface text-ai-text'}`}
+                  >
+                    Líder{filterLeader.length > 0 && ` (${filterLeader.length})`}
+                    <ChevronRight size={10} className={`transition-transform ${openFilterDropdown === 'leader' ? 'rotate-90' : ''}`} />
+                  </button>
+                  {openFilterDropdown === 'leader' && (
+                    <div role="listbox" aria-label="Opções de líder" className="absolute top-full left-0 mt-1 z-50 bg-white border border-ai-border rounded-lg shadow-lg py-1 min-w-[180px]">
+                      {uniqueLeaders.length === 0 ? (
+                        <p className="px-3 py-1.5 text-xs text-ai-subtext italic">Nenhum líder</p>
+                      ) : (
+                        uniqueLeaders.map((l) => (
+                          <label key={l} className="flex items-center gap-2 px-3 py-1.5 text-xs text-ai-text hover:bg-ai-surface cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={filterLeader.includes(l)}
+                              onChange={() => toggleFilterValue(filterLeader, setFilterLeader, l)}
+                              className="rounded border-ai-border text-ai-accent w-3 h-3"
+                            />
+                            {l}
+                          </label>
+                        ))
+                      )}
+                      {filterLeader.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFilterLeader([])}
+                          className="w-full text-left px-3 py-1.5 text-[10px] text-red-500 hover:bg-red-50 border-t border-ai-border mt-1"
+                        >
+                          Limpar
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Hashtag — single select */}
+                <select
+                  value={filterTag}
+                  onChange={(e) => setFilterTag(e.target.value)}
+                  className={`px-2 py-1 text-xs border rounded-md ${filterTag ? 'border-ai-accent bg-ai-accent/10 text-ai-accent' : 'border-ai-border bg-ai-surface text-ai-text'}`}
+                >
+                  <option value="">Hashtag</option>
+                  {uniqueTags.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={() => { setFilterStatus([]); setFilterLeader([]); setFilterTag(''); setOpenFilterDropdown(null); }}
+                    className="px-1.5 py-1 text-[10px] text-red-500 hover:text-red-700"
+                    title="Limpar todos os filtros"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+                <span className="text-[10px] text-ai-subtext">
+                  {filteredInitiatives.length}/{initiatives.length}
+                </span>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={openNewModal}
+              disabled={!canCreate}
+              title={
+                !canCreate
+                  ? isAdmin
+                    ? 'Selecione um Analista e Cliente no cabeçalho'
+                    : 'Selecione um Cliente no cabeçalho'
+                  : undefined
+              }
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-ai-text text-white text-xs font-semibold hover:opacity-90 transition-opacity shrink-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              Nova Iniciativa
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={openNewModal}
-            disabled={!canCreate}
-            title={
-              !canCreate
-                ? isAdmin
-                  ? 'Selecione um Analista e Cliente no cabeçalho'
-                  : 'Selecione um Cliente no cabeçalho'
-                : undefined
-            }
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-ai-text text-white text-sm font-semibold hover:opacity-90 transition-opacity shrink-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Plus size={20} strokeWidth={2.5} />
-            Nova Iniciativa
-          </button>
         </div>
 
         {/* Aviso: admin sem analista selecionado */}
@@ -838,7 +1041,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
           <div className="flex items-center justify-center py-16">
             <Loader2 size={36} className="animate-spin text-ai-accent" />
           </div>
-        ) : !effectiveUserId ? null : initiatives.length === 0 ? (
+        ) : !effectiveUserId ? null : filteredInitiatives.length === 0 && !hasActiveFilters ? (
           <div className="bg-ai-surface/50 border border-ai-border rounded-xl p-12 flex flex-col items-center justify-center text-center min-h-[280px]">
             <FolderOpen size={56} className="text-ai-subtext/40 mb-4" />
             <h2 className="text-lg font-semibold text-ai-text mb-2">Nenhuma iniciativa ainda</h2>
@@ -860,81 +1063,81 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
               </button>
             )}
           </div>
+        ) : filteredInitiatives.length === 0 && hasActiveFilters ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Filter size={36} className="text-ai-subtext/40 mb-3" />
+            <p className="text-sm text-ai-subtext">Nenhuma atividade encontrada com os filtros selecionados.</p>
+          </div>
         ) : (
-          <ul className="space-y-3">
-            {initiatives.map((init) => (
+          <ul className="grid grid-cols-2 gap-1.5">
+            {filteredInitiatives.map((init) => (
               <li
                 key={init.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => openGestaoView(init)}
-                className="flex items-center gap-4 p-4 bg-white border border-ai-border rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openGestaoView(init); } }}
+                aria-label={`${init.name} — ${init.progress ?? 0}% — ${init.status ?? 'Não iniciado'}`}
+                className="flex flex-col gap-1 py-1.5 px-2 bg-white border border-ai-border rounded-lg hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-ai-accent/40"
               >
-                {/* Progresso (esquerda) */}
-                <div className="flex items-center gap-2 w-20 shrink-0">
-                  <div className="flex flex-col">
-                    <span
-                      className="text-xl font-bold text-ai-text tabular-nums"
-                      title="Andamento da atividade"
-                    >
-                      {init.progress ?? 0}%
-                    </span>
-                  </div>
+                {/* Linha 1: Progresso + Título + Cronograma (alinhados) */}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className="text-base font-bold text-ai-text tabular-nums shrink-0"
+                    title={`Andamento: ${init.progress ?? 0}%`}
+                  >
+                    {init.progress ?? 0}%
+                  </span>
+                  <h3 className="text-xs font-bold text-ai-text truncate flex-1 min-w-0" title={init.name}>{init.name}</h3>
+                  <span className="text-[9px] text-ai-subtext shrink-0 whitespace-nowrap" title={`Cronograma: ${formatDate(init.start_date)} → ${formatDate(init.end_date)}`}>
+                    {formatDate(init.start_date)} → {formatDate(init.end_date)}
+                  </span>
                 </div>
 
-                {/* Título, líder e status (centro) */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-bold text-ai-text truncate mb-1">{init.name}</h3>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-sm text-ai-subtext">
-                      <User size={14} className="shrink-0 text-ai-subtext" />
+                {/* Linha 2: Líder, status e ações */}
+                <div className="flex flex-wrap items-center justify-between gap-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1 min-w-0 flex-1">
+                    <span className="inline-flex items-center gap-0.5 text-[11px] text-ai-subtext">
+                      <User size={10} className="shrink-0 text-ai-subtext" />
                       <span className="truncate">{init.leader ?? '—'}</span>
                     </span>
                     {(() => {
                       const indicator = getScheduleIndicator(init.start_date, init.end_date);
                       return (
                         <span
-                          className="inline-flex items-center gap-1 text-xs text-ai-subtext"
+                          className="inline-flex items-center text-[11px] text-ai-subtext"
                           title={indicator.label}
                         >
-                          <span className={`w-2.5 h-2.5 rounded-full ${indicator.colorClass}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${indicator.colorClass}`} />
                         </span>
                       );
                     })()}
                     <span
-                      className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide shrink-0 ${statusVariant(init.status ?? '')}`}
+                      className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide shrink-0 ${statusVariant(init.status ?? '')}`}
                     >
                       {init.status ?? 'Não iniciado'}
                     </span>
                   </div>
-                </div>
-
-                {/* Cronograma e navegação (direita) */}
-                <div className="flex items-center justify-between md:justify-end gap-4 md:w-56 md:shrink-0">
-                  <div className="flex flex-col text-right">
-                    <span className="text-[10px] uppercase tracking-wider text-ai-subtext font-medium mb-0.5">
-                      Cronograma
-                    </span>
-                    <span className="text-sm text-ai-text whitespace-nowrap inline-flex items-center gap-2">
-                      {formatDate(init.start_date)} → {formatDate(init.end_date)}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteInitiative(init);
-                    }}
-                    disabled={deletingInitiativeId === init.id}
-                    className="flex items-center justify-center w-10 h-10 rounded-full border border-red-200 text-red-600 hover:bg-red-50 shrink-0 disabled:opacity-60"
-                    title="Excluir iniciativa"
-                  >
-                    {deletingInitiativeId === init.id ? (
-                      <Loader2 size={18} className="animate-spin" />
-                    ) : (
-                      <Trash2 size={18} />
-                    )}
-                  </button>
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-ai-surface2 text-ai-subtext shrink-0">
-                    <ChevronRight size={20} strokeWidth={2} />
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteInitiative(init);
+                      }}
+                      disabled={deletingInitiativeId === init.id}
+                      className="flex items-center justify-center w-6 h-6 rounded-full border border-red-200 text-red-600 hover:bg-red-50 shrink-0 disabled:opacity-60"
+                      title="Excluir iniciativa"
+                    >
+                      {deletingInitiativeId === init.id ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={12} />
+                      )}
+                    </button>
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-ai-surface2 text-ai-subtext shrink-0">
+                      <ChevronRight size={12} strokeWidth={2} />
+                    </div>
                   </div>
                 </div>
               </li>
@@ -965,6 +1168,11 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                 </div>
               ) : (
                 <>
+                  {formErrorMessage && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {formErrorMessage}
+                    </div>
+                  )}
                   {/* Contexto: Analista / Cliente / Fazenda */}
                   <div className="rounded-lg bg-ai-surface/60 border border-ai-border p-3 text-xs text-ai-subtext space-y-1">
                     {isAdmin && selectedAnalyst && (
@@ -991,7 +1199,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                      onChange={(e) => {
+                        setFormErrorMessage(null);
+                        setFormData((p) => ({ ...p, name: e.target.value }));
+                      }}
                       placeholder="Ex: Reestruturação Organizacional"
                       className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                     />
@@ -1022,7 +1233,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                       </label>
                       <DateInputBR
                         value={formData.startDate}
-                        onChange={(v) => setFormData((p) => ({ ...p, startDate: v }))}
+                        onChange={(v) => {
+                          setFormErrorMessage(null);
+                          setFormData((p) => ({ ...p, startDate: v }));
+                        }}
                         placeholder="dd/mm/aaaa"
                         required
                         className="w-full"
@@ -1034,7 +1248,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                       </label>
                       <DateInputBR
                         value={formData.endDate}
-                        onChange={(v) => setFormData((p) => ({ ...p, endDate: v }))}
+                        onChange={(v) => {
+                          setFormErrorMessage(null);
+                          setFormData((p) => ({ ...p, endDate: v }));
+                        }}
                         placeholder="dd/mm/aaaa"
                         required
                         className="w-full"
@@ -1061,7 +1278,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     </label>
                     <select
                       value={formData.leaderId}
-                      onChange={(e) => handleLeaderChange(e.target.value)}
+                      onChange={(e) => {
+                        setFormErrorMessage(null);
+                        handleLeaderChange(e.target.value);
+                      }}
                       className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                       required
                     >
@@ -1197,14 +1417,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
               <button
                 type="button"
                 onClick={handleSave}
-                disabled={
-                  saving ||
-                  loadingEdit ||
-                  !formData.name.trim() ||
-                  !formData.startDate?.trim() ||
-                  !formData.endDate?.trim() ||
-                  !formData.leaderId?.trim()
-                }
+                disabled={isSaveDisabled}
                 className="px-4 py-2 rounded-md bg-ai-accent text-white hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
               >
                 {saving ? <Loader2 size={16} className="animate-spin" /> : null}
