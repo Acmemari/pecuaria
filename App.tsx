@@ -14,6 +14,9 @@ import { Agent } from './types';
 import { Menu, Construction, Loader2, Grid3X3, ArrowLeftRight, ArrowLeft, Plus } from 'lucide-react';
 import { ToastContainer, Toast } from './components/Toast';
 
+// Lazy load AgentHub
+const AgentHub = lazy(() => import('./agents/AgentHub'));
+
 // Lazy load auth pages
 const ForgotPasswordPage = lazy(() => import('./components/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
@@ -36,6 +39,7 @@ const InitiativesOverview = lazy(() => import('./agents/InitiativesOverview'));
 const InitiativesActivities = lazy(() => import('./agents/InitiativesActivities'));
 const PeopleManagement = lazy(() => import('./agents/PeopleManagement'));
 const CalendarAgent = lazy(() => import('./agents/CalendarAgent'));
+const SupportTicketsDashboard = lazy(() => import('./agents/SupportTicketsDashboard'));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full">
@@ -245,11 +249,29 @@ const AppContent: React.FC = () => {
         status: 'active'
       };
 
+      const agentHub: Agent = {
+        id: 'agent-hub',
+        name: 'Hub de Agentes',
+        description: 'Assistentes especialistas por domínio.',
+        icon: 'brain-circuit',
+        category: 'consultoria',
+        status: 'active'
+      };
+
       const adminDashboard: Agent = {
         id: 'admin-dashboard',
         name: 'Gestão de Usuários',
         description: 'Painel mestre administrativo',
         icon: 'users',
+        category: 'admin',
+        status: 'active'
+      };
+
+      const supportTickets: Agent = {
+        id: 'support-tickets',
+        name: 'Suporte Interno',
+        description: 'Gestão de tickets e mensagens de suporte',
+        icon: 'help-circle',
         category: 'admin',
         status: 'active'
       };
@@ -287,6 +309,7 @@ const AppContent: React.FC = () => {
 
       // Others (at the end)
       orderedList.push(savedScenarios);
+      orderedList.push(agentHub);
       orderedList.push(askAntonio);
 
       // Admin exclusives
@@ -294,6 +317,7 @@ const AppContent: React.FC = () => {
         orderedList.push(analystManagement);
         orderedList.push(agentTraining);
         orderedList.push(adminDashboard);
+        orderedList.push(supportTickets);
       }
 
       return orderedList;
@@ -329,6 +353,10 @@ const AppContent: React.FC = () => {
     if (isLoading || !user) return;
 
     if (activeAgentId === 'admin-dashboard' && user?.role !== 'admin') {
+      setActiveAgentId('cattle-profit');
+      return;
+    }
+    if (activeAgentId === 'support-tickets' && user?.role !== 'admin') {
       setActiveAgentId('cattle-profit');
       return;
     }
@@ -561,6 +589,14 @@ const AppContent: React.FC = () => {
         ) : (
           <div>Acesso negado.</div>
         );
+      case 'support-tickets':
+        return user.role === 'admin' ? (
+          <Suspense fallback={<LoadingFallback />}>
+            <SupportTicketsDashboard />
+          </Suspense>
+        ) : (
+          <div>Acesso negado.</div>
+        );
       case 'client-management':
         return (user.role === 'admin' || user.qualification === 'analista') ? (
           <Suspense fallback={<LoadingFallback />}>
@@ -600,6 +636,14 @@ const AppContent: React.FC = () => {
           </Suspense>
         ) : (
           <div>Acesso negado.</div>
+        );
+      case 'agent-hub':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <AgentHub
+              onSelectAgent={(id) => setActiveAgentId(id)}
+            />
+          </Suspense>
         );
       case 'questionnaire-gente-gestao-producao':
         return (

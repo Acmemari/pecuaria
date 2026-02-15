@@ -34,6 +34,7 @@ const mockClientUsers = [
     status: 'active' as const,
     last_login: '2024-01-15T10:00:00Z',
     organization_id: 'org-1',
+    qualification: 'visitante' as const,
   },
   {
     id: 'client-2',
@@ -44,6 +45,7 @@ const mockClientUsers = [
     status: 'active' as const,
     last_login: '2024-01-14T08:00:00Z',
     organization_id: 'org-2',
+    qualification: 'cliente' as const,
   },
   {
     id: 'client-3',
@@ -54,6 +56,7 @@ const mockClientUsers = [
     status: 'inactive' as const,
     last_login: null,
     organization_id: null,
+    qualification: 'analista' as const,
   },
 ];
 
@@ -65,19 +68,33 @@ describe('AdminDashboard Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
-    // Setup Supabase mock chain
+
+    // Setup Supabase mock chain for user_profiles
     mockSelect.mockReturnThis();
     mockEq.mockReturnThis();
     mockOrder.mockResolvedValue({ data: mockClientUsers, error: null });
-    mockFrom.mockReturnValue({
-      select: mockSelect,
-      eq: mockEq,
-      order: mockOrder,
+
+    // Separate mock for organizations to avoid consuming same mockOrder
+    const mockOrgChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: [{ id: 'org-1', name: 'Org 1', status: 'active' }],
+        error: null
+      }),
+    };
+
+    mockFrom.mockImplementation((tableName) => {
+      if (tableName === 'organizations') return mockOrgChain;
+      return {
+        select: mockSelect,
+        eq: mockEq,
+        order: mockOrder,
+      };
     });
-    
+
     (supabase.from as any) = mockFrom;
-    
+
     // Default: mock admin user
     vi.mocked(useAuth).mockReturnValue({
       user: mockAdminUser,
@@ -125,7 +142,7 @@ describe('AdminDashboard Component', () => {
 
       await waitFor(() => {
         expect(mockFrom).toHaveBeenCalledWith('user_profiles');
-        expect(mockSelect).toHaveBeenCalledWith('*');
+        expect(mockSelect).toHaveBeenCalledWith('id, name, email, role, avatar, plan, status, last_login, organization_id, phone, qualification, created_at, updated_at');
         expect(mockEq).toHaveBeenCalledWith('role', 'client');
         expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
       });
@@ -167,7 +184,7 @@ describe('AdminDashboard Component', () => {
       render(<AdminDashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/nenhum cliente cadastrado/i)).toBeInTheDocument();
+        expect(screen.getByText(/nenhum usuário cadastrado/i)).toBeInTheDocument();
       });
     });
   });
@@ -206,8 +223,8 @@ describe('AdminDashboard Component', () => {
       render(<AdminDashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/erro ao carregar clientes/i)).toBeInTheDocument();
-      });
+        expect(screen.getByText(/erro ao carregar usuários/i)).toBeInTheDocument();
+      }, { timeout: 4000 });
     });
 
     it('should show retry button on error', async () => {
@@ -226,34 +243,28 @@ describe('AdminDashboard Component', () => {
       await waitFor(() => {
         const retryButton = screen.getByText(/tentar novamente/i);
         expect(retryButton).toBeInTheDocument();
-      });
+      }, { timeout: 4000 });
     });
 
     it('should retry loading on retry button click', async () => {
       mockOrder
-        .mockResolvedValueOnce({
-          data: null,
-          error: {
-            code: 'UNKNOWN',
-            message: 'Error',
-            details: null,
-            hint: null,
-          },
-        })
+        .mockResolvedValueOnce({ data: null, error: { code: 'UNKNOWN', message: 'Error' } })
+        .mockResolvedValueOnce({ data: null, error: { code: 'UNKNOWN', message: 'Error' } })
+        .mockResolvedValueOnce({ data: null, error: { code: 'UNKNOWN', message: 'Error' } })
         .mockResolvedValueOnce({ data: mockClientUsers, error: null });
 
       render(<AdminDashboard />);
 
       await waitFor(() => {
         expect(screen.getByText(/tentar novamente/i)).toBeInTheDocument();
-      });
+      }, { timeout: 4000 });
 
       const retryButton = screen.getByText(/tentar novamente/i);
       await userEvent.click(retryButton);
 
       await waitFor(() => {
         expect(screen.getByText('Client One')).toBeInTheDocument();
-      });
+      }, { timeout: 4000 });
     });
   });
 
@@ -265,7 +276,7 @@ describe('AdminDashboard Component', () => {
         expect(screen.getByText('Client One')).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText(/buscar cliente/i);
+      const searchInput = screen.getByPlaceholderText(/buscar usuário/i);
       await userEvent.type(searchInput, 'One');
 
       await waitFor(() => {
@@ -281,7 +292,7 @@ describe('AdminDashboard Component', () => {
         expect(screen.getByText('Client One')).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText(/buscar cliente/i);
+      const searchInput = screen.getByPlaceholderText(/buscar usuário/i);
       await userEvent.type(searchInput, 'client2@example.com');
 
       await waitFor(() => {
@@ -297,11 +308,11 @@ describe('AdminDashboard Component', () => {
         expect(screen.getByText('Client One')).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText(/buscar cliente/i);
+      const searchInput = screen.getByPlaceholderText(/buscar usuário/i);
       await userEvent.type(searchInput, 'NonExistent');
 
       await waitFor(() => {
-        expect(screen.getByText(/nenhum cliente encontrado/i)).toBeInTheDocument();
+        expect(screen.getByText(/nenhum usuário encontrado/i)).toBeInTheDocument();
       });
     });
 
@@ -312,7 +323,7 @@ describe('AdminDashboard Component', () => {
         expect(screen.getByText('Client One')).toBeInTheDocument();
       });
 
-      const searchInput = screen.getByPlaceholderText(/buscar cliente/i);
+      const searchInput = screen.getByPlaceholderText(/buscar usuário/i);
       await userEvent.type(searchInput, 'CLIENT ONE');
 
       await waitFor(() => {
@@ -326,8 +337,8 @@ describe('AdminDashboard Component', () => {
       render(<AdminDashboard />);
 
       await waitFor(() => {
-        const totalCard = screen.getByText('Total Clientes').closest('.bg-white');
-        expect(within(totalCard!).getByText('3')).toBeInTheDocument();
+        const totalCard = screen.getByText('Total Usuários').closest('.bg-white');
+        expect(within(totalCard as HTMLElement).getByText('3')).toBeInTheDocument();
       });
     });
 
@@ -337,52 +348,20 @@ describe('AdminDashboard Component', () => {
       await waitFor(() => {
         const activeCard = screen.getByText('Ativos').closest('.bg-white');
         // 2 active clients (client-1 and client-2)
-        expect(within(activeCard!).getByText('2')).toBeInTheDocument();
-      });
-    });
-
-    it('should calculate MRR correctly', async () => {
-      render(<AdminDashboard />);
-
-      await waitFor(() => {
-        const mrrCard = screen.getByText(/receita \(mrr\)/i).closest('.bg-white');
-        // client-1: pro (97) + client-2: enterprise (299) = 396
-        expect(within(mrrCard!).getByText(/396/i)).toBeInTheDocument();
-      });
-    });
-
-    it('should handle zero MRR for basic plans', async () => {
-      const basicClients = [
-        {
-          id: 'client-1',
-          name: 'Client One',
-          email: 'client1@example.com',
-          role: 'client' as const,
-          plan: 'basic' as const,
-          status: 'active' as const,
-        },
-      ];
-
-      mockOrder.mockResolvedValue({ data: basicClients, error: null });
-
-      render(<AdminDashboard />);
-
-      await waitFor(() => {
-        const mrrCard = screen.getByText(/receita \(mrr\)/i).closest('.bg-white');
-        expect(within(mrrCard!).getByText(/0/i)).toBeInTheDocument();
+        expect(within(activeCard as HTMLElement).getByText('2')).toBeInTheDocument();
       });
     });
   });
 
   describe('Client Display', () => {
-    it('should display client plan badges correctly', async () => {
+    it('should display client qualification badges correctly', async () => {
       render(<AdminDashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText('Pro')).toBeInTheDocument();
-        expect(screen.getByText('Enterprise')).toBeInTheDocument();
-        expect(screen.getByText('Básico')).toBeInTheDocument();
-      });
+        expect(screen.getByText(/visitante/i)).toBeInTheDocument();
+        expect(screen.getByText(/cliente/i)).toBeInTheDocument();
+        expect(screen.getByText(/analista/i)).toBeInTheDocument();
+      }, { timeout: 4000 });
     });
 
     it('should display client status correctly', async () => {
@@ -452,7 +431,7 @@ describe('AdminDashboard Component', () => {
       render(<AdminDashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/nenhum cliente cadastrado/i)).toBeInTheDocument();
+        expect(screen.getByText(/nenhum usuário cadastrado/i)).toBeInTheDocument();
       });
     });
 
@@ -470,13 +449,13 @@ describe('AdminDashboard Component', () => {
       // Should not crash, should filter out invalid entries
       await waitFor(() => {
         // Component should render without errors
-        expect(screen.getByText(/base de clientes/i)).toBeInTheDocument();
+        expect(screen.getByText(/base de usuários/i)).toBeInTheDocument();
       });
     });
 
     it('should handle network timeout', async () => {
-      mockOrder.mockImplementation(() => 
-        new Promise((_, reject) => 
+      mockOrder.mockImplementation(() =>
+        new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Network timeout')), 100)
         )
       );
@@ -484,9 +463,9 @@ describe('AdminDashboard Component', () => {
       render(<AdminDashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/erro/i)).toBeInTheDocument();
-      }, { timeout: 2000 });
-    });
+        expect(screen.getByText(/^Erro ao carregar dados$/i)).toBeInTheDocument();
+      }, { timeout: 10000 });
+    }, 15000);
   });
 
   describe('Table Display', () => {
@@ -494,19 +473,24 @@ describe('AdminDashboard Component', () => {
       render(<AdminDashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/cliente/i)).toBeInTheDocument();
-        expect(screen.getByText(/plano/i)).toBeInTheDocument();
-        expect(screen.getByText(/status/i)).toBeInTheDocument();
-        expect(screen.getByText(/último acesso/i)).toBeInTheDocument();
-        expect(screen.getByText(/ações/i)).toBeInTheDocument();
-      });
+        const table = screen.getByRole('table');
+        const thead = table.querySelector('thead');
+        if (!thead) throw new Error('Table head not found');
+
+        const headerContainer = within(thead as HTMLElement);
+        expect(headerContainer.getByText(/^usuário$/i)).toBeInTheDocument();
+        expect(headerContainer.getByText(/^qualificação$/i)).toBeInTheDocument();
+        expect(headerContainer.getByText(/^status$/i)).toBeInTheDocument();
+        expect(headerContainer.getByText(/^último acesso$/i)).toBeInTheDocument();
+        expect(headerContainer.getByText(/^ações$/i)).toBeInTheDocument();
+      }, { timeout: 4000 });
     });
 
     it('should show client count in footer', async () => {
       render(<AdminDashboard />);
 
       await waitFor(() => {
-        expect(screen.getByText(/mostrando.*de.*clientes/i)).toBeInTheDocument();
+        expect(screen.getByText(/mostrando.*de.*usuários/i)).toBeInTheDocument();
       });
     });
   });

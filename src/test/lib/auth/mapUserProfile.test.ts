@@ -31,6 +31,8 @@ describe('mapUserProfile', () => {
       status: 'active',
       lastLogin: '2024-01-01T00:00:00.000Z',
       organizationId: 'org-123',
+      phone: undefined,
+      qualification: 'visitante',
     });
   });
 
@@ -48,11 +50,13 @@ describe('mapUserProfile', () => {
       name: 'Test User',
       email: 'test@example.com',
       role: 'admin',
-      avatar: undefined,
+      avatar: 'T',
       plan: undefined,
       status: undefined,
       lastLogin: undefined,
       organizationId: undefined,
+      phone: undefined,
+      qualification: 'visitante',
     });
   });
 

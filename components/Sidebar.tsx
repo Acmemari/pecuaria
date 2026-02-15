@@ -22,7 +22,9 @@ import {
   FolderPlus,
   LayoutDashboard,
   ListTodo,
-  Calendar
+  Calendar,
+  BrainCircuit,
+  HelpCircle
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -162,8 +164,8 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                 type="button"
                 onClick={() => setIsCadastrosOpen(!isCadastrosOpen)}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group ${isCadastrosView(activeAgentId)
-                    ? 'bg-ai-accent/5 text-ai-accent'
-                    : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                  ? 'bg-ai-accent/5 text-ai-accent'
+                  : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                   }`}
                 title="Cadastros"
               >
@@ -192,8 +194,8 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                           onClick={() => !farmLocked && onSelectAgent(CADASTROS_FARM_ID)}
                           disabled={farmLocked}
                           className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === CADASTROS_FARM_ID
-                              ? 'bg-ai-accent/10 text-ai-accent'
-                              : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                            ? 'bg-ai-accent/10 text-ai-accent'
+                            : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                             } ${farmLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
                           <Building2 size={14} className="flex-shrink-0 mr-2" />
@@ -205,8 +207,8 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                           onClick={() => !clientLocked && onSelectAgent(CADASTROS_CLIENTS_ID)}
                           disabled={clientLocked}
                           className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === CADASTROS_CLIENTS_ID
-                              ? 'bg-ai-accent/10 text-ai-accent'
-                              : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                            ? 'bg-ai-accent/10 text-ai-accent'
+                            : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                             } ${clientLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
                           <Users size={14} className="flex-shrink-0 mr-2" />
@@ -218,8 +220,8 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                           onClick={() => !peopleLocked && onSelectAgent(CADASTROS_PEOPLE_ID)}
                           disabled={peopleLocked}
                           className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === CADASTROS_PEOPLE_ID
-                              ? 'bg-ai-accent/10 text-ai-accent'
-                              : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                            ? 'bg-ai-accent/10 text-ai-accent'
+                            : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                             } ${peopleLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                         >
                           <UserCircle size={14} className="flex-shrink-0 mr-2" />
@@ -239,8 +241,8 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                 type="button"
                 onClick={() => setIsIniciativasOpen(!isIniciativasOpen)}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group ${isIniciativasView(activeAgentId)
-                    ? 'bg-ai-accent/5 text-ai-accent'
-                    : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                  ? 'bg-ai-accent/5 text-ai-accent'
+                  : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                   }`}
                 title="Iniciativas"
               >
@@ -259,8 +261,8 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                     type="button"
                     onClick={() => onSelectAgent(INICIATIVAS_OVERVIEW_ID)}
                     className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === INICIATIVAS_OVERVIEW_ID
-                        ? 'bg-ai-accent/10 text-ai-accent'
-                        : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                      ? 'bg-ai-accent/10 text-ai-accent'
+                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                       }`}
                   >
                     <LayoutDashboard size={14} className="flex-shrink-0 mr-2" />
@@ -270,8 +272,8 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                     type="button"
                     onClick={() => onSelectAgent(INICIATIVAS_ATIVIDADES_ID)}
                     className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === INICIATIVAS_ATIVIDADES_ID
-                        ? 'bg-ai-accent/10 text-ai-accent'
-                        : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                      ? 'bg-ai-accent/10 text-ai-accent'
+                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                       }`}
                   >
                     <ListTodo size={14} className="flex-shrink-0 mr-2" />
@@ -367,6 +369,8 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                       {agent.icon === 'folder' && <FolderOpen size={16} />}
                       {agent.icon === 'file-check' && <FileCheck size={16} />}
                       {agent.icon === 'calendar' && <Calendar size={16} />}
+                      {agent.icon === 'brain-circuit' && <BrainCircuit size={16} />}
+                      {agent.icon === 'help-circle' && <HelpCircle size={16} />}
                     </div>
 
                     <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>

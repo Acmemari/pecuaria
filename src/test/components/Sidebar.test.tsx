@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import Sidebar from '../../../components/Sidebar';
 import { Agent, User } from '../../../types';
+import { LocationProvider } from '../../../contexts/LocationContext';
 
 const mockAgents: Agent[] = [
   {
@@ -37,33 +38,37 @@ describe('Sidebar', () => {
 
   it('should render sidebar with agents', () => {
     render(
-      <Sidebar
-        agents={mockAgents}
-        activeAgentId="cattle-profit"
-        onSelectAgent={mockOnSelectAgent}
-        isOpen={true}
-        toggleSidebar={mockToggleSidebar}
-        user={mockUser}
-        onLogout={mockOnLogout}
-      />
+      <LocationProvider>
+        <Sidebar
+          agents={mockAgents}
+          activeAgentId="cattle-profit"
+          onSelectAgent={mockOnSelectAgent}
+          isOpen={true}
+          toggleSidebar={mockToggleSidebar}
+          user={mockUser}
+          onLogout={mockOnLogout}
+        />
+      </LocationProvider>
     );
 
-    expect(screen.getByText('PecuarIA')).toBeInTheDocument();
+    expect(screen.getByText(/pecuarIA/i)).toBeInTheDocument();
     expect(screen.getByText('Calculadoras')).toBeInTheDocument();
     expect(screen.getByText('Pergunte p/ Antonio')).toBeInTheDocument();
   });
 
   it('should show user information', () => {
     render(
-      <Sidebar
-        agents={mockAgents}
-        activeAgentId="cattle-profit"
-        onSelectAgent={mockOnSelectAgent}
-        isOpen={true}
-        toggleSidebar={mockToggleSidebar}
-        user={mockUser}
-        onLogout={mockOnLogout}
-      />
+      <LocationProvider>
+        <Sidebar
+          agents={mockAgents}
+          activeAgentId="cattle-profit"
+          onSelectAgent={mockOnSelectAgent}
+          isOpen={true}
+          toggleSidebar={mockToggleSidebar}
+          user={mockUser}
+          onLogout={mockOnLogout}
+        />
+      </LocationProvider>
     );
 
     expect(screen.getByText('Test User')).toBeInTheDocument();
@@ -71,15 +76,17 @@ describe('Sidebar', () => {
 
   it('should show locked status for locked agents', () => {
     render(
-      <Sidebar
-        agents={mockAgents}
-        activeAgentId="cattle-profit"
-        onSelectAgent={mockOnSelectAgent}
-        isOpen={true}
-        toggleSidebar={mockToggleSidebar}
-        user={mockUser}
-        onLogout={mockOnLogout}
-      />
+      <LocationProvider>
+        <Sidebar
+          agents={mockAgents}
+          activeAgentId="cattle-profit"
+          onSelectAgent={mockOnSelectAgent}
+          isOpen={true}
+          toggleSidebar={mockToggleSidebar}
+          user={mockUser}
+          onLogout={mockOnLogout}
+        />
+      </LocationProvider>
     );
 
     const lockedAgent = screen.getByText('Pergunte p/ Antonio').closest('button');
