@@ -6,9 +6,10 @@ import { useClient } from '../contexts/ClientContext';
 import { useFarm } from '../contexts/FarmContext';
 import { fetchDeliveries, type DeliveryRow } from '../lib/deliveries';
 import { fetchPeople, type Person } from '../lib/people';
-import { fetchInitiatives, fetchInitiativeDetail, type InitiativeWithProgress, type InitiativeMilestoneRow } from '../lib/initiatives';
+import { fetchInitiatives, fetchInitiativeDetail, deleteTask, type InitiativeWithProgress, type InitiativeMilestoneRow, type InitiativeTaskRow } from '../lib/initiatives';
 import InitiativeTasksKanban from '../components/InitiativeTasksKanban';
 import TaskCreateModal from '../components/TaskCreateModal';
+import TaskEditModal from '../components/TaskEditModal';
 
 interface InitiativesKanbanProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -37,21 +38,22 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
 
   const [viewing, setViewing] = useState<Awaited<ReturnType<typeof fetchInitiativeDetail>> | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editTask, setEditTask] = useState<InitiativeTaskRow | null>(null);
 
   const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const personLabel = useCallback((p: Person) => (p.preferred_name?.trim() || p.full_name || '—'), []);
 
-  const initiativesFiltered = useMemo(() => {
+  // No Kanban, removemos filtros visuais (Projeto/Marco).
+  // Mantemos selectedDeliveryId apenas para o modal de criação (pré-preenchimento/UX).
+  const initiativesForView = useMemo(() => initiatives || [], [initiatives]);
+  const initiativesForModal = useMemo(() => {
     const list = initiatives || [];
     if (!selectedDeliveryId) return list;
     return list.filter((i) => i.delivery_id === selectedDeliveryId);
   }, [initiatives, selectedDeliveryId]);
 
   const milestonesAll = useMemo<InitiativeMilestoneRow[]>(() => (viewing?.milestones || []) as InitiativeMilestoneRow[], [viewing]);
-  const milestonesFiltered = useMemo<InitiativeMilestoneRow[]>(() => {
-    if (!selectedMilestoneId) return milestonesAll;
-    return milestonesAll.filter((m) => m.id === selectedMilestoneId);
-  }, [milestonesAll, selectedMilestoneId]);
+  const milestonesForView = milestonesAll;
 
   const refresh = useCallback(async () => {
     if (!effectiveUserId) return;
@@ -93,14 +95,14 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
     // Auto-seleciona ou valida a initiative selecionada
     if (selectedInitiativeId) {
       // Se a initiative selecionada não está na lista filtrada, resetar
-      const stillValid = initiativesFiltered.some((i) => i.id === selectedInitiativeId);
+      const stillValid = initiativesForView.some((i) => i.id === selectedInitiativeId);
       if (!stillValid) {
-        setSelectedInitiativeId(initiativesFiltered[0]?.id || '');
+        setSelectedInitiativeId(initiativesForView[0]?.id || '');
       }
-    } else if (initiativesFiltered.length > 0) {
-      setSelectedInitiativeId(initiativesFiltered[0].id);
+    } else if (initiativesForView.length > 0) {
+      setSelectedInitiativeId(initiativesForView[0].id);
     }
-  }, [initiativesFiltered, selectedInitiativeId]);
+  }, [initiativesForView, selectedInitiativeId]);
 
   useEffect(() => {
     let mounted = true;
@@ -113,16 +115,16 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
         const detail = await fetchInitiativeDetail(selectedInitiativeId);
         if (!mounted) return;
         setViewing(detail);
-        // Reset milestone filter if not present
-        if (selectedMilestoneId && !detail.milestones?.some((m) => m.id === selectedMilestoneId)) {
-          setSelectedMilestoneId('');
-        }
+        // Se o marco selecionado (usado no modal) não existir mais para esta iniciativa, resetar.
+        if (selectedMilestoneId && !detail.milestones?.some((m) => m.id === selectedMilestoneId)) setSelectedMilestoneId('');
+        // Pré-preencher "Projeto" no modal com base na atividade selecionada.
+        if (detail.delivery_id && !selectedDeliveryId) setSelectedDeliveryId(detail.delivery_id);
       } catch (e) {
         onToast?.(e instanceof Error ? e.message : 'Erro ao carregar iniciativa', 'error');
       }
     })();
     return () => { mounted = false; };
-  }, [selectedInitiativeId, selectedMilestoneId, onToast]);
+  }, [selectedInitiativeId, selectedMilestoneId, selectedDeliveryId, onToast]);
 
   const canCreateTask = !!viewing && (viewing.milestones || []).length > 0;
 
@@ -136,64 +138,23 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
 
   return (
     <div className="p-4 md:p-6 space-y-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">Projeto</div>
-          <select
-            value={selectedDeliveryId}
-            onChange={(e) => {
-              setSelectedDeliveryId(e.target.value);
-              setSelectedInitiativeId('');
-              setSelectedMilestoneId('');
-            }}
-            className="px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm min-w-[220px]"
-          >
-            <option value="">Todos</option>
-            {deliveries.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
+      {viewing && (
+        <div className="text-xs text-ai-subtext">
+          Atividade:{' '}
+          <span className="font-semibold text-ai-text">{viewing.name}{viewing.farm_id ? '' : ' [Global]'}</span>
         </div>
-
-        <div>
-          <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">Atividade</div>
-          <select
-            value={selectedInitiativeId}
-            onChange={(e) => {
-              setSelectedInitiativeId(e.target.value);
-              setSelectedMilestoneId('');
-            }}
-            className="px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm min-w-[280px]"
-          >
-            <option value="">Selecione</option>
-            {initiativesFiltered.map((i) => (
-              <option key={i.id} value={i.id}>{i.name}{i.farm_id ? '' : ' [Global]'}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">Marco</div>
-          <select
-            value={selectedMilestoneId}
-            onChange={(e) => setSelectedMilestoneId(e.target.value)}
-            className="px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm min-w-[260px]"
-            disabled={!viewing}
-          >
-            <option value="">Todos</option>
-            {(viewing?.milestones || []).map((m) => (
-              <option key={m.id} value={m.id}>{m.title}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      )}
 
       {!viewing ? (
-        <div className="text-sm text-ai-subtext">Selecione uma atividade para ver o Kanban.</div>
+        <div className="text-sm text-ai-subtext">
+          {initiativesForView.length === 0
+            ? 'Nenhuma atividade encontrada para o contexto selecionado no cabeçalho.'
+            : 'Carregando Kanban da atividade...'}
+        </div>
       ) : (
         <>
           <InitiativeTasksKanban
-            milestones={milestonesFiltered}
+            milestones={milestonesForView}
             onToast={onToast}
             onRefresh={async () => {
               if (selectedInitiativeId) {
@@ -214,6 +175,21 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
               }
               setCreateOpen(true);
             }}
+            onEditTask={(task) => setEditTask(task)}
+            onDeleteTask={async (task) => {
+              if (!window.confirm('Excluir esta tarefa? Esta ação não pode ser desfeita.')) return;
+              try {
+                await deleteTask(task.id);
+                onToast?.('Tarefa excluída.', 'success');
+                if (selectedInitiativeId) {
+                  const detail = await fetchInitiativeDetail(selectedInitiativeId);
+                  setViewing(detail);
+                }
+                await refresh();
+              } catch (e) {
+                onToast?.(e instanceof Error ? e.message : 'Erro ao excluir tarefa', 'error');
+              }
+            }}
           />
 
           <TaskCreateModal
@@ -221,7 +197,7 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
             onClose={() => setCreateOpen(false)}
             onToast={onToast}
             deliveries={deliveries}
-            initiatives={initiativesFiltered}
+            initiatives={initiativesForModal}
             people={people}
             selectedDeliveryId={selectedDeliveryId}
             setSelectedDeliveryId={(v) => setSelectedDeliveryId(v)}
@@ -237,6 +213,27 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
             }}
             onCreated={async () => {
               setCreateOpen(false);
+              if (selectedInitiativeId) {
+                const detail = await fetchInitiativeDetail(selectedInitiativeId);
+                setViewing(detail);
+              }
+              await refresh();
+            }}
+          />
+
+          <TaskEditModal
+            open={!!editTask}
+            task={editTask}
+            onClose={() => setEditTask(null)}
+            onToast={onToast}
+            people={people}
+            getResponsibleLabel={(id) => {
+              if (!id) return '—';
+              const p = peopleById.get(id);
+              return p ? personLabel(p) : '—';
+            }}
+            onSaved={async () => {
+              setEditTask(null);
               if (selectedInitiativeId) {
                 const detail = await fetchInitiativeDetail(selectedInitiativeId);
                 setViewing(detail);

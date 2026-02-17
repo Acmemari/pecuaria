@@ -35,7 +35,6 @@ interface CadastrosDesktopProps {
   onSelectFazendas: () => void;
   onSelectClientes?: () => void;
   onSelectPessoas: () => void;
-  onSelectEntregas: () => void;
   showClientes?: boolean;
 }
 
@@ -43,7 +42,6 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
   onSelectFazendas,
   onSelectClientes,
   onSelectPessoas,
-  onSelectEntregas,
   showClientes = false,
 }) => {
   const cards = [
@@ -63,25 +61,18 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
       icon: <UserCircle size={24} />,
       onClick: onSelectPessoas,
     },
-    {
-      id: 'entregas',
-      title: 'Cadastro de Entregas',
-      description:
-        'Cadastre entregas para vincular nas iniciativas de gestão do projeto.',
-      icon: <Package size={24} />,
-      onClick: onSelectEntregas,
-    },
+
     ...(showClientes && onSelectClientes
       ? [
-          {
-            id: 'clientes',
-            title: 'Gestão de Clientes',
-            description:
-              'Cadastre e gerencie clientes, vinculando fazendas e acompanhando o relacionamento.',
-            icon: <Users size={24} />,
-            onClick: onSelectClientes,
-          },
-        ]
+        {
+          id: 'clientes',
+          title: 'Gestão de Clientes',
+          description:
+            'Cadastre e gerencie clientes, vinculando fazendas e acompanhando o relacionamento.',
+          icon: <Users size={24} />,
+          onClick: onSelectClientes,
+        },
+      ]
       : []),
   ];
 

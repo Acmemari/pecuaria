@@ -63,6 +63,10 @@ export interface InitiativeWithProgress extends InitiativeRow {
   milestones?: InitiativeMilestoneRow[];
 }
 
+export interface InitiativeWithTeam extends InitiativeWithProgress {
+  team: { name: string; role: string }[];
+}
+
 export interface FetchInitiativesFilters {
   clientId?: string;
   farmId?: string;
@@ -86,9 +90,18 @@ export interface CreateInitiativePayload {
 // ─── Validação local ────────────────────────────────────────────────────────
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// farms.id é TEXT (ex: "farm-<timestamp>-<random>"), então farm_id NÃO é UUID.
+// Ainda validamos para evitar filter injection ao interpolar no `.or(...)`.
+const FARM_ID_SAFE_REGEX = /^[a-z0-9][a-z0-9_-]{0,127}$/i;
 
 function validateUUID(id: string, fieldName: string): void {
   if (!id || !UUID_REGEX.test(id)) {
+    throw new Error(`${fieldName} inválido.`);
+  }
+}
+
+function validateFarmIdText(id: string, fieldName: string): void {
+  if (!id?.trim() || !FARM_ID_SAFE_REGEX.test(id.trim())) {
     throw new Error(`${fieldName} inválido.`);
   }
 }
@@ -113,8 +126,9 @@ function validatePayload(payload: CreateInitiativePayload): void {
     throw new Error('A entrega vinculada é obrigatória.');
   }
   validateUUID(payload.delivery_id, 'Entrega');
-  if (payload.farm_id && !UUID_REGEX.test(payload.farm_id)) {
-    throw new Error('ID da fazenda inválido.');
+  if (payload.farm_id) {
+    // farm_id é TEXT (não UUID)
+    validateFarmIdText(payload.farm_id, 'ID da fazenda');
   }
   if (payload.client_id && !UUID_REGEX.test(payload.client_id)) {
     throw new Error('ID do cliente inválido.');
@@ -166,29 +180,35 @@ export async function fetchInitiatives(
   filters?: FetchInitiativesFilters
 ): Promise<InitiativeWithProgress[]> {
   if (!effectiveUserId?.trim()) return [];
-  if (!UUID_REGEX.test(effectiveUserId)) {
-    throw new Error('ID do usuário inválido.');
+  const validUserId = effectiveUserId.trim();
+  if (!UUID_REGEX.test(validUserId)) {
+    console.error(`ID do usuário inválido: ${validUserId}`);
+    return [];
   }
 
   let q = supabase
     .from('initiatives')
     .select('*')
-    .eq('created_by', effectiveUserId)
+    .eq('created_by', validUserId)
     .order('start_date', { ascending: true, nullsFirst: false });
 
   if (filters?.clientId?.trim()) {
-    if (!UUID_REGEX.test(filters.clientId)) {
-      throw new Error('ID do cliente inválido.');
+    const validClientId = filters.clientId.trim();
+    if (!UUID_REGEX.test(validClientId)) {
+      console.error(`ID do cliente inválido: ${validClientId}`);
+      return [];
     }
-    q = q.eq('client_id', filters.clientId);
+    q = q.eq('client_id', validClientId);
   }
   if (filters?.farmId?.trim()) {
-    // Validar UUID antes da interpolação para prevenir filter injection
-    if (!UUID_REGEX.test(filters.farmId)) {
-      throw new Error('ID da fazenda inválido.');
+    const validFarmId = filters.farmId.trim();
+    // farmId é TEXT; validar antes da interpolação para prevenir filter injection.
+    if (!FARM_ID_SAFE_REGEX.test(validFarmId)) {
+      console.error(`ID da fazenda inválido: ${validFarmId}`);
+      return [];
     }
     // Mostra iniciativas da fazenda selecionada + globais (farm_id IS NULL)
-    q = q.or(`farm_id.eq.${filters.farmId},farm_id.is.null`);
+    q = q.or(`farm_id.eq.${validFarmId},farm_id.is.null`);
   }
 
   const { data: initiatives, error: initError } = await q;
@@ -219,6 +239,40 @@ export async function fetchInitiatives(
       milestones: list.sort((a, b) => a.sort_order - b.sort_order),
     } as InitiativeWithProgress;
   });
+}
+
+/**
+ * Busca iniciativas com times (team) em batch.
+ * Reutiliza fetchInitiatives e adiciona busca de initiative_team em lote.
+ */
+export async function fetchInitiativesWithTeams(
+  effectiveUserId: string,
+  filters?: FetchInitiativesFilters
+): Promise<InitiativeWithTeam[]> {
+  const initiatives = await fetchInitiatives(effectiveUserId, filters);
+  if (initiatives.length === 0) return [];
+
+  const ids = initiatives.map((i) => i.id);
+  const { data: teamRows, error: teamError } = await supabase
+    .from('initiative_team')
+    .select('initiative_id, name, role, sort_order')
+    .in('initiative_id', ids)
+    .order('sort_order');
+
+  if (teamError) {
+    console.error('[fetchInitiativesWithTeams] team error:', teamError);
+  }
+
+  const teamByInit = (teamRows || []).reduce<Record<string, { name: string; role: string }[]>>((acc, t) => {
+    if (!acc[t.initiative_id]) acc[t.initiative_id] = [];
+    acc[t.initiative_id].push({ name: t.name || '', role: t.role || '' });
+    return acc;
+  }, {});
+
+  return initiatives.map((i) => ({
+    ...i,
+    team: teamByInit[i.id] || [],
+  }));
 }
 
 /**

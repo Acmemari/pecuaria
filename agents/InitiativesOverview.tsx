@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Loader2,
   TrendingUp,
@@ -21,7 +21,7 @@ import { useClient } from '../contexts/ClientContext';
 import { useFarm } from '../contexts/FarmContext';
 import { fetchInitiatives, type InitiativeWithProgress } from '../lib/initiatives';
 import DateInputBR from '../components/DateInputBR';
-import { generateInitiativesOverviewPdf } from '../lib/generateInitiativesOverviewPdf';
+import { generateInitiativesOverviewPdf, type InitiativesOverviewPdfData } from '../lib/generateInitiativesOverviewPdf';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -100,7 +100,6 @@ const InitiativesOverview: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()));
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
-  const reportRef = useRef<HTMLDivElement | null>(null);
 
   const isAdmin = user?.role === 'admin';
   const effectiveUserId = useMemo(
@@ -225,22 +224,35 @@ const InitiativesOverview: React.FC = () => {
     return { total, byStatus, byLeader, allMilestones, avgProgress, atrasadas, milPct };
   }, [filteredInitiatives]);
 
-  const handleExportPdf = useCallback(async () => {
-    if (!reportRef.current || isGeneratingPdf) return;
+  const handleExportPdf = useCallback(() => {
+    if (isGeneratingPdf) return;
 
     setPdfError(null);
     setIsGeneratingPdf(true);
     try {
-      await generateInitiativesOverviewPdf(reportRef.current, {
-        fileName: `visao-geral-iniciativas-${new Date().toISOString().split('T')[0]}.pdf`,
-      });
+      const pdfData: InitiativesOverviewPdfData = {
+        initiatives: filteredInitiatives,
+        metrics: {
+          total: metrics.total,
+          avgProgress: metrics.avgProgress,
+          atrasadas: metrics.atrasadas,
+          milestones: metrics.allMilestones,
+          milPct: metrics.milPct,
+          byStatus: metrics.byStatus,
+          byLeader: metrics.byLeader,
+        },
+        userName: user?.name,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+      };
+      generateInitiativesOverviewPdf(pdfData);
     } catch (e) {
       console.error('[InitiativesOverview] handleExportPdf:', e);
       setPdfError('Não foi possível gerar o PDF. Tente novamente.');
     } finally {
       setIsGeneratingPdf(false);
     }
-  }, [isGeneratingPdf]);
+  }, [isGeneratingPdf, filteredInitiatives, metrics, user?.name, dateFrom, dateTo]);
 
   // ─── Render: Loading / Error ──────────────────────────────────────
 
@@ -294,7 +306,7 @@ const InitiativesOverview: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-auto bg-white dark:bg-ai-bg">
-      <div ref={reportRef} className="p-4 md:p-6 space-y-4">
+      <div className="p-4 md:p-6 space-y-4">
         {/* Header + Filtro de datas */}
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
@@ -345,7 +357,7 @@ const InitiativesOverview: React.FC = () => {
               placeholder="dd/mm/aaaa"
               className="w-[130px]"
             />
-            <span className="text-xs text-ai-subtext">→</span>
+            <span className="text-xs font-medium text-ai-subtext px-1 select-none">a</span>
             <DateInputBR
               value={dateTo}
               onChange={(v) => {
@@ -572,8 +584,13 @@ const InitiativesOverview: React.FC = () => {
                             </span>
                           </div>
                         </td>
-                        <td className="px-3 py-2 text-ai-subtext whitespace-nowrap">
-                          {formatDate(init.start_date)} → {formatDate(init.end_date)}
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span
+                            className="inline-flex items-center tabular-nums text-[11px] font-semibold text-ai-text bg-ai-surface/60 border border-ai-border/60 px-2 py-0.5 rounded-md"
+                            title={`Cronograma: ${formatDate(init.start_date)} - ${formatDate(init.end_date)}`}
+                          >
+                            {formatDate(init.start_date)} - {formatDate(init.end_date)}
+                          </span>
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2">

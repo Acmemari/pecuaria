@@ -39,10 +39,12 @@ const AnalystManagement = lazy(() => import('./agents/AnalystManagement'));
 const ClientDocuments = lazy(() => import('./agents/ClientDocuments'));
 const InitiativesOverview = lazy(() => import('./agents/InitiativesOverview'));
 const InitiativesActivities = lazy(() => import('./agents/InitiativesActivities'));
+const InitiativesKanban = lazy(() => import('./agents/InitiativesKanban'));
 const PeopleManagement = lazy(() => import('./agents/PeopleManagement'));
 const DeliveryManagement = lazy(() => import('./agents/DeliveryManagement'));
 const CalendarAgent = lazy(() => import('./agents/CalendarAgent'));
 const SupportTicketsDashboard = lazy(() => import('./agents/SupportTicketsDashboard'));
+const ProjectStructureReport = lazy(() => import('./agents/ProjectStructureReport'));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full">
@@ -199,15 +201,6 @@ const AppContent: React.FC = () => {
         status: 'active'
       };
 
-      const calendarAgent: Agent = {
-        id: 'calendar',
-        name: 'Calendário',
-        description: 'Visualização de eventos em calendário mensal, semanal e diário',
-        icon: 'calendar',
-        category: 'zootecnico',
-        status: 'active'
-      };
-
       const savedScenarios: Agent = {
         id: 'saved-scenarios',
         name: country === 'PY' ? 'Mis Guardados' : 'Meus Salvos',
@@ -286,8 +279,7 @@ const AppContent: React.FC = () => {
       // 4. Documentos
       orderedList.push(clientDocuments);
 
-      // 8. Calendário
-      orderedList.push(calendarAgent);
+      // Calendário fica apenas em Gestão do Projeto (Sidebar)
 
       // Others (at the end)
       orderedList.push(savedScenarios);
@@ -455,8 +447,23 @@ const AppContent: React.FC = () => {
   const isSettingsPage = activeAgentId === 'settings';
   const isIniciativasOverview = activeAgentId === 'iniciativas-overview';
   const isIniciativasAtividades = activeAgentId === 'iniciativas-atividades';
+  const isIniciativasKanban = activeAgentId === 'iniciativas-kanban';
+  const isIniciativasEntregas = activeAgentId === 'iniciativas-entregas';
   const isCalendar = activeAgentId === 'calendar';
-  const headerTitle = isIniciativasOverview ? 'Visão Geral' : isIniciativasAtividades ? 'Atividades' : isCalendar ? 'Calendário' : activeAgent?.name;
+  const isProjectStructure = activeAgentId === 'project-structure';
+  const headerTitle = isIniciativasOverview
+    ? 'Visão Geral'
+    : isIniciativasAtividades
+      ? 'Atividades'
+      : isIniciativasKanban
+        ? 'Kanban'
+        : isIniciativasEntregas
+          ? 'Projeto e Entregas'
+          : isCalendar
+            ? 'Calendário'
+            : isProjectStructure
+              ? 'Estrutura do Projeto'
+              : activeAgent?.name;
 
   const renderContent = () => {
     if (activeAgentId === 'settings') {
@@ -578,7 +585,7 @@ const AppContent: React.FC = () => {
                 onSelectFazendas={() => setCadastroView('farm')}
                 onSelectClientes={() => setCadastroView('client')}
                 onSelectPessoas={() => setCadastroView('people')}
-                onSelectEntregas={() => setCadastroView('delivery')}
+
                 showClientes={user?.role === 'admin' || user?.qualification === 'analista'}
               />
             </Suspense>
@@ -705,10 +712,28 @@ const AppContent: React.FC = () => {
             <InitiativesActivities onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })} />
           </Suspense>
         );
+      case 'iniciativas-kanban':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <InitiativesKanban onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })} />
+          </Suspense>
+        );
+      case 'iniciativas-entregas':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <DeliveryManagement onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })} />
+          </Suspense>
+        );
       case 'calendar':
         return (
           <Suspense fallback={<LoadingFallback />}>
             <CalendarAgent />
+          </Suspense>
+        );
+      case 'project-structure':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <ProjectStructureReport />
           </Suspense>
         );
       default:
