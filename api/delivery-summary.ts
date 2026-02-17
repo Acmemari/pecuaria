@@ -91,6 +91,11 @@ Responda SOMENTE com o parágrafo resumido (máximo 200 caracteres, completo, co
     const aiPromise = ai.models.generateContent({
       model: MODEL,
       contents: prompt,
+      config: {
+        maxOutputTokens: 256,
+        temperature: 0.3,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
     });
 
     const response = await Promise.race([aiPromise, timeoutPromise]);
