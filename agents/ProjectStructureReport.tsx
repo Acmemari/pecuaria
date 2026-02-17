@@ -347,30 +347,29 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
           return;
         }
 
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-        if (!supabaseUrl || !anonKey) {
-          console.error('[summaries] VITE_SUPABASE_URL ou VITE_SUPABASE_ANON_KEY não definidas.');
-          const errMap: Record<string, string> = {};
-          toGenerate.forEach((d) => { errMap[d.id] = 'Configuração incompleta.'; });
-          setDeliverySummaryErrors(errMap);
-          setDeliverySummaryLoading(new Set());
-          return;
-        }
-
-        const fnUrl = `${supabaseUrl}/functions/v1/delivery-summary`;
+        const fnUrl = '/api/delivery-summary';
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
         const CONCURRENCY = 3;
 
         for (let i = 0; i < toGenerate.length; i += CONCURRENCY) {
           if (controller.signal.aborted) return;
           const batch = toGenerate.slice(i, i + CONCURRENCY);
           await Promise.allSettled(
-            batch.map((d) => generateOne(d, fnUrl, accessToken, anonKey, controller.signal))
-          );
+            batch.map((d) => generateOne(d, fnUrl, accessToken || '', anonKey || '', controller.signal))
+          )
         }
       } catch (err) {
         if (controller.signal.aborted) return;
         console.error('[summaries] Erro inesperado:', err);
+        // Set error state for ALL deliveries so the UI doesn't stay stuck on "Resumo em breve."
+        const errMap: Record<string, string> = {};
+        projectDeliveries.forEach((d) => {
+          if (!deliverySummaries[d.id]) {
+            errMap[d.id] = 'Resumo indisponível.';
+          }
+        });
+        setDeliverySummaryErrors((prev) => ({ ...prev, ...errMap }));
+        setDeliverySummaryLoading(new Set());
       }
     };
 
@@ -378,6 +377,7 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
 
     return () => {
       controller.abort();
+      summaryRunRef.current = '';
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectDeliveries, selectedProjectId]);
@@ -565,22 +565,20 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
             <button
               type="button"
               onClick={() => setActiveTab('overview')}
-              className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${
-                activeTab === 'overview'
-                  ? 'border-b-2 border-indigo-600 text-indigo-600 -mb-px'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
+              className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${activeTab === 'overview'
+                ? 'border-b-2 border-indigo-600 text-indigo-600 -mb-px'
+                : 'text-slate-400 hover:text-slate-600'
+                }`}
             >
               Visão Geral
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('deliveries')}
-              className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${
-                activeTab === 'deliveries'
-                  ? 'border-b-2 border-indigo-600 text-indigo-600 -mb-px'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
+              className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${activeTab === 'deliveries'
+                ? 'border-b-2 border-indigo-600 text-indigo-600 -mb-px'
+                : 'text-slate-400 hover:text-slate-600'
+                }`}
             >
               Entregas e Atividades
             </button>
@@ -736,9 +734,8 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                         >
                           <ChevronRight
                             size={18}
-                            className={`text-slate-500 shrink-0 transition-transform duration-200 ${
-                              isExpanded ? 'rotate-90' : ''
-                            }`}
+                            className={`text-slate-500 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''
+                              }`}
                           />
                           <span className="font-semibold text-slate-800 flex-1 min-w-0">{delivery.name}</span>
                           <span className="text-xs text-slate-400 shrink-0">{formatDate(delivery.due_date ?? null)}</span>
