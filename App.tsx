@@ -585,7 +585,7 @@ const AppContent: React.FC = () => {
                 onSelectFazendas={() => setCadastroView('farm')}
                 onSelectClientes={() => setCadastroView('client')}
                 onSelectPessoas={() => setCadastroView('people')}
-
+                onSelectProjetoEntregas={() => setCadastroView('delivery')}
                 showClientes={user?.role === 'admin' || user?.qualification === 'analista'}
               />
             </Suspense>

@@ -1,0 +1,350 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ZenGantt-style CSS overrides for dhtmlx-gantt
+   Notion/MS Project inspired — clean, modern, generous whitespace
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Base reset ────────────────────────────────────────────────────────── */
+.gantt_container {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #ffffff;
+  border: none !important;
+}
+
+/* ── Scale header (top timeline) ───────────────────────────────────────── */
+.gantt_scale_line {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.gantt_scale_cell {
+  background: #f8fafc !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+  border-right: 1px solid #e2e8f0 !important;
+  line-height: 32px !important;
+}
+
+/* Top-level scale (year/month) */
+.gantt_scale_line:first-child .gantt_scale_cell {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Grid (left panel) ─────────────────────────────────────────────────── */
+.gantt_grid {
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0 !important;
+}
+
+.gantt_grid_head_cell {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid #e2e8f0 !important;
+  border-right: 1px solid #e2e8f0 !important;
+  line-height: 36px !important;
+}
+
+.gantt_grid_data .gantt_row {
+  border-bottom: 1px solid #f1f5f9 !important;
+  transition: background 0.15s ease;
+}
+
+.gantt_grid_data .gantt_row:hover,
+.gantt_grid_data .gantt_row.odd:hover {
+  background: #f8fafc !important;
+}
+
+.gantt_grid_data .gantt_row.odd {
+  background: #ffffff !important;
+}
+
+.gantt_grid_data .gantt_cell {
+  color: #334155 !important;
+  font-size: 12.5px !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  border-right: 1px solid #f1f5f9 !important;
+  line-height: 36px !important;
+}
+
+/* Tree cell (task name) */
+.gantt_tree_content {
+  font-size: 13px !important;
+  color: #1e293b !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tree icon: collapse/expand */
+.gantt_tree_icon.gantt_open,
+.gantt_tree_icon.gantt_close {
+  width: 20px !important;
+  background: none !important;
+}
+
+.gantt_tree_icon.gantt_open::before,
+.gantt_tree_icon.gantt_close::before {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.gantt_tree_icon.gantt_open::before {
+  border-width: 5px 4px 0 4px;
+  border-color: #94a3b8 transparent transparent transparent;
+}
+
+.gantt_tree_icon.gantt_close::before {
+  border-width: 4px 0 4px 5px;
+  border-color: transparent transparent transparent #94a3b8;
+}
+
+/* Remove default folder/page icons */
+.gantt_tree_icon.gantt_folder_open,
+.gantt_tree_icon.gantt_folder_closed,
+.gantt_tree_icon.gantt_file {
+  background: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+
+/* ── Timeline data area ────────────────────────────────────────────────── */
+.gantt_data_area {
+  background: #ffffff;
+}
+
+.gantt_task_row {
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+.gantt_task_row:hover {
+  background: #f8fafc !important;
+}
+
+.gantt_task_row.odd {
+  background: #ffffff !important;
+}
+
+/* Vertical grid lines in timeline */
+.gantt_task_vscroll,
+.gantt_task_cell {
+  border-right: 1px solid #f1f5f9 !important;
+}
+
+/* ── Task bars ─────────────────────────────────────────────────────────── */
+
+/* Initiative bars (default) */
+.gantt_task_line {
+  background: #818cf8 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.2);
+  height: 22px !important;
+  line-height: 22px !important;
+  margin-top: 7px;
+}
+
+.gantt_task_line .gantt_task_content {
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 0 8px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 22px !important;
+}
+
+/* Progress bar inside task */
+.gantt_task_line .gantt_task_progress {
+  background: #6366f1 !important;
+  border-radius: 6px 0 0 6px !important;
+  opacity: 1 !important;
+}
+
+/* Delivery bars (project type / group rows) */
+.gantt_task_line.gantt_project,
+.gantt-delivery-row .gantt_task_line,
+.gantt_task_line.gantt-delivery-row {
+  background: #4f46e5 !important;
+  border-radius: 4px !important;
+  height: 18px !important;
+  line-height: 18px !important;
+  margin-top: 9px;
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.3);
+}
+
+.gantt_task_line.gantt_project .gantt_task_content,
+.gantt-delivery-row .gantt_task_line .gantt_task_content {
+  display: block !important;
+  color: #ffffff !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  line-height: 18px !important;
+  padding: 0 6px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Milestone bars */
+.gantt-milestone-row .gantt_task_line {
+  background: #a5b4fc !important;
+  border-radius: 4px !important;
+  height: 16px !important;
+  line-height: 16px !important;
+  margin-top: 10px;
+  box-shadow: 0 1px 2px rgba(165, 180, 252, 0.3);
+}
+
+.gantt-milestone-row .gantt_task_line .gantt_task_content {
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  color: #312e81 !important;
+}
+
+/* ── Delivery row styling (grid side) ──────────────────────────────────── */
+.gantt_row.gantt-delivery-row,
+.gantt_row.gantt-delivery-row.odd {
+  background: #f1f5f9 !important;
+  font-weight: 700 !important;
+}
+
+.gantt-delivery-row .gantt_tree_content {
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  color: #1e293b !important;
+  letter-spacing: -0.01em;
+}
+
+.gantt-delivery-row .gantt_cell {
+  color: #475569 !important;
+  font-weight: 600 !important;
+}
+
+/* ── Milestone row styling (grid side) ─────────────────────────────────── */
+.gantt-milestone-row .gantt_tree_content {
+  font-size: 12px !important;
+  color: #64748b !important;
+  font-style: italic;
+}
+
+/* ── Today marker ──────────────────────────────────────────────────────── */
+.gantt_marker {
+  background: transparent !important;
+  z-index: 5;
+}
+
+.gantt_marker .gantt_marker_content {
+  background: transparent !important;
+}
+
+.gantt_marker_area .gantt_marker {
+  opacity: 1 !important;
+}
+
+.gantt-today-marker {
+  width: 2px !important;
+  background: #6366f1 !important;
+  z-index: 5;
+}
+
+.gantt-today-marker .gantt_marker_content {
+  background: #6366f1 !important;
+  color: #ffffff !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  padding: 2px 6px !important;
+  border-radius: 0 0 4px 4px !important;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Drag handles ──────────────────────────────────────────────────────── */
+.gantt_task_drag {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.gantt_task_line:hover .gantt_task_drag {
+  opacity: 0.7;
+}
+
+/* ── Scrollbars ────────────────────────────────────────────────────────── */
+.gantt_ver_scroll,
+.gantt_hor_scroll {
+  background: #f8fafc !important;
+}
+
+.gantt_ver_scroll::-webkit-scrollbar,
+.gantt_hor_scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.gantt_ver_scroll::-webkit-scrollbar-thumb,
+.gantt_hor_scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.gantt_ver_scroll::-webkit-scrollbar-thumb:hover,
+.gantt_hor_scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ── Tooltips ──────────────────────────────────────────────────────────── */
+.gantt_tooltip {
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  font-size: 11px !important;
+  line-height: 1.5 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ── Links (disabled but style just in case) ───────────────────────────── */
+.gantt_task_link {
+  display: none !important;
+}
+
+/* ── Row height consistency ────────────────────────────────────────────── */
+.gantt_row,
+.gantt_task_row {
+  height: 36px !important;
+  line-height: 36px !important;
+}
+
+/* ── Selected row ──────────────────────────────────────────────────────── */
+.gantt_grid_data .gantt_row.gantt_selected,
+.gantt_grid_data .gantt_row.gantt_selected.odd,
+.gantt_task_row.gantt_selected {
+  background: #eef2ff !important;
+}
+
+/* ── Resize column handle ──────────────────────────────────────────────── */
+.gantt_grid_column_resize_wrap {
+  cursor: col-resize;
+}
+
+.gantt_grid_column_resize_wrap .gantt_grid_column_resize {
+  background: #e2e8f0;
+  width: 1px;
+}

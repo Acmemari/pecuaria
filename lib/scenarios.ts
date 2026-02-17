@@ -152,6 +152,57 @@ export interface SaveScenarioOptions {
   farmName?: string | null;
 }
 
+export const saveReportPdf = async (
+  userId: string,
+  name: string,
+  pdfBase64: string,
+  reportType: string,
+  options?: SaveScenarioOptions
+): Promise<CattleScenario> => {
+  validateUUID(userId, 'ID do usuário');
+
+  const sanitizedName = sanitizeText(name);
+  if (!sanitizedName) {
+    throw new Error('O nome do relatório é obrigatório');
+  }
+
+  if (!pdfBase64 || typeof pdfBase64 !== 'string') {
+    throw new Error('PDF inválido para salvamento');
+  }
+
+  if (!reportType || typeof reportType !== 'string') {
+    throw new Error('Tipo de relatório inválido');
+  }
+
+  const { data, error } = await supabase
+    .from('cattle_scenarios')
+    .insert({
+      user_id: userId,
+      client_id: options?.clientId || null,
+      farm_id: options?.farmId || null,
+      farm_name: options?.farmName || null,
+      name: sanitizedName,
+      inputs: {},
+      results: {
+        type: reportType,
+        pdf_base64: pdfBase64,
+      },
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error saving report PDF:', error);
+    throw new Error(error.message || 'Erro ao salvar relatório.');
+  }
+
+  return {
+    ...data,
+    inputs: data.inputs as CattleCalculatorInputs,
+    results: data.results as CalculationResults | undefined
+  };
+};
+
 /**
  * Save a new scenario
  */

@@ -18,6 +18,7 @@ export interface DeliveryRow {
   transformations_achievements?: string | null;
   due_date?: string | null;
   stakeholder_matrix?: DeliveryStakeholderRow[];
+  sort_order: number;
 }
 
 export interface DeliveryPayload {
@@ -53,7 +54,7 @@ function mapDeliveryError(error: unknown, fallbackMessage: string): Error {
   const normalized = `${code} ${message}`.toLowerCase();
   if (
     normalized.includes('42p01') ||
-    normalized.includes('relation') && normalized.includes('deliveries') && normalized.includes('does not exist')
+    (normalized.includes('relation') && normalized.includes('deliveries') && normalized.includes('does not exist'))
   ) {
     return new Error('Tabela de entregas não encontrada. Aplique as migrations do banco (db push) e tente novamente.');
   }
@@ -114,8 +115,7 @@ export async function fetchDeliveries(
   let q = supabase
     .from('deliveries')
     .select('*')
-    .eq('created_by', createdBy)
-    .order('name', { ascending: true });
+    .eq('created_by', createdBy);
 
   if (filters?.clientId?.trim()) {
     q = q.eq('client_id', filters.clientId);
@@ -126,13 +126,37 @@ export async function fetchDeliveries(
 
   const { data, error } = await q;
   if (error) throw mapDeliveryError(error, 'Erro ao carregar entregas.');
-  return (data || []).map((row) => ({
+  const rows = (data || []).map((row) => ({
     ...row,
     project_id: row.project_id ?? null,
     transformations_achievements: row.transformations_achievements ?? null,
     due_date: row.due_date ?? null,
     stakeholder_matrix: normalizeStakeholderMatrix(row.stakeholder_matrix),
-  })) as DeliveryRow[];
+    sort_order: typeof row.sort_order === 'number' ? row.sort_order : 0,
+  } as DeliveryRow));
+  rows.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'pt-BR'));
+  return rows;
+}
+
+export async function reorderDeliveries(
+  updates: { id: string; sort_order: number }[]
+): Promise<void> {
+  if (!updates.length) return;
+  for (const { id, sort_order } of updates) {
+    validateDeliveryId(id);
+  }
+  const promises = updates.map(({ id, sort_order }) =>
+    supabase.from('deliveries').update({ sort_order }).eq('id', id)
+  );
+  const results = await Promise.all(promises);
+  const firstError = results.find((r) => r.error);
+  if (firstError?.error) {
+    const msg = String(firstError.error.message || '').toLowerCase();
+    if (msg.includes('sort_order') && msg.includes('does not exist')) {
+      throw new Error('A coluna sort_order não existe. Execute a migration: supabase/migrations/20260217180000_deliveries_sort_order.sql');
+    }
+    throw mapDeliveryError(firstError.error, 'Erro ao reordenar entregas.');
+  }
 }
 
 export async function createDelivery(

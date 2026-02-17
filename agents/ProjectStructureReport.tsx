@@ -8,11 +8,9 @@ import {
   Package,
   Clock,
   Target,
-  Printer,
+  FileDown,
   ChevronRight,
-  Flag,
   CheckCircle2,
-  Circle,
   Pencil,
   Check,
   X,
@@ -23,7 +21,11 @@ import { useClient } from '../contexts/ClientContext';
 import { fetchProjects, type ProjectRow } from '../lib/projects';
 import { fetchDeliveries, type DeliveryRow } from '../lib/deliveries';
 import { fetchInitiativesWithTeams, type InitiativeWithTeam } from '../lib/initiatives';
-import { generateProjectStructurePdf } from '../lib/generateProjectStructurePdf';
+import {
+  generateProjectStructurePdf,
+  generateProjectStructurePdfAsBase64,
+} from '../lib/generateProjectStructurePdf';
+import { saveReportPdf } from '../lib/scenarios';
 import { supabase } from '../lib/supabase';
 
 const formatDate = (d: string | null) => {
@@ -46,13 +48,6 @@ const getDurationLabel = (startDate: string | null, endDate: string | null) => {
   if (diffDays < 30) return `${diffDays} dias previstos`;
   const months = Math.round((diffDays / 30) * 10) / 10;
   return `${months.toLocaleString('pt-BR')} meses previstos`;
-};
-
-const compareByDueDateThenName = (a: DeliveryRow, b: DeliveryRow) => {
-  const aDue = a.due_date ? new Date(`${a.due_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
-  const bDue = b.due_date ? new Date(`${b.due_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
-  if (aDue !== bDue) return aDue - bDue;
-  return a.name.localeCompare(b.name, 'pt-BR');
 };
 
 const getInitials = (name: string): string => {
@@ -95,15 +90,28 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
   const [deliverySummaryErrors, setDeliverySummaryErrors] = useState<Record<string, string>>({});
   const [editingDeliveryId, setEditingDeliveryId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState('');
+  const [pendingScrollDeliveryId, setPendingScrollDeliveryId] = useState<string | null>(null);
+  const deliveryItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const toggleDelivery = (id: string) => {
+  const toggleDelivery = useCallback((id: string) => {
     setExpandedDeliveryIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
+  }, []);
+
+  const openDeliveryDetail = useCallback((deliveryId: string) => {
+    setActiveTab('deliveries');
+    setExpandedDeliveryIds((prev) => {
+      if (prev.has(deliveryId)) return prev;
+      const next = new Set(prev);
+      next.add(deliveryId);
+      return next;
+    });
+    setPendingScrollDeliveryId(deliveryId);
+  }, []);
 
   const handleSaveSummary = useCallback(
     async (delivery: DeliveryRow) => {
@@ -181,7 +189,7 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
     if (!selectedProject) return [];
     return deliveries
       .filter((d) => d.project_id === selectedProject.id)
-      .sort(compareByDueDateThenName);
+      .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'pt-BR'));
   }, [deliveries, selectedProject]);
 
   const initiativesByDelivery = useMemo(() => {
@@ -204,17 +212,31 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
     [initiativesByDelivery]
   );
 
-  const handleGeneratePdf = useCallback(() => {
+  const handleGeneratePdf = useCallback(async () => {
     if (!selectedProject) return;
     setPdfError(null);
     setIsGeneratingPdf(true);
     try {
-      generateProjectStructurePdf({
+      const pdfPayload = {
         project: selectedProject,
         deliveries: projectDeliveries,
         initiativesByDeliveryId: initiativesByDeliveryIdRecord,
         userName: user?.email ?? user?.full_name ?? undefined,
-      });
+      };
+      generateProjectStructurePdf(pdfPayload);
+
+      if (user?.id) {
+        try {
+          const base64 = generateProjectStructurePdfAsBase64(pdfPayload);
+          const reportName = `Estrutura - ${selectedProject.name} - ${new Date().toLocaleDateString('pt-BR')}`;
+          await saveReportPdf(user.id, reportName, base64, 'project_structure_pdf', {
+            clientId: selectedClient?.id ?? null,
+          });
+        } catch (saveErr) {
+          console.error('Erro ao salvar PDF em Meus Salvos:', saveErr);
+        }
+      }
+
       onToast?.('PDF gerado com sucesso.', 'success');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Não foi possível gerar o PDF.';
@@ -223,7 +245,16 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
     } finally {
       setIsGeneratingPdf(false);
     }
-  }, [selectedProject, projectDeliveries, initiativesByDeliveryIdRecord, user?.email, user?.full_name, onToast]);
+  }, [
+    selectedProject,
+    projectDeliveries,
+    initiativesByDeliveryIdRecord,
+    user?.id,
+    user?.email,
+    user?.full_name,
+    selectedClient?.id,
+    onToast,
+  ]);
 
   const summaryRunRef = useRef<string>('');
   const abortRef = useRef<AbortController | null>(null);
@@ -382,6 +413,18 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectDeliveries, selectedProjectId]);
 
+  useEffect(() => {
+    if (activeTab !== 'deliveries' || !pendingScrollDeliveryId) return;
+    const targetNode = deliveryItemRefs.current[pendingScrollDeliveryId];
+    if (!targetNode) return;
+
+    const rafId = window.requestAnimationFrame(() => {
+      targetNode.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setPendingScrollDeliveryId(null);
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [activeTab, pendingScrollDeliveryId, projectDeliveries]);
+
   if (loading) {
     return (
       <div className="flex flex-col h-full min-h-0 items-center justify-center">
@@ -463,14 +506,20 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
               type="button"
               onClick={handleGeneratePdf}
               disabled={isGeneratingPdf}
-              className="p-2 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              title="Gerar e baixar relatório em PDF"
-              aria-label="Gerar PDF"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ai-accent text-white text-xs font-semibold hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              title="Salvar e imprimir relatório em PDF"
+              aria-label="Salvar e imprimir PDF"
             >
               {isGeneratingPdf ? (
-                <Loader2 size={18} className="animate-spin" />
+                <>
+                  <Loader2 size={13} className="animate-spin" />
+                  Gerando PDF...
+                </>
               ) : (
-                <Printer size={18} />
+                <>
+                  <FileDown size={13} />
+                  Salvar/Imprimir PDF
+                </>
               )}
             </button>
           </div>
@@ -580,14 +629,14 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                 : 'text-slate-400 hover:text-slate-600'
                 }`}
             >
-              Entregas e Atividades
+              Detalhamento
             </button>
           </div>
 
           {activeTab === 'overview' && (
             <div className="pt-5 space-y-6">
               <div>
-                <h3 className="text-sm font-semibold text-slate-800 mb-3">Relação de entregas</h3>
+                <h3 className="text-sm font-semibold text-slate-800 mb-3">Detalhamento</h3>
                 {projectDeliveries.length === 0 ? (
                   <p className="text-sm text-slate-500">Nenhuma entrega vinculada.</p>
                 ) : (
@@ -601,7 +650,20 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                       return (
                         <div
                           key={d.id}
-                          className="group rounded-lg border border-slate-100 bg-slate-50/50 p-4 flex items-start gap-3"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Abrir detalhamento da entrega ${d.name}`}
+                          onClick={(event) => {
+                            const target = event.target as HTMLElement;
+                            if (target.closest('button,textarea,input,a')) return;
+                            openDeliveryDetail(d.id);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter' && event.key !== ' ') return;
+                            event.preventDefault();
+                            openDeliveryDetail(d.id);
+                          }}
+                          className="group rounded-lg border border-slate-100 bg-slate-50/50 p-4 flex items-start gap-3 cursor-pointer hover:bg-slate-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-1 transition-colors"
                         >
                           <span
                             className="rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm w-8 h-8 flex items-center justify-center shrink-0"
@@ -725,6 +787,9 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                     return (
                       <div
                         key={delivery.id}
+                        ref={(node) => {
+                          deliveryItemRefs.current[delivery.id] = node;
+                        }}
                         className="rounded-lg border border-slate-100 bg-white overflow-hidden"
                       >
                         <button
@@ -745,13 +810,19 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                         </button>
                         {isExpanded && (
                           <div className="border-t border-slate-100 px-4 py-4 bg-slate-50/30">
+                            {delivery.description?.trim() && (
+                              <p className="text-sm text-slate-600 whitespace-pre-wrap mb-3">
+                                {delivery.description}
+                              </p>
+                            )}
                             {initiativesList.length === 0 ? (
                               <p className="text-sm text-slate-500">Nenhuma atividade vinculada.</p>
                             ) : (
                               <div className="relative pl-6 border-l-2 border-indigo-200 space-y-4">
                                 {initiativesList.map((initiative) => {
-                                  const totalM = (initiative.milestones || []).length;
-                                  const completedM = (initiative.milestones || []).filter((m) => m.completed).length;
+                                  const milestones = initiative.milestones || [];
+                                  const totalM = milestones.length;
+                                  const completedM = milestones.filter((m) => m.completed).length;
                                   const pct = totalM > 0 ? Math.round((completedM / totalM) * 100) : 0;
                                   return (
                                     <div key={initiative.id} className="relative">
@@ -759,15 +830,47 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                                       <div className="pb-2">
                                         <p className="font-medium text-slate-800">{initiative.name}</p>
                                         {initiative.description?.trim() && (
-                                          <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">
+                                          <p className="text-sm text-slate-500 mt-0.5">
                                             {initiative.description}
                                           </p>
                                         )}
                                         <p className="text-xs text-slate-400 mt-1">
                                           {formatDate(initiative.start_date)} — {formatDate(initiative.end_date)}
                                         </p>
+                                        {(initiative.leader || initiative.progress > 0) && (
+                                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                                            {initiative.leader && (
+                                              <span>
+                                                Lider: <strong className="text-slate-700">{initiative.leader}</strong>
+                                              </span>
+                                            )}
+                                            {initiative.progress > 0 && (
+                                              <span
+                                                className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${initiative.progress === 100
+                                                  ? 'bg-emerald-50 text-emerald-700'
+                                                  : 'bg-indigo-50 text-indigo-700'
+                                                  }`}
+                                              >
+                                                {initiative.progress}%
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+                                        {initiative.team && initiative.team.length > 0 && (
+                                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                            {initiative.team.map((member, idx) => (
+                                              <span
+                                                key={`${initiative.id}-team-${idx}`}
+                                                title={`${member.name} - ${member.role}`}
+                                                className="w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold flex items-center justify-center"
+                                              >
+                                                {getInitials(member.name)}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
-                                      {(initiative.milestones || []).length > 0 && (
+                                      {milestones.length > 0 && (
                                         <div className="mt-2 flex items-center gap-2">
                                           <div className="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">
                                             <div
@@ -779,6 +882,24 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                                           {pct === 100 && (
                                             <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
                                           )}
+                                        </div>
+                                      )}
+                                      {milestones.length > 0 && (
+                                        <div className="mt-3 space-y-1.5 pl-2">
+                                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Marcos</p>
+                                          {milestones.map((m) => (
+                                            <div key={m.id} className="flex items-center gap-2 text-xs text-slate-600">
+                                              {m.completed ? (
+                                                <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
+                                              ) : (
+                                                <div className="w-3 h-3 rounded-full border-2 border-slate-300 shrink-0" />
+                                              )}
+                                              <span className={m.completed ? 'line-through text-slate-400' : ''}>{m.title}</span>
+                                              {m.due_date && (
+                                                <span className="text-slate-400 ml-auto shrink-0">{formatDate(m.due_date)}</span>
+                                              )}
+                                            </div>
+                                          ))}
                                         </div>
                                       )}
                                     </div>

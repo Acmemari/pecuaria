@@ -477,6 +477,63 @@ export async function updateInitiative(
 }
 
 /**
+ * Atualiza apenas datas da iniciativa (sem recriar time/marcos).
+ * Uso principal: edição direta no Gantt via drag/resize.
+ */
+export async function patchInitiativeDates(
+  initiativeId: string,
+  startDate: string,
+  endDate: string
+): Promise<void> {
+  if (!initiativeId?.trim()) throw new Error('ID da iniciativa é obrigatório.');
+  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+  if (!ISO_DATE.test(startDate) || !ISO_DATE.test(endDate)) {
+    throw new Error('Datas inválidas (esperado: YYYY-MM-DD).');
+  }
+  if (startDate > endDate) {
+    throw new Error('A data inicial não pode ser posterior à data final.');
+  }
+
+  const { error } = await supabase
+    .from('initiatives')
+    .update({
+      start_date: startDate,
+      end_date: endDate,
+    })
+    .eq('id', initiativeId);
+
+  if (error) {
+    throw new Error(error.message || 'Erro ao atualizar datas da iniciativa.');
+  }
+}
+
+/**
+ * Atualiza apenas a data limite de um marco.
+ * Uso principal: edição direta no Gantt via drag.
+ */
+export async function patchMilestoneDueDate(
+  milestoneId: string,
+  dueDate: string
+): Promise<void> {
+  if (!milestoneId?.trim()) throw new Error('ID do marco é obrigatório.');
+  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+  if (!ISO_DATE.test(dueDate)) {
+    throw new Error('Data inválida (esperado: YYYY-MM-DD).');
+  }
+
+  const { error } = await supabase
+    .from('initiative_milestones')
+    .update({
+      due_date: dueDate,
+    })
+    .eq('id', milestoneId);
+
+  if (error) {
+    throw new Error(error.message || 'Erro ao atualizar prazo do marco.');
+  }
+}
+
+/**
  * Exclui iniciativa por ID.
  * FKs estão configuradas com ON DELETE CASCADE para team, milestones e evidências.
  * Também remove (best-effort) arquivos do bucket de evidências.

@@ -78,12 +78,18 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
 
   const isScenarioComparador = (s: CattleScenario) =>
     s.results && 'type' in s.results && s.results.type === 'comparator_pdf';
+  const isScenarioOverviewReport = (s: CattleScenario) =>
+    s.results && 'type' in s.results && s.results.type === 'initiatives_overview_pdf';
+  const isScenarioProjectStructure = (s: CattleScenario) =>
+    s.results && 'type' in s.results && s.results.type === 'project_structure_pdf';
 
   const filteredSavedItems: SavedItem[] = useMemo(() => {
     return savedItems.filter((item) => {
       if (item.type === 'questionnaire') return filterQuestionnaires;
       const isComparador = isScenarioComparador(item.data);
-      if (isComparador) return filterComparador;
+      const isOverviewReport = isScenarioOverviewReport(item.data);
+      const isProjectStructureReport = isScenarioProjectStructure(item.data);
+      if (isComparador || isOverviewReport || isProjectStructureReport) return filterComparador;
       return filterCalculadora;
     });
   }, [savedItems, filterQuestionnaires, filterCalculadora, filterComparador]);
@@ -190,6 +196,12 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
               type: 'info'
             });
           }
+        } else if (
+          results &&
+          'type' in results &&
+          (results.type === 'initiatives_overview_pdf' || results.type === 'project_structure_pdf')
+        ) {
+          await handleDownloadReport(scenario);
         } else if (results) {
           // É um cenário individual - carregar na calculadora
           // TypeScript needs assurance that results is CalculationResults here if we were using it,
@@ -307,8 +319,17 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       // Verificar se é um comparativo
       const results = scenario.results;
 
-      if (results && 'type' in results && results.type === 'comparator_pdf' && results.pdf_base64) {
-        // É um comparativo salvo - baixar o PDF armazenado
+      if (
+        results &&
+        'type' in results &&
+        (
+          results.type === 'comparator_pdf' ||
+          results.type === 'initiatives_overview_pdf' ||
+          results.type === 'project_structure_pdf'
+        ) &&
+        results.pdf_base64
+      ) {
+        // É um relatório salvo (comparativo ou visão geral) - baixar o PDF armazenado
         const pdfBase64 = results.pdf_base64;
 
         // Validação de segurança: verificar se é base64 válido
@@ -341,7 +362,12 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
           .replace(/\s+/g, '-')
           .toLowerCase()
           .substring(0, 50); // Limitar tamanho
-        const fileName = `comparativo-${safeName}.pdf`;
+        const filePrefix = results.type === 'initiatives_overview_pdf'
+          ? 'relatorio-visao-geral'
+          : results.type === 'project_structure_pdf'
+            ? 'estrutura-projeto'
+            : 'comparativo';
+        const fileName = `${filePrefix}-${safeName}.pdf`;
         link.download = fileName;
         document.body.appendChild(link);
         link.click();
@@ -656,6 +682,8 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                     const scenario = item.data;
                     const results = scenario.results;
                     const isComparatorPDF = results && 'type' in results && results.type === 'comparator_pdf';
+                    const isOverviewReportPDF = results && 'type' in results && results.type === 'initiatives_overview_pdf';
+                    const isProjectStructureReportPDF = results && 'type' in results && results.type === 'project_structure_pdf';
 
                     if (isComparatorPDF) {
                       return (
@@ -668,6 +696,34 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                           <p className="text-xs text-ai-subtext">
                             Comparação de 3 cenários com relatório PDF completo.
                             Clique no ícone de download para visualizar o relatório.
+                          </p>
+                        </div>
+                      );
+                    } else if (isOverviewReportPDF) {
+                      return (
+                        <div className="pt-3 border-t border-ai-border">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">
+                              Relatório Visão Geral
+                            </div>
+                          </div>
+                          <p className="text-xs text-ai-subtext">
+                            PDF da Visão Geral de iniciativas salvo em Meus Salvos.
+                            Clique no ícone de download para baixar o relatório.
+                          </p>
+                        </div>
+                      );
+                    } else if (isProjectStructureReportPDF) {
+                      return (
+                        <div className="pt-3 border-t border-ai-border">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-medium">
+                              Estrutura do Projeto
+                            </div>
+                          </div>
+                          <p className="text-xs text-ai-subtext">
+                            PDF da Estrutura do Projeto salvo em Meus Salvos.
+                            Clique no ícone de download para baixar o relatório.
                           </p>
                         </div>
                       );

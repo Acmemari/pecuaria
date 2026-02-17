@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Plus,
   ChevronRight,
@@ -30,6 +30,8 @@ import {
   fetchInitiatives,
   createInitiative,
   updateInitiative,
+  patchInitiativeDates,
+  patchMilestoneDueDate,
   fetchInitiativeForEdit,
   fetchInitiativeDetail,
   toggleMilestoneCompleted,
@@ -43,12 +45,12 @@ import {
   type InitiativeTaskRow,
 } from '../lib/initiatives';
 import { fetchPeople, type Person } from '../lib/people';
-import { fetchDeliveries, type DeliveryRow } from '../lib/deliveries';
+import { fetchDeliveries, updateDelivery, type DeliveryRow } from '../lib/deliveries';
 import { supabase } from '../lib/supabase';
 import { Farm } from '../types';
 import { EvidenciaEntregaModal } from '../components/EvidenciaEntregaModal';
 import DateInputBR from '../components/DateInputBR';
-import InitiativesGantt from '../components/InitiativesGantt';
+import InitiativesGantt, { type GanttDateChange } from '../components/InitiativesGantt';
 import InitiativeTasksKanban from '../components/InitiativeTasksKanban';
 
 const STATUS_OPTIONS = ['Não Iniciado', 'Em Andamento', 'Suspenso', 'Concluído', 'Atrasado'];
@@ -127,6 +129,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   } | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
+  const deliveriesRef = useRef<DeliveryRow[]>([]);
   const [initiativeToDelete, setInitiativeToDelete] = useState<InitiativeWithProgress | null>(null);
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
   const [taskDrafts, setTaskDrafts] = useState<Record<string, TaskCreateDraftRow>>({});
@@ -587,6 +590,92 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     }
   }, [effectiveUserId, selectedClient?.id, selectedFarm?.id, onToast]);
 
+  const handleGanttDateChange = useCallback(async (change: GanttDateChange) => {
+    try {
+      if (change.type === 'initiative') {
+        await patchInitiativeDates(change.id, change.start_date, change.end_date);
+        setInitiatives((prev) =>
+          prev.map((initiative) =>
+            initiative.id === change.id
+              ? { ...initiative, start_date: change.start_date, end_date: change.end_date }
+              : initiative
+          )
+        );
+        if (viewingInitiative?.id === change.id) {
+          setViewingInitiative((prev) =>
+            prev ? { ...prev, start_date: change.start_date, end_date: change.end_date } : prev
+          );
+        }
+        onToast?.('Datas da iniciativa atualizadas no cronograma.', 'success');
+        return;
+      }
+
+      if (change.type === 'milestone') {
+        await patchMilestoneDueDate(change.id, change.start_date);
+        setInitiatives((prev) =>
+          prev.map((initiative) => ({
+            ...initiative,
+            milestones: (initiative.milestones || []).map((milestone) =>
+              milestone.id === change.id ? { ...milestone, due_date: change.start_date } : milestone
+            ),
+          }))
+        );
+        setViewingInitiative((prev) =>
+          prev
+            ? {
+              ...prev,
+              milestones: (prev.milestones || []).map((milestone) =>
+                milestone.id === change.id ? { ...milestone, due_date: change.start_date } : milestone
+              ),
+            }
+            : prev
+        );
+        onToast?.('Prazo do marco atualizado no cronograma.', 'success');
+        return;
+      }
+
+      const delivery = deliveriesRef.current.find((d) => d.id === change.id);
+      if (!delivery) {
+        await loadInitiatives();
+        onToast?.('Entrega não encontrada para atualização.', 'warning');
+        return;
+      }
+
+      await updateDelivery(delivery.id, {
+        name: delivery.name,
+        description: delivery.description ?? undefined,
+        transformations_achievements: delivery.transformations_achievements ?? null,
+        due_date: change.end_date,
+        stakeholder_matrix: delivery.stakeholder_matrix || [],
+        project_id: delivery.project_id ?? null,
+        client_id: delivery.client_id ?? null,
+      });
+      setDeliveries((prev) =>
+        prev.map((row) => (row.id === delivery.id ? { ...row, due_date: change.end_date } : row))
+      );
+      onToast?.('Prazo da entrega atualizado no cronograma.', 'success');
+    } catch (err) {
+      onToast?.(err instanceof Error ? err.message : 'Erro ao atualizar cronograma.', 'error');
+      await Promise.all([
+        loadInitiatives(),
+        effectiveUserId
+          ? fetchDeliveries(
+            effectiveUserId,
+            selectedClient?.id ? { clientId: selectedClient.id } : undefined
+          )
+            .then(setDeliveries)
+            .catch(() => setDeliveries([]))
+          : Promise.resolve(),
+      ]);
+    }
+  }, [
+    effectiveUserId,
+    loadInitiatives,
+    onToast,
+    selectedClient?.id,
+    viewingInitiative?.id,
+  ]);
+
   useEffect(() => {
     loadInitiatives();
   }, [loadInitiatives]);
@@ -673,6 +762,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         setDeliveries([]);
       });
   }, [effectiveUserId, selectedClient?.id]);
+
+  useEffect(() => {
+    deliveriesRef.current = deliveries;
+  }, [deliveries]);
 
   const deliveriesById = useMemo(
     () => deliveries.reduce<Record<string, string>>((acc, d) => {
@@ -1744,7 +1837,11 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
             <p className="text-sm text-ai-subtext">Nenhuma atividade encontrada com os filtros selecionados.</p>
           </div>
         ) : viewMode === 'gantt' ? (
-          <InitiativesGantt initiatives={filteredInitiatives} />
+          <InitiativesGantt
+            initiatives={filteredInitiatives}
+            deliveries={deliveries}
+            onTaskDateChange={handleGanttDateChange}
+          />
         ) : (
           <ul className="grid grid-cols-2 gap-1.5">
             {filteredInitiatives.map((init) => (

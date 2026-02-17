@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Users, UserCircle, Package } from 'lucide-react';
+import { Building2, Users, UserCircle, FolderPlus } from 'lucide-react';
 
 interface CadastroCardProps {
   title: string;
@@ -35,6 +35,7 @@ interface CadastrosDesktopProps {
   onSelectFazendas: () => void;
   onSelectClientes?: () => void;
   onSelectPessoas: () => void;
+  onSelectProjetoEntregas?: () => void;
   showClientes?: boolean;
 }
 
@@ -42,6 +43,7 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
   onSelectFazendas,
   onSelectClientes,
   onSelectPessoas,
+  onSelectProjetoEntregas,
   showClientes = false,
 }) => {
   const cards = [
@@ -61,18 +63,29 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
       icon: <UserCircle size={24} />,
       onClick: onSelectPessoas,
     },
-
     ...(showClientes && onSelectClientes
       ? [
-        {
-          id: 'clientes',
-          title: 'Gestão de Clientes',
-          description:
-            'Cadastre e gerencie clientes, vinculando fazendas e acompanhando o relacionamento.',
-          icon: <Users size={24} />,
-          onClick: onSelectClientes,
-        },
-      ]
+          {
+            id: 'clientes',
+            title: 'Gestão de Clientes',
+            description:
+              'Cadastre e gerencie clientes, vinculando fazendas e acompanhando o relacionamento.',
+            icon: <Users size={24} />,
+            onClick: onSelectClientes,
+          },
+        ]
+      : []),
+    ...(onSelectProjetoEntregas
+      ? [
+          {
+            id: 'projeto-entregas',
+            title: 'Projeto e Entregas',
+            description:
+              'Gerencie projetos, entregas e iniciativas do portfólio.',
+            icon: <FolderPlus size={24} />,
+            onClick: onSelectProjetoEntregas,
+          },
+        ]
       : []),
   ];
 
@@ -83,7 +96,7 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
           Cadastros
         </h1>
         <p className="text-sm text-gray-500 max-w-2xl">
-          Escolha um bloco para gerenciar fazendas, clientes e pessoas.
+          Escolha um bloco para gerenciar fazendas, clientes, pessoas e projetos.
         </p>
       </header>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

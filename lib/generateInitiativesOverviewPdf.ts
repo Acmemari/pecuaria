@@ -11,12 +11,22 @@ interface Metrics {
   byLeader: Record<string, { count: number; avgProgress: number }>;
 }
 
+export interface DeliveryGroupPdf {
+  title: string;
+  dueDate: string | null;
+  avgProgress: number;
+  milestonesTotal: number;
+  milestonesCompleted: number;
+  initiatives: InitiativeWithProgress[];
+}
+
 export interface InitiativesOverviewPdfData {
   initiatives: InitiativeWithProgress[];
   metrics: Metrics;
   userName?: string;
   dateFrom?: string;
   dateTo?: string;
+  deliveryGroups?: DeliveryGroupPdf[];
 }
 
 const STATUS_BAR_RGB: Record<string, [number, number, number]> = {
@@ -38,8 +48,8 @@ const formatDateBR = (d: string | null): string => {
   }
 };
 
-export function generateInitiativesOverviewPdf(data: InitiativesOverviewPdfData): void {
-  const { initiatives, metrics, userName, dateFrom, dateTo } = data;
+function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
+  const { initiatives, metrics, userName, dateFrom, dateTo, deliveryGroups } = data;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pw = doc.internal.pageSize.getWidth();
@@ -184,11 +194,6 @@ export function generateInitiativesOverviewPdf(data: InitiativesOverviewPdfData)
 
   y += 54;
 
-  // ─── TABELA DETALHADA ─────────────────────────────────────────────
-  ensureSpace(20);
-  text('DETALHAMENTO POR INICIATIVA', m, y + 4, 8, 'bold', [30, 41, 59]);
-  y += 8;
-
   const cols = [
     { label: 'Iniciativa', w: 48 },
     { label: 'Líder', w: 28 },
@@ -197,75 +202,99 @@ export function generateInitiativesOverviewPdf(data: InitiativesOverviewPdfData)
     { label: 'Progresso', w: 26 },
     { label: 'Marcos', w: cw - 48 - 28 - 24 - 36 - 26 },
   ];
+  const renderInitiativesTable = (items: InitiativeWithProgress[]) => {
+    ensureSpace(16);
+    doc.setFillColor(241, 245, 249);
+    doc.rect(m, y, cw, 7, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.2);
+    doc.line(m, y + 7, m + cw, y + 7);
 
-  // Table header
-  doc.setFillColor(241, 245, 249);
-  doc.rect(m, y, cw, 7, 'F');
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.2);
-  doc.line(m, y + 7, m + cw, y + 7);
+    let cx = m;
+    cols.forEach((col) => {
+      text(col.label, cx + 2, y + 5, 6, 'bold', [100, 116, 139]);
+      cx += col.w;
+    });
+    y += 7;
 
-  let cx = m;
-  cols.forEach((col) => {
-    text(col.label, cx + 2, y + 5, 6, 'bold', [100, 116, 139]);
-    cx += col.w;
-  });
-  y += 7;
+    items.forEach((init, idx) => {
+      ensureSpace(8);
 
-  // Table rows
-  initiatives.forEach((init, idx) => {
-    ensureSpace(8);
+      const rowH = 7;
+      if (idx % 2 === 1) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(m, y, cw, rowH, 'F');
+      }
+      doc.setDrawColor(241, 245, 249);
+      doc.line(m, y + rowH, m + cw, y + rowH);
 
-    const rowH = 7;
-    if (idx % 2 === 1) {
+      let rx = m;
+      const name = init.name.length > 28 ? init.name.slice(0, 26) + '…' : init.name;
+      text(name, rx + 2, y + 5, 6.5, 'normal', [30, 41, 59], 'left', cols[0].w - 4);
+      rx += cols[0].w;
+
+      const leader = (init.leader || '—').length > 16 ? (init.leader || '').slice(0, 14) + '…' : (init.leader || '—');
+      text(leader, rx + 2, y + 5, 6.5, 'normal', [51, 65, 85]);
+      rx += cols[1].w;
+
+      const st = init.status || 'Não Iniciado';
+      const stShort = st.length > 14 ? st.slice(0, 12) + '…' : st;
+      text(stShort, rx + 2, y + 5, 6, 'bold', STATUS_BAR_RGB[st] || [100, 116, 139]);
+      rx += cols[2].w;
+
+      text(`${formatDateBR(init.start_date)} - ${formatDateBR(init.end_date)}`, rx + 2, y + 5, 5.5, 'normal', [100, 116, 139]);
+      rx += cols[3].w;
+
+      const prog = init.progress ?? 0;
+      const barPW = cols[4].w - 12;
+      doc.setFillColor(229, 231, 235);
+      doc.roundedRect(rx + 2, y + 2.5, barPW, 2, 1, 1, 'F');
+      if (prog > 0) {
+        const prgColor: [number, number, number] = prog >= 100 ? [34, 197, 94] : prog >= 50 ? [99, 102, 241] : [245, 158, 11];
+        doc.setFillColor(prgColor[0], prgColor[1], prgColor[2]);
+        doc.roundedRect(rx + 2, y + 2.5, Math.max(1, barPW * Math.min(100, prog) / 100), 2, 1, 1, 'F');
+      }
+      text(`${prog}%`, rx + barPW + 4, y + 5, 6, 'bold', [30, 41, 59]);
+      rx += cols[4].w;
+
+      const milestones = init.milestones || [];
+      const completedMil = milestones.filter((mm) => mm.completed === true).length;
+      text(`${completedMil}/${milestones.length}`, rx + 2, y + 5, 6.5, 'normal', [51, 65, 85]);
+      y += rowH;
+    });
+  };
+
+  ensureSpace(20);
+  if (deliveryGroups && deliveryGroups.length > 0) {
+    text('DETALHAMENTO POR ENTREGA', m, y + 4, 8, 'bold', [30, 41, 59]);
+    y += 8;
+
+    deliveryGroups.forEach((group, idx) => {
+      ensureSpace(14);
+      doc.setDrawColor(226, 232, 240);
       doc.setFillColor(248, 250, 252);
-      doc.rect(m, y, cw, rowH, 'F');
-    }
-    doc.setDrawColor(241, 245, 249);
-    doc.line(m, y + rowH, m + cw, y + rowH);
-
-    let rx = m;
-
-    // Name (truncated)
-    const name = init.name.length > 28 ? init.name.slice(0, 26) + '…' : init.name;
-    text(name, rx + 2, y + 5, 6.5, 'normal', [30, 41, 59], 'left', cols[0].w - 4);
-    rx += cols[0].w;
-
-    // Leader
-    const leader = (init.leader || '—').length > 16 ? (init.leader || '').slice(0, 14) + '…' : (init.leader || '—');
-    text(leader, rx + 2, y + 5, 6.5, 'normal', [51, 65, 85]);
-    rx += cols[1].w;
-
-    // Status
-    const st = init.status || 'Não Iniciado';
-    const stShort = st.length > 14 ? st.slice(0, 12) + '…' : st;
-    text(stShort, rx + 2, y + 5, 6, 'bold', STATUS_BAR_RGB[st] || [100, 116, 139]);
-    rx += cols[2].w;
-
-    // Period
-    text(`${formatDateBR(init.start_date)} - ${formatDateBR(init.end_date)}`, rx + 2, y + 5, 5.5, 'normal', [100, 116, 139]);
-    rx += cols[3].w;
-
-    // Progress bar
-    const prog = init.progress ?? 0;
-    const barPW = cols[4].w - 12;
-    doc.setFillColor(229, 231, 235);
-    doc.roundedRect(rx + 2, y + 2.5, barPW, 2, 1, 1, 'F');
-    if (prog > 0) {
-      const prgColor: [number, number, number] = prog >= 100 ? [34, 197, 94] : prog >= 50 ? [99, 102, 241] : [245, 158, 11];
-      doc.setFillColor(prgColor[0], prgColor[1], prgColor[2]);
-      doc.roundedRect(rx + 2, y + 2.5, Math.max(1, barPW * Math.min(100, prog) / 100), 2, 1, 1, 'F');
-    }
-    text(`${prog}%`, rx + barPW + 4, y + 5, 6, 'bold', [30, 41, 59]);
-    rx += cols[4].w;
-
-    // Milestones
-    const milestones = init.milestones || [];
-    const completedMil = milestones.filter((mm) => mm.completed === true).length;
-    text(`${completedMil}/${milestones.length}`, rx + 2, y + 5, 6.5, 'normal', [51, 65, 85]);
-
-    y += rowH;
-  });
+      doc.roundedRect(m, y, cw, 10, 2, 2, 'FD');
+      text(`${idx + 1}. ${group.title}`, m + 3, y + 4.8, 7, 'bold', [30, 41, 59], 'left', cw - 70);
+      if (group.dueDate) {
+        text(`Prazo: ${formatDateBR(group.dueDate)}`, m + cw - 3, y + 4.8, 6.5, 'normal', [100, 116, 139], 'right');
+      }
+      text(
+        `${group.initiatives.length} inic. • ${group.milestonesCompleted}/${group.milestonesTotal} marcos • ${group.avgProgress}% médio`,
+        m + 3,
+        y + 8,
+        6,
+        'normal',
+        [100, 116, 139]
+      );
+      y += 12;
+      renderInitiativesTable(group.initiatives);
+      y += 5;
+    });
+  } else {
+    text('DETALHAMENTO POR INICIATIVA', m, y + 4, 8, 'bold', [30, 41, 59]);
+    y += 8;
+    renderInitiativesTable(initiatives);
+  }
 
   // ─── FOOTER (ALL PAGES) ───────────────────────────────────────────
   const pageCount = doc.getNumberOfPages();
@@ -281,7 +310,16 @@ export function generateInitiativesOverviewPdf(data: InitiativesOverviewPdfData)
     doc.text(`Página ${p} de ${pageCount}`, pw - m, fy, { align: 'right' });
   }
 
-  // ─── SAVE ─────────────────────────────────────────────────────────
+  return doc;
+}
+
+export function generateInitiativesOverviewPdf(data: InitiativesOverviewPdfData): void {
+  const doc = buildPdfDoc(data);
   const safeName = `visao-geral-iniciativas-${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(safeName);
+}
+
+export function generateInitiativesOverviewPdfAsBase64(data: InitiativesOverviewPdfData): string {
+  const doc = buildPdfDoc(data);
+  return doc.output('datauristring').split(',')[1] || '';
 }

@@ -1,5 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   Plus,
   ArrowLeft,
   Loader2,
@@ -13,6 +28,7 @@ import {
   Link2,
   Unlink,
   CheckSquare,
+  GripVertical,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
@@ -24,6 +40,7 @@ import {
   deleteDelivery,
   linkDeliveryToProject,
   unlinkDeliveryFromProject,
+  reorderDeliveries,
   type DeliveryRow,
 } from '../lib/deliveries';
 import {
@@ -67,6 +84,60 @@ const formatDate = (d: string | null) => {
   }
 };
 
+function SortableDeliveryItem({
+  delivery,
+  onEdit,
+  onUnlink,
+  onDelete,
+  unlinkingId,
+  deletingDeliveryId,
+}: {
+  delivery: DeliveryRow;
+  onEdit: (d: DeliveryRow) => void;
+  onUnlink: (id: string) => void;
+  onDelete: (id: string) => void;
+  unlinkingId: string | null;
+  deletingDeliveryId: string | null;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: delivery.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg border border-ai-border bg-ai-bg"
+    >
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="p-1 rounded text-ai-subtext hover:text-ai-text hover:bg-ai-surface2 cursor-grab active:cursor-grabbing touch-manipulation shrink-0"
+          aria-label="Arrastar para reordenar"
+        >
+          <GripVertical size={16} />
+        </button>
+        <span className="text-sm font-medium text-ai-text truncate">{delivery.name}</span>
+      </div>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <button type="button" onClick={(e) => { e.stopPropagation(); onEdit(delivery); }} className="p-1.5 rounded text-ai-subtext hover:text-ai-accent hover:bg-ai-surface2" title="Editar entrega">
+          <Pencil size={14} />
+        </button>
+        <button type="button" onClick={() => onUnlink(delivery.id)} disabled={unlinkingId === delivery.id} className="p-1.5 rounded text-ai-subtext hover:text-amber-600 hover:bg-amber-50 disabled:opacity-50" title="Desvincular do projeto">
+          {unlinkingId === delivery.id ? <Loader2 size={14} className="animate-spin" /> : <Unlink size={14} />}
+        </button>
+        <button type="button" onClick={() => onDelete(delivery.id)} disabled={deletingDeliveryId === delivery.id} className="p-1.5 rounded text-ai-subtext hover:text-red-500 hover:bg-red-50 disabled:opacity-50" title="Excluir entrega">
+          {deletingDeliveryId === delivery.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+        </button>
+      </div>
+    </li>
+  );
+}
+
 const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
   const { user } = useAuth();
   const { selectedAnalyst } = useAnalyst();
@@ -88,7 +159,12 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
   const [linkingDelivery, setLinkingDelivery] = useState(false);
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
   const [deletingDeliveryId, setDeletingDeliveryId] = useState<string | null>(null);
-  const successEvidenceInputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+  const [reordering, setReordering] = useState(false);
+  const successEvidenceInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
 
   const onToastRef = useRef(onToast);
   onToastRef.current = onToast;
@@ -332,6 +408,30 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
     }
   }, [editingProject, toast, loadDeliveriesForProject, loadDeliveries]);
 
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIndex = deliveriesForProject.findIndex((d) => d.id === active.id);
+      const newIndex = deliveriesForProject.findIndex((d) => d.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const newOrder = arrayMove(deliveriesForProject, oldIndex, newIndex);
+      const updates = newOrder.map((d, i) => ({ id: d.id, sort_order: i }));
+      setReordering(true);
+      try {
+        await reorderDeliveries(updates);
+        setDeliveriesForProject(newOrder.map((d, i) => ({ ...d, sort_order: i })));
+        toast('Ordem atualizada.', 'success');
+      } catch (e) {
+        toast(e instanceof Error ? e.message : 'Erro ao reordenar entregas.', 'error');
+        if (editingProject?.id) await loadDeliveriesForProject(editingProject.id);
+      } finally {
+        setReordering(false);
+      }
+    },
+    [deliveriesForProject, editingProject?.id, loadDeliveriesForProject, toast]
+  );
+
   const handleDeleteDelivery = useCallback(async (deliveryId: string) => {
     if (!window.confirm('Tem certeza que deseja excluir esta entrega?')) return;
     setDeletingDeliveryId(deliveryId);
@@ -534,6 +634,7 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
               <h2 className="text-lg font-bold text-ai-text flex items-center gap-2">
                 <Package size={18} />
                 Entregas do projeto
+                {reordering && <span className="text-xs font-normal text-ai-subtext">Salvando ordem…</span>}
               </h2>
 
               <div className="flex flex-wrap gap-2">
@@ -611,24 +712,30 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
               {deliveriesForProject.length === 0 ? (
                 <p className="text-sm text-ai-subtext">Nenhuma entrega vinculada. Crie uma nova ou vincule uma existente.</p>
               ) : (
-                <ul className="space-y-2">
-                  {deliveriesForProject.map((d) => (
-                    <li key={d.id} className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg border border-ai-border bg-ai-bg">
-                      <span className="text-sm font-medium text-ai-text">{d.name}</span>
-                      <div className="flex items-center gap-1">
-                        <button type="button" onClick={(e) => { e.stopPropagation(); openEditDelivery(d); }} className="p-1.5 rounded text-ai-subtext hover:text-ai-accent hover:bg-ai-surface2" title="Editar entrega">
-                          <Pencil size={14} />
-                        </button>
-                        <button type="button" onClick={() => handleUnlinkDelivery(d.id)} disabled={unlinkingId === d.id} className="p-1.5 rounded text-ai-subtext hover:text-amber-600 hover:bg-amber-50 disabled:opacity-50" title="Desvincular do projeto">
-                          {unlinkingId === d.id ? <Loader2 size={14} className="animate-spin" /> : <Unlink size={14} />}
-                        </button>
-                        <button type="button" onClick={() => handleDeleteDelivery(d.id)} disabled={deletingDeliveryId === d.id} className="p-1.5 rounded text-ai-subtext hover:text-red-500 hover:bg-red-50 disabled:opacity-50" title="Excluir entrega">
-                          {deletingDeliveryId === d.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={deliveriesForProject.map((d) => d.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <ul className="space-y-2">
+                      {deliveriesForProject.map((d) => (
+                        <SortableDeliveryItem
+                          key={d.id}
+                          delivery={d}
+                          onEdit={openEditDelivery}
+                          onUnlink={handleUnlinkDelivery}
+                          onDelete={handleDeleteDelivery}
+                          unlinkingId={unlinkingId}
+                          deletingDeliveryId={deletingDeliveryId}
+                        />
+                      ))}
+                    </ul>
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
           )}

@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, ChevronRight, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
 import { useClient } from '../contexts/ClientContext';
@@ -39,6 +39,15 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
   const [viewing, setViewing] = useState<Awaited<ReturnType<typeof fetchInitiativeDetail>> | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTask, setEditTask] = useState<InitiativeTaskRow | null>(null);
+  const [filterByResponsibleIds, setFilterByResponsibleIds] = useState<string[]>([]);
+  const [openFilterDropdown, setOpenFilterDropdown] = useState<'responsible' | null>(null);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  const toggleResponsibleFilter = useCallback((id: string) => {
+    setFilterByResponsibleIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }, []);
 
   const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const personLabel = useCallback((p: Person) => (p.preferred_name?.trim() || p.full_name || '—'), []);
@@ -68,6 +77,9 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
     setPeople(ppl);
   }, [effectiveUserId, selectedClient?.id, selectedFarm?.id]);
 
+  const onToastRef = useRef(onToast);
+  onToastRef.current = onToast;
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -75,13 +87,13 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
         setLoading(true);
         await refresh();
       } catch (e) {
-        onToast?.(e instanceof Error ? e.message : 'Erro ao carregar Kanban', 'error');
+        onToastRef.current?.(e instanceof Error ? e.message : 'Erro ao carregar Kanban', 'error');
       } finally {
         if (mounted) setLoading(false);
       }
     })();
     return () => { mounted = false; };
-  }, [refresh, onToast]);
+  }, [refresh]);
 
   // Reset selections when farm or client changes
   useEffect(() => {
@@ -89,7 +101,18 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
     setSelectedInitiativeId('');
     setSelectedMilestoneId('');
     setViewing(null);
+    setFilterByResponsibleIds([]);
+    setOpenFilterDropdown(null);
   }, [selectedFarm?.id, selectedClient?.id]);
+
+  useEffect(() => {
+    if (!openFilterDropdown) return;
+    const close = (e: MouseEvent) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) setOpenFilterDropdown(null);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [openFilterDropdown]);
 
   useEffect(() => {
     // Auto-seleciona ou valida a initiative selecionada
@@ -138,13 +161,6 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
 
   return (
     <div className="p-4 md:p-6 space-y-4">
-      {viewing && (
-        <div className="text-xs text-ai-subtext">
-          Atividade:{' '}
-          <span className="font-semibold text-ai-text">{viewing.name}{viewing.farm_id ? '' : ' [Global]'}</span>
-        </div>
-      )}
-
       {!viewing ? (
         <div className="text-sm text-ai-subtext">
           {initiativesForView.length === 0
@@ -153,8 +169,54 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
         </div>
       ) : (
         <>
+          <div className="flex items-center gap-2 mb-3" ref={filterDropdownRef}>
+            <div className="relative" data-filter-dropdown>
+              <button
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded={openFilterDropdown === 'responsible'}
+                aria-label={`Filtrar por responsável${filterByResponsibleIds.length > 0 ? ` — ${filterByResponsibleIds.length} selecionado(s)` : ''}`}
+                onClick={() => setOpenFilterDropdown(openFilterDropdown === 'responsible' ? null : 'responsible')}
+                className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs border rounded-md ${filterByResponsibleIds.length > 0 ? 'border-ai-accent bg-ai-accent/10 text-ai-accent' : 'border-ai-border bg-ai-surface text-ai-text'}`}
+              >
+                <Users size={12} />
+                Responsável{filterByResponsibleIds.length > 0 && ` (${filterByResponsibleIds.length})`}
+                <ChevronRight size={12} className={`transition-transform ${openFilterDropdown === 'responsible' ? 'rotate-90' : ''}`} />
+              </button>
+              {openFilterDropdown === 'responsible' && (
+                <div role="listbox" aria-label="Opções de responsável" className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-ai-bg border border-ai-border rounded-lg shadow-lg py-1 min-w-[180px]">
+                  {people.length === 0 ? (
+                    <p className="px-3 py-1.5 text-xs text-ai-subtext italic">Nenhuma pessoa cadastrada</p>
+                  ) : (
+                    people.map((p) => (
+                      <label key={p.id} className="flex items-center gap-2 px-3 py-1.5 text-xs text-ai-text hover:bg-ai-surface2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={filterByResponsibleIds.includes(p.id)}
+                          onChange={() => toggleResponsibleFilter(p.id)}
+                          className="rounded border-ai-border text-ai-accent w-3 h-3"
+                        />
+                        {personLabel(p)}
+                      </label>
+                    ))
+                  )}
+                  {filterByResponsibleIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setFilterByResponsibleIds([]); setOpenFilterDropdown(null); }}
+                      className="w-full text-left px-3 py-1.5 text-[10px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 border-t border-ai-border mt-1"
+                    >
+                      Limpar
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
           <InitiativeTasksKanban
             milestones={milestonesForView}
+            filterByResponsibleIds={filterByResponsibleIds}
             onToast={onToast}
             onRefresh={async () => {
               if (selectedInitiativeId) {

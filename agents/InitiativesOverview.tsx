@@ -20,8 +20,14 @@ import { useAnalyst } from '../contexts/AnalystContext';
 import { useClient } from '../contexts/ClientContext';
 import { useFarm } from '../contexts/FarmContext';
 import { fetchInitiatives, type InitiativeWithProgress } from '../lib/initiatives';
+import { fetchDeliveries, type DeliveryRow } from '../lib/deliveries';
 import DateInputBR from '../components/DateInputBR';
-import { generateInitiativesOverviewPdf, type InitiativesOverviewPdfData } from '../lib/generateInitiativesOverviewPdf';
+import {
+  generateInitiativesOverviewPdf,
+  generateInitiativesOverviewPdfAsBase64,
+  type InitiativesOverviewPdfData,
+} from '../lib/generateInitiativesOverviewPdf';
+import { saveReportPdf } from '../lib/scenarios';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -83,6 +89,8 @@ const MONTH_OPTIONS = [
   { value: '12', label: 'Dezembro' },
 ] as const;
 
+const UNLINKED_DELIVERY_KEY = '__unlinked_delivery__';
+
 // ─── Componente ─────────────────────────────────────────────────────────────
 
 const InitiativesOverview: React.FC = () => {
@@ -91,9 +99,11 @@ const InitiativesOverview: React.FC = () => {
   const { selectedClient } = useClient();
   const { selectedFarm } = useFarm();
   const [initiatives, setInitiatives] = useState<InitiativeWithProgress[]>([]);
+  const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedDeliveries, setExpandedDeliveries] = useState<Set<string>>(new Set());
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
@@ -110,24 +120,38 @@ const InitiativesOverview: React.FC = () => {
   const loadData = useCallback(async () => {
     if (!effectiveUserId) {
       setInitiatives([]);
+      setDeliveries([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const filters: { clientId?: string; farmId?: string } = {};
-      if (selectedClient?.id) filters.clientId = selectedClient.id;
-      if (selectedFarm?.id) filters.farmId = selectedFarm.id;
-      const list = await fetchInitiatives(
-        effectiveUserId,
-        Object.keys(filters).length > 0 ? filters : undefined
-      );
+      const initiativeFilters: { clientId?: string; farmId?: string } = {};
+      if (selectedClient?.id) initiativeFilters.clientId = selectedClient.id;
+      if (selectedFarm?.id) initiativeFilters.farmId = selectedFarm.id;
+
+      const deliveryFilters: { clientId?: string } = {};
+      if (selectedClient?.id) deliveryFilters.clientId = selectedClient.id;
+
+      const [list, deliveryList] = await Promise.all([
+        fetchInitiatives(
+          effectiveUserId,
+          Object.keys(initiativeFilters).length > 0 ? initiativeFilters : undefined
+        ),
+        fetchDeliveries(
+          effectiveUserId,
+          Object.keys(deliveryFilters).length > 0 ? deliveryFilters : undefined
+        ),
+      ]);
+
       setInitiatives(list);
+      setDeliveries(deliveryList);
     } catch (e) {
       console.error('[InitiativesOverview] loadData:', e);
       setError(e instanceof Error ? e.message : 'Erro ao carregar dados');
       setInitiatives([]);
+      setDeliveries([]);
     } finally {
       setLoading(false);
     }
@@ -176,12 +200,62 @@ const InitiativesOverview: React.FC = () => {
     });
   }, [initiatives, dateFrom, dateTo]);
 
+  const groupedByDelivery = useMemo(() => {
+    const grouped = new Map<string, {
+      key: string;
+      delivery: DeliveryRow | null;
+      title: string;
+      dueDate: string | null;
+      sortOrder: number;
+      initiatives: InitiativeWithProgress[];
+    }>();
+
+    deliveries.forEach((delivery, idx) => {
+      grouped.set(delivery.id, {
+        key: delivery.id,
+        delivery,
+        title: delivery.name,
+        dueDate: delivery.due_date ?? null,
+        sortOrder: typeof delivery.sort_order === 'number' ? delivery.sort_order : idx,
+        initiatives: [],
+      });
+    });
+
+    filteredInitiatives.forEach((initiative) => {
+      const deliveryId = initiative.delivery_id?.trim();
+      if (deliveryId && grouped.has(deliveryId)) {
+        grouped.get(deliveryId)?.initiatives.push(initiative);
+        return;
+      }
+
+      if (!grouped.has(UNLINKED_DELIVERY_KEY)) {
+        grouped.set(UNLINKED_DELIVERY_KEY, {
+          key: UNLINKED_DELIVERY_KEY,
+          delivery: null,
+          title: 'Sem entrega vinculada',
+          dueDate: null,
+          sortOrder: Number.MAX_SAFE_INTEGER,
+          initiatives: [],
+        });
+      }
+      grouped.get(UNLINKED_DELIVERY_KEY)?.initiatives.push(initiative);
+    });
+
+    return Array.from(grouped.values())
+      .filter((group) => group.initiatives.length > 0)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, 'pt-BR'));
+  }, [deliveries, filteredInitiatives]);
+
   const hasDateFilter = !!dateFrom || !!dateTo;
 
   // Limpar linha expandida quando o filtro muda
   useEffect(() => {
     setExpandedId(null);
   }, [dateFrom, dateTo]);
+
+  useEffect(() => {
+    setExpandedDeliveries(new Set(groupedByDelivery.map((group) => group.key)));
+  }, [groupedByDelivery]);
 
   // ─── Métricas ─────────────────────────────────────────────────────
 
@@ -224,7 +298,7 @@ const InitiativesOverview: React.FC = () => {
     return { total, byStatus, byLeader, allMilestones, avgProgress, atrasadas, milPct };
   }, [filteredInitiatives]);
 
-  const handleExportPdf = useCallback(() => {
+  const handleExportPdf = useCallback(async () => {
     if (isGeneratingPdf) return;
 
     setPdfError(null);
@@ -244,15 +318,60 @@ const InitiativesOverview: React.FC = () => {
         userName: user?.name,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
+        deliveryGroups: groupedByDelivery.map((group) => {
+          const milestonesTotal = group.initiatives.reduce((acc, init) => acc + (init.milestones || []).length, 0);
+          const milestonesCompleted = group.initiatives.reduce(
+            (acc, init) => acc + (init.milestones || []).filter((m) => m.completed === true).length,
+            0
+          );
+          const avgProgress = group.initiatives.length > 0
+            ? Math.round(group.initiatives.reduce((acc, init) => acc + (init.progress ?? 0), 0) / group.initiatives.length)
+            : 0;
+
+          return {
+            title: group.title,
+            dueDate: group.dueDate,
+            avgProgress,
+            milestonesTotal,
+            milestonesCompleted,
+            initiatives: group.initiatives,
+          };
+        }),
       };
       generateInitiativesOverviewPdf(pdfData);
+
+      if (user?.id) {
+        try {
+          const base64 = generateInitiativesOverviewPdfAsBase64(pdfData);
+          const reportName = `Visao Geral - ${new Date().toLocaleDateString('pt-BR')}`;
+          await saveReportPdf(user.id, reportName, base64, 'initiatives_overview_pdf', {
+            clientId: selectedClient?.id ?? null,
+            farmId: selectedFarm?.id ?? null,
+            farmName: selectedFarm?.name ?? null,
+          });
+        } catch (saveError) {
+          console.error('Erro ao salvar PDF em Meus Salvos:', saveError);
+        }
+      }
     } catch (e) {
       console.error('[InitiativesOverview] handleExportPdf:', e);
       setPdfError('Não foi possível gerar o PDF. Tente novamente.');
     } finally {
       setIsGeneratingPdf(false);
     }
-  }, [isGeneratingPdf, filteredInitiatives, metrics, user?.name, dateFrom, dateTo]);
+  }, [
+    isGeneratingPdf,
+    filteredInitiatives,
+    metrics,
+    user?.id,
+    user?.name,
+    dateFrom,
+    dateTo,
+    groupedByDelivery,
+    selectedClient?.id,
+    selectedFarm?.id,
+    selectedFarm?.name,
+  ]);
 
   // ─── Render: Loading / Error ──────────────────────────────────────
 
@@ -301,6 +420,8 @@ const InitiativesOverview: React.FC = () => {
   }
 
   const { total, byStatus, byLeader, allMilestones, avgProgress, atrasadas, milPct } = metrics;
+  const statusEntries = Object.entries(byStatus) as Array<[string, number]>;
+  const leaderEntries = Object.entries(byLeader) as Array<[string, { count: number; avgProgress: number }]>;
 
   // ─── Render: Relatório ────────────────────────────────────────────
 
@@ -465,7 +586,7 @@ const InitiativesOverview: React.FC = () => {
               Distribuição por Status
             </h3>
             <div className="space-y-2.5">
-              {Object.entries(byStatus)
+              {statusEntries
                 .sort(([, a], [, b]) => b - a)
                 .map(([status, count]) => (
                   <div key={status}>
@@ -493,7 +614,7 @@ const InitiativesOverview: React.FC = () => {
               Desempenho por Líder
             </h3>
             <div className="space-y-2.5">
-              {Object.entries(byLeader)
+              {leaderEntries
                 .sort(([, a], [, b]) => b.avgProgress - a.avgProgress)
                 .map(([leader, data]) => (
                   <div key={leader}>
@@ -515,186 +636,244 @@ const InitiativesOverview: React.FC = () => {
           </div>
         </div>
 
-        {/* Tabela Detalhada */}
-        <div className="bg-white border border-ai-border rounded-lg overflow-hidden">
-          <div className="px-4 py-3 border-b border-ai-border bg-ai-surface/50">
-            <h3 className="text-xs font-semibold text-ai-text uppercase tracking-wider flex items-center gap-2">
-              <Flag size={14} className="text-ai-subtext" />
-              Detalhamento por Iniciativa
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-ai-border bg-ai-surface/30">
-                  <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Iniciativa</th>
-                  <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Líder</th>
-                  <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Status</th>
-                  <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Período</th>
-                  <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider w-32">Progresso</th>
-                  <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Marcos</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredInitiatives.map((init, idx) => {
-                  const milestones = init.milestones || [];
-                  const completedMil = milestones.filter((m) => m.completed === true).length;
-                  const indicator = getScheduleIndicator(init.start_date, init.end_date);
-                  const isExpanded = expandedId === init.id;
-                  return (
-                    <React.Fragment key={init.id}>
-                      <tr
-                        role="button"
-                        tabIndex={0}
-                        aria-expanded={isExpanded}
-                        aria-label={`${init.name} — ${init.progress ?? 0}%`}
-                        onClick={() => setExpandedId(isExpanded ? null : init.id)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : init.id); } }}
-                        className={`border-b border-ai-border/50 hover:bg-ai-surface/30 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-ai-accent/30 ${idx % 2 === 0 ? '' : 'bg-ai-surface/10'} ${isExpanded ? 'bg-indigo-50/50' : ''}`}
-                      >
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-1.5">
-                            <ChevronDown
-                              size={12}
-                              className={`shrink-0 text-ai-subtext transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
-                            />
-                            <div className="min-w-0">
-                              <div className="font-medium text-ai-text max-w-[200px] truncate" title={init.name}>
-                                {init.name}
-                              </div>
-                              {init.tags && (
-                                <div className="text-[10px] text-ai-subtext mt-0.5 truncate max-w-[200px]" title={init.tags}>
-                                  {init.tags}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-ai-text">{init.leader || '—'}</td>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className={`w-2 h-2 rounded-full shrink-0 ${indicator.colorClass}`}
-                              title={indicator.label}
-                            />
-                            <span
-                              className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${statusVariant(init.status ?? '')}`}
-                            >
-                              {init.status || 'Não Iniciado'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 whitespace-nowrap">
-                          <span
-                            className="inline-flex items-center tabular-nums text-[11px] font-semibold text-ai-text bg-ai-surface/60 border border-ai-border/60 px-2 py-0.5 rounded-md"
-                            title={`Cronograma: ${formatDate(init.start_date)} - ${formatDate(init.end_date)}`}
-                          >
-                            {formatDate(init.start_date)} - {formatDate(init.end_date)}
+        {/* Entregas com iniciativas */}
+        <div className="space-y-3">
+          {groupedByDelivery.map((group) => {
+            const isDeliveryExpanded = expandedDeliveries.has(group.key);
+            const initiativesCount = group.initiatives.length;
+            const deliveryAvgProgress = initiativesCount > 0
+              ? Math.round(group.initiatives.reduce((acc, init) => acc + (init.progress ?? 0), 0) / initiativesCount)
+              : 0;
+            const deliveryMilestones = group.initiatives.reduce(
+              (acc, init) => {
+                const milestones = init.milestones || [];
+                acc.total += milestones.length;
+                acc.completed += milestones.filter((m) => m.completed === true).length;
+                return acc;
+              },
+              { total: 0, completed: 0 }
+            );
+
+            return (
+              <div key={group.key} className="bg-white border border-ai-border rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setExpandedDeliveries((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(group.key)) next.delete(group.key);
+                      else next.add(group.key);
+                      return next;
+                    });
+                  }}
+                  className="w-full px-4 py-3 border-b border-ai-border bg-ai-surface/40 hover:bg-ai-surface/60 transition-colors text-left"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <ChevronDown
+                          size={14}
+                          className={`shrink-0 text-ai-subtext transition-transform ${isDeliveryExpanded ? 'rotate-0' : '-rotate-90'}`}
+                        />
+                        <Flag size={14} className="text-ai-subtext shrink-0" />
+                        <span className="text-sm font-semibold text-ai-text truncate" title={group.title}>
+                          {group.title}
+                        </span>
+                        {group.dueDate && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-ai-bg border border-ai-border text-[10px] text-ai-subtext">
+                            <Calendar size={10} />
+                            Prazo {formatDate(group.dueDate)}
                           </span>
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-gray-100 rounded-full h-2 min-w-[60px]">
-                              <div
-                                className={`h-2 rounded-full transition-all ${
-                                  (init.progress ?? 0) >= 100
-                                    ? 'bg-green-500'
-                                    : (init.progress ?? 0) >= 50
-                                      ? 'bg-indigo-500'
-                                      : (init.progress ?? 0) > 0
-                                        ? 'bg-amber-500'
-                                        : 'bg-gray-300'
-                                }`}
-                                style={{ width: `${Math.min(100, init.progress ?? 0)}%` }}
-                              />
-                            </div>
-                            <span className="font-semibold text-ai-text tabular-nums w-8 text-right">
-                              {init.progress ?? 0}%
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2">
-                          <span className="text-ai-text font-medium">{completedMil}</span>
-                          <span className="text-ai-subtext">/{milestones.length}</span>
-                          {milestones.length > 0 && (
-                            <div className="flex gap-0.5 mt-1">
-                              {milestones.map((m) => (
-                                <div
-                                  key={m.id}
-                                  className={`h-1.5 rounded-full flex-1 ${m.completed ? 'bg-green-500' : 'bg-gray-200'}`}
-                                  title={`${m.title} (${m.percent}%) — ${m.completed ? 'Concluído' : 'Pendente'}`}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
+                        )}
+                      </div>
+                      <div className="mt-2 flex items-center gap-3 text-[10px] text-ai-subtext">
+                        <span>{initiativesCount} iniciativa(s)</span>
+                        <span>{deliveryMilestones.completed}/{deliveryMilestones.total} marcos</span>
+                        <span>{deliveryAvgProgress}% progresso médio</span>
+                      </div>
+                    </div>
+                    <div className="w-24 shrink-0">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="bg-indigo-500 h-2 rounded-full transition-all" style={{ width: `${deliveryAvgProgress}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </button>
 
-                      {/* Linha expandida — Descrição + Marcos */}
-                      {isExpanded && (
-                        <tr className="bg-indigo-50/30">
-                          <td colSpan={6} className="px-4 py-3">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {/* Descrição */}
-                              <div>
-                                <h4 className="text-[10px] font-semibold text-ai-subtext uppercase tracking-wider mb-1.5">Descrição</h4>
-                                <p className="text-xs text-ai-text leading-relaxed">
-                                  {init.description?.trim() || 'Sem descrição cadastrada.'}
-                                </p>
-                                {init.tags && (
-                                  <div className="flex flex-wrap gap-1 mt-2">
-                                    {init.tags.split(/\s+/).filter((t) => t.startsWith('#') && t.length > 1).map((tag) => (
-                                      <span key={tag} className="inline-flex px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-medium">
-                                        {tag}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Marcos */}
-                              <div>
-                                <h4 className="text-[10px] font-semibold text-ai-subtext uppercase tracking-wider mb-1.5">
-                                  Marcos ({completedMil}/{milestones.length})
-                                </h4>
-                                {milestones.length === 0 ? (
-                                  <p className="text-xs text-ai-subtext italic">Nenhum marco cadastrado.</p>
-                                ) : (
-                                  <div className="space-y-1.5">
-                                    {milestones.map((m) => (
-                                      <div key={m.id} className="flex items-start gap-2">
-                                        <div className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center mt-0.5 ${m.completed ? 'bg-green-500' : 'bg-gray-200'}`}>
-                                          {m.completed && <CheckCircle size={10} className="text-white" />}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center justify-between gap-2">
-                                            <span className={`text-xs font-medium ${m.completed ? 'text-green-700 line-through' : 'text-ai-text'}`}>
-                                              {m.title}
-                                            </span>
-                                            <span className="text-[10px] text-ai-subtext shrink-0 tabular-nums">{m.percent}%</span>
-                                          </div>
-                                          {m.due_date && (
-                                            <div className="flex items-center gap-1 mt-0.5">
-                                              <Calendar size={9} className="text-ai-subtext" />
-                                              <span className="text-[10px] text-ai-subtext">{formatDate(m.due_date)}</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
+                {isDeliveryExpanded && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-ai-border bg-ai-surface/30">
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Iniciativa</th>
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Líder</th>
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Status</th>
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Período</th>
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider w-32">Progresso</th>
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Marcos</th>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </thead>
+                      <tbody>
+                        {group.initiatives.map((init, idx) => {
+                          const milestones = init.milestones || [];
+                          const completedMil = milestones.filter((m) => m.completed === true).length;
+                          const indicator = getScheduleIndicator(init.start_date, init.end_date);
+                          const isExpanded = expandedId === init.id;
+                          return (
+                            <React.Fragment key={init.id}>
+                              <tr
+                                role="button"
+                                tabIndex={0}
+                                aria-expanded={isExpanded}
+                                aria-label={`${init.name} — ${init.progress ?? 0}%`}
+                                onClick={() => setExpandedId(isExpanded ? null : init.id)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : init.id); } }}
+                                className={`border-b border-ai-border/50 hover:bg-ai-surface/30 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-ai-accent/30 ${idx % 2 === 0 ? '' : 'bg-ai-surface/10'} ${isExpanded ? 'bg-indigo-50/50' : ''}`}
+                              >
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <ChevronDown
+                                      size={12}
+                                      className={`shrink-0 text-ai-subtext transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
+                                    />
+                                    <div className="min-w-0">
+                                      <div className="font-medium text-ai-text max-w-[200px] truncate" title={init.name}>
+                                        {init.name}
+                                      </div>
+                                      {init.tags && (
+                                        <div className="text-[10px] text-ai-subtext mt-0.5 truncate max-w-[200px]" title={init.tags}>
+                                          {init.tags}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 text-ai-text">{init.leader || '—'}</td>
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      className={`w-2 h-2 rounded-full shrink-0 ${indicator.colorClass}`}
+                                      title={indicator.label}
+                                    />
+                                    <span
+                                      className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase ${statusVariant(init.status ?? '')}`}
+                                    >
+                                      {init.status || 'Não Iniciado'}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 whitespace-nowrap">
+                                  <span
+                                    className="inline-flex items-center tabular-nums text-[11px] font-semibold text-ai-text bg-ai-surface/60 border border-ai-border/60 px-2 py-0.5 rounded-md"
+                                    title={`Cronograma: ${formatDate(init.start_date)} - ${formatDate(init.end_date)}`}
+                                  >
+                                    {formatDate(init.start_date)} - {formatDate(init.end_date)}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 bg-gray-100 rounded-full h-2 min-w-[60px]">
+                                      <div
+                                        className={`h-2 rounded-full transition-all ${
+                                          (init.progress ?? 0) >= 100
+                                            ? 'bg-green-500'
+                                            : (init.progress ?? 0) >= 50
+                                              ? 'bg-indigo-500'
+                                              : (init.progress ?? 0) > 0
+                                                ? 'bg-amber-500'
+                                                : 'bg-gray-300'
+                                        }`}
+                                        style={{ width: `${Math.min(100, init.progress ?? 0)}%` }}
+                                      />
+                                    </div>
+                                    <span className="font-semibold text-ai-text tabular-nums w-8 text-right">
+                                      {init.progress ?? 0}%
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <span className="text-ai-text font-medium">{completedMil}</span>
+                                  <span className="text-ai-subtext">/{milestones.length}</span>
+                                  {milestones.length > 0 && (
+                                    <div className="flex gap-0.5 mt-1">
+                                      {milestones.map((m) => (
+                                        <div
+                                          key={m.id}
+                                          className={`h-1.5 rounded-full flex-1 ${m.completed ? 'bg-green-500' : 'bg-gray-200'}`}
+                                          title={`${m.title} (${m.percent}%) — ${m.completed ? 'Concluído' : 'Pendente'}`}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+
+                              {isExpanded && (
+                                <tr className="bg-indigo-50/30">
+                                  <td colSpan={6} className="px-4 py-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div>
+                                        <h4 className="text-[10px] font-semibold text-ai-subtext uppercase tracking-wider mb-1.5">Descrição</h4>
+                                        <p className="text-xs text-ai-text leading-relaxed">
+                                          {init.description?.trim() || 'Sem descrição cadastrada.'}
+                                        </p>
+                                        {init.tags && (
+                                          <div className="flex flex-wrap gap-1 mt-2">
+                                            {init.tags.split(/\s+/).filter((t) => t.startsWith('#') && t.length > 1).map((tag) => (
+                                              <span key={tag} className="inline-flex px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-medium">
+                                                {tag}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <div>
+                                        <h4 className="text-[10px] font-semibold text-ai-subtext uppercase tracking-wider mb-1.5">
+                                          Marcos ({completedMil}/{milestones.length})
+                                        </h4>
+                                        {milestones.length === 0 ? (
+                                          <p className="text-xs text-ai-subtext italic">Nenhum marco cadastrado.</p>
+                                        ) : (
+                                          <div className="space-y-1.5">
+                                            {milestones.map((m) => (
+                                              <div key={m.id} className="flex items-start gap-2">
+                                                <div className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center mt-0.5 ${m.completed ? 'bg-green-500' : 'bg-gray-200'}`}>
+                                                  {m.completed && <CheckCircle size={10} className="text-white" />}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="flex items-center justify-between gap-2">
+                                                    <span className={`text-xs font-medium ${m.completed ? 'text-green-700 line-through' : 'text-ai-text'}`}>
+                                                      {m.title}
+                                                    </span>
+                                                    <span className="text-[10px] text-ai-subtext shrink-0 tabular-nums">{m.percent}%</span>
+                                                  </div>
+                                                  {m.due_date && (
+                                                    <div className="flex items-center gap-1 mt-0.5">
+                                                      <Calendar size={9} className="text-ai-subtext" />
+                                                      <span className="text-[10px] text-ai-subtext">{formatDate(m.due_date)}</span>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
