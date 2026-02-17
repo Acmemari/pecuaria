@@ -10,17 +10,9 @@ import { GoogleGenAI } from '@google/genai';
 const MODEL = 'gemini-2.5-flash';
 const GEMINI_TIMEOUT_MS = 30_000;
 
-const ALLOWED_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-];
-
-function setCors(req: VercelRequest, res: VercelResponse) {
-  const origin = req.headers?.origin;
-  if (origin && ALLOWED_ORIGINS.some((o) => origin.startsWith(o))) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+function setCors(res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
@@ -38,7 +30,7 @@ function trimToCompleteSentence(text: string, maxLen: number): string {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  setCors(req, res);
+  setCors(res);
 
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
