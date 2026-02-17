@@ -82,23 +82,29 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
   }, [showCal]);
 
   const commitTyped = useCallback((s: string) => {
-    const d = parseBR(s);
+    let d = parseBR(s);
     if (d) {
+      // Restringir ao intervalo min/max
+      if (minD && d < minD) d = minD;
+      if (maxD && d > maxD) d = maxD;
       onChange(toIso(d));
       setText(fmtBR(d));
     }
-  }, [onChange]);
+  }, [onChange, minD, maxD]);
 
   const handleBlur = useCallback(() => {
     if (!text.trim()) { onChange(''); return; }
-    const d = parseBR(text);
+    let d = parseBR(text);
     if (d) {
+      // Restringir ao intervalo min/max
+      if (minD && d < minD) d = minD;
+      if (maxD && d > maxD) d = maxD;
       onChange(toIso(d));
       setText(fmtBR(d));
     } else {
       setText(fmtBR(selected));   // reverte
     }
-  }, [text, selected, onChange]);
+  }, [text, selected, onChange, minD, maxD]);
 
   return (
     <div ref={wrapRef} className={`relative ${className}`}>

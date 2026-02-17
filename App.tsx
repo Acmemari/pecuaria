@@ -11,7 +11,7 @@ import { AnalystProvider } from './contexts/AnalystContext';
 import { FarmProvider, useFarm } from './contexts/FarmContext';
 import AnalystHeader from './components/AnalystHeader';
 import { Agent } from './types';
-import { Menu, Construction, Loader2, Grid3X3, ArrowLeftRight, ArrowLeft, Plus } from 'lucide-react';
+import { Menu, Construction, Loader2, ArrowLeft, Plus } from 'lucide-react';
 import { ToastContainer, Toast } from './components/Toast';
 
 // Lazy load AgentHub
@@ -24,6 +24,8 @@ const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
 // Lazy load agents for code splitting
 const CattleProfitCalculator = lazy(() => import('./agents/CattleProfitCalculator'));
 const Comparator = lazy(() => import('./agents/Comparator'));
+const CalculadorasDesktop = lazy(() => import('./agents/CalculadorasDesktop'));
+const CadastrosDesktop = lazy(() => import('./agents/CadastrosDesktop'));
 const ChatAgent = lazy(() => import('./agents/ChatAgent'));
 const AdminDashboard = lazy(() => import('./agents/AdminDashboard'));
 const MarketTrends = lazy(() => import('./agents/MarketTrends'));
@@ -38,6 +40,7 @@ const ClientDocuments = lazy(() => import('./agents/ClientDocuments'));
 const InitiativesOverview = lazy(() => import('./agents/InitiativesOverview'));
 const InitiativesActivities = lazy(() => import('./agents/InitiativesActivities'));
 const PeopleManagement = lazy(() => import('./agents/PeopleManagement'));
+const DeliveryManagement = lazy(() => import('./agents/DeliveryManagement'));
 const CalendarAgent = lazy(() => import('./agents/CalendarAgent'));
 const SupportTicketsDashboard = lazy(() => import('./agents/SupportTicketsDashboard'));
 
@@ -52,7 +55,8 @@ const AppContent: React.FC = () => {
   const { country } = useLocation();
   const { selectedFarm, setSelectedFarm } = useFarm();
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
-  const [viewMode, setViewMode] = useState<'simulator' | 'comparator'>('simulator');
+  const [viewMode, setViewMode] = useState<'desktop' | 'simulator' | 'comparator' | 'agile-planning'>('desktop');
+  const [cadastroView, setCadastroView] = useState<'desktop' | 'farm' | 'client' | 'people' | 'delivery'>('desktop');
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
   const [comparatorScenarios, setComparatorScenarios] = useState<any>(null);
@@ -141,11 +145,11 @@ const AppContent: React.FC = () => {
 
     try {
       // Define all potential agents
-      const farmManagement: Agent = {
-        id: 'farm-management',
-        name: 'Cadastro de Fazendas',
-        description: 'Gerenciar propriedades rurais.',
-        icon: 'farm',
+      const cadastrosAgent: Agent = {
+        id: 'cadastros',
+        name: 'Cadastros',
+        description: 'Fazendas, clientes e pessoas.',
+        icon: 'folder-plus',
         category: 'zootecnico',
         status: 'active'
       };
@@ -157,15 +161,6 @@ const AppContent: React.FC = () => {
         icon: 'calculator',
         category: 'financeiro',
         status: checkPermission('Calculadora') ? 'active' : 'locked'
-      };
-
-      const agilePlanning: Agent = {
-        id: 'agile-planning',
-        name: 'Planejamento Ágil',
-        description: 'Planejamento estratégico vinculado a cliente e fazenda.',
-        icon: 'target',
-        category: 'zootecnico',
-        status: 'active'
       };
 
       const questionnairesAgent: Agent = {
@@ -279,30 +274,17 @@ const AppContent: React.FC = () => {
       // Build the ordered list
       const orderedList: Agent[] = [];
 
-      // 1. Cadastro de Fazendas
-      orderedList.push(farmManagement);
+      // 1. Cadastros (área de trabalho com cards: Fazendas, Clientes, Pessoas)
+      orderedList.push(cadastrosAgent);
 
-      // 2. Calculadoras
+      // 2. Calculadoras (inclui Rentabilidade na Engorda, Comparador e Planejamento Ágil)
       orderedList.push(cattleProfit);
 
-      // 3. Planejamento Ágil (Admin/Analyst)
-      if (user?.role === 'admin' || user?.qualification === 'analista') {
-        orderedList.push(agilePlanning);
-      }
-
-      // 4. Questionários
+      // 3. Questionários
       orderedList.push(questionnairesAgent);
 
-      // 5. Documentos
+      // 4. Documentos
       orderedList.push(clientDocuments);
-
-      // 6. Gestão de Clientes (Admin/Analyst)
-      if (user?.role === 'admin' || user?.qualification === 'analista') {
-        orderedList.push(clientManagement);
-      }
-
-      // 7. Cadastro de Pessoas
-      orderedList.push(peopleManagement);
 
       // 8. Calendário
       orderedList.push(calendarAgent);
@@ -503,6 +485,29 @@ const AppContent: React.FC = () => {
 
     switch (activeAgentId) {
       case 'cattle-profit':
+        if (viewMode === 'desktop') {
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <CalculadorasDesktop
+                onSelectSimulator={() => setViewMode('simulator')}
+                onSelectComparador={() => setViewMode('comparator')}
+                onSelectPlanejamentoAgil={() => setViewMode('agile-planning')}
+                showPlanejamentoAgil={user?.role === 'admin' || user?.qualification === 'analista'}
+              />
+            </Suspense>
+          );
+        }
+        if (viewMode === 'agile-planning') {
+          return (user?.role === 'admin' || user?.qualification === 'analista') ? (
+            <Suspense fallback={<LoadingFallback />}>
+              <AgilePlanning
+                onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+              />
+            </Suspense>
+          ) : (
+            <div className="p-8 text-ai-subtext">Acesso negado.</div>
+          );
+        }
         if (viewMode === 'comparator') {
           return (
             <Suspense fallback={<LoadingFallback />}>
@@ -565,10 +570,52 @@ const AppContent: React.FC = () => {
             <MarketTrends />
           </Suspense>
         );
-      case 'farm-management':
+      case 'cadastros':
+        if (cadastroView === 'desktop') {
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <CadastrosDesktop
+                onSelectFazendas={() => setCadastroView('farm')}
+                onSelectClientes={() => setCadastroView('client')}
+                onSelectPessoas={() => setCadastroView('people')}
+                onSelectEntregas={() => setCadastroView('delivery')}
+                showClientes={user?.role === 'admin' || user?.qualification === 'analista'}
+              />
+            </Suspense>
+          );
+        }
+        if (cadastroView === 'farm') {
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <FarmManagement
+                onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+              />
+            </Suspense>
+          );
+        }
+        if (cadastroView === 'client') {
+          return (user?.role === 'admin' || user?.qualification === 'analista') ? (
+            <Suspense fallback={<LoadingFallback />}>
+              <ClientManagement
+                onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+              />
+            </Suspense>
+          ) : (
+            <div className="p-8 text-ai-subtext">Acesso negado.</div>
+          );
+        }
+        if (cadastroView === 'delivery') {
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <DeliveryManagement
+                onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+              />
+            </Suspense>
+          );
+        }
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <FarmManagement
+            <PeopleManagement
               onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
             />
           </Suspense>
@@ -596,24 +643,6 @@ const AppContent: React.FC = () => {
           </Suspense>
         ) : (
           <div>Acesso negado.</div>
-        );
-      case 'client-management':
-        return (user.role === 'admin' || user.qualification === 'analista') ? (
-          <Suspense fallback={<LoadingFallback />}>
-            <ClientManagement
-              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
-            />
-          </Suspense>
-        ) : (
-          <div>Acesso negado.</div>
-        );
-      case 'people-management':
-        return (
-          <Suspense fallback={<LoadingFallback />}>
-            <PeopleManagement
-              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
-            />
-          </Suspense>
         );
       case 'analyst-management':
         return user.role === 'admin' ? (
@@ -700,7 +729,11 @@ const AppContent: React.FC = () => {
       <Sidebar
         agents={agents}
         activeAgentId={activeAgentId}
-        onSelectAgent={setActiveAgentId}
+        onSelectAgent={(id) => {
+          if (id === 'cattle-profit') setViewMode('desktop');
+          if (id === 'cadastros') setCadastroView('desktop');
+          setActiveAgentId(id);
+        }}
         isOpen={isSidebarOpen}
         toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         user={user}
@@ -733,7 +766,7 @@ const AppContent: React.FC = () => {
 
           <div className="flex items-center space-x-2 shrink-0">
             {/* Botão Voltar para lista quando estiver no formulário de fazendas */}
-            {activeAgentId === 'farm-management' && isFarmFormView && (
+            {((activeAgentId === 'cadastros' && cadastroView === 'farm') || activeAgentId === 'farm-management') && isFarmFormView && (
               <button
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent('farmCancelForm'));
@@ -745,7 +778,7 @@ const AppContent: React.FC = () => {
               </button>
             )}
             {/* Botão Voltar para lista quando estiver no formulário de clientes */}
-            {activeAgentId === 'client-management' && isClientFormView && (
+            {((activeAgentId === 'cadastros' && cadastroView === 'client') || activeAgentId === 'client-management') && isClientFormView && (
               <button
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent('clientCancelForm'));
@@ -757,7 +790,7 @@ const AppContent: React.FC = () => {
               </button>
             )}
             {/* Botão Voltar para lista quando estiver no formulário de pessoas */}
-            {activeAgentId === 'people-management' && isPeopleFormView && (
+            {((activeAgentId === 'cadastros' && cadastroView === 'people') || activeAgentId === 'people-management') && isPeopleFormView && (
               <button
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent('peopleCancelForm'));
@@ -769,7 +802,7 @@ const AppContent: React.FC = () => {
               </button>
             )}
             {/* Botão Novo Cliente quando estiver na lista de clientes */}
-            {activeAgentId === 'client-management' && !isClientFormView && (
+            {((activeAgentId === 'cadastros' && cadastroView === 'client') || activeAgentId === 'client-management') && !isClientFormView && (
               <button
                 onClick={() => {
                   window.dispatchEvent(new CustomEvent('clientNewClient'));
@@ -780,31 +813,23 @@ const AppContent: React.FC = () => {
                 Novo Cliente
               </button>
             )}
-            {activeAgentId === 'cattle-profit' && (
-              <div className="flex items-center gap-2 mr-2 md:mr-4">
-                <button
-                  onClick={() => setViewMode('simulator')}
-                  className={`px-2 md:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${viewMode === 'simulator'
-                    ? 'bg-ai-surface text-ai-text'
-                    : 'bg-white border border-ai-border text-ai-subtext hover:bg-ai-surface'
-                    }`}
-                  title="Simulador"
-                >
-                  <Grid3X3 size={14} />
-                  <span className="hidden sm:inline">Simulador</span>
-                </button>
-                <button
-                  onClick={() => setViewMode('comparator')}
-                  className={`px-2 md:px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${viewMode === 'comparator'
-                    ? 'bg-ai-accent text-white'
-                    : 'bg-white border border-ai-border text-ai-subtext hover:bg-ai-surface'
-                    }`}
-                  title="Comparador"
-                >
-                  <ArrowLeftRight size={14} />
-                  <span className="hidden sm:inline">Comparador</span>
-                </button>
-              </div>
+            {activeAgentId === 'cattle-profit' && viewMode !== 'desktop' && (
+              <button
+                onClick={() => setViewMode('desktop')}
+                className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
+              >
+                <ArrowLeft size={16} />
+                Voltar
+              </button>
+            )}
+            {activeAgentId === 'cadastros' && cadastroView !== 'desktop' && (
+              <button
+                onClick={() => setCadastroView('desktop')}
+                className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
+              >
+                <ArrowLeft size={16} />
+                Voltar
+              </button>
             )}
           </div>
         </header>

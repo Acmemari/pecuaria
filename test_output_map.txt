@@ -1,0 +1,81 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90mC:/pecuaria[39m
+
+[90mstderr[2m | src/test/lib/auth/mapUserProfile.test.ts[2m > [22m[2mmapUserProfile[2m > [22m[2mshould return null for null/undefined profile
+[22m[39m[mapUserProfile] Invalid profile: profile is null, undefined, or not an object [1mnull[22m
+[mapUserProfile] Invalid profile: profile is null, undefined, or not an object [90mundefined[39m
+
+ [31m❯[39m src/test/lib/auth/mapUserProfile.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 14[2mms[22m[39m
+     [32m✓[39m should return null for null/undefined profile[32m 2[2mms[22m[39m
+[31m     [31m×[31m should map profile correctly[39m[32m 8[2mms[22m[39m
+[31m     [31m×[31m should handle missing optional fields[39m[32m 1[2mms[22m[39m
+     [32m✓[39m should convert last_login to ISO string[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/test/lib/auth/mapUserProfile.test.ts[2m > [22mmapUserProfile[2m > [22mshould map profile correctly
+[31m[1mAssertionError[22m: expected { id: 'user-123', …(10) } to deeply equal { id: 'user-123', …(8) }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[33m@@ -3,9 +3,11 @@[39m
+[2m    "email": "test@example.com",[22m
+[2m    "id": "user-123",[22m
+[2m    "lastLogin": "2024-01-01T00:00:00.000Z",[22m
+[2m    "name": "Test User",[22m
+[2m    "organizationId": "org-123",[22m
+[31m+   "phone": undefined,[39m
+[2m    "plan": "pro",[22m
+[31m+   "qualification": "visitante",[39m
+[2m    "role": "client",[22m
+[2m    "status": "active",[22m
+[2m  }[22m
+
+[36m [2m❯[22m src/test/lib/auth/mapUserProfile.test.ts:[2m24:20[22m[39m
+    [90m 22| [39m
+    [90m 23| [39m    [35mconst[39m result [33m=[39m [34mmapUserProfile[39m(profile)[33m;[39m
+    [90m 24| [39m    [34mexpect[39m(result)[33m.[39m[34mtoEqual[39m({
+    [90m   | [39m                   [31m^[39m
+    [90m 25| [39m      id[33m:[39m [32m'user-123'[39m[33m,[39m
+    [90m 26| [39m      name[33m:[39m [32m'Test User'[39m[33m,[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/test/lib/auth/mapUserProfile.test.ts[2m > [22mmapUserProfile[2m > [22mshould handle missing optional fields
+[31m[1mAssertionError[22m: expected { id: 'user-123', …(10) } to deeply equal { id: 'user-123', …(8) }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "avatar": undefined,[39m
+[31m+   "avatar": "T",[39m
+[2m    "email": "test@example.com",[22m
+[2m    "id": "user-123",[22m
+[2m    "lastLogin": undefined,[22m
+[2m    "name": "Test User",[22m
+[2m    "organizationId": undefined,[22m
+[31m+   "phone": undefined,[39m
+[2m    "plan": undefined,[22m
+[31m+   "qualification": "visitante",[39m
+[2m    "role": "admin",[22m
+[2m    "status": undefined,[22m
+[2m  }[22m
+
+[36m [2m❯[22m src/test/lib/auth/mapUserProfile.test.ts:[2m46:20[22m[39m
+    [90m 44| [39m
+    [90m 45| [39m    [35mconst[39m result [33m=[39m [34mmapUserProfile[39m(profile)[33m;[39m
+    [90m 46| [39m    [34mexpect[39m(result)[33m.[39m[34mtoEqual[39m({
+    [90m   | [39m                   [31m^[39m
+    [90m 47| [39m      id[33m:[39m [32m'user-123'[39m[33m,[39m
+    [90m 48| [39m      name[33m:[39m [32m'Test User'[39m[33m,[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 06:27:26
+[2m   Duration [22m 1.35s[2m (transform 66ms, setup 161ms, import 66ms, tests 14ms, environment 861ms)[22m
+

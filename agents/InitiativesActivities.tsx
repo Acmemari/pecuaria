@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus,
   ChevronRight,
+  Building2,
   FolderOpen,
   X,
   Users,
@@ -12,10 +13,14 @@ import {
   Pencil,
   Trash2,
   CheckCircle,
+  CheckSquare,
+  Square,
   User,
   AlertTriangle,
   Calendar,
   Filter,
+  BarChart3,
+  List,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
@@ -29,12 +34,22 @@ import {
   fetchInitiativeDetail,
   toggleMilestoneCompleted,
   deleteInitiative,
+  createTask,
+  updateTask,
+  deleteTask,
+  toggleTaskCompleted,
   type InitiativeWithProgress,
   type InitiativeMilestoneRow,
+  type InitiativeTaskRow,
 } from '../lib/initiatives';
 import { fetchPeople, type Person } from '../lib/people';
+import { fetchDeliveries, type DeliveryRow } from '../lib/deliveries';
+import { supabase } from '../lib/supabase';
+import { Farm } from '../types';
 import { EvidenciaEntregaModal } from '../components/EvidenciaEntregaModal';
 import DateInputBR from '../components/DateInputBR';
+import InitiativesGantt from '../components/InitiativesGantt';
+import InitiativeTasksKanban from '../components/InitiativeTasksKanban';
 
 const STATUS_OPTIONS = ['Não Iniciado', 'Em Andamento', 'Suspenso', 'Concluído', 'Atrasado'];
 
@@ -44,6 +59,21 @@ interface MilestoneRow {
   percent: number;
   dueDate: string;
   completed?: boolean;
+}
+
+interface TaskCreateDraftRow {
+  title: string;
+  description: string;
+  activityDate: string; // YYYY-MM-DD (base para cálculo)
+  days: string; // número em string para input controlado
+  responsiblePersonId: string;
+}
+
+interface TaskEditDraftRow {
+  title: string;
+  description: string;
+  dueDate: string; // YYYY-MM-DD
+  responsiblePersonId: string;
 }
 
 interface InitiativesActivitiesProps {
@@ -88,7 +118,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     Awaited<ReturnType<typeof fetchInitiativeDetail>> | null
   >(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [activeTab, setActiveTab] = useState<'geral' | 'time'>('geral');
+  const [activeTab, setActiveTab] = useState<'geral' | 'kanban' | 'time'>('geral');
   const [togglingMilestone, setTogglingMilestone] = useState<string | null>(null);
   const [deletingInitiativeId, setDeletingInitiativeId] = useState<string | null>(null);
   const [viewingEvidenceMilestone, setViewingEvidenceMilestone] = useState<{
@@ -96,13 +126,28 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     initiativeName: string;
   } | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
+  const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
   const [initiativeToDelete, setInitiativeToDelete] = useState<InitiativeWithProgress | null>(null);
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
+  const [taskDrafts, setTaskDrafts] = useState<Record<string, TaskCreateDraftRow>>({});
+  const [taskCreatorOpen, setTaskCreatorOpen] = useState<Record<string, boolean>>({});
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [taskEditDraft, setTaskEditDraft] = useState<TaskEditDraftRow>({
+    title: '',
+    description: '',
+    dueDate: '',
+    responsiblePersonId: '',
+  });
+  const [savingTaskForMilestone, setSavingTaskForMilestone] = useState<string | null>(null);
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [filterLeader, setFilterLeader] = useState<string[]>([]);
   const [filterTag, setFilterTag] = useState('');
   const [openFilterDropdown, setOpenFilterDropdown] = useState<'status' | 'leader' | null>(null);
+  const [viewMode, setViewMode] = useState<'lista' | 'gantt'>('lista');
+  const [clientFarms, setClientFarms] = useState<Farm[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     tags: '',
@@ -110,6 +155,8 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     startDate: '',
     endDate: '',
     status: 'Não Iniciado',
+    deliveryId: '',
+    farmId: '' as string, // '' = todas as fazendas (global)
     leaderId: '' as string,
     teamIds: [] as string[],
     milestones: [{ id: crypto.randomUUID(), title: '', percent: 0, dueDate: '' }] as MilestoneRow[],
@@ -124,6 +171,8 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       startDate: '',
       endDate: '',
       status: 'Não Iniciado',
+      deliveryId: '',
+      farmId: '',
       leaderId: '',
       teamIds: [],
       milestones: [{ id: crypto.randomUUID(), title: '', percent: 0, dueDate: '' }],
@@ -167,10 +216,213 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
 
   const closeGestaoView = () => setViewingInitiative(null);
 
+  const refreshViewingInitiative = useCallback(async () => {
+    if (!viewingInitiative) return;
+    const updated = await fetchInitiativeDetail(viewingInitiative.id);
+    setViewingInitiative(updated);
+  }, [viewingInitiative]);
+
   const openEditModalFromGestao = async () => {
     if (!viewingInitiative) return;
     await openEditModal(viewingInitiative);
     closeGestaoView();
+  };
+
+  const getTaskDraft = useCallback(
+    (milestoneId: string): TaskCreateDraftRow =>
+      taskDrafts[milestoneId] || { title: '', description: '', activityDate: '', days: '', responsiblePersonId: '' },
+    [taskDrafts]
+  );
+
+  const updateTaskDraft = (milestoneId: string, field: keyof TaskCreateDraftRow, value: string) => {
+    setTaskDrafts((prev) => ({
+      ...prev,
+      [milestoneId]: {
+        ...(prev[milestoneId] || { title: '', description: '', activityDate: '', days: '', responsiblePersonId: '' }),
+        [field]: value,
+      },
+    }));
+  };
+
+  const toLocalIso = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const addDaysIso = (iso: string, days: number): string => {
+    try {
+      if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+      const dt = new Date(`${iso}T00:00:00`);
+      if (Number.isNaN(dt.getTime())) return '';
+      dt.setDate(dt.getDate() + (Number.isFinite(days) ? days : 0));
+      return toLocalIso(dt);
+    } catch {
+      return '';
+    }
+  };
+
+  const todayIso = useMemo(() => toLocalIso(new Date()), []);
+
+  const peopleById = useMemo(() => {
+    const m = new Map<string, Person>();
+    for (const p of people) m.set(p.id, p);
+    return m;
+  }, [people]);
+
+  const personLabel = useCallback((p: Person) => (p.preferred_name?.trim() || p.full_name || '—'), []);
+  const personOptionLabel = useCallback((p: Person) => {
+    const label = personLabel(p);
+    const role = p.job_role?.trim();
+    return role ? `${label} — ${role}` : label;
+  }, [personLabel]);
+
+  const getComputedDueDateForMilestone = useCallback((milestoneId: string) => {
+    const draft = getTaskDraft(milestoneId);
+    const baseDate = draft.activityDate || todayIso;
+    const daysNum = Math.max(0, Number.parseInt(draft.days || '0', 10) || 0);
+    return addDaysIso(baseDate, daysNum);
+  }, [getTaskDraft, todayIso]);
+
+  const openTaskCreatorForMilestone = (milestoneId: string) => {
+    // Fecha qualquer outro aberto e abre somente este
+    setTaskCreatorOpen(() => ({ [milestoneId]: true }));
+    // Prefill para UX (evita campos vazios)
+    setTaskDrafts((prev) => {
+      if (prev[milestoneId]) return prev;
+      return {
+        ...prev,
+        [milestoneId]: { title: '', description: '', activityDate: todayIso, days: '1', responsiblePersonId: '' },
+      };
+    });
+  };
+
+  const closeTaskCreatorForMilestone = (milestoneId: string, opts?: { clearDraft?: boolean }) => {
+    setTaskCreatorOpen((prev) => ({ ...prev, [milestoneId]: false }));
+    if (opts?.clearDraft) {
+      setTaskDrafts((prev) => ({ ...prev, [milestoneId]: { title: '', description: '', activityDate: '', days: '', responsiblePersonId: '' } }));
+    }
+  };
+
+  const closeAllTaskCreators = useCallback(() => {
+    setTaskCreatorOpen({});
+  }, []);
+
+  useEffect(() => {
+    const anyOpen = Object.values(taskCreatorOpen).some(Boolean);
+    if (!anyOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeAllTaskCreators();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [taskCreatorOpen, closeAllTaskCreators]);
+
+  const handleCreateTask = async (milestone: InitiativeMilestoneRow): Promise<boolean> => {
+    if (!viewingInitiative) return false;
+    const draft = getTaskDraft(milestone.id);
+    if (!draft.title.trim()) {
+      onToast?.('O título da tarefa é obrigatório.', 'warning');
+      return false;
+    }
+    if (!draft.responsiblePersonId?.trim()) {
+      onToast?.('Selecione um responsável para a tarefa.', 'warning');
+      return false;
+    }
+
+    const baseDate = draft.activityDate || todayIso;
+    const daysNum = Math.max(0, Number.parseInt(draft.days || '0', 10) || 0);
+    const computedDueDate = addDaysIso(baseDate, daysNum) || null;
+
+    setSavingTaskForMilestone(milestone.id);
+    try {
+      await createTask(milestone.id, {
+        title: draft.title,
+        description: draft.description || undefined,
+        due_date: computedDueDate,
+        responsible_person_id: draft.responsiblePersonId,
+        sort_order: (milestone.tasks || []).length,
+      });
+      setTaskDrafts((prev) => ({ ...prev, [milestone.id]: { title: '', description: '', activityDate: '', days: '', responsiblePersonId: '' } }));
+      await refreshViewingInitiative();
+      await loadInitiatives();
+      onToast?.('Tarefa criada com sucesso.', 'success');
+      return true;
+    } catch (e) {
+      onToast?.(e instanceof Error ? e.message : 'Erro ao criar tarefa', 'error');
+      return false;
+    } finally {
+      setSavingTaskForMilestone(null);
+    }
+  };
+
+  const startEditTask = (task: InitiativeTaskRow) => {
+    setEditingTaskId(task.id);
+    setTaskEditDraft({
+      title: task.title || '',
+      description: task.description || '',
+      dueDate: task.due_date || '',
+      responsiblePersonId: task.responsible_person_id || '',
+    });
+  };
+
+  const cancelEditTask = () => {
+    setEditingTaskId(null);
+    setTaskEditDraft({ title: '', description: '', dueDate: '', responsiblePersonId: '' });
+  };
+
+  const handleUpdateTask = async (taskId: string) => {
+    if (!taskEditDraft.title.trim()) {
+      onToast?.('O título da tarefa é obrigatório.', 'warning');
+      return;
+    }
+    if (!taskEditDraft.responsiblePersonId?.trim()) {
+      onToast?.('Selecione um responsável para a tarefa.', 'warning');
+      return;
+    }
+
+    setUpdatingTaskId(taskId);
+    try {
+      await updateTask(taskId, {
+        title: taskEditDraft.title,
+        description: taskEditDraft.description || null,
+        due_date: taskEditDraft.dueDate || null,
+        responsible_person_id: taskEditDraft.responsiblePersonId,
+      });
+      cancelEditTask();
+      await refreshViewingInitiative();
+      await loadInitiatives();
+      onToast?.('Tarefa atualizada com sucesso.', 'success');
+    } catch (e) {
+      onToast?.(e instanceof Error ? e.message : 'Erro ao atualizar tarefa', 'error');
+    } finally {
+      setUpdatingTaskId(null);
+    }
+  };
+
+  const handleToggleTask = async (taskId: string) => {
+    setUpdatingTaskId(taskId);
+    try {
+      await toggleTaskCompleted(taskId);
+      await refreshViewingInitiative();
+      await loadInitiatives();
+    } catch (e) {
+      onToast?.(e instanceof Error ? e.message : 'Erro ao atualizar tarefa', 'error');
+    } finally {
+      setUpdatingTaskId(null);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    setDeletingTaskId(taskId);
+    try {
+      await deleteTask(taskId);
+      if (editingTaskId === taskId) cancelEditTask();
+      await refreshViewingInitiative();
+      await loadInitiatives();
+      onToast?.('Tarefa removida.', 'success');
+    } catch (e) {
+      onToast?.(e instanceof Error ? e.message : 'Erro ao remover tarefa', 'error');
+    } finally {
+      setDeletingTaskId(null);
+    }
   };
 
   const personDisplayName = (p: Person | null | undefined): string =>
@@ -201,6 +453,8 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         startDate: initiative.start_date ? initiative.start_date.slice(0, 10) : '',
         endDate: initiative.end_date ? initiative.end_date.slice(0, 10) : '',
         status: (initiative.status as typeof formData.status) || 'Não Iniciado',
+        deliveryId: initiative.delivery_id || '',
+        farmId: initiative.farm_id || '',
         leaderId,
         teamIds: teamIds.length > 0 ? teamIds : [],
         milestones:
@@ -296,6 +550,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   };
 
   const totalPercent = formData.milestones.reduce((s, m) => s + m.percent, 0);
+  const isEndDateInvalid = !!(formData.startDate && formData.endDate && formData.endDate < formData.startDate);
   const isSaveDisabled =
     saving ||
     loadingEdit ||
@@ -303,7 +558,9 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     !formData.name.trim() ||
     !formData.startDate?.trim() ||
     !formData.endDate?.trim() ||
-    !formData.leaderId?.trim();
+    !formData.deliveryId?.trim() ||
+    !formData.leaderId?.trim() ||
+    isEndDateInvalid;
 
   // ─── Carregar lista ───────────────────────────────────────────────
   const loadInitiatives = useCallback(async () => {
@@ -334,6 +591,16 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     loadInitiatives();
   }, [loadInitiatives]);
 
+  // Reset detail view and filters when farm or client changes
+  useEffect(() => {
+    setViewingInitiative(null);
+    setEditingInitiative(null);
+    setShowNewModal(false);
+    setFilterStatus([]);
+    setFilterLeader([]);
+    setFilterTag('');
+  }, [selectedFarm?.id, selectedClient?.id]);
+
   // Carregar pessoas para líder e time (filtradas pela fazenda selecionada)
   useEffect(() => {
     if (!effectiveUserId) {
@@ -349,19 +616,85 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       });
   }, [effectiveUserId, selectedFarm?.id]);
 
+  // Carregar fazendas do cliente para o select do formulário
+  useEffect(() => {
+    if (!selectedClient?.id) {
+      setClientFarms([]);
+      return;
+    }
+    (async () => {
+      try {
+        const allFarmIds = new Set<string>();
+        const { data: cf } = await supabase
+          .from('client_farms')
+          .select('farm_id')
+          .eq('client_id', selectedClient.id);
+        cf?.forEach((r: { farm_id: string }) => allFarmIds.add(r.farm_id));
+
+        const { data: df } = await supabase
+          .from('farms')
+          .select('id')
+          .eq('client_id', selectedClient.id);
+        df?.forEach((r: { id: string }) => allFarmIds.add(r.id));
+
+        if (allFarmIds.size > 0) {
+          const { data: farms } = await supabase
+            .from('farms')
+            .select('id, name, city, state, country')
+            .in('id', Array.from(allFarmIds));
+          setClientFarms(
+            (farms || []).map((f: any) => ({
+              id: f.id,
+              name: f.name,
+              city: f.city,
+              state: f.state || '',
+              country: f.country,
+            } as Farm))
+          );
+        } else {
+          setClientFarms([]);
+        }
+      } catch {
+        setClientFarms([]);
+      }
+    })();
+  }, [selectedClient?.id]);
+
+  useEffect(() => {
+    if (!effectiveUserId) {
+      setDeliveries([]);
+      return;
+    }
+    const filters = selectedClient?.id ? { clientId: selectedClient.id } : undefined;
+    fetchDeliveries(effectiveUserId, filters)
+      .then(setDeliveries)
+      .catch((err) => {
+        console.error('[InitiativesActivities] Erro ao carregar entregas:', err);
+        setDeliveries([]);
+      });
+  }, [effectiveUserId, selectedClient?.id]);
+
+  const deliveriesById = useMemo(
+    () => deliveries.reduce<Record<string, string>>((acc, d) => {
+      acc[d.id] = d.name;
+      return acc;
+    }, {}),
+    [deliveries]
+  );
+
   // ─── Filtros da lista ──────────────────────────────────────────
   const uniqueLeaders = useMemo(() => {
     const leaders = initiatives
       .map((i) => i.leader)
       .filter((l): l is string => typeof l === 'string' && l.trim().length > 0);
-    return [...new Set(leaders)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return [...new Set(leaders)].sort((a: string, b: string) => a.localeCompare(b, 'pt-BR'));
   }, [initiatives]);
 
   const uniqueTags = useMemo(() => {
     const tags = initiatives
       .flatMap((i) => (i.tags || '').split(/\s+/))
       .filter((t) => t.startsWith('#') && t.length > 1);
-    return [...new Set(tags)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return [...new Set(tags)].sort((a: string, b: string) => a.localeCompare(b, 'pt-BR'));
   }, [initiatives]);
 
   const filteredInitiatives = useMemo(() => {
@@ -448,18 +781,30 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       onToast?.('A data final é obrigatória (dd/mm/aa).', 'warning');
       return;
     }
+    if (!formData.deliveryId?.trim()) {
+      setFormErrorMessage('Preencha os campos obrigatórios: Entrega.');
+      onToast?.('A entrega é obrigatória.', 'warning');
+      return;
+    }
     if (!formData.leaderId?.trim()) {
       setFormErrorMessage('Preencha os campos obrigatórios: Responsável (Líder).');
       onToast?.('O responsável (líder) é obrigatório.', 'warning');
       return;
     }
-    if (totalPercent > 100) {
-      onToast?.(`A soma dos marcos (${totalPercent}%) excede 100%.`, 'warning');
+    const validMilestones = formData.milestones.filter((m) => m.title?.trim());
+    if (validMilestones.length > 0 && totalPercent !== 100) {
+      onToast?.(`A soma dos marcos deve ser exatamente 100% (atual: ${totalPercent}%).`, 'warning');
       return;
     }
-    if (formData.startDate && formData.endDate && formData.startDate > formData.endDate) {
-      onToast?.('A data de início não pode ser posterior à data final.', 'warning');
-      return;
+
+    // Validar datas (Start <= End)
+    if (formData.startDate && formData.endDate) {
+      const dStart = new Date(formData.startDate + 'T00:00:00');
+      const dEnd = new Date(formData.endDate + 'T00:00:00');
+      if (dEnd < dStart) {
+        onToast?.('A data final deve ser igual ou posterior à data de início.', 'warning');
+        return;
+      }
     }
     // Validar due_date dos marcos dentro do intervalo
     for (const m of formData.milestones.filter((mil) => mil.title?.trim() && mil.dueDate)) {
@@ -496,24 +841,32 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         .filter((p): p is Person => !!p)
         .map(personDisplayName);
       const payload = {
-        name: formData.name,
-        tags: formData.tags || undefined,
-        description: formData.description || undefined,
+        name: formData.name.trim(),
+        tags: formData.tags?.trim() || undefined,
+        description: formData.description?.trim() || undefined,
         start_date: formData.startDate || undefined,
         end_date: formData.endDate || undefined,
         status: formData.status,
+        delivery_id: formData.deliveryId,
         leader: leaderName,
         client_id: selectedClient?.id ?? null,
-        farm_id: selectedFarm?.id ?? null,
+        farm_id: formData.farmId?.trim() || null,
         team: teamNames,
-        milestones: formData.milestones
-          .filter((m) => m.title?.trim())
-          .map((m) => ({
-            title: m.title,
+        milestones: validMilestones.length > 0
+          ? validMilestones.map((m) => ({
+            title: m.title.trim(),
             percent: m.percent || 0,
             due_date: m.dueDate?.trim() || undefined,
             completed: m.completed,
-          })),
+          }))
+          : [
+            {
+              title: formData.name.trim(),
+              percent: 100,
+              due_date: formData.endDate?.trim() || undefined,
+              completed: false,
+            },
+          ],
       };
 
       if (editingInitiative) {
@@ -661,6 +1014,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   // ─── Tela de Gestão (detalhe) ────────────────────────────────────
   if (viewingInitiative) {
     const v = viewingInitiative;
+    const deliveryName = v.delivery_id ? deliveriesById[v.delivery_id] : '';
     const tagsList = (v.tags || '')
       .split(/[#,]/)
       .map((t) => t.trim().toUpperCase())
@@ -715,6 +1069,16 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
             </button>
             <button
               type="button"
+              onClick={() => setActiveTab('kanban')}
+              className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'kanban'
+                ? 'text-ai-accent border-b-2 border-ai-accent'
+                : 'text-ai-subtext hover:text-ai-text'
+                }`}
+            >
+              Kanban
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('time')}
               className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'time'
                 ? 'text-ai-accent border-b-2 border-ai-accent'
@@ -760,6 +1124,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     <span className="text-ai-accent font-semibold">{v.progress ?? 0}%</span>
                   </div>
                 </div>
+                <div className="mt-3 text-sm">
+                  <span className="text-ai-subtext mr-2">Entrega:</span>
+                  <span className="text-ai-text font-medium">{deliveryName || 'Não vinculada'}</span>
+                </div>
               </div>
 
               {/* Marcos e Entregáveis */}
@@ -771,56 +1139,347 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     {completedCount} de {totalMilestones} concluídos
                   </span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {(v.milestones || []).map((m) => (
                     <div
                       key={m.id}
-                      className={`w-full flex items-center gap-4 p-4 rounded-lg border transition-colors cursor-pointer ${m.completed
+                      className={`w-full p-4 rounded-lg border transition-colors ${m.completed
                         ? 'bg-ai-accent/5 border-ai-accent/30'
-                        : 'bg-ai-surface border-ai-border hover:border-ai-accent/30'
+                        : 'bg-ai-surface border-ai-border'
                         }`}
                     >
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleMilestone(m.id);
-                        }}
-                        disabled={!!togglingMilestone}
-                        className="shrink-0 flex items-center justify-center p-0 bg-transparent border-0 cursor-pointer"
-                      >
-                        {togglingMilestone === m.id ? (
-                          <Loader2 size={24} className="animate-spin text-ai-accent" />
-                        ) : m.completed ? (
-                          <CheckCircle size={24} className="text-green-600" />
-                        ) : (
-                          <div className="w-6 h-6 rounded-full border-2 border-ai-border" />
-                        )}
-                      </button>
-                      <div
-                        className="flex-1 min-w-0"
-                        onClick={() => setViewingEvidenceMilestone({ milestone: m, initiativeName: v.name })}
-                        onKeyDown={(e) => e.key === 'Enter' && setViewingEvidenceMilestone({ milestone: m, initiativeName: v.name })}
-                        role="button"
-                        tabIndex={0}
-                      >
-                        <p className="font-medium text-ai-text">{m.title}</p>
-                        <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-ai-subtext">
-                          {m.due_date && (
-                            <span className="flex items-center gap-1">
-                              <Calendar size={12} />
-                              Limite: {formatDate(m.due_date)}
-                            </span>
+                      <div className="flex items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleMilestone(m.id);
+                          }}
+                          disabled={!!togglingMilestone}
+                          className="shrink-0 flex items-center justify-center p-0 bg-transparent border-0 cursor-pointer"
+                        >
+                          {togglingMilestone === m.id ? (
+                            <Loader2 size={24} className="animate-spin text-ai-accent" />
+                          ) : m.completed ? (
+                            <CheckCircle size={24} className="text-green-600" />
+                          ) : (
+                            <div className="w-6 h-6 rounded-full border-2 border-ai-border" />
                           )}
-                          <span>Clique para detalhar evidências</span>
+                        </button>
+                        <div
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() => setViewingEvidenceMilestone({ milestone: m, initiativeName: v.name })}
+                          onKeyDown={(e) => e.key === 'Enter' && setViewingEvidenceMilestone({ milestone: m, initiativeName: v.name })}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="font-medium text-ai-text truncate min-w-0 flex-1">{m.title}</p>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openTaskCreatorForMilestone(m.id);
+                              }}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-ai-border bg-ai-surface text-ai-subtext hover:text-ai-text hover:bg-ai-surface2 shrink-0"
+                              title="Adicionar tarefa"
+                              aria-label="Adicionar tarefa ao marco"
+                            >
+                              <Plus size={14} className="text-ai-accent" />
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-ai-subtext">
+                            {m.due_date && (
+                              <span className="flex items-center gap-1">
+                                <Calendar size={12} />
+                                Limite: {formatDate(m.due_date)}
+                              </span>
+                            )}
+                            <span>Clique para detalhar evidências</span>
+                          </div>
+                        </div>
+                        <span className="text-sm font-medium text-ai-text shrink-0">{m.percent}%</span>
+                      </div>
+
+                      {/* Popover: Criar tarefa (flutuante, não empurra layout) */}
+                      {taskCreatorOpen[m.id] && (
+                        <div className="relative">
+                          {/* backdrop interno para fechar ao clicar fora */}
+                          <div
+                            className="absolute inset-0 z-40 rounded-lg bg-black/5"
+                            onClick={() => closeTaskCreatorForMilestone(m.id)}
+                          />
+
+                          <div className="absolute left-0 right-0 top-2 z-50">
+                            <div className="bg-white dark:bg-ai-bg border border-ai-border rounded-xl shadow-xl p-4">
+                              <div className="flex items-center justify-between gap-3 mb-4">
+                                <div className="text-sm font-semibold text-ai-text">Adicionar nova tarefa</div>
+                                <button
+                                  type="button"
+                                  onClick={() => closeTaskCreatorForMilestone(m.id, { clearDraft: true })}
+                                  className="text-xs font-medium text-ai-subtext hover:text-ai-text"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                                <div className="md:col-span-1">
+                                  <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">Tarefa</div>
+                                  <input
+                                    type="text"
+                                    value={getTaskDraft(m.id).title}
+                                    onChange={(e) => updateTaskDraft(m.id, 'title', e.target.value)}
+                                    className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
+                                    placeholder="Ex: Revisar relatório..."
+                                  />
+                                </div>
+
+                                <div className="md:col-span-1">
+                                  <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">
+                                    Responsável <span className="text-red-500">*</span>
+                                  </div>
+                                  <select
+                                    value={getTaskDraft(m.id).responsiblePersonId}
+                                    onChange={(e) => updateTaskDraft(m.id, 'responsiblePersonId', e.target.value)}
+                                    className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
+                                  >
+                                    <option value="" disabled>Selecione</option>
+                                    {people.map((p) => (
+                                      <option key={p.id} value={p.id}>{personOptionLabel(p)}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div className="md:col-span-1">
+                                  <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">Início</div>
+                                  <DateInputBR
+                                    value={getTaskDraft(m.id).activityDate}
+                                    onChange={(v) => updateTaskDraft(m.id, 'activityDate', v)}
+                                    placeholder="dd/mm/aaaa"
+                                  />
+                                </div>
+
+                                <div className="md:col-span-1">
+                                  <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">Duração</div>
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={0}
+                                    value={getTaskDraft(m.id).days}
+                                    onChange={(e) => updateTaskDraft(m.id, 'days', e.target.value)}
+                                    className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
+                                  />
+                                </div>
+
+                                <div className="md:col-span-1">
+                                  <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">Prazo final</div>
+                                  <DateInputBR
+                                    value={getComputedDueDateForMilestone(m.id)}
+                                    onChange={() => { /* read-only */ }}
+                                    disabled
+                                    placeholder="dd/mm/aaaa"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="mt-4">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide">Descrição da tarefa</div>
+                                </div>
+                                <textarea
+                                  value={getTaskDraft(m.id).description}
+                                  onChange={(e) => updateTaskDraft(m.id, 'description', e.target.value)}
+                                  className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm resize-none"
+                                  rows={4}
+                                  placeholder="Descreva detalhes importantes..."
+                                />
+                              </div>
+
+                              <div className="mt-4 flex items-center justify-end gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => closeTaskCreatorForMilestone(m.id, { clearDraft: true })}
+                                  className="text-sm font-medium text-ai-subtext hover:text-ai-text"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const ok = await handleCreateTask(m);
+                                    if (ok) closeTaskCreatorForMilestone(m.id);
+                                  }}
+                                  disabled={
+                                    savingTaskForMilestone === m.id ||
+                                    !getTaskDraft(m.id).title.trim() ||
+                                    !getTaskDraft(m.id).responsiblePersonId.trim()
+                                  }
+                                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-ai-accent text-white text-sm font-semibold disabled:opacity-50"
+                                >
+                                  {savingTaskForMilestone === m.id ? (
+                                    <Loader2 size={16} className="animate-spin" />
+                                  ) : (
+                                    <Plus size={16} />
+                                  )}
+                                  Salvar Tarefa
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-4 pt-4 border-t border-ai-border/70">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-semibold text-ai-text">Tarefas do Marco</h4>
+                          <span className="text-xs text-ai-subtext">{(m.tasks || []).length} tarefa(s)</span>
+                        </div>
+
+                        <div className="space-y-2">
+                          {(m.tasks || []).map((task) => {
+                            const isEditingTask = editingTaskId === task.id;
+                            return (
+                              <div key={task.id} className="rounded-md border border-ai-border bg-ai-bg/50 p-2">
+                                {isEditingTask ? (
+                                  <div className="space-y-2">
+                                    <input
+                                      type="text"
+                                      value={taskEditDraft.title}
+                                      onChange={(e) => setTaskEditDraft((prev) => ({ ...prev, title: e.target.value }))}
+                                      className="w-full px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
+                                      placeholder="Título da tarefa"
+                                    />
+                                    <select
+                                      value={taskEditDraft.responsiblePersonId}
+                                      onChange={(e) => setTaskEditDraft((prev) => ({ ...prev, responsiblePersonId: e.target.value }))}
+                                      className="w-full px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
+                                      title="Responsável"
+                                    >
+                                      <option value="" disabled>Selecione um responsável</option>
+                                      {people.map((p) => (
+                                        <option key={p.id} value={p.id}>{personOptionLabel(p)}</option>
+                                      ))}
+                                    </select>
+                                    <textarea
+                                      value={taskEditDraft.description}
+                                      onChange={(e) => setTaskEditDraft((prev) => ({ ...prev, description: e.target.value }))}
+                                      className="w-full px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs resize-none"
+                                      rows={2}
+                                      placeholder="Descrição (opcional)"
+                                    />
+                                    <div className="max-w-[180px]">
+                                      <DateInputBR
+                                        value={taskEditDraft.dueDate}
+                                        onChange={(v) => setTaskEditDraft((prev) => ({ ...prev, dueDate: v }))}
+                                        placeholder="dd/mm/aaaa"
+                                      />
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={cancelEditTask}
+                                        className="px-2 py-1 text-xs rounded border border-ai-border text-ai-subtext"
+                                      >
+                                        Cancelar
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateTask(task.id)}
+                                        disabled={updatingTaskId === task.id || !taskEditDraft.title.trim() || !taskEditDraft.responsiblePersonId.trim()}
+                                        className="px-2 py-1 text-xs rounded bg-ai-accent text-white disabled:opacity-50"
+                                      >
+                                        {updatingTaskId === task.id ? 'Salvando...' : 'Salvar'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-start gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleTask(task.id)}
+                                      disabled={updatingTaskId === task.id}
+                                      className="mt-0.5 p-0.5 rounded hover:bg-ai-surface2"
+                                      title={task.completed ? 'Marcar como pendente' : 'Marcar como concluída'}
+                                    >
+                                      {updatingTaskId === task.id ? (
+                                        <Loader2 size={14} className="animate-spin text-ai-accent" />
+                                      ) : task.completed ? (
+                                        <CheckSquare size={14} className="text-green-600" />
+                                      ) : (
+                                        <Square size={14} className="text-ai-subtext" />
+                                      )}
+                                    </button>
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-medium ${task.completed ? 'line-through text-ai-subtext' : 'text-ai-text'}`}>
+                                        {task.title}
+                                      </p>
+                                      {(task.description || task.due_date || task.responsible_person_id !== null) && (
+                                        <div className="text-[11px] text-ai-subtext mt-0.5">
+                                          {task.description && <p className="whitespace-pre-wrap">{task.description}</p>}
+                                          {task.due_date && <p>Prazo: {formatDate(task.due_date)}</p>}
+                                          <p className={task.responsible_person_id ? '' : 'text-amber-700'}>
+                                            Responsável:{' '}
+                                            {task.responsible_person_id && peopleById.get(task.responsible_person_id)
+                                              ? personLabel(peopleById.get(task.responsible_person_id)!)
+                                              : task.responsible_person_id
+                                                ? '—'
+                                                : 'Defina um responsável'}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => startEditTask(task)}
+                                        className="p-1 rounded text-ai-subtext hover:text-ai-text hover:bg-ai-surface2"
+                                        title="Editar tarefa"
+                                      >
+                                        <Pencil size={12} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteTask(task.id)}
+                                        disabled={deletingTaskId === task.id}
+                                        className="p-1 rounded text-red-500 hover:bg-red-50 disabled:opacity-50"
+                                        title="Excluir tarefa"
+                                      >
+                                        {deletingTaskId === task.id ? (
+                                          <Loader2 size={12} className="animate-spin" />
+                                        ) : (
+                                          <Trash2 size={12} />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                      <span className="text-sm font-medium text-ai-text shrink-0">{m.percent}%</span>
                     </div>
                   ))}
                 </div>
               </div>
             </>
+          )}
+
+          {activeTab === 'kanban' && (
+            <InitiativeTasksKanban
+              milestones={v.milestones || []}
+              onToast={onToast}
+              onRefresh={async () => {
+                await refreshViewingInitiative();
+                await loadInitiatives();
+              }}
+              responsibleLabel={(personId) => {
+                if (!personId) return '—';
+                const p = peopleById.get(personId);
+                return p ? personLabel(p) : '—';
+              }}
+            />
           )}
 
           {activeTab === 'time' && (
@@ -887,6 +1546,22 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
             </div>
             {initiatives.length > 0 && (
               <div className="flex items-center gap-1.5 ml-auto">
+                <div className="inline-flex items-center rounded-md border border-ai-border overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('lista')}
+                    className={`px-2 py-1 text-xs inline-flex items-center gap-1 ${viewMode === 'lista' ? 'bg-ai-accent/10 text-ai-accent' : 'bg-ai-surface text-ai-subtext'}`}
+                  >
+                    <List size={12} /> Lista
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('gantt')}
+                    className={`px-2 py-1 text-xs inline-flex items-center gap-1 border-l border-ai-border ${viewMode === 'gantt' ? 'bg-ai-accent/10 text-ai-accent' : 'bg-ai-surface text-ai-subtext'}`}
+                  >
+                    <BarChart3 size={12} /> Gantt
+                  </button>
+                </div>
                 <Filter size={12} className="text-ai-subtext shrink-0" />
 
                 {/* Status — multi-select */}
@@ -1068,6 +1743,8 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
             <Filter size={36} className="text-ai-subtext/40 mb-3" />
             <p className="text-sm text-ai-subtext">Nenhuma atividade encontrada com os filtros selecionados.</p>
           </div>
+        ) : viewMode === 'gantt' ? (
+          <InitiativesGantt initiatives={filteredInitiatives} />
         ) : (
           <ul className="grid grid-cols-2 gap-1.5">
             {filteredInitiatives.map((init) => (
@@ -1089,8 +1766,11 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     {init.progress ?? 0}%
                   </span>
                   <h3 className="text-xs font-bold text-ai-text truncate flex-1 min-w-0" title={init.name}>{init.name}</h3>
-                  <span className="text-[9px] text-ai-subtext shrink-0 whitespace-nowrap" title={`Cronograma: ${formatDate(init.start_date)} → ${formatDate(init.end_date)}`}>
-                    {formatDate(init.start_date)} → {formatDate(init.end_date)}
+                  <span
+                    className="shrink-0 whitespace-nowrap tabular-nums text-[11px] font-semibold text-ai-text bg-ai-surface2 border border-ai-border/70 px-2 py-0.5 rounded-md"
+                    title={`Cronograma: ${formatDate(init.start_date)} - ${formatDate(init.end_date)}`}
+                  >
+                    {formatDate(init.start_date)} - {formatDate(init.end_date)}
                   </span>
                 </div>
 
@@ -1116,6 +1796,15 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                       className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wide shrink-0 ${statusVariant(init.status ?? '')}`}
                     >
                       {init.status ?? 'Não iniciado'}
+                    </span>
+                    <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] bg-ai-surface2 text-ai-subtext shrink-0">
+                      {init.delivery_id ? `Entrega: ${deliveriesById[init.delivery_id] || '—'}` : 'Sem entrega'}
+                    </span>
+                    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] shrink-0 ${init.farm_id ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                      <Building2 size={9} className="shrink-0" />
+                      {init.farm_id
+                        ? clientFarms.find(f => f.id === init.farm_id)?.name || 'Fazenda'
+                        : 'Todas as fazendas'}
                     </span>
                   </div>
                   <div className="flex items-center gap-0.5 shrink-0">
@@ -1254,9 +1943,52 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                         }}
                         placeholder="dd/mm/aaaa"
                         required
+                        min={formData.startDate || undefined}
                         className="w-full"
                       />
+                      {isEndDateInvalid && (
+                        <p className="text-[10px] text-red-500 mt-0.5">A data final deve ser igual ou posterior à data de início.</p>
+                      )}
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ai-text mb-1">
+                      Entrega <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.deliveryId}
+                      onChange={(e) => {
+                        setFormErrorMessage(null);
+                        setFormData((p) => ({ ...p, deliveryId: e.target.value }));
+                      }}
+                      className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
+                      required
+                    >
+                      <option value="">Selecione a entrega</option>
+                      {deliveries.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-ai-text mb-1">
+                      Fazenda
+                    </label>
+                    <select
+                      value={formData.farmId}
+                      onChange={(e) => setFormData((p) => ({ ...p, farmId: e.target.value }))}
+                      className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
+                    >
+                      <option value="">Todas as fazendas (global)</option>
+                      {clientFarms.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-ai-subtext mt-0.5">Deixe &quot;Todas&quot; para iniciativas que abrangem todas as fazendas do cliente.</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-ai-text mb-1">Status</label>
@@ -1350,7 +2082,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                         <span className="text-sm font-medium text-ai-text">Marcos e % Representatividade</span>
                       </div>
                       <span
-                        className={`text-xs ${totalPercent > 100 ? 'text-red-500 font-semibold' : 'text-ai-subtext'}`}
+                        className={`text-xs ${totalPercent !== 100 ? 'text-red-500 font-semibold' : 'text-emerald-600 font-semibold'}`}
                       >
                         Total: {totalPercent}%
                       </span>
@@ -1485,3 +2217,8 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
 };
 
 export default InitiativesActivities;
+
+
+
+
+

@@ -13,10 +13,37 @@ export interface InitiativeRow {
   end_date: string | null;
   status: string;
   leader: string | null;
+  delivery_id: string | null;
   client_id: string | null;
   farm_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface InitiativeTaskRow {
+  id: string;
+  milestone_id: string;
+  title: string;
+  description: string | null;
+  completed: boolean;
+  completed_at: string | null;
+  due_date: string | null;
+  responsible_person_id: string | null;
+  kanban_status: KanbanStatus;
+  kanban_order: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type KanbanStatus = 'A Fazer' | 'Andamento' | 'Pausado' | 'Concluído';
+
+const KANBAN_STATUSES: readonly KanbanStatus[] = ['A Fazer', 'Andamento', 'Pausado', 'Concluído'] as const;
+
+function validateKanbanStatus(status: string): asserts status is KanbanStatus {
+  if (!KANBAN_STATUSES.includes(status as KanbanStatus)) {
+    throw new Error('Status do Kanban inválido.');
+  }
 }
 
 export interface InitiativeMilestoneRow {
@@ -28,6 +55,7 @@ export interface InitiativeMilestoneRow {
   completed_at: string | null;
   sort_order: number;
   due_date: string | null;
+  tasks?: InitiativeTaskRow[];
 }
 
 export interface InitiativeWithProgress extends InitiativeRow {
@@ -48,6 +76,7 @@ export interface CreateInitiativePayload {
   end_date?: string;
   status: string;
   leader?: string;
+  delivery_id: string;
   client_id?: string | null;
   farm_id?: string | null;
   team: string[];
@@ -80,8 +109,23 @@ function validatePayload(payload: CreateInitiativePayload): void {
   if (!payload.leader?.trim()) {
     throw new Error('O responsável (líder) é obrigatório.');
   }
-  if (payload.farm_id && !payload.client_id) {
-    throw new Error('Não é possível vincular uma fazenda sem informar o cliente.');
+  if (!payload.delivery_id?.trim()) {
+    throw new Error('A entrega vinculada é obrigatória.');
+  }
+  validateUUID(payload.delivery_id, 'Entrega');
+  if (payload.farm_id && !UUID_REGEX.test(payload.farm_id)) {
+    throw new Error('ID da fazenda inválido.');
+  }
+  if (payload.client_id && !UUID_REGEX.test(payload.client_id)) {
+    throw new Error('ID do cliente inválido.');
+  }
+  // Validar formato ISO das datas
+  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+  if (payload.start_date && !ISO_DATE.test(payload.start_date)) {
+    throw new Error('Formato de data de início inválido (esperado: YYYY-MM-DD).');
+  }
+  if (payload.end_date && !ISO_DATE.test(payload.end_date)) {
+    throw new Error('Formato de data final inválido (esperado: YYYY-MM-DD).');
   }
   if (payload.start_date && payload.end_date && payload.start_date > payload.end_date) {
     throw new Error('A data de início não pode ser posterior à data final.');
@@ -95,8 +139,9 @@ function validatePayload(payload: CreateInitiativePayload): void {
   const totalPercent = payload.milestones
     .filter((m) => m.title?.trim())
     .reduce((s, m) => s + (m.percent || 0), 0);
-  if (totalPercent > 100) {
-    throw new Error(`A soma dos marcos (${totalPercent}%) excede 100%.`);
+  const hasValidMilestones = payload.milestones.some((m) => m.title?.trim());
+  if (hasValidMilestones && totalPercent !== 100) {
+    throw new Error(`A soma dos marcos deve ser exatamente 100% (atual: ${totalPercent}%).`);
   }
   for (const m of payload.milestones.filter((mil) => mil.title?.trim() && mil.due_date)) {
     if (payload.start_date && m.due_date! < payload.start_date) {
@@ -121,6 +166,9 @@ export async function fetchInitiatives(
   filters?: FetchInitiativesFilters
 ): Promise<InitiativeWithProgress[]> {
   if (!effectiveUserId?.trim()) return [];
+  if (!UUID_REGEX.test(effectiveUserId)) {
+    throw new Error('ID do usuário inválido.');
+  }
 
   let q = supabase
     .from('initiatives')
@@ -129,10 +177,18 @@ export async function fetchInitiatives(
     .order('start_date', { ascending: true, nullsFirst: false });
 
   if (filters?.clientId?.trim()) {
+    if (!UUID_REGEX.test(filters.clientId)) {
+      throw new Error('ID do cliente inválido.');
+    }
     q = q.eq('client_id', filters.clientId);
   }
   if (filters?.farmId?.trim()) {
-    q = q.eq('farm_id', filters.farmId);
+    // Validar UUID antes da interpolação para prevenir filter injection
+    if (!UUID_REGEX.test(filters.farmId)) {
+      throw new Error('ID da fazenda inválido.');
+    }
+    // Mostra iniciativas da fazenda selecionada + globais (farm_id IS NULL)
+    q = q.or(`farm_id.eq.${filters.farmId},farm_id.is.null`);
   }
 
   const { data: initiatives, error: initError } = await q;
@@ -234,6 +290,7 @@ export async function createInitiative(
       end_date: payload.end_date || null,
       status: payload.status || 'Não Iniciado',
       leader: payload.leader?.trim() || null,
+      delivery_id: payload.delivery_id,
       client_id: payload.client_id || null,
       farm_id: payload.farm_id || null,
     })
@@ -306,6 +363,7 @@ export async function updateInitiative(
       end_date: payload.end_date || null,
       status: payload.status || 'Não Iniciado',
       leader: payload.leader?.trim() || null,
+      delivery_id: payload.delivery_id,
       client_id: payload.client_id || null,
       farm_id: payload.farm_id || null,
     })
@@ -472,12 +530,216 @@ export async function fetchInitiativeDetail(
     .order('sort_order');
 
   const milestones = (milRows || []) as InitiativeMilestoneRow[];
+  const milestoneIds = milestones.map((m) => m.id);
+  let tasksByMilestone: Record<string, InitiativeTaskRow[]> = {};
+
+  if (milestoneIds.length > 0) {
+    const { data: taskRows, error: tasksError } = await supabase
+      .from('initiative_tasks')
+      .select('id, milestone_id, title, description, completed, completed_at, due_date, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+      .in('milestone_id', milestoneIds)
+      .order('sort_order');
+    if (tasksError) throw tasksError;
+
+    tasksByMilestone = (taskRows || []).reduce<Record<string, InitiativeTaskRow[]>>((acc, t) => {
+      if (!acc[t.milestone_id]) acc[t.milestone_id] = [];
+      acc[t.milestone_id].push(t as InitiativeTaskRow);
+      return acc;
+    }, {});
+  }
+
+  const milestonesWithTasks = milestones.map((m) => ({
+    ...m,
+    tasks: tasksByMilestone[m.id] || [],
+  }));
   const progress = Math.min(100, Math.max(0, milestones.filter((m) => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0)));
 
   return {
     ...initiative,
     progress,
-    milestones,
+    milestones: milestonesWithTasks,
     team: (teamRows || []).map((r) => ({ name: r.name || '', role: r.role || '' })),
   } as InitiativeWithProgress & { team: { name: string; role: string }[] };
+}
+
+export interface CreateInitiativeTaskPayload {
+  title: string;
+  description?: string;
+  due_date?: string | null;
+  responsible_person_id: string;
+  kanban_status?: KanbanStatus;
+  kanban_order?: number;
+  sort_order?: number;
+}
+
+function validateTaskTitle(title: string): void {
+  if (!title?.trim()) {
+    throw new Error('O título da tarefa é obrigatório.');
+  }
+  if (title.trim().length > 300) {
+    throw new Error('O título da tarefa é muito longo (máx 300 caracteres).');
+  }
+}
+
+export async function listTasksByMilestone(milestoneId: string): Promise<InitiativeTaskRow[]> {
+  validateUUID(milestoneId, 'Marco');
+  const { data, error } = await supabase
+    .from('initiative_tasks')
+    .select('id, milestone_id, title, description, completed, completed_at, due_date, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+    .eq('milestone_id', milestoneId)
+    .order('sort_order');
+  if (error) throw error;
+  return (data || []) as InitiativeTaskRow[];
+}
+
+export async function createTask(
+  milestoneId: string,
+  payload: CreateInitiativeTaskPayload
+): Promise<InitiativeTaskRow> {
+  validateUUID(milestoneId, 'Marco');
+  validateTaskTitle(payload.title);
+  if (!payload.responsible_person_id?.trim()) {
+    throw new Error('O responsável é obrigatório.');
+  }
+  validateUUID(payload.responsible_person_id, 'Responsável');
+  if (payload.kanban_status) validateKanbanStatus(payload.kanban_status);
+
+  const { data, error } = await supabase
+    .from('initiative_tasks')
+    .insert({
+      milestone_id: milestoneId,
+      title: sanitizeText(payload.title),
+      description: payload.description?.trim() ? sanitizeText(payload.description) : null,
+      due_date: payload.due_date?.trim() || null,
+      responsible_person_id: payload.responsible_person_id,
+      kanban_status: payload.kanban_status || 'A Fazer',
+      kanban_order: Number.isFinite(payload.kanban_order) ? Number(payload.kanban_order) : 0,
+      sort_order: Number.isFinite(payload.sort_order) ? Number(payload.sort_order) : 0,
+    })
+    .select('id, milestone_id, title, description, completed, completed_at, due_date, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+    .single();
+  if (error || !data) throw new Error(error?.message || 'Erro ao criar tarefa.');
+  return data as InitiativeTaskRow;
+}
+
+export async function updateTask(
+  taskId: string,
+  payload: Partial<{
+    title: string;
+    description: string | null;
+    due_date: string | null;
+    responsible_person_id: string;
+    kanban_status: KanbanStatus;
+    kanban_order: number;
+    completed: boolean;
+    sort_order: number;
+  }>
+): Promise<InitiativeTaskRow> {
+  validateUUID(taskId, 'Tarefa');
+  const updateData: Record<string, unknown> = {};
+
+  if (typeof payload.title === 'string') {
+    validateTaskTitle(payload.title);
+    updateData.title = sanitizeText(payload.title);
+  }
+  if (payload.description !== undefined) {
+    updateData.description = payload.description?.trim() ? sanitizeText(payload.description) : null;
+  }
+  if (payload.due_date !== undefined) {
+    updateData.due_date = payload.due_date?.trim() || null;
+  }
+  if (payload.responsible_person_id !== undefined) {
+    if (!payload.responsible_person_id?.trim()) {
+      throw new Error('O responsável é obrigatório.');
+    }
+    validateUUID(payload.responsible_person_id, 'Responsável');
+    updateData.responsible_person_id = payload.responsible_person_id;
+  }
+  if (payload.kanban_status !== undefined) {
+    validateKanbanStatus(payload.kanban_status);
+    updateData.kanban_status = payload.kanban_status;
+  }
+  if (payload.kanban_order !== undefined) {
+    if (!Number.isFinite(payload.kanban_order)) throw new Error('Ordem do Kanban inválida.');
+    updateData.kanban_order = payload.kanban_order;
+  }
+  if (typeof payload.sort_order === 'number') {
+    updateData.sort_order = payload.sort_order;
+  }
+  if (typeof payload.completed === 'boolean') {
+    updateData.completed = payload.completed;
+    updateData.completed_at = payload.completed ? new Date().toISOString() : null;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    throw new Error('Nenhum campo válido para atualizar tarefa.');
+  }
+
+  const { data, error } = await supabase
+    .from('initiative_tasks')
+    .update(updateData)
+    .eq('id', taskId)
+    .select('id, milestone_id, title, description, completed, completed_at, due_date, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+    .single();
+  if (error || !data) throw new Error(error?.message || 'Erro ao atualizar tarefa.');
+  return data as InitiativeTaskRow;
+}
+
+export async function updateTasksKanban(
+  updates: Array<{
+    id: string;
+    kanban_status: KanbanStatus;
+    kanban_order: number;
+    completed?: boolean;
+  }>
+): Promise<void> {
+  if (!Array.isArray(updates) || updates.length === 0) return;
+  for (const u of updates) {
+    validateUUID(u.id, 'Tarefa');
+    validateKanbanStatus(u.kanban_status);
+    if (!Number.isFinite(u.kanban_order)) throw new Error('Ordem do Kanban inválida.');
+  }
+
+  const chunkSize = 12;
+  for (let i = 0; i < updates.length; i += chunkSize) {
+    const chunk = updates.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map((u) =>
+        updateTask(u.id, {
+          kanban_status: u.kanban_status,
+          kanban_order: u.kanban_order,
+          ...(typeof u.completed === 'boolean' ? { completed: u.completed } : {}),
+        })
+      )
+    );
+  }
+}
+
+export async function toggleTaskCompleted(taskId: string): Promise<void> {
+  validateUUID(taskId, 'Tarefa');
+  const { data: current, error: fetchError } = await supabase
+    .from('initiative_tasks')
+    .select('id, completed')
+    .eq('id', taskId)
+    .single();
+  if (fetchError || !current) throw new Error('Tarefa não encontrada.');
+
+  const nextCompleted = !current.completed;
+  const { error } = await supabase
+    .from('initiative_tasks')
+    .update({
+      completed: nextCompleted,
+      completed_at: nextCompleted ? new Date().toISOString() : null,
+    })
+    .eq('id', taskId);
+  if (error) throw error;
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  validateUUID(taskId, 'Tarefa');
+  const { error } = await supabase
+    .from('initiative_tasks')
+    .delete()
+    .eq('id', taskId);
+  if (error) throw error;
 }

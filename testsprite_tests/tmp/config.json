@@ -1,0 +1,17 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "executionArgs": {
+    "projectName": "pecuaria",
+    "projectPath": "c:\\pecuaria",
+    "testIds": [],
+    "additionalInstruction": "Executar prioritariamente os cenarios do modulo Iniciativas: Iniciativas > Atividades (criar, editar, excluir, abrir gestão), marcos e evidencias (comentario/upload/download/remocao), e Iniciativas > Visao Geral (KPIs e graficos). Ignore fluxos nao relacionados quando houver ambiguidade.",
+    "envs": {
+      "API_KEY": "sk-user-7DkHyyec3EJ5qc7zQMwmWTN-tdiP_1pucXGkt1vryaElBrn6uKpSmkKlv0u2czx5Gqsjf9FHBQGTj6VyQjThSZFn8GgTsFVXZeRfw6Rqpk194Kxnwk7UoYFnpW5np7xBF-4"
+    }
+  },
+  "serverPort": 59747,
+  "proxy": "http://f8bc6930-60a9-44c7-90ab-f93ca8e6c596:tZyrPMDJF6lHdrG90ADxA5t2xiRicwZ0@tun.testsprite.com:8080"
+}

@@ -1,0 +1,194 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90mC:/pecuaria[39m
+
+ [31m❯[39m src/test/components/Sidebar.test.tsx [2m([22m[2m3 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 128[2mms[22m[39m
+[31m     [31m×[31m should render sidebar with agents[39m[32m 81[2mms[22m[39m
+     [32m✓[39m should show user information[32m 21[2mms[22m[39m
+     [32m✓[39m should show locked status for locked agents[32m 23[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/test/components/Sidebar.test.tsx[2m > [22mSidebar[2m > [22mshould render sidebar with agents
+[31m[1mTestingLibraryElementError[22m[39m: Unable to find an element with the text: PecuarIA. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33maria-hidden[39m=[32m"true"[39m
+      [33mclass[39m=[32m"fixed inset-0 bg-black/50 z-20 md:hidden backdrop-blur-sm transition-opacity duration-300"[39m
+    [36m/>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"
+        fixed top-0 left-0 h-full bg-ai-surface border-r border-ai-border z-30 transition-all duration-300 ease-in-out flex flex-col shadow-lg
+        w-56 translate-x-0
+      "[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"h-12 shrink-0 flex items-center justify-between px-4 border-b border-ai-border bg-ai-bg"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex items-center space-x-2 text-ai-text"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"font-bold tracking-tight text-base"[39m
+          [36m>[39m
+            [0mpecuarIA[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33maria-label[39m=[32m"Fechar menu"[39m
+          [33mclass[39m=[32m"md:hidden p-1.5 text-ai-subtext hover:text-ai-text hover:bg-ai-surface rounded transition-colors"[39m
+          [33mtitle[39m=[32m"Fechar menu"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-x"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"18"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"18"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M18 6 6 18"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m6 6 12 12"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex-1 overflow-y-auto py-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"px-4 mb-3 flex items-center justify-start gap-2"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 opacity-100 scale-[1.2]"[39m
+            [33mtitle[39m=[32m"Brasil"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"flex-shrink-0 cursor-pointer"[39m
+              [33mheight[39m=[32m"14"[39m
+              [33mviewBox[39m=[32m"0 0 20 14"[39m
+              [33mwidth[39m=[32m"20"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mfill[39m=[32m"#009739"[39m
+                [33mheight[39m=[32m"14"[39m
+                [33mwidth[39m=[32m"20"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10 0L20 7L10 14L0 7Z"[39m
+                [33mfill[39m=[32m"#FEDD00"[39m
+              [36m/>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"10"[39m
+                [33mcy[39m=[32m"7"[39m
+                [33mfill[39m=[32m"#012169"[39m
+                [33mr[39m=[32m"4.5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-[8px] font-semibold"[39m
+            [36m>[39m
+              [0mBR[0m
+            [36m</span>[39m
+          [36m</button>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 opacity-50 hover:opacity-75 scale-[0.72]"[39m
+            [33mtitle[39m=[32m"Paraguai"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"flex-shrink-0 cursor-pointer"[39m
+              [33mheight[39m=[32m"14"[39m
+              [33mviewBox[39m=[32m"0 0 20 14"[39m
+              [33mwidth[39m=[32m"20"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mfill[39m=[32m"#CE1126"[39m
+                [33mheight[39m=[32m"4.67"[39m
+                [33mwidth[39m=[32m"20"[39m
+                [33my[39m=[32m"0"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mfill[39m=[32m"#FFFFFF"[39m
+                [33mheight[39m=[32m"4.67"[39m
+                [33mwidth[39m=[32m"20"[39m
+                [33my[39m=[32m"4.67"[39m
+              [36m/>[39m
+              [36m<rect[39m
+                [33mfill[39m=[32m"#0038A8"[39m
+                [33mheight[39m=[32m"4.66"[39m
+                [33mwidth[39m=[32m"20"[39m
+                [33my[39m=[32m"9.34"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-[8px] font-semibold"[39m
+            [36m>[39m
+              [0mPY[0m
+            [36m</span>[39m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"px-4 mb-2"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"text-[10px] font-bold text-ai-subtext uppercase tracking-widest"[39m
+          [36m>[39m
+            [0mFerramentas[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<nav[39m
+          [33mclass[39m=[32m"space-y-0.5 px-2"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"space-y-0.5 mb-1"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text"[39m
+              [33mtitle[39m=[32m"Cadastros"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"flex items-center"[39m
+              [36m>[39m
+                [36m<svg[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"lucide lucide-folder-plus flex-shrink-0 text-ai-subtext group-hover:text-ai-text"[39m
+                  [33mfill[39m=[32m"none"[39m
+                  [33mheight[39m=[32m"16"[39m
+                  [33mstroke[39m=[32m"currentColor"[39m
+                  [33mstroke-linecap[39m=[32m"round"[39m
+                  [33mstroke-linejoin[39m=[32m"round"[39m
+                  [33mstroke-width[39m=[32m"2"[39m
+                  [33mviewBox...
+[90m [2m❯[22m Object.getElementError node_modules/@testing-library/dom/dist/config.js:[2m37:19[22m[39m
+[90m [2m❯[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m76:38[22m[39m
+[90m [2m❯[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m52:17[22m[39m
+[90m [2m❯[22m node_modules/@testing-library/dom/dist/query-helpers.js:[2m95:19[22m[39m
+[36m [2m❯[22m src/test/components/Sidebar.test.tsx:[2m54:19[22m[39m
+    [90m 52| [39m    )[33m;[39m
+    [90m 53| [39m
+    [90m 54| [39m    [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m'PecuarIA'[39m))[33m.[39m[34mtoBeInTheDocument[39m()[33m;[39m
+    [90m   | [39m                  [31m^[39m
+    [90m 55| [39m    [34mexpect[39m(screen[33m.[39m[34mgetByText[39m([32m'Calculadoras'[39m))[33m.[39m[34mtoBeInTheDocument[39m()[33m;[39m
+    [90m 56| [39m    expect(screen.getByText('Pergunte p/ Antonio')).toBeInTheDocument(…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 06:34:22
+[2m   Duration [22m 2.58s[2m (transform 144ms, setup 194ms, import 419ms, tests 128ms, environment 990ms)[22m
+

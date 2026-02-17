@@ -42,12 +42,6 @@ const INICIATIVAS_OVERVIEW_ID = 'iniciativas-overview';
 const INICIATIVAS_ATIVIDADES_ID = 'iniciativas-atividades';
 const isIniciativasView = (id: string) => id === INICIATIVAS_OVERVIEW_ID || id === INICIATIVAS_ATIVIDADES_ID;
 
-const CADASTROS_FARM_ID = 'farm-management';
-const CADASTROS_CLIENTS_ID = 'client-management';
-const CADASTROS_PEOPLE_ID = 'people-management';
-const isCadastrosView = (id: string) =>
-  id === CADASTROS_FARM_ID || id === CADASTROS_CLIENTS_ID || id === CADASTROS_PEOPLE_ID;
-
 interface Questionnaire {
   id: string;
   name: string;
@@ -60,7 +54,6 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
   const [isQuestionnairesOpen, setIsQuestionnairesOpen] = useState(false);
   const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
   const [isIniciativasOpen, setIsIniciativasOpen] = useState(() => isIniciativasView(activeAgentId));
-  const [isCadastrosOpen, setIsCadastrosOpen] = useState(() => isCadastrosView(activeAgentId));
 
   // Função para carregar questionários (estrutura básica)
   useEffect(() => {
@@ -78,13 +71,6 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
   useEffect(() => {
     if (isIniciativasView(activeAgentId)) setIsIniciativasOpen(true);
   }, [activeAgentId]);
-
-  // Manter submenu Cadastros aberto quando um filho estiver ativo
-  useEffect(() => {
-    if (isCadastrosView(activeAgentId)) setIsCadastrosOpen(true);
-  }, [activeAgentId]);
-
-
 
   return (
     <>
@@ -158,84 +144,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
           </div>
 
           <nav className="space-y-0.5 px-2">
-            {/* Cadastros (menu retrátil: Cadastro de Fazendas + Gestão de Clientes) – primeiro item */}
-            <div className="space-y-0.5 mb-1">
-              <button
-                type="button"
-                onClick={() => setIsCadastrosOpen(!isCadastrosOpen)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group ${isCadastrosView(activeAgentId)
-                  ? 'bg-ai-accent/5 text-ai-accent'
-                  : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                  }`}
-                title="Cadastros"
-              >
-                <div className="flex items-center">
-                  <FolderPlus size={16} className="flex-shrink-0 text-ai-subtext group-hover:text-ai-text" />
-                  <span className="ml-3 text-sm font-medium block truncate">Cadastros</span>
-                </div>
-                <ChevronDown
-                  size={14}
-                  className={`flex-shrink-0 transition-transform duration-200 ${isCadastrosOpen ? 'rotate-180' : ''}`}
-                />
-              </button>
-              {isCadastrosOpen && (
-                <div className="ml-4 space-y-0.5 border-l border-ai-border pl-2 overflow-hidden transition-all duration-200">
-                  {(() => {
-                    const farmAgent = agents.find((a) => a.id === CADASTROS_FARM_ID);
-                    const clientAgent = agents.find((a) => a.id === CADASTROS_CLIENTS_ID);
-                    const peopleAgent = agents.find((a) => a.id === CADASTROS_PEOPLE_ID);
-                    const farmLocked = farmAgent?.status !== 'active';
-                    const clientLocked = clientAgent?.status !== 'active';
-                    const peopleLocked = peopleAgent?.status !== 'active';
-                    return (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => !farmLocked && onSelectAgent(CADASTROS_FARM_ID)}
-                          disabled={farmLocked}
-                          className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === CADASTROS_FARM_ID
-                            ? 'bg-ai-accent/10 text-ai-accent'
-                            : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                            } ${farmLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                        >
-                          <Building2 size={14} className="flex-shrink-0 mr-2" />
-                          <span className="truncate">Cadastro de Fazendas</span>
-                          {farmLocked && <Lock size={10} className="ml-auto flex-shrink-0 text-ai-subtext/50" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => !clientLocked && onSelectAgent(CADASTROS_CLIENTS_ID)}
-                          disabled={clientLocked}
-                          className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === CADASTROS_CLIENTS_ID
-                            ? 'bg-ai-accent/10 text-ai-accent'
-                            : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                            } ${clientLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                        >
-                          <Users size={14} className="flex-shrink-0 mr-2" />
-                          <span className="truncate">Gestão de Clientes</span>
-                          {clientLocked && <Lock size={10} className="ml-auto flex-shrink-0 text-ai-subtext/50" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => !peopleLocked && onSelectAgent(CADASTROS_PEOPLE_ID)}
-                          disabled={peopleLocked}
-                          className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === CADASTROS_PEOPLE_ID
-                            ? 'bg-ai-accent/10 text-ai-accent'
-                            : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                            } ${peopleLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                        >
-                          <UserCircle size={14} className="flex-shrink-0 mr-2" />
-                          <span className="truncate">Cadastro de Pessoas</span>
-                          {peopleLocked && <Lock size={10} className="ml-auto flex-shrink-0 text-ai-subtext/50" />}
-                        </button>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
-
-            {/* Iniciativas (menu retrátil: Visão Geral + Atividades) */}
+            {/* Gestão do Projeto (menu retrátil: Visão Geral + Atividades) */}
             <div className="space-y-0.5 mb-1">
               <button
                 type="button"
@@ -244,11 +153,11 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                   ? 'bg-ai-accent/5 text-ai-accent'
                   : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                   }`}
-                title="Iniciativas"
+                title="Gestão do Projeto"
               >
                 <div className="flex items-center">
                   <FolderOpen size={16} className="flex-shrink-0 text-ai-subtext group-hover:text-ai-text" />
-                  <span className="ml-3 text-sm font-medium block truncate">Iniciativas</span>
+                  <span className="ml-3 text-sm font-medium block truncate">Gestão do Projeto</span>
                 </div>
                 <ChevronDown
                   size={14}
@@ -286,11 +195,6 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
             {agents.map((agent, index) => {
               const isActive = activeAgentId === agent.id;
               const isLocked = agent.status !== 'active';
-
-              // Itens que estão dentro de Cadastros: não exibir na lista principal
-              if (agent.id === CADASTROS_FARM_ID || agent.id === CADASTROS_CLIENTS_ID || agent.id === CADASTROS_PEOPLE_ID) {
-                return null;
-              }
 
               // Tratamento especial para o item Questionários (Menu Accordion)
               if (agent.id === 'questionnaires') {
@@ -371,6 +275,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                       {agent.icon === 'calendar' && <Calendar size={16} />}
                       {agent.icon === 'brain-circuit' && <BrainCircuit size={16} />}
                       {agent.icon === 'help-circle' && <HelpCircle size={16} />}
+                      {agent.icon === 'folder-plus' && <FolderPlus size={16} />}
                     </div>
 
                     <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>

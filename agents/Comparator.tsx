@@ -665,15 +665,15 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-green-700 font-medium">{scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">{scenarioB.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{(scenarioB.results.resultadoPorBoi - scenarioA.results.resultadoPorBoi).toFixed(0)}</span>
+                    <span className="text-sm font-bold text-ai-text">{scenarioB.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-orange-700 font-medium">{scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">{scenarioC.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{(scenarioC.results.resultadoPorBoi - scenarioA.results.resultadoPorBoi).toFixed(0)}</span>
+                    <span className="text-sm font-bold text-ai-text">{scenarioC.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                   </div>
                 </div>
               </div>
@@ -690,15 +690,15 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-green-700 font-medium">{scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">{scenarioB.results.resultadoMensal.toFixed(2)}%</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{(scenarioB.results.resultadoMensal - scenarioA.results.resultadoMensal).toFixed(2)}%</span>
+                    <span className="text-sm font-bold text-ai-text">{scenarioB.results.resultadoMensal.toFixed(2)}%</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-orange-700 font-medium">{scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">{scenarioC.results.resultadoMensal.toFixed(2)}%</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{(scenarioC.results.resultadoMensal - scenarioA.results.resultadoMensal).toFixed(2)}%</span>
+                    <span className="text-sm font-bold text-ai-text">{scenarioC.results.resultadoMensal.toFixed(2)}%</span>
                   </div>
                 </div>
               </div>
@@ -715,15 +715,15 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-green-700 font-medium">{scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">{scenarioB.results.margemVenda.toFixed(2)}%</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{(scenarioB.results.margemVenda - scenarioA.results.margemVenda).toFixed(2)}%</span>
+                    <span className="text-sm font-bold text-ai-text">{scenarioB.results.margemVenda.toFixed(2)}%</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-orange-700 font-medium">{scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-ai-text">{scenarioC.results.margemVenda.toFixed(2)}%</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{(scenarioC.results.margemVenda - scenarioA.results.margemVenda).toFixed(2)}%</span>
+                    <span className="text-sm font-bold text-ai-text">{scenarioC.results.margemVenda.toFixed(2)}%</span>
                   </div>
                 </div>
               </div>
@@ -740,15 +740,15 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-green-700 font-medium">{scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}>{currencySymbol} {scenarioB.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{((scenarioB.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) / 1000).toFixed(1)}k</span>
+                    <span className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}>{currencySymbol} {scenarioB.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-orange-700 font-medium">{scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:</span>
                   <div className="flex items-center gap-1">
-                    <span className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}>{currencySymbol} {scenarioC.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                     <span className="text-xs text-green-600 font-medium">↑ +{((scenarioC.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) / 1000).toFixed(1)}k</span>
+                    <span className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}>{currencySymbol} {scenarioC.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
                   </div>
                 </div>
               </div>

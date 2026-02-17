@@ -1,0 +1,1030 @@
+[
+  {
+    "id": "TC001",
+    "title": "Criar iniciativa com dois marcos e salvar com sucesso",
+    "description": "Valida que é possível cadastrar uma nova iniciativa com dados obrigatórios e dois marcos, exibindo confirmação e aparecendo na lista.",
+    "category": "Gestão de iniciativas",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Iniciativas\" in the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Atividades\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/iniciativas/atividades\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Nova Iniciativa\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"Iniciativa E2E - Cadastro\" into the \"Nome\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"10/03/2026\" into the \"Data início\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"10/06/2026\" into the \"Data final\" field"
+      },
+      {
+        "type": "action",
+        "description": "Select the first available option from the \"Líder\" dropdown"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Adicionar marco\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"Marco 1\" into the milestone \"Título\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"50\" into the milestone \"Percentual\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"10/04/2026\" into the milestone \"Data limite\" field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Adicionar marco\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"Marco 2\" into the second milestone \"Título\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"50\" into the second milestone \"Percentual\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"10/05/2026\" into the second milestone \"Data limite\" field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Salvar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Iniciativa salva com sucesso.\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Iniciativa E2E - Cadastro\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Bloquear criação quando analista não está selecionado (admin)",
+    "description": "Valida que, sem analista selecionado no cabeçalho, o sistema impede abrir/criar uma nova iniciativa e mostra aviso ou botão desabilitado.",
+    "category": "Gestão de iniciativas",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Iniciativas\" in the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Atividades\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/iniciativas/atividades\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the selected \"Analista\" value in the header selector"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Remover seleção\" (or equivalent clear option) in the analista selector"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Selecione um analista\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Nova Iniciativa\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Seleção de analista é obrigatória\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Validar erro quando Data início é posterior à Data final",
+    "description": "Garante que o formulário não permite salvar quando a data de início é maior que a data final e exibe mensagem de validação.",
+    "category": "Gestão de iniciativas",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Iniciativas\" in the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Atividades\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/iniciativas/atividades\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Nova Iniciativa\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"Iniciativa E2E - Datas inválidas\" into the \"Nome\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"20/06/2026\" into the \"Data início\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"10/06/2026\" into the \"Data final\" field"
+      },
+      {
+        "type": "action",
+        "description": "Select the first available option from the \"Líder\" dropdown"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Salvar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"início não pode ser posterior ao fim\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Validar erro quando soma dos percentuais dos marcos ultrapassa 100%",
+    "description": "Confirma que o sistema impede salvar quando a soma de percentuais dos marcos excede 100% e mostra erro/toast de validação.",
+    "category": "Gestão de iniciativas",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Iniciativas\" in the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Atividades\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/iniciativas/atividades\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Nova Iniciativa\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"Iniciativa E2E - Marcos 110\" into the \"Nome\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"01/04/2026\" into the \"Data início\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"30/06/2026\" into the \"Data final\" field"
+      },
+      {
+        "type": "action",
+        "description": "Select the first available option from the \"Líder\" dropdown"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Adicionar marco\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"Marco A\" into the milestone \"Título\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"60\" into the milestone \"Percentual\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"01/05/2026\" into the milestone \"Data limite\" field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Adicionar marco\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"Marco B\" into the second milestone \"Título\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"50\" into the second milestone \"Percentual\" field"
+      },
+      {
+        "type": "action",
+        "description": "Fill \"01/06/2026\" into the second milestone \"Data limite\" field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Salvar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"percentuais\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Aplicar filtros (analista/cliente/fazenda) e validar atualização da lista",
+    "description": "Verifica que alterar filtros reflete visualmente na lista de iniciativas (lista atualiza e mantém coerência com seleção).",
+    "category": "Gestão de iniciativas",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Iniciativas\" in the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Atividades\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/iniciativas/atividades\""
+      },
+      {
+        "type": "action",
+        "description": "Select the first available option from the \"Analista\" dropdown/filter"
+      },
+      {
+        "type": "action",
+        "description": "Select the first available option from the \"Cliente\" dropdown/filter"
+      },
+      {
+        "type": "action",
+        "description": "Select the first available option from the \"Fazenda\" dropdown/filter"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Lista de iniciativas\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Card de iniciativa\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Alternar status de um marco e abrir evidências do marco",
+    "description": "Valida que é possível mudar o status de um marco e abrir o modal de evidências a partir da gestão da iniciativa.",
+    "category": "Gestão de iniciativas",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Iniciativas\" in the sidebar"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Atividades\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/iniciativas/atividades\""
+      },
+      {
+        "type": "action",
+        "description": "Click on the first available initiative card in the list"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Marcos\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click on the first milestone status toggle (e.g., \"Pendente\" / \"Concluído\")"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Concluído\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Evidências\" for the first milestone"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Modal de Evidências\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Comentários\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Adicionar comentário e salvar evidências com toast de confirmação",
+    "description": "Valida o fluxo básico de adicionar comentário no modal e salvar exibindo o toast \"Evidências salvas.\".",
+    "category": "Evidências de marcos",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Atividades\" in the sidebar menu"
+      },
+      {
+        "type": "action",
+        "description": "Click on the card of an initiative in the list"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Clique para detalhar evidências\" for a milestone on the \"Geral & Marcos\" section"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Evidências\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Salvar evidências e ver toast \"Evidências salvas.\"",
+    "description": "Confirma que o botão de salvar persiste as alterações e exibe o toast de sucesso.",
+    "category": "Evidências de marcos",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Atividades\" in the sidebar menu"
+      },
+      {
+        "type": "action",
+        "description": "Click on the card of an initiative in the list"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Clique para detalhar evidências\" for a milestone"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Salvar Evidências\""
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Alternar status do marco para concluído e ver atualização visual do check",
+    "description": "Garante que o usuário consegue alternar o status concluído no modal e o marco reflete visualmente a conclusão.",
+    "category": "Evidências de marcos",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Atividades\" in the sidebar menu"
+      },
+      {
+        "type": "action",
+        "description": "Click on the card of an initiative in the list"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Clique para detalhar evidências\" for a milestone"
+      },
+      {
+        "type": "action",
+        "description": "Click on the milestone status toggle to mark it as concluded"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Fechar modal de evidências e retornar para Gestão/Atividades",
+    "description": "Verifica que o usuário pode fechar o modal e continuar a navegação na tela de iniciativas.",
+    "category": "Evidências de marcos",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Atividades\" in the sidebar menu"
+      },
+      {
+        "type": "action",
+        "description": "Click on the card of an initiative in the list"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Clique para detalhar evidências\" for a milestone"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Fechar\" in the evidences modal"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Carregar o Painel Executivo e exibir KPIs e gráficos principais",
+    "description": "Garante que o painel executivo carrega e apresenta KPIs e gráficos de status e saúde do portfólio.",
+    "category": "Painel executivo de iniciativas",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/iniciativas/overview\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Iniciativas Ativas\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Entregas Realizadas\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Gráfico de distribuição por status\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Exibir estado de loading ao abrir o Painel Executivo",
+    "description": "Valida que um indicador visual de carregamento aparece antes dos dados serem renderizados no painel.",
+    "category": "Painel executivo de iniciativas",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/iniciativas/overview\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Carregando\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Progresso Médio\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Validar presença dos 4 KPIs no Painel Executivo",
+    "description": "Confirma que os quatro cards de KPI esperados estão visíveis após o carregamento.",
+    "category": "Painel executivo de iniciativas",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Iniciativas Ativas\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Entregas Realizadas\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Em Andamento\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Progresso Médio\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Visualizar gráfico de distribuição por status no Painel Executivo",
+    "description": "Garante que o gráfico de distribuição por status do portfólio está visível no painel.",
+    "category": "Painel executivo de iniciativas",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/iniciativas/overview\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Gráfico de distribuição por status\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Status\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Visualizar gráfico de saúde do portfólio no Painel Executivo",
+    "description": "Garante que o gráfico de saúde do portfólio é renderizado e está visível no painel.",
+    "category": "Painel executivo de iniciativas",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify URL contains \"/iniciativas/overview\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Gráfico de saúde do portfólio\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Saúde\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Trocar filtro de Analista e recarregar KPIs e gráficos",
+    "description": "Valida que ao alterar o contexto de Analista ocorre recarga e o painel permanece funcional com KPIs e gráficos visíveis.",
+    "category": "Painel executivo de iniciativas",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "action",
+        "description": "Select a different option from the \"Analista\" dropdown in the header"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Carregando\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Iniciativas Ativas\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Gráfico de distribuição por status\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Trocar filtro de Cliente e recarregar KPIs e gráficos",
+    "description": "Valida que ao alterar o contexto de Cliente ocorre recarga e os componentes do painel continuam visíveis.",
+    "category": "Painel executivo de iniciativas",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "action",
+        "description": "Select a different option from the \"Cliente\" dropdown in the header"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Carregando\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Em Andamento\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Gráfico de saúde do portfólio\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Trocar filtro de Fazenda e recarregar KPIs e gráficos",
+    "description": "Valida que ao alterar o contexto de Fazenda ocorre recarga e os KPIs/gráficos são exibidos após atualizar.",
+    "category": "Painel executivo de iniciativas",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "action",
+        "description": "Select a different option from the \"Fazenda\" dropdown in the header"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Carregando\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Entregas Realizadas\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Gráfico de distribuição por status\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Estado de erro na consulta de dados e ação \"Tentar novamente\"",
+    "description": "Garante que, quando há falha de carregamento, o painel mostra erro e permite retentativa via botão.",
+    "category": "Painel executivo de iniciativas",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Ocorreu um erro\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Tentar novamente\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Tentar novamente\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Carregando\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "Após retentativa bem-sucedida, exibir KPIs no Painel Executivo",
+    "description": "Valida que após clicar em \"Tentar novamente\" e o carregamento concluir, os KPIs voltam a ser exibidos.",
+    "category": "Painel executivo de iniciativas",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Entrar\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"Tentar novamente\""
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Iniciativas Ativas\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Progresso Médio\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify element \"Gráfico de saúde do portfólio\" is visible"
+      }
+    ]
+  }
+]

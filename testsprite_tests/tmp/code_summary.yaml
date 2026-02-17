@@ -1,0 +1,112 @@
+version: "2"
+type: frontend
+tech_stack:
+  - TypeScript
+  - React 19 + Vite
+  - Tailwind CSS + Lucide React
+  - Supabase (database, auth, storage), Recharts, FullCalendar
+routes:
+  - path: /
+    file: App.tsx
+    auth_required: true
+    description: Shell principal da aplicação com navegação por agentes no sidebar.
+  - path: /iniciativas/overview
+    file: agents/InitiativesOverview.tsx
+    auth_required: true
+    description: Painel Executivo de iniciativas (KPIs e gráficos).
+  - path: /iniciativas/atividades
+    file: agents/InitiativesActivities.tsx
+    auth_required: true
+    description: Lista, cadastro, edição, gestão e exclusão de iniciativas.
+  - path: /iniciativas/evidencias
+    file: components/EvidenciaEntregaModal.tsx
+    auth_required: true
+    description: Modal de evidências por marco com comentários e anexos.
+  - path: /calendar
+    file: agents/CalendarAgent.tsx
+    auth_required: true
+    description: Calendário com criação/remoção de atividades.
+features:
+  - name: Gestão de iniciativas
+    description: Cria, lista, edita, exclui e detalha iniciativas com filtros por analista, cliente e fazenda.
+    files:
+      - agents/InitiativesActivities.tsx
+      - lib/initiatives.ts
+      - components/DateInputBR.tsx
+    entry_route: /iniciativas/atividades
+    user_interactions:
+      - Clicar em "Nova Iniciativa" para abrir modal de cadastro.
+      - Preencher nome, datas, líder, time, marcos e salvar.
+      - Clicar no card para abrir a tela de gestão (Geral & Marcos / Time do Projeto).
+      - Clicar em "Editar" para atualizar dados e "Excluir" para remover iniciativa.
+      - Alternar status de marcos e abrir evidências por marco.
+    api_calls:
+      - method: SELECT
+        endpoint: supabase.public.initiatives
+      - method: INSERT
+        endpoint: supabase.public.initiatives
+      - method: UPDATE
+        endpoint: supabase.public.initiatives
+      - method: DELETE
+        endpoint: supabase.public.initiatives
+      - method: SELECT/INSERT/UPDATE/DELETE
+        endpoint: supabase.public.initiative_milestones
+      - method: SELECT/INSERT/DELETE
+        endpoint: supabase.public.initiative_team
+    auth_required: true
+  - name: Evidências de marcos
+    description: Registra evidências de entrega por marco com notas e arquivos por tipo.
+    files:
+      - components/EvidenciaEntregaModal.tsx
+      - lib/milestoneEvidence.ts
+    entry_route: /iniciativas/evidencias
+    user_interactions:
+      - Abrir modal de evidência ao clicar em "Clique para detalhar evidências".
+      - Adicionar comentário textual e salvar.
+      - Anexar imagem, vídeo, planilha ou documento.
+      - Baixar ou remover arquivos anexados.
+      - Alternar status concluído/não concluído do marco.
+    api_calls:
+      - method: SELECT/INSERT/UPDATE
+        endpoint: supabase.public.milestone_evidence
+      - method: SELECT/INSERT/DELETE
+        endpoint: supabase.public.milestone_evidence_files
+      - method: UPLOAD/REMOVE/CREATE_SIGNED_URL
+        endpoint: supabase.storage.bucket.milestone-evidence
+    auth_required: true
+  - name: Painel executivo de iniciativas
+    description: Exibe indicadores consolidados e gráficos do portfólio.
+    files:
+      - agents/InitiativesOverview.tsx
+      - lib/initiatives.ts
+    entry_route: /iniciativas/overview
+    user_interactions:
+      - Acessar o painel para visualizar KPIs de iniciativas.
+      - Ver distribuição por status e saúde do portfólio.
+      - Recarregar dados ao trocar contexto de analista, cliente ou fazenda.
+    api_calls:
+      - method: SELECT
+        endpoint: supabase.public.initiatives
+      - method: SELECT
+        endpoint: supabase.public.initiative_milestones
+    auth_required: true
+  - name: Calendário de atividades
+    description: Cria e remove atividades em calendário via UI modal customizada.
+    files:
+      - agents/CalendarAgent.tsx
+    entry_route: /calendar
+    user_interactions:
+      - Selecionar intervalo no calendário e inserir nome da atividade.
+      - Confirmar inclusão de atividade no modal "Inclua uma atividade".
+      - Clicar em evento para excluir com confirmação.
+    api_calls:
+      - method: N/A
+        endpoint: local_state_only
+    auth_required: true
+known_limitations:
+  - issue: Eventos do calendário são mantidos apenas em estado local (não persistem após reload).
+    location: agents/CalendarAgent.tsx
+    impact: Atividades do calendário não ficam salvas no banco.
+  - issue: Atualização de iniciativa recria team e marcos (delete + insert) em vez de atualização granular.
+    location: lib/initiatives.ts
+    impact: IDs antigos de marcos/time mudam após edição completa.

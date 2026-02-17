@@ -1,0 +1,36 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90mC:/pecuaria[39m
+
+ [31m❯[39m src/test/agents/QuestionnaireFiller.test.tsx [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 22[2mms[22m[39m
+     [32m✓[39m deve exportar o componente[32m 1[2mms[22m[39m
+[31m     [31m×[31m deve permitir preencher o questionário e enviar com sucesso[39m[32m 19[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/test/agents/QuestionnaireFiller.test.tsx[2m > [22mQuestionnaireFiller[2m > [22mdeve permitir preencher o questionário e enviar com sucesso
+[31m[1mError[22m: useAnalyst must be used within an AnalystProvider[39m
+[36m [2m❯[22m useAnalyst contexts/AnalystContext.tsx:[2m49:11[22m[39m
+    [90m 47| [39m  [35mconst[39m context [33m=[39m [34museContext[39m([33mAnalystContext[39m)[33m;[39m
+    [90m 48| [39m  [35mif[39m (context [33m===[39m undefined) {
+    [90m 49| [39m    throw new Error('useAnalyst must be used within an AnalystProvider…
+    [90m   | [39m          [31m^[39m
+    [90m 50| [39m  }
+    [90m 51| [39m  [35mreturn[39m context[33m;[39m
+[90m [2m❯[22m QuestionnaireFiller agents/QuestionnaireFiller.tsx:[2m35:31[22m[39m
+[90m [2m❯[22m Object.react_stack_bottom_frame node_modules/react-dom/cjs/react-dom-client.development.js:[2m25904:20[22m[39m
+[90m [2m❯[22m renderWithHooks node_modules/react-dom/cjs/react-dom-client.development.js:[2m7662:22[22m[39m
+[90m [2m❯[22m updateFunctionComponent node_modules/react-dom/cjs/react-dom-client.development.js:[2m10166:19[22m[39m
+[90m [2m❯[22m beginWork node_modules/react-dom/cjs/react-dom-client.development.js:[2m11778:18[22m[39m
+[90m [2m❯[22m runWithFiberInDEV node_modules/react-dom/cjs/react-dom-client.development.js:[2m874:13[22m[39m
+[90m [2m❯[22m performUnitOfWork node_modules/react-dom/cjs/react-dom-client.development.js:[2m17641:22[22m[39m
+[90m [2m❯[22m workLoopSync node_modules/react-dom/cjs/react-dom-client.development.js:[2m17469:41[22m[39m
+[90m [2m❯[22m renderRootSync node_modules/react-dom/cjs/react-dom-client.development.js:[2m17450:11[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m   Start at [22m 06:32:16
+[2m   Duration [22m 3.17s[2m (transform 411ms, setup 201ms, import 1.52s, tests 22ms, environment 1.07s)[22m
+

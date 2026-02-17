@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Loader2,
   TrendingUp,
@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   ChevronDown,
   X,
+  FileDown,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
@@ -20,6 +21,7 @@ import { useClient } from '../contexts/ClientContext';
 import { useFarm } from '../contexts/FarmContext';
 import { fetchInitiatives, type InitiativeWithProgress } from '../lib/initiatives';
 import DateInputBR from '../components/DateInputBR';
+import { generateInitiativesOverviewPdf } from '../lib/generateInitiativesOverviewPdf';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -96,6 +98,9 @@ const InitiativesOverview: React.FC = () => {
   const [dateTo, setDateTo] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedYear, setSelectedYear] = useState(() => String(new Date().getFullYear()));
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const reportRef = useRef<HTMLDivElement | null>(null);
 
   const isAdmin = user?.role === 'admin';
   const effectiveUserId = useMemo(
@@ -220,6 +225,23 @@ const InitiativesOverview: React.FC = () => {
     return { total, byStatus, byLeader, allMilestones, avgProgress, atrasadas, milPct };
   }, [filteredInitiatives]);
 
+  const handleExportPdf = useCallback(async () => {
+    if (!reportRef.current || isGeneratingPdf) return;
+
+    setPdfError(null);
+    setIsGeneratingPdf(true);
+    try {
+      await generateInitiativesOverviewPdf(reportRef.current, {
+        fileName: `visao-geral-iniciativas-${new Date().toISOString().split('T')[0]}.pdf`,
+      });
+    } catch (e) {
+      console.error('[InitiativesOverview] handleExportPdf:', e);
+      setPdfError('Não foi possível gerar o PDF. Tente novamente.');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [isGeneratingPdf]);
+
   // ─── Render: Loading / Error ──────────────────────────────────────
 
   if (loading) {
@@ -272,7 +294,7 @@ const InitiativesOverview: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-auto bg-white dark:bg-ai-bg">
-      <div className="p-4 md:p-6 space-y-4">
+      <div ref={reportRef} className="p-4 md:p-6 space-y-4">
         {/* Header + Filtro de datas */}
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
@@ -280,6 +302,16 @@ const InitiativesOverview: React.FC = () => {
             <h1 className="text-xl font-bold text-ai-text tracking-tight">Relatório de Iniciativas</h1>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              disabled={isGeneratingPdf}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ai-accent text-white text-xs font-semibold hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Salvar e imprimir relatório em PDF"
+            >
+              {isGeneratingPdf ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+              {isGeneratingPdf ? 'Gerando PDF...' : 'Salvar/Imprimir PDF'}
+            </button>
             <Calendar size={13} className="text-ai-subtext" />
             <span className="text-[10px] text-ai-subtext font-medium uppercase tracking-wider whitespace-nowrap">Período:</span>
             <select
@@ -346,6 +378,12 @@ const InitiativesOverview: React.FC = () => {
             )}
           </div>
         </div>
+
+        {pdfError && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {pdfError}
+          </div>
+        )}
 
         {/* Admin sem analista */}
         {isAdmin && !selectedAnalyst && (
