@@ -20,6 +20,7 @@ import { useClient } from '../contexts/ClientContext';
 import {
   fetchDeliveries,
   createDelivery,
+  updateDelivery,
   deleteDelivery,
   linkDeliveryToProject,
   unlinkDeliveryFromProject,
@@ -50,6 +51,13 @@ const initialProjectForm = {
   stakeholder_matrix: [] as ProjectStakeholderRow[],
 };
 
+const initialDeliveryForm = {
+  name: '',
+  description: '',
+  transformations_achievements: '',
+  due_date: '',
+};
+
 const formatDate = (d: string | null) => {
   if (!d) return '—';
   try {
@@ -72,8 +80,10 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<ProjectRow | null>(null);
   const [projectForm, setProjectForm] = useState(initialProjectForm);
-  const [newDeliveryName, setNewDeliveryName] = useState('');
-  const [addingDelivery, setAddingDelivery] = useState(false);
+  const [deliveryFormOpen, setDeliveryFormOpen] = useState<'create' | 'edit' | null>(null);
+  const [editingDelivery, setEditingDelivery] = useState<DeliveryRow | null>(null);
+  const [deliveryForm, setDeliveryForm] = useState(initialDeliveryForm);
+  const [savingDelivery, setSavingDelivery] = useState(false);
   const [linkDeliveryId, setLinkDeliveryId] = useState('');
   const [linkingDelivery, setLinkingDelivery] = useState(false);
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
@@ -226,30 +236,63 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
     }
   }, [toast, loadProjects, loadDeliveries]);
 
-  const handleAddDelivery = useCallback(async () => {
-    if (!editingProject || !effectiveUserId || !newDeliveryName.trim()) {
-      toast('Digite o nome da entrega.', 'warning');
+  const openCreateDelivery = useCallback(() => {
+    setDeliveryForm(initialDeliveryForm);
+    setEditingDelivery(null);
+    setDeliveryFormOpen('create');
+  }, []);
+
+  const openEditDelivery = useCallback((d: DeliveryRow) => {
+    setDeliveryForm({
+      name: d.name || '',
+      description: d.description || '',
+      transformations_achievements: d.transformations_achievements || '',
+      due_date: d.due_date ? d.due_date.slice(0, 10) : '',
+    });
+    setEditingDelivery(d);
+    setDeliveryFormOpen('edit');
+  }, []);
+
+  const closeDeliveryForm = useCallback(() => {
+    setDeliveryFormOpen(null);
+    setEditingDelivery(null);
+    setDeliveryForm(initialDeliveryForm);
+  }, []);
+
+  const handleSaveDelivery = useCallback(async () => {
+    if (!effectiveUserId || !editingProject) return;
+    if (!deliveryForm.name.trim()) {
+      toast('O nome da entrega é obrigatório.', 'warning');
       return;
     }
-    setAddingDelivery(true);
+    setSavingDelivery(true);
     try {
-      await createDelivery(effectiveUserId, {
-        name: newDeliveryName.trim(),
+      const payload = {
+        name: deliveryForm.name.trim(),
+        description: deliveryForm.description.trim() || undefined,
+        transformations_achievements: deliveryForm.transformations_achievements.trim() || undefined,
+        due_date: deliveryForm.due_date.trim() || undefined,
         client_id: selectedClient?.id || null,
         project_id: editingProject.id,
-      });
-      setNewDeliveryName('');
-      toast('Entrega adicionada ao projeto.', 'success');
+      };
+      if (deliveryFormOpen === 'create') {
+        await createDelivery(effectiveUserId, payload);
+        toast('Entrega adicionada ao projeto.', 'success');
+      } else if (editingDelivery) {
+        await updateDelivery(editingDelivery.id, payload);
+        toast('Entrega atualizada.', 'success');
+      }
+      closeDeliveryForm();
       await Promise.all([
         loadDeliveriesForProject(editingProject.id),
         loadDeliveries(),
       ]);
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao criar entrega.', 'error');
+      toast(e instanceof Error ? e.message : 'Erro ao salvar entrega.', 'error');
     } finally {
-      setAddingDelivery(false);
+      setSavingDelivery(false);
     }
-  }, [editingProject, effectiveUserId, newDeliveryName, selectedClient?.id, toast, loadDeliveriesForProject, loadDeliveries]);
+  }, [effectiveUserId, editingProject, deliveryForm, deliveryFormOpen, editingDelivery, selectedClient?.id, toast, closeDeliveryForm, loadDeliveriesForProject, loadDeliveries]);
 
   const handleLinkDelivery = useCallback(async () => {
     if (!editingProject || !linkDeliveryId) return;
@@ -494,20 +537,10 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
               </h2>
 
               <div className="flex flex-wrap gap-2">
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="text"
-                    value={newDeliveryName}
-                    onChange={(e) => setNewDeliveryName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddDelivery()}
-                    placeholder="Nome da nova entrega"
-                    className="px-3 py-1.5 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm w-56"
-                  />
-                  <button type="button" onClick={handleAddDelivery} disabled={addingDelivery || !newDeliveryName.trim()} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ai-accent text-white text-sm hover:opacity-90 disabled:opacity-50">
-                    {addingDelivery ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                    Nova entrega
-                  </button>
-                </div>
+                <button type="button" onClick={openCreateDelivery} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ai-accent text-white text-sm hover:opacity-90">
+                  <Plus size={14} />
+                  Nova entrega
+                </button>
                 <div className="flex gap-2 items-center">
                   <select
                     value={linkDeliveryId}
@@ -526,6 +559,55 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
                 </div>
               </div>
 
+              {deliveryFormOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeDeliveryForm}>
+                  <div className="bg-ai-surface border border-ai-border rounded-xl p-6 max-w-lg w-full shadow-xl space-y-4" onClick={(e) => e.stopPropagation()}>
+                    <h3 className="text-lg font-bold text-ai-text">{deliveryFormOpen === 'create' ? 'Nova entrega' : 'Editar entrega'}</h3>
+                    <div>
+                      <label className="block text-sm font-medium text-ai-text mb-1">Nome <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={deliveryForm.name}
+                        onChange={(e) => setDeliveryForm((p) => ({ ...p, name: e.target.value }))}
+                        className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm"
+                        placeholder="Ex.: Atualização de processos gerenciais"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-ai-text mb-1">Descrição</label>
+                      <textarea
+                        rows={3}
+                        value={deliveryForm.description}
+                        onChange={(e) => setDeliveryForm((p) => ({ ...p, description: e.target.value }))}
+                        className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm resize-none"
+                        placeholder="Descreva o escopo da entrega."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-ai-text mb-1">Transformações e conquistas</label>
+                      <textarea
+                        rows={3}
+                        value={deliveryForm.transformations_achievements}
+                        onChange={(e) => setDeliveryForm((p) => ({ ...p, transformations_achievements: e.target.value }))}
+                        className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm resize-none"
+                        placeholder="Conquistas esperadas com esta entrega."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-ai-text mb-1 flex items-center gap-1.5"><Calendar size={14} /> Prazo</label>
+                      <DateInputBR value={deliveryForm.due_date} onChange={(v) => setDeliveryForm((p) => ({ ...p, due_date: v }))} placeholder="dd/mm/aaaa" className="w-full" />
+                    </div>
+                    <div className="flex justify-end gap-3 pt-2">
+                      <button type="button" onClick={closeDeliveryForm} className="px-4 py-2 rounded-md border border-ai-border text-ai-subtext hover:text-ai-text">Cancelar</button>
+                      <button type="button" onClick={handleSaveDelivery} disabled={savingDelivery || !deliveryForm.name.trim()} className="px-4 py-2 rounded-md bg-ai-accent text-white hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2">
+                        {savingDelivery && <Loader2 size={16} className="animate-spin" />}
+                        Salvar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {deliveriesForProject.length === 0 ? (
                 <p className="text-sm text-ai-subtext">Nenhuma entrega vinculada. Crie uma nova ou vincule uma existente.</p>
               ) : (
@@ -534,6 +616,9 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
                     <li key={d.id} className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg border border-ai-border bg-ai-bg">
                       <span className="text-sm font-medium text-ai-text">{d.name}</span>
                       <div className="flex items-center gap-1">
+                        <button type="button" onClick={(e) => { e.stopPropagation(); openEditDelivery(d); }} className="p-1.5 rounded text-ai-subtext hover:text-ai-accent hover:bg-ai-surface2" title="Editar entrega">
+                          <Pencil size={14} />
+                        </button>
                         <button type="button" onClick={() => handleUnlinkDelivery(d.id)} disabled={unlinkingId === d.id} className="p-1.5 rounded text-ai-subtext hover:text-amber-600 hover:bg-amber-50 disabled:opacity-50" title="Desvincular do projeto">
                           {unlinkingId === d.id ? <Loader2 size={14} className="animate-spin" /> : <Unlink size={14} />}
                         </button>
