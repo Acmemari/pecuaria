@@ -1,26 +1,30 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Loader2,
-  ChevronDown,
+  AlertTriangle,
+  FolderOpen,
+  Calendar,
+  CheckSquare,
+  Package,
+  Clock,
+  Target,
+  Printer,
   ChevronRight,
+  Flag,
   CheckCircle2,
   Circle,
-  Calendar,
-  Users,
-  User,
-  Flag,
-  Package,
-  FolderOpen,
-  AlertTriangle,
-  Clock,
-  TrendingUp,
+  Pencil,
+  Check,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
 import { useClient } from '../contexts/ClientContext';
-import { useFarm } from '../contexts/FarmContext';
-import { fetchInitiativesWithTeams, type InitiativeWithTeam, type InitiativeMilestoneRow } from '../lib/initiatives';
+import { fetchProjects, type ProjectRow } from '../lib/projects';
 import { fetchDeliveries, type DeliveryRow } from '../lib/deliveries';
+import { fetchInitiativesWithTeams, type InitiativeWithTeam } from '../lib/initiatives';
+import { generateProjectStructurePdf } from '../lib/generateProjectStructurePdf';
+import { supabase } from '../lib/supabase';
 
 const formatDate = (d: string | null) => {
   if (!d) return '—';
@@ -33,234 +37,93 @@ const formatDate = (d: string | null) => {
   }
 };
 
-const statusColor = (status: string) => {
-  const s = (status || '').toLowerCase();
-  if (s.includes('andamento')) return { bg: 'bg-indigo-50 border-indigo-200', text: 'text-indigo-700', badge: 'bg-indigo-100 text-indigo-800', bar: 'bg-indigo-500', dot: 'bg-indigo-500' };
-  if (s.includes('concluído') || s.includes('concluido')) return { bg: 'bg-green-50 border-green-200', text: 'text-green-700', badge: 'bg-green-100 text-green-800', bar: 'bg-green-500', dot: 'bg-green-500' };
-  if (s.includes('atrasado')) return { bg: 'bg-red-50 border-red-200', text: 'text-red-700', badge: 'bg-red-100 text-red-800', bar: 'bg-red-500', dot: 'bg-red-500' };
-  if (s.includes('suspenso')) return { bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700', badge: 'bg-amber-100 text-amber-800', bar: 'bg-amber-500', dot: 'bg-amber-500' };
-  return { bg: 'bg-slate-50 border-slate-200', text: 'text-slate-600', badge: 'bg-slate-100 text-slate-700', bar: 'bg-slate-400', dot: 'bg-slate-400' };
-};
-
-const deadlineIndicator = (endDate: string | null) => {
-  if (!endDate) return null;
-  const now = new Date();
+const getDurationLabel = (startDate: string | null, endDate: string | null) => {
+  if (!startDate || !endDate) return 'Prazo em definição';
+  const start = new Date(`${startDate}T00:00:00`);
   const end = new Date(`${endDate}T00:00:00`);
-  if (isNaN(end.getTime())) return null;
-  const diff = Math.ceil((end.getTime() - now.getTime()) / 86400000);
-  if (diff < 0) return { label: 'Vencido', cls: 'text-red-600' };
-  if (diff <= 7) return { label: `${diff}d restantes`, cls: 'text-amber-600' };
-  return null;
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return 'Prazo em definição';
+  const diffDays = Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1;
+  if (diffDays < 30) return `${diffDays} dias previstos`;
+  const months = Math.round((diffDays / 30) * 10) / 10;
+  return `${months.toLocaleString('pt-BR')} meses previstos`;
 };
 
-interface DeliveryGroup {
-  delivery: DeliveryRow | null;
-  initiatives: InitiativeWithTeam[];
+const compareByDueDateThenName = (a: DeliveryRow, b: DeliveryRow) => {
+  const aDue = a.due_date ? new Date(`${a.due_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
+  const bDue = b.due_date ? new Date(`${b.due_date}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
+  if (aDue !== bDue) return aDue - bDue;
+  return a.name.localeCompare(b.name, 'pt-BR');
+};
+
+const getInitials = (name: string): string => {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts[0]?.length >= 2) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0]?.[0] ?? '?').toUpperCase();
+};
+
+const computeSourceHash = (d: DeliveryRow): string => {
+  const raw = [d.name, d.description ?? '', d.transformations_achievements ?? ''].join('|');
+  let h = 0;
+  for (let i = 0; i < raw.length; i++) {
+    h = ((h << 5) - h + raw.charCodeAt(i)) | 0;
+  }
+  return h.toString(36);
+};
+
+interface ProjectStructureReportProps {
+  onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
-function MilestoneItem({ milestone }: { milestone: InitiativeMilestoneRow }) {
-  const dl = deadlineIndicator(milestone.due_date);
-  return (
-    <div className="flex items-start gap-2 py-1">
-      <div className="mt-0.5 flex-shrink-0">
-        {milestone.completed ? (
-          <CheckCircle2 size={14} className="text-green-500" />
-        ) : (
-          <Circle size={14} className="text-slate-300" />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className={`text-xs ${milestone.completed ? 'text-green-700 line-through' : 'text-ai-text'}`}>
-            {milestone.title}
-          </span>
-          <span className="text-[10px] text-ai-subtext tabular-nums">({milestone.percent}%)</span>
-        </div>
-        {milestone.due_date && (
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <Calendar size={10} className="text-ai-subtext" />
-            <span className="text-[10px] text-ai-subtext tabular-nums">{formatDate(milestone.due_date)}</span>
-            {dl && <span className={`text-[10px] font-medium ${dl.cls}`}>{dl.label}</span>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function InitiativeCard({ initiative }: { initiative: InitiativeWithTeam }) {
-  const [open, setOpen] = useState(false);
-  const sc = statusColor(initiative.status);
-  const milestones = initiative.milestones || [];
-  const completedMil = milestones.filter((m) => m.completed).length;
-  const dl = deadlineIndicator(initiative.end_date);
-  const leader = initiative.team.find((t) => t.role === 'RESPONSÁVEL');
-  const support = initiative.team.filter((t) => t.role !== 'RESPONSÁVEL');
-
-  return (
-    <div className={`rounded-lg border ${sc.bg} overflow-hidden transition-all`}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/40 transition-colors"
-      >
-        <div className="flex-shrink-0">
-          {open ? <ChevronDown size={16} className={sc.text} /> : <ChevronRight size={16} className={sc.text} />}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-ai-text">{initiative.name}</span>
-            <span className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${sc.badge}`}>
-              {initiative.status || 'Não Iniciado'}
-            </span>
-            {dl && (
-              <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${dl.cls}`}>
-                <Clock size={10} />
-                {dl.label}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-4 mt-1 text-[11px] text-ai-subtext">
-            {(initiative.leader || leader) && (
-              <span className="inline-flex items-center gap-1">
-                <User size={11} />
-                {initiative.leader || leader?.name || '—'}
-              </span>
-            )}
-            <span className="inline-flex items-center gap-1">
-              <Calendar size={11} />
-              {formatDate(initiative.start_date)} — {formatDate(initiative.end_date)}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Flag size={11} />
-              {completedMil}/{milestones.length} marcos
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0 w-28">
-          <div className="flex-1 bg-white/60 rounded-full h-2">
-            <div className={`h-2 rounded-full transition-all ${sc.bar}`} style={{ width: `${Math.min(100, initiative.progress ?? 0)}%` }} />
-          </div>
-          <span className="text-xs font-bold text-ai-text tabular-nums w-9 text-right">{initiative.progress ?? 0}%</span>
-        </div>
-      </button>
-
-      {open && (
-        <div className="px-4 pb-4 pt-1 border-t border-white/50 space-y-3">
-          {initiative.description && (
-            <p className="text-xs text-ai-subtext leading-relaxed">{initiative.description}</p>
-          )}
-
-          {initiative.team.length > 0 && (
-            <div>
-              <h5 className="text-[10px] font-semibold text-ai-subtext uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                <Users size={11} />
-                Time
-              </h5>
-              <div className="flex flex-wrap gap-1.5">
-                {leader && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-medium border border-indigo-200">
-                    <User size={10} />
-                    {leader.name}
-                    <span className="text-indigo-500 font-normal ml-0.5">Resp.</span>
-                  </span>
-                )}
-                {support.map((t, i) => (
-                  <span
-                    key={`${t.name}-${i}`}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-medium border border-slate-200"
-                  >
-                    {t.name}
-                    <span className="text-slate-400 font-normal ml-0.5">Apoio</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {milestones.length > 0 && (
-            <div>
-              <h5 className="text-[10px] font-semibold text-ai-subtext uppercase tracking-wider mb-1 flex items-center gap-1">
-                <Flag size={11} />
-                Marcos ({completedMil}/{milestones.length})
-              </h5>
-              <div className="divide-y divide-white/50">
-                {milestones.map((m) => (
-                  <MilestoneItem key={m.id} milestone={m} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function DeliverySection({ group, defaultOpen }: { group: DeliveryGroup; defaultOpen: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const totalProgress = group.initiatives.length > 0
-    ? Math.round(group.initiatives.reduce((s, i) => s + (i.progress ?? 0), 0) / group.initiatives.length)
-    : 0;
-
-  return (
-    <div className="rounded-xl border border-ai-border bg-white dark:bg-ai-bg overflow-hidden shadow-sm">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full text-left px-5 py-3.5 flex items-center gap-3 bg-ai-surface/30 hover:bg-ai-surface/50 transition-colors border-b border-ai-border"
-      >
-        <div className="flex-shrink-0 w-1 h-8 rounded-full bg-indigo-500" />
-        <div className="flex-shrink-0">
-          {open ? <ChevronDown size={18} className="text-indigo-500" /> : <ChevronRight size={18} className="text-ai-subtext" />}
-        </div>
-        <Package size={18} className="text-indigo-500 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold text-ai-text">
-            {group.delivery?.name || 'Sem entrega vinculada'}
-          </div>
-          {group.delivery?.description && (
-            <div className="text-[11px] text-ai-subtext mt-0.5 truncate">{group.delivery.description}</div>
-          )}
-        </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <span className="text-[11px] text-ai-subtext">
-            {group.initiatives.length} atividade{group.initiatives.length !== 1 ? 's' : ''}
-          </span>
-          <div className="flex items-center gap-1.5 w-24">
-            <div className="flex-1 bg-gray-200 rounded-full h-2">
-              <div className="h-2 rounded-full bg-indigo-500 transition-all" style={{ width: `${totalProgress}%` }} />
-            </div>
-            <span className="text-xs font-bold text-ai-text tabular-nums w-9 text-right">{totalProgress}%</span>
-          </div>
-        </div>
-      </button>
-
-      {open && (
-        <div className="p-4 space-y-2">
-          {group.initiatives.length === 0 ? (
-            <p className="text-xs text-ai-subtext italic px-2 py-3">Nenhuma atividade vinculada a esta entrega.</p>
-          ) : (
-            group.initiatives.map((init) => (
-              <InitiativeCard key={init.id} initiative={init} />
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const ProjectStructureReport: React.FC = () => {
+const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast }) => {
   const { user } = useAuth();
   const { selectedAnalyst } = useAnalyst();
   const { selectedClient } = useClient();
-  const { selectedFarm } = useFarm();
 
-  const [initiatives, setInitiatives] = useState<InitiativeWithTeam[]>([]);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
+  const [initiatives, setInitiatives] = useState<InitiativeWithTeam[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'deliveries'>('overview');
+  const [expandedDeliveryIds, setExpandedDeliveryIds] = useState<Set<string>>(new Set());
+  const [deliverySummaries, setDeliverySummaries] = useState<Record<string, string>>({});
+  const [deliverySummaryLoading, setDeliverySummaryLoading] = useState<Set<string>>(new Set());
+  const [deliverySummaryErrors, setDeliverySummaryErrors] = useState<Record<string, string>>({});
+  const [editingDeliveryId, setEditingDeliveryId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
+
+  const toggleDelivery = (id: string) => {
+    setExpandedDeliveryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSaveSummary = useCallback(
+    async (delivery: DeliveryRow) => {
+      const trimmed = editDraft.trim();
+      if (!trimmed) return;
+      const { error: upsertError } = await supabase.from('delivery_ai_summaries').upsert(
+        { delivery_id: delivery.id, summary: trimmed, source_hash: computeSourceHash(delivery) },
+        { onConflict: 'delivery_id' }
+      );
+      if (upsertError) {
+        console.error('[handleSaveSummary]', upsertError.message);
+        onToast?.('Erro ao salvar resumo.', 'error');
+        return;
+      }
+      setDeliverySummaries((prev) => ({ ...prev, [delivery.id]: trimmed }));
+      setEditingDeliveryId(null);
+      onToast?.('Resumo salvo.', 'success');
+    },
+    [editDraft, onToast]
+  );
 
   const isAdmin = user?.role === 'admin';
   const effectiveUserId = useMemo(
@@ -268,87 +131,262 @@ const ProjectStructureReport: React.FC = () => {
     [isAdmin, selectedAnalyst, user?.id]
   );
 
+  const clientFilter = useMemo(
+    () => (selectedClient?.id ? { clientId: selectedClient.id } : undefined),
+    [selectedClient?.id]
+  );
+
   const loadData = useCallback(async () => {
     if (!effectiveUserId) {
-      setInitiatives([]);
+      setProjects([]);
       setDeliveries([]);
+      setInitiatives([]);
+      setSelectedProjectId('');
       setLoading(false);
       return;
     }
+
     setLoading(true);
     setError(null);
     try {
-      const filters: { clientId?: string; farmId?: string } = {};
-      if (selectedClient?.id) filters.clientId = selectedClient.id;
-      if (selectedFarm?.id) filters.farmId = selectedFarm.id;
-
-      const [inits, dels] = await Promise.all([
-        fetchInitiativesWithTeams(effectiveUserId, Object.keys(filters).length > 0 ? filters : undefined),
-        fetchDeliveries(effectiveUserId, selectedClient?.id ? { clientId: selectedClient.id } : undefined),
+      const [projectRows, deliveryRows, initiativeRows] = await Promise.all([
+        fetchProjects(effectiveUserId, clientFilter),
+        fetchDeliveries(effectiveUserId, clientFilter),
+        fetchInitiativesWithTeams(effectiveUserId, clientFilter),
       ]);
-      setInitiatives(inits);
-      setDeliveries(dels);
+      setProjects(projectRows);
+      setDeliveries(deliveryRows);
+      setInitiatives(initiativeRows);
+      setSelectedProjectId((prev) => {
+        if (prev && projectRows.some((p) => p.id === prev)) return prev;
+        return projectRows[0]?.id || '';
+      });
     } catch (e) {
-      console.error('[ProjectStructureReport] loadData:', e);
-      setError(e instanceof Error ? e.message : 'Erro ao carregar dados');
+      setError(e instanceof Error ? e.message : 'Erro ao carregar dados do relatório.');
     } finally {
       setLoading(false);
     }
-  }, [effectiveUserId, selectedClient?.id, selectedFarm?.id]);
+  }, [effectiveUserId, clientFilter]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const groups = useMemo<DeliveryGroup[]>(() => {
-    const deliveryMap = new Map(deliveries.map((d) => [d.id, d]));
-    const byDelivery = new Map<string, InitiativeWithTeam[]>();
-    const orphans: InitiativeWithTeam[] = [];
+  const selectedProject = useMemo(
+    () => projects.find((p) => p.id === selectedProjectId) || null,
+    [projects, selectedProjectId]
+  );
 
-    for (const init of initiatives) {
-      if (init.delivery_id && deliveryMap.has(init.delivery_id)) {
-        const list = byDelivery.get(init.delivery_id) || [];
-        list.push(init);
-        byDelivery.set(init.delivery_id, list);
-      } else {
-        orphans.push(init);
+  const projectDeliveries = useMemo(() => {
+    if (!selectedProject) return [];
+    return deliveries
+      .filter((d) => d.project_id === selectedProject.id)
+      .sort(compareByDueDateThenName);
+  }, [deliveries, selectedProject]);
+
+  const initiativesByDelivery = useMemo(() => {
+    const map = new Map<string, InitiativeWithTeam[]>();
+    for (const initiative of initiatives) {
+      if (!initiative.delivery_id) continue;
+      const current = map.get(initiative.delivery_id) || [];
+      current.push(initiative);
+      map.set(initiative.delivery_id, current);
+    }
+    for (const [deliveryId, list] of map.entries()) {
+      list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      map.set(deliveryId, list);
+    }
+    return map;
+  }, [initiatives]);
+
+  const initiativesByDeliveryIdRecord = useMemo(
+    () => Object.fromEntries(initiativesByDelivery),
+    [initiativesByDelivery]
+  );
+
+  const handleGeneratePdf = useCallback(() => {
+    if (!selectedProject) return;
+    setPdfError(null);
+    setIsGeneratingPdf(true);
+    try {
+      generateProjectStructurePdf({
+        project: selectedProject,
+        deliveries: projectDeliveries,
+        initiativesByDeliveryId: initiativesByDeliveryIdRecord,
+        userName: user?.email ?? user?.full_name ?? undefined,
+      });
+      onToast?.('PDF gerado com sucesso.', 'success');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Não foi possível gerar o PDF.';
+      setPdfError(msg);
+      onToast?.(msg, 'error');
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [selectedProject, projectDeliveries, initiativesByDeliveryIdRecord, user?.email, user?.full_name, onToast]);
+
+  const summaryRunRef = useRef<string>('');
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const ids = projectDeliveries.map((d) => d.id).sort().join(',');
+    const runKey = `${selectedProjectId}::${ids}`;
+    if (summaryRunRef.current === runKey) return;
+    summaryRunRef.current = runKey;
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setDeliverySummaries({});
+    setDeliverySummaryLoading(new Set());
+    setDeliverySummaryErrors({});
+
+    if (!projectDeliveries.length) return;
+
+    const deliveryIds = projectDeliveries.map((d) => d.id);
+    const hashMap: Record<string, string> = {};
+    projectDeliveries.forEach((d) => { hashMap[d.id] = computeSourceHash(d); });
+
+    const generateOne = async (
+      d: DeliveryRow,
+      fnUrl: string,
+      accessToken: string,
+      anonKey: string,
+      signal: AbortSignal
+    ) => {
+      try {
+        const res = await fetch(fnUrl, {
+          method: 'POST',
+          signal,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+            apikey: anonKey,
+          },
+          body: JSON.stringify({
+            name: d.name,
+            description: d.description ?? '',
+            transformations_achievements: d.transformations_achievements ?? '',
+          }),
+        });
+
+        if (signal.aborted) return;
+        if (!res.ok) throw new Error('Erro ao gerar resumo.');
+        const json = await res.json();
+        const summary = typeof json?.summary === 'string' ? json.summary.trim() : '';
+        if (!summary) throw new Error('Resumo vazio.');
+
+        await supabase.from('delivery_ai_summaries').upsert(
+          { delivery_id: d.id, summary, source_hash: hashMap[d.id] },
+          { onConflict: 'delivery_id' }
+        );
+
+        if (!signal.aborted) {
+          setDeliverySummaries((prev) => ({ ...prev, [d.id]: summary }));
+        }
+      } catch (err) {
+        if (signal.aborted) return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setDeliverySummaryErrors((prev) => ({ ...prev, [d.id]: 'Resumo indisponível.' }));
+      } finally {
+        if (!signal.aborted) {
+          setDeliverySummaryLoading((prev) => {
+            const next = new Set(prev);
+            next.delete(d.id);
+            return next;
+          });
+        }
       }
-    }
+    };
 
-    const result: DeliveryGroup[] = [];
+    const run = async () => {
+      try {
+        const { data: saved, error: fetchErr } = await supabase
+          .from('delivery_ai_summaries')
+          .select('delivery_id, summary, source_hash')
+          .in('delivery_id', deliveryIds);
 
-    for (const del of deliveries) {
-      const inits = byDelivery.get(del.id) || [];
-      if (inits.length > 0) {
-        result.push({ delivery: del, initiatives: inits });
+        if (controller.signal.aborted) return;
+        if (fetchErr) {
+          console.error('[summaries] Erro ao buscar cache:', fetchErr.message);
+        }
+
+        const savedMap = new Map<string, { summary: string; source_hash: string }>();
+        (saved || []).forEach((r: { delivery_id: string; summary: string; source_hash: string }) => {
+          savedMap.set(r.delivery_id, r);
+        });
+
+        const cached: Record<string, string> = {};
+        const toGenerate: DeliveryRow[] = [];
+
+        projectDeliveries.forEach((d) => {
+          const existing = savedMap.get(d.id);
+          if (existing && existing.source_hash === hashMap[d.id]) {
+            cached[d.id] = existing.summary;
+          } else {
+            toGenerate.push(d);
+          }
+        });
+
+        if (Object.keys(cached).length) {
+          setDeliverySummaries(cached);
+        }
+
+        if (!toGenerate.length) return;
+
+        setDeliverySummaryLoading(new Set(toGenerate.map((d) => d.id)));
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        if (!accessToken) {
+          const errMap: Record<string, string> = {};
+          toGenerate.forEach((d) => { errMap[d.id] = 'Sessão expirada.'; });
+          setDeliverySummaryErrors(errMap);
+          setDeliverySummaryLoading(new Set());
+          return;
+        }
+
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+        if (!supabaseUrl || !anonKey) {
+          console.error('[summaries] VITE_SUPABASE_URL ou VITE_SUPABASE_ANON_KEY não definidas.');
+          const errMap: Record<string, string> = {};
+          toGenerate.forEach((d) => { errMap[d.id] = 'Configuração incompleta.'; });
+          setDeliverySummaryErrors(errMap);
+          setDeliverySummaryLoading(new Set());
+          return;
+        }
+
+        const fnUrl = `${supabaseUrl}/functions/v1/delivery-summary`;
+        const CONCURRENCY = 3;
+
+        for (let i = 0; i < toGenerate.length; i += CONCURRENCY) {
+          if (controller.signal.aborted) return;
+          const batch = toGenerate.slice(i, i + CONCURRENCY);
+          await Promise.allSettled(
+            batch.map((d) => generateOne(d, fnUrl, accessToken, anonKey, controller.signal))
+          );
+        }
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        console.error('[summaries] Erro inesperado:', err);
       }
-    }
+    };
 
-    if (orphans.length > 0) {
-      result.push({ delivery: null, initiatives: orphans });
-    }
+    run();
 
-    return result;
-  }, [initiatives, deliveries]);
-
-  const summaryStats = useMemo(() => {
-    const totalDeliveries = groups.filter((g) => g.delivery !== null).length;
-    const totalInitiatives = initiatives.length;
-    const totalMilestones = initiatives.reduce((s, i) => s + (i.milestones?.length || 0), 0);
-    const completedMilestones = initiatives.reduce(
-      (s, i) => s + (i.milestones?.filter((m) => m.completed).length || 0), 0
-    );
-    const avgProgress = totalInitiatives > 0
-      ? Math.round(initiatives.reduce((s, i) => s + (i.progress ?? 0), 0) / totalInitiatives)
-      : 0;
-    return { totalDeliveries, totalInitiatives, totalMilestones, completedMilestones, avgProgress };
-  }, [groups, initiatives]);
+    return () => {
+      controller.abort();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectDeliveries, selectedProjectId]);
 
   if (loading) {
     return (
       <div className="flex flex-col h-full min-h-0 items-center justify-center">
         <Loader2 size={40} className="animate-spin text-ai-accent" />
-        <p className="text-sm text-ai-subtext mt-3">Carregando estrutura do projeto...</p>
+        <p className="text-sm text-ai-subtext mt-3">Carregando relatório de planejamento...</p>
       </div>
     );
   }
@@ -364,7 +402,7 @@ const ProjectStructureReport: React.FC = () => {
     );
   }
 
-  if (initiatives.length === 0) {
+  if (projects.length === 0) {
     return (
       <div className="flex flex-col h-full min-h-0 overflow-auto">
         <div className="p-4 md:p-6">
@@ -372,9 +410,9 @@ const ProjectStructureReport: React.FC = () => {
           <h1 className="text-xl font-bold text-ai-text tracking-tight">Estrutura do Projeto</h1>
           <div className="bg-ai-surface/50 border border-ai-border rounded-xl p-12 flex flex-col items-center justify-center text-center min-h-[280px] mt-6">
             <FolderOpen size={56} className="text-ai-subtext/40 mb-4" />
-            <h2 className="text-lg font-semibold text-ai-text mb-2">Nenhuma atividade cadastrada</h2>
+            <h2 className="text-lg font-semibold text-ai-text mb-2">Nenhum projeto cadastrado</h2>
             <p className="text-ai-subtext max-w-sm">
-              Cadastre entregas e atividades para visualizar a estrutura hierárquica do projeto.
+              Cadastre um projeto em Projeto e Entregas para gerar um relatório de planejamento.
             </p>
           </div>
         </div>
@@ -382,17 +420,17 @@ const ProjectStructureReport: React.FC = () => {
     );
   }
 
-  return (
-    <div className="flex flex-col h-full min-h-0 overflow-auto bg-white dark:bg-ai-bg">
-      <div className="p-4 md:p-6 space-y-5">
-        <div>
-          <nav className="text-xs text-ai-subtext uppercase tracking-widest mb-0.5">Gestão do Projeto &gt; Estrutura</nav>
-          <h1 className="text-xl font-bold text-ai-text tracking-tight">Estrutura do Projeto</h1>
-          <p className="text-xs text-ai-subtext mt-1">
-            Visão hierárquica: entregas, atividades, times e marcos.
-          </p>
-        </div>
+  if (!selectedProject) {
+    return (
+      <div className="flex flex-col h-full min-h-0 items-center justify-center">
+        <p className="text-sm text-ai-subtext">Selecione um projeto para visualizar o relatório.</p>
+      </div>
+    );
+  }
 
+  return (
+    <div className="flex flex-col h-full min-h-0 overflow-auto bg-white">
+      <div className="p-4 md:p-6 space-y-5">
         {isAdmin && !selectedAnalyst && (
           <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
             <AlertTriangle size={18} className="text-amber-600 shrink-0" />
@@ -402,59 +440,364 @@ const ProjectStructureReport: React.FC = () => {
           </div>
         )}
 
-        {/* Mini KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="bg-white border border-ai-border rounded-lg p-3 flex items-center gap-3">
-            <Package size={18} className="text-indigo-500 flex-shrink-0" />
-            <div>
-              <div className="text-[10px] text-ai-subtext uppercase tracking-wider font-medium">Entregas</div>
-              <div className="text-lg font-bold text-ai-text">{summaryStats.totalDeliveries}</div>
-            </div>
+        {/* Header: seletor, nome do projeto, branding, PDF */}
+        <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <select
+              value={selectedProject.id}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+              className="mb-2 block w-full max-w-xs px-3 py-2 rounded-md border border-slate-200 bg-white text-slate-900 text-sm"
+              aria-label="Selecionar projeto"
+            >
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">{selectedProject.name}</h1>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mt-1">PecuariA</p>
           </div>
-          <div className="bg-white border border-ai-border rounded-lg p-3 flex items-center gap-3">
-            <Flag size={18} className="text-emerald-500 flex-shrink-0" />
-            <div>
-              <div className="text-[10px] text-ai-subtext uppercase tracking-wider font-medium">Atividades</div>
-              <div className="text-lg font-bold text-ai-text">{summaryStats.totalInitiatives}</div>
-            </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleGeneratePdf}
+              disabled={isGeneratingPdf}
+              className="p-2 rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Gerar e baixar relatório em PDF"
+              aria-label="Gerar PDF"
+            >
+              {isGeneratingPdf ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <Printer size={18} />
+              )}
+            </button>
           </div>
-          <div className="bg-white border border-ai-border rounded-lg p-3 flex items-center gap-3">
-            <CheckCircle2 size={18} className="text-green-500 flex-shrink-0" />
-            <div>
-              <div className="text-[10px] text-ai-subtext uppercase tracking-wider font-medium">Marcos</div>
-              <div className="text-lg font-bold text-ai-text">
-                {summaryStats.completedMilestones}
-                <span className="text-sm font-normal text-ai-subtext">/{summaryStats.totalMilestones}</span>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white border border-ai-border rounded-lg p-3 flex items-center gap-3">
-            <TrendingUp size={18} className="text-blue-500 flex-shrink-0" />
-            <div>
-              <div className="text-[10px] text-ai-subtext uppercase tracking-wider font-medium">Progresso</div>
-              <div className="text-lg font-bold text-ai-text">{summaryStats.avgProgress}%</div>
-            </div>
-          </div>
-          <div className="bg-white border border-ai-border rounded-lg p-3 flex items-center gap-3">
-            <Users size={18} className="text-purple-500 flex-shrink-0" />
-            <div>
-              <div className="text-[10px] text-ai-subtext uppercase tracking-wider font-medium">Times</div>
-              <div className="text-lg font-bold text-ai-text">
-                {new Set(initiatives.flatMap((i) => i.team.map((t) => t.name))).size}
-              </div>
-            </div>
-          </div>
-        </div>
+        </header>
 
-        {/* Hierarchical Report */}
-        <div className="space-y-4">
-          {groups.map((group, idx) => (
-            <DeliverySection
-              key={group.delivery?.id || 'orphan'}
-              group={group}
-              defaultOpen={idx < 3}
-            />
-          ))}
+        {pdfError && (
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+            <AlertTriangle size={18} className="shrink-0" />
+            {pdfError}
+            <button type="button" onClick={() => setPdfError(null)} className="ml-auto text-red-600 hover:underline">
+              Fechar
+            </button>
+          </div>
+        )}
+
+        {/* Seção de Impacto: Conquistas acima, Evidências abaixo */}
+        <section className="flex flex-col gap-4">
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-6 text-white">
+            <div className="flex items-start gap-4">
+              <div className="shrink-0 w-12 h-12 flex items-center justify-center [clip-path:polygon(50%_0%,100%_25%,100%_75%,50%_100%,0%_75%,0%_25%)] bg-slate-800">
+                <Target size={24} className="text-slate-300" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-white mb-2">Conquistas Esperadas</h2>
+                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+                  {selectedProject.transformations_achievements?.trim() || 'Não informado.'}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-white p-6">
+            <div className="flex items-start gap-4">
+              <div className="shrink-0 w-10 h-10 flex items-center justify-center rounded-sm bg-slate-100 rotate-45 overflow-hidden">
+                <CheckSquare size={20} className="text-slate-600 -rotate-45" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-semibold text-slate-900 mb-2">Evidências de Sucesso</h2>
+                {selectedProject.success_evidence.length === 0 ? (
+                  <p className="text-sm text-slate-600">Nenhuma evidência cadastrada.</p>
+                ) : (
+                  <ol className="list-decimal pl-5 space-y-1 text-slate-600 text-sm">
+                    {selectedProject.success_evidence.map((item, idx) => (
+                      <li key={`${selectedProject.id}-evidence-${idx}`} className="leading-relaxed">
+                        {item}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 3 cards de métricas */}
+        <section className="grid grid-cols-3 gap-3">
+          <div className="rounded-lg border border-slate-100 bg-slate-50/50 px-4 py-3 flex items-center gap-3">
+            <div className="rounded-full bg-indigo-50 text-indigo-600 p-2">
+              <Calendar size={18} />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Período</p>
+              <p className="text-sm font-medium text-slate-800">
+                {formatDate(selectedProject.start_date)} — {formatDate(selectedProject.end_date)}
+              </p>
+            </div>
+          </div>
+          <div className="rounded-lg border border-slate-100 bg-slate-50/50 px-4 py-3 flex items-center gap-3">
+            <div className="rounded-full bg-emerald-50 text-emerald-600 p-2">
+              <Clock size={18} />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Duração</p>
+              <p className="text-sm font-medium text-slate-800">
+                {getDurationLabel(selectedProject.start_date, selectedProject.end_date)}
+              </p>
+            </div>
+          </div>
+          <div className="rounded-lg border border-slate-100 bg-slate-50/50 px-4 py-3 flex items-center gap-3">
+            <div className="rounded-full bg-slate-100 text-slate-600 p-2">
+              <Package size={18} />
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">Total de Entregas</p>
+              <p className="text-sm font-medium text-slate-800">{projectDeliveries.length}</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Tabs */}
+        <div>
+          <div className="flex border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${
+                activeTab === 'overview'
+                  ? 'border-b-2 border-indigo-600 text-indigo-600 -mb-px'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Visão Geral
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('deliveries')}
+              className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${
+                activeTab === 'deliveries'
+                  ? 'border-b-2 border-indigo-600 text-indigo-600 -mb-px'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              Entregas e Atividades
+            </button>
+          </div>
+
+          {activeTab === 'overview' && (
+            <div className="pt-5 space-y-6">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-800 mb-3">Relação de entregas</h3>
+                {projectDeliveries.length === 0 ? (
+                  <p className="text-sm text-slate-500">Nenhuma entrega vinculada.</p>
+                ) : (
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {projectDeliveries.map((d, index) => {
+                      const summary = deliverySummaries[d.id];
+                      const isLoading = deliverySummaryLoading.has(d.id);
+                      const errorMsg = deliverySummaryErrors[d.id];
+                      const isEditing = editingDeliveryId === d.id;
+                      const canEdit = !isLoading && (!!summary || !!errorMsg);
+                      return (
+                        <div
+                          key={d.id}
+                          className="group rounded-lg border border-slate-100 bg-slate-50/50 p-4 flex items-start gap-3"
+                        >
+                          <span
+                            className="rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm w-8 h-8 flex items-center justify-center shrink-0"
+                            aria-hidden
+                          >
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex justify-between items-baseline gap-2">
+                              <span className="font-medium text-slate-800">{d.name}</span>
+                              <span className="text-xs text-slate-400 shrink-0">{formatDate(d.due_date ?? null)}</span>
+                            </div>
+                            <div className="mt-2 text-sm text-slate-600">
+                              {isEditing ? (
+                                <>
+                                  <textarea
+                                    value={editDraft}
+                                    onChange={(e) => setEditDraft(e.target.value)}
+                                    rows={2}
+                                    className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-slate-800 text-sm resize-none"
+                                    placeholder="Editar resumo…"
+                                    autoFocus
+                                  />
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveSummary(d)}
+                                      disabled={!editDraft.trim()}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <Check size={14} />
+                                      Salvar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => { setEditingDeliveryId(null); setEditDraft(''); }}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-600 text-xs font-medium hover:bg-slate-50"
+                                    >
+                                      <X size={14} />
+                                      Cancelar
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="flex items-start gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    {isLoading && (
+                                      <span className="inline-flex items-center gap-1.5 text-slate-400">
+                                        <Loader2 size={14} className="animate-spin shrink-0" />
+                                        Gerando resumo…
+                                      </span>
+                                    )}
+                                    {!isLoading && summary && (
+                                      <span className="block break-words">
+                                        {summary.replace(/\s*\n+\s*/g, ' ')}
+                                      </span>
+                                    )}
+                                    {!isLoading && errorMsg && (
+                                      <span className="text-slate-400 italic">{errorMsg}</span>
+                                    )}
+                                    {!isLoading && !summary && !errorMsg && (
+                                      <span className="text-slate-400 italic">Resumo em breve.</span>
+                                    )}
+                                  </div>
+                                  {canEdit && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setEditingDeliveryId(d.id); setEditDraft(summary || ''); }}
+                                      className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                      title="Editar resumo"
+                                      aria-label="Editar resumo"
+                                    >
+                                      <Pencil size={14} />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-800 mb-3">Stakeholders</h3>
+                {selectedProject.stakeholder_matrix.length === 0 ? (
+                  <p className="text-sm text-slate-500">Nenhum stakeholder cadastrado.</p>
+                ) : (
+                  <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {selectedProject.stakeholder_matrix.map((row, idx) => (
+                      <div
+                        key={`${selectedProject.id}-stakeholder-${idx}`}
+                        className="flex items-center gap-3 rounded-lg border border-slate-100 bg-slate-50/50 p-3"
+                      >
+                        <div className="rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm w-9 h-9 flex items-center justify-center shrink-0">
+                          {getInitials(row.name || '')}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-800">{row.name || 'Stakeholder não informado'}</p>
+                          <p className="text-xs text-slate-500">{row.activity || 'Atividade não informada'}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'deliveries' && (
+            <div className="pt-5">
+              {projectDeliveries.length === 0 ? (
+                <p className="text-sm text-slate-500">Este projeto ainda não possui entregas vinculadas.</p>
+              ) : (
+                <div className="space-y-2">
+                  {projectDeliveries.map((delivery) => {
+                    const initiativesList = initiativesByDelivery.get(delivery.id) || [];
+                    const isExpanded = expandedDeliveryIds.has(delivery.id);
+                    return (
+                      <div
+                        key={delivery.id}
+                        className="rounded-lg border border-slate-100 bg-white overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleDelivery(delivery.id)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50/50 transition-colors"
+                        >
+                          <ChevronRight
+                            size={18}
+                            className={`text-slate-500 shrink-0 transition-transform duration-200 ${
+                              isExpanded ? 'rotate-90' : ''
+                            }`}
+                          />
+                          <span className="font-semibold text-slate-800 flex-1 min-w-0">{delivery.name}</span>
+                          <span className="text-xs text-slate-400 shrink-0">{formatDate(delivery.due_date ?? null)}</span>
+                          <span className="rounded-full bg-slate-100 text-slate-600 text-xs font-medium px-2 py-0.5">
+                            {initiativesList.length} atividade(s)
+                          </span>
+                        </button>
+                        {isExpanded && (
+                          <div className="border-t border-slate-100 px-4 py-4 bg-slate-50/30">
+                            {initiativesList.length === 0 ? (
+                              <p className="text-sm text-slate-500">Nenhuma atividade vinculada.</p>
+                            ) : (
+                              <div className="relative pl-6 border-l-2 border-indigo-200 space-y-4">
+                                {initiativesList.map((initiative) => {
+                                  const totalM = (initiative.milestones || []).length;
+                                  const completedM = (initiative.milestones || []).filter((m) => m.completed).length;
+                                  const pct = totalM > 0 ? Math.round((completedM / totalM) * 100) : 0;
+                                  return (
+                                    <div key={initiative.id} className="relative">
+                                      <div className={`absolute -left-6 top-2 w-3 h-3 rounded-full border-2 border-white ${pct === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+                                      <div className="pb-2">
+                                        <p className="font-medium text-slate-800">{initiative.name}</p>
+                                        {initiative.description?.trim() && (
+                                          <p className="text-sm text-slate-500 mt-0.5 line-clamp-2">
+                                            {initiative.description}
+                                          </p>
+                                        )}
+                                        <p className="text-xs text-slate-400 mt-1">
+                                          {formatDate(initiative.start_date)} — {formatDate(initiative.end_date)}
+                                        </p>
+                                      </div>
+                                      {(initiative.milestones || []).length > 0 && (
+                                        <div className="mt-2 flex items-center gap-2">
+                                          <div className="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                                            <div
+                                              className="h-full rounded-full bg-indigo-500"
+                                              style={{ width: `${pct}%` }}
+                                            />
+                                          </div>
+                                          <span className="text-xs text-slate-500">{pct}%</span>
+                                          {pct === 100 && (
+                                            <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -733,7 +733,7 @@ const AppContent: React.FC = () => {
       case 'project-structure':
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <ProjectStructureReport />
+            <ProjectStructureReport onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })} />
           </Suspense>
         );
       default:
