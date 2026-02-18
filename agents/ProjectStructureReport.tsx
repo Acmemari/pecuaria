@@ -180,6 +180,12 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
     loadData();
   }, [loadData]);
 
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7741/ingest/774fafa3-280b-4b2a-82e5-82eb3a2d712c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5bc854'},body:JSON.stringify({sessionId:'5bc854',location:'ProjectStructureReport.tsx:mount',message:'ProjectStructureReport mounted',data:{projectsCount:projects.length,loading,effectiveUserId:effectiveUserId??null},timestamp:Date.now(),hypothesisId:'H3-H4'})}).catch(()=>{});
+  }, [projects.length, loading, effectiveUserId]);
+  // #endregion
+
   const selectedProject = useMemo(
     () => projects.find((p) => p.id === selectedProjectId) || null,
     [projects, selectedProjectId]

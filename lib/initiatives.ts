@@ -50,6 +50,10 @@ export interface InitiativeWithProgress extends InitiativeRow {
   milestones?: InitiativeMilestoneRow[];
 }
 
+export interface InitiativeWithTeam extends InitiativeWithProgress {
+  team: { name: string; role: string }[];
+}
+
 export interface FetchInitiativesFilters {
   clientId?: string;
   farmId?: string;
@@ -183,6 +187,38 @@ export async function fetchInitiatives(
       milestones: list.sort((a, b) => a.sort_order - b.sort_order),
     } as InitiativeWithProgress;
   });
+}
+
+/**
+ * Busca iniciativas com time e marcos para relatórios/telas de estrutura.
+ * Reaproveita fetchInitiatives para manter regras de filtro/RLS em um único ponto.
+ */
+export async function fetchInitiativesWithTeams(
+  effectiveUserId: string,
+  filters?: FetchInitiativesFilters
+): Promise<InitiativeWithTeam[]> {
+  const initiatives = await fetchInitiatives(effectiveUserId, filters);
+  if (!initiatives.length) return [];
+
+  const initiativeIds = initiatives.map((i) => i.id);
+  const { data: teamRows, error: teamErr } = await supabase
+    .from('initiative_team')
+    .select('initiative_id, name, role, sort_order')
+    .in('initiative_id', initiativeIds)
+    .order('sort_order', { ascending: true });
+
+  if (teamErr) throw teamErr;
+
+  const teamByInitiative = (teamRows || []).reduce<Record<string, { name: string; role: string }[]>>((acc, row) => {
+    if (!acc[row.initiative_id]) acc[row.initiative_id] = [];
+    acc[row.initiative_id].push({ name: row.name || '', role: row.role || '' });
+    return acc;
+  }, {});
+
+  return initiatives.map((initiative) => ({
+    ...initiative,
+    team: teamByInitiative[initiative.id] || [],
+  }));
 }
 
 /**

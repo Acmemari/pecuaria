@@ -40,7 +40,9 @@ interface SidebarProps {
 
 const INICIATIVAS_OVERVIEW_ID = 'iniciativas-overview';
 const INICIATIVAS_ATIVIDADES_ID = 'iniciativas-atividades';
-const isIniciativasView = (id: string) => id === INICIATIVAS_OVERVIEW_ID || id === INICIATIVAS_ATIVIDADES_ID;
+const PROJECT_STRUCTURE_ID = 'project-structure';
+const isIniciativasView = (id: string) =>
+  id === INICIATIVAS_OVERVIEW_ID || id === INICIATIVAS_ATIVIDADES_ID || id === PROJECT_STRUCTURE_ID;
 
 interface Questionnaire {
   id: string;
@@ -71,6 +73,12 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
   useEffect(() => {
     if (isIniciativasView(activeAgentId)) setIsIniciativasOpen(true);
   }, [activeAgentId]);
+
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7741/ingest/774fafa3-280b-4b2a-82e5-82eb3a2d712c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5bc854'},body:JSON.stringify({sessionId:'5bc854',location:'Sidebar.tsx:render',message:'Sidebar state',data:{isOpen,isIniciativasOpen,activeAgentId,hasProjectStructureId:activeAgentId==='project-structure'},timestamp:Date.now(),hypothesisId:'H1-H2-H5'})}).catch(()=>{});
+  }, [isOpen, isIniciativasOpen, activeAgentId]);
+  // #endregion
 
   return (
     <>
@@ -187,6 +195,17 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                   >
                     <ListTodo size={14} className="flex-shrink-0 mr-2" />
                     <span className="truncate">Atividades</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onSelectAgent(PROJECT_STRUCTURE_ID)}
+                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === PROJECT_STRUCTURE_ID
+                      ? 'bg-ai-accent/10 text-ai-accent'
+                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                      }`}
+                  >
+                    <FolderOpen size={14} className="flex-shrink-0 mr-2" />
+                    <span className="truncate">Estrutura do Projeto</span>
                   </button>
                 </div>
               )}
