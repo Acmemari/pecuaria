@@ -243,20 +243,8 @@
 }
 
 /* ── Today marker ──────────────────────────────────────────────────────── */
-.gantt_marker {
-  background: transparent !important;
-  z-index: 5;
-}
-
-.gantt_marker .gantt_marker_content {
-  background: transparent !important;
-}
-
-.gantt_marker_area .gantt_marker {
+.gantt_marker_area .gantt-today-marker {
   opacity: 1 !important;
-}
-
-.gantt-today-marker {
   width: 2px !important;
   background: #6366f1 !important;
   z-index: 5;
