@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Users, UserCircle, Package } from 'lucide-react';
+import { Building2, Users, UserCircle, Package, FolderOpen } from 'lucide-react';
 
 interface CadastroCardProps {
   title: string;
@@ -32,6 +32,7 @@ const CadastroCard: React.FC<CadastroCardProps> = ({
 );
 
 interface CadastrosDesktopProps {
+  onSelectProjeto?: () => void;
   onSelectFazendas: () => void;
   onSelectClientes?: () => void;
   onSelectPessoas: () => void;
@@ -40,6 +41,7 @@ interface CadastrosDesktopProps {
 }
 
 const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
+  onSelectProjeto,
   onSelectFazendas,
   onSelectClientes,
   onSelectPessoas,
@@ -47,6 +49,18 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
   showClientes = false,
 }) => {
   const cards = [
+    ...(onSelectProjeto
+      ? [
+          {
+            id: 'projeto',
+            title: 'Cadastro de Projeto',
+            description:
+              'Gerencie projetos, defina transformações esperadas, stakeholders e vincule entregas.',
+            icon: <FolderOpen size={24} />,
+            onClick: onSelectProjeto,
+          },
+        ]
+      : []),
     {
       id: 'fazendas',
       title: 'Cadastro de Fazendas',

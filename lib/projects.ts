@@ -106,6 +106,7 @@ export async function createProject(
       created_by: createdBy,
       client_id: payload.client_id || null,
       name: sanitizeText(payload.name),
+      description: payload.description?.trim() ? sanitizeText(payload.description) : null,
       transformations_achievements: payload.transformations_achievements?.trim() ? sanitizeText(payload.transformations_achievements) : null,
       success_evidence: successEvidence,
       start_date: payload.start_date?.trim() || null,
@@ -134,6 +135,7 @@ export async function updateProject(
     .from('projects')
     .update({
       name: sanitizeText(payload.name),
+      description: payload.description?.trim() ? sanitizeText(payload.description) : null,
       transformations_achievements: payload.transformations_achievements?.trim() ? sanitizeText(payload.transformations_achievements) : null,
       success_evidence: successEvidence,
       start_date: payload.start_date?.trim() || null,

@@ -39,8 +39,10 @@ const AnalystManagement = lazy(() => import('./agents/AnalystManagement'));
 const ClientDocuments = lazy(() => import('./agents/ClientDocuments'));
 const InitiativesOverview = lazy(() => import('./agents/InitiativesOverview'));
 const InitiativesActivities = lazy(() => import('./agents/InitiativesActivities'));
+const ProjectStructureReport = lazy(() => import('./agents/ProjectStructureReport'));
 const PeopleManagement = lazy(() => import('./agents/PeopleManagement'));
 const DeliveryManagement = lazy(() => import('./agents/DeliveryManagement'));
+const ProjectManagement = lazy(() => import('./agents/ProjectManagement'));
 const CalendarAgent = lazy(() => import('./agents/CalendarAgent'));
 const SupportTicketsDashboard = lazy(() => import('./agents/SupportTicketsDashboard'));
 
@@ -56,7 +58,7 @@ const AppContent: React.FC = () => {
   const { selectedFarm, setSelectedFarm } = useFarm();
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
   const [viewMode, setViewMode] = useState<'desktop' | 'simulator' | 'comparator' | 'agile-planning'>('desktop');
-  const [cadastroView, setCadastroView] = useState<'desktop' | 'farm' | 'client' | 'people' | 'delivery'>('desktop');
+  const [cadastroView, setCadastroView] = useState<'desktop' | 'farm' | 'client' | 'people' | 'delivery' | 'project'>('desktop');
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
   const [comparatorScenarios, setComparatorScenarios] = useState<any>(null);
@@ -309,6 +311,14 @@ const AppContent: React.FC = () => {
       // Fallback
       return [
         {
+          id: 'cadastros',
+          name: 'Cadastros',
+          description: 'Fazendas, clientes e pessoas.',
+          icon: 'folder-plus',
+          category: 'zootecnico',
+          status: 'active'
+        },
+        {
           id: 'cattle-profit',
           name: 'Calculadoras',
           description: 'Análise econômica completa.',
@@ -455,8 +465,17 @@ const AppContent: React.FC = () => {
   const isSettingsPage = activeAgentId === 'settings';
   const isIniciativasOverview = activeAgentId === 'iniciativas-overview';
   const isIniciativasAtividades = activeAgentId === 'iniciativas-atividades';
+  const isProjectStructure = activeAgentId === 'project-structure';
   const isCalendar = activeAgentId === 'calendar';
-  const headerTitle = isIniciativasOverview ? 'Visão Geral' : isIniciativasAtividades ? 'Atividades' : isCalendar ? 'Calendário' : activeAgent?.name;
+  const headerTitle = isIniciativasOverview
+    ? 'Visão Geral'
+    : isIniciativasAtividades
+      ? 'Atividades'
+      : isProjectStructure
+        ? 'Estrutura do Projeto'
+        : isCalendar
+          ? 'Calendário'
+          : activeAgent?.name;
 
   const renderContent = () => {
     if (activeAgentId === 'settings') {
@@ -483,6 +502,9 @@ const AppContent: React.FC = () => {
       );
     }
 
+    // #region agent log
+    fetch('http://127.0.0.1:7741/ingest/774fafa3-280b-4b2a-82e5-82eb3a2d712c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5bc854'},body:JSON.stringify({sessionId:'5bc854',location:'App.tsx:renderContent',message:'renderContent branch',data:{activeAgentId,isProjectStructure:activeAgentId==='project-structure'},timestamp:Date.now(),hypothesisId:'H2-H3'})}).catch(()=>{});
+    // #endregion
     switch (activeAgentId) {
       case 'cattle-profit':
         if (viewMode === 'desktop') {
@@ -575,11 +597,21 @@ const AppContent: React.FC = () => {
           return (
             <Suspense fallback={<LoadingFallback />}>
               <CadastrosDesktop
+                onSelectProjeto={() => setCadastroView('project')}
                 onSelectFazendas={() => setCadastroView('farm')}
                 onSelectClientes={() => setCadastroView('client')}
                 onSelectPessoas={() => setCadastroView('people')}
                 onSelectEntregas={() => setCadastroView('delivery')}
                 showClientes={user?.role === 'admin' || user?.qualification === 'analista'}
+              />
+            </Suspense>
+          );
+        }
+        if (cadastroView === 'project') {
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <ProjectManagement
+                onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
               />
             </Suspense>
           );
@@ -703,6 +735,12 @@ const AppContent: React.FC = () => {
         return (
           <Suspense fallback={<LoadingFallback />}>
             <InitiativesActivities onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })} />
+          </Suspense>
+        );
+      case 'project-structure':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <ProjectStructureReport onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })} />
           </Suspense>
         );
       case 'calendar':
