@@ -5,7 +5,9 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_IMAGE_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 export type SupportTicketType = 'erro_tecnico' | 'sugestao_solicitacao';
-export type SupportTicketStatus = 'open' | 'done';
+export type SupportTicketStatus = 'open' | 'in_progress' | 'testing' | 'done';
+export type SupportMessageAuthorType = 'user' | 'ai' | 'agent';
+export type SupportLocationArea = 'main' | 'sidebar' | 'header' | 'modal' | 'other';
 
 export interface SupportTicket {
   id: string;
@@ -14,6 +16,8 @@ export interface SupportTicket {
   subject: string;
   status: SupportTicketStatus;
   current_url: string | null;
+  location_area: SupportLocationArea | null;
+  specific_screen: string | null;
   created_at: string;
   updated_at: string;
   last_message_at: string;
@@ -24,8 +28,10 @@ export interface SupportTicketMessage {
   id: string;
   ticket_id: string;
   author_id: string;
+  author_type: SupportMessageAuthorType;
   message: string;
   created_at: string;
+  read_at: string | null;
   author_name?: string;
 }
 
@@ -53,11 +59,14 @@ interface TicketCreatePayload {
   subject?: string;
   currentUrl?: string;
   initialMessage?: string;
+  locationArea?: SupportLocationArea;
+  specificScreen?: string;
 }
 
 interface SendTicketMessagePayload {
   message: string;
   imageFile?: File | null;
+  authorType?: SupportMessageAuthorType;
 }
 
 function normalizeText(value: string | null | undefined, maxLength = 600): string {
@@ -159,6 +168,9 @@ export async function createTicket(payload: TicketCreatePayload): Promise<Suppor
   const subject = normalizeText(payload.subject || '', 200) || (ticketType === 'erro_tecnico' ? 'Erro técnico' : 'Sugestão/Solicitação');
   const currentUrl = normalizeText(payload.currentUrl || safeLocationHref(), 1200) || null;
 
+  const locationArea = payload.locationArea || null;
+  const specificScreen = normalizeText(payload.specificScreen || '', 200) || null;
+
   const { data, error } = await supabase
     .from('support_tickets')
     .insert({
@@ -167,6 +179,8 @@ export async function createTicket(payload: TicketCreatePayload): Promise<Suppor
       subject,
       status: 'open',
       current_url: currentUrl,
+      location_area: locationArea,
+      specific_screen: specificScreen,
     })
     .select('*')
     .single();
@@ -314,6 +328,7 @@ export async function sendTicketMessage(ticketId: string, payload: SendTicketMes
     .insert({
       ticket_id: ticketId,
       author_id: authorId,
+      author_type: payload.authorType || 'user',
       message: text || '[imagem]',
     })
     .select('*')
@@ -348,6 +363,10 @@ export async function getAdminUnreadCount(): Promise<number> {
   const { data, error } = await supabase.rpc('get_support_admin_unread_count');
   if (error) throw new Error(error.message || 'Erro ao carregar não lidas.');
   return Number(data || 0);
+}
+
+export async function sendAIMessage(ticketId: string, message: string): Promise<SupportTicketMessage> {
+  return sendTicketMessage(ticketId, { message, authorType: 'ai' });
 }
 
 export function subscribeTicketMessages(ticketId: string, onRefresh: () => void): () => void {

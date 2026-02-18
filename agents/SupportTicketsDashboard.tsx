@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ExternalLink, Loader2, MessageSquare, Search } from 'lucide-react';
+import { Check, CheckCheck, ExternalLink, Loader2, MapPin, MessageSquare, Search, Send } from 'lucide-react';
 import {
   getTicketDetail,
   listAdminTickets,
   markTicketRead,
+  sendAIMessage,
   sendTicketMessage,
   subscribeAdminUnread,
   subscribeTicketMessages,
@@ -14,9 +15,19 @@ import {
   type SupportTicketStatus,
 } from '../lib/supportTickets';
 
+const LOCATION_LABELS: Record<string, string> = {
+  main: 'Painel Principal',
+  sidebar: 'Barra Lateral',
+  header: 'Cabeçalho',
+  modal: 'Modal/Dialog',
+  other: 'Outro',
+};
+
 const statusOptions: Array<{ value: 'all' | SupportTicketStatus; label: string }> = [
   { value: 'all', label: 'Todos' },
   { value: 'open', label: 'Em Aberto' },
+  { value: 'in_progress', label: 'Atendimento' },
+  { value: 'testing', label: 'Em Teste' },
   { value: 'done', label: 'Feito' },
 ];
 
@@ -25,10 +36,30 @@ const typeLabel: Record<SupportTicket['ticket_type'], string> = {
   sugestao_solicitacao: 'Sugestão/Solicitação',
 };
 
-const statusLabel: Record<SupportTicketStatus, string> = {
-  open: 'Em Aberto',
-  done: 'Feito',
+const statusConfig: Record<SupportTicketStatus, { label: string; className: string }> = {
+  open: { label: 'Em Aberto', className: 'border-amber-400 bg-amber-50 text-amber-800' },
+  in_progress: { label: 'Em Atendimento', className: 'border-blue-400 bg-blue-50 text-blue-800' },
+  testing: { label: 'Em Teste', className: 'border-purple-400 bg-purple-50 text-purple-800' },
+  done: { label: 'Feito', className: 'border-emerald-400 bg-emerald-50 text-emerald-800' },
 };
+
+const statusBadge: Record<SupportTicketStatus, string> = {
+  open: 'bg-amber-100 text-amber-700',
+  in_progress: 'bg-blue-100 text-blue-700',
+  testing: 'bg-purple-100 text-purple-700',
+  done: 'bg-emerald-100 text-emerald-700',
+};
+
+const BotAvatar = () => (
+  <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="white">
+      <rect x="3" y="5" width="10" height="8" rx="2" />
+      <rect x="5" y="2" width="6" height="4" rx="1" />
+      <circle cx="6" cy="9" r="1" />
+      <circle cx="10" cy="9" r="1" />
+    </svg>
+  </div>
+);
 
 const SupportTicketsDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -44,12 +75,18 @@ const SupportTicketsDashboard: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const selectedTicketIdRef = useRef(selectedTicketId);
   selectedTicketIdRef.current = selectedTicketId;
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Debounce da busca: só refaz a query 400ms após parar de digitar
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    if (detail?.messages?.length) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [detail?.messages?.length]);
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -88,42 +125,31 @@ const SupportTicketsDashboard: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    void loadTickets();
-  }, [loadTickets]);
+  useEffect(() => { void loadTickets(); }, [loadTickets]);
 
   useEffect(() => {
     if (!selectedTicketId) return;
     void loadDetail(selectedTicketId);
-
     const unsubscribe = subscribeTicketMessages(selectedTicketId, () => {
       void loadDetail(selectedTicketId);
       void loadTickets();
     });
-
-    return () => {
-      unsubscribe();
-    };
+    return () => { unsubscribe(); };
   }, [loadDetail, loadTickets, selectedTicketId]);
 
   useEffect(() => {
-    const unsubscribe = subscribeAdminUnread(() => {
-      void loadTickets();
-    });
-
-    return () => {
-      unsubscribe();
-    };
+    const unsubscribe = subscribeAdminUnread(() => { void loadTickets(); });
+    return () => { unsubscribe(); };
   }, [loadTickets]);
 
   const attachmentsByMessage = useMemo(() => {
     const map = new Map<string, SupportTicketAttachment[]>();
     if (!detail?.attachments) return map;
-    detail.attachments.forEach((attachment) => {
-      if (!attachment.message_id) return;
-      const current = map.get(attachment.message_id) || [];
-      current.push(attachment);
-      map.set(attachment.message_id, current);
+    detail.attachments.forEach((att) => {
+      if (!att.message_id) return;
+      const current = map.get(att.message_id) || [];
+      current.push(att);
+      map.set(att.message_id, current);
     });
     return map;
   }, [detail?.attachments]);
@@ -133,7 +159,7 @@ const SupportTicketsDashboard: React.FC = () => {
     setSaving(true);
     setError(null);
     try {
-      await sendTicketMessage(selectedTicketId, { message: reply.trim() });
+      await sendTicketMessage(selectedTicketId, { message: reply.trim(), authorType: 'agent' });
       setReply('');
       await loadDetail(selectedTicketId);
       await loadTickets();
@@ -157,6 +183,14 @@ const SupportTicketsDashboard: React.FC = () => {
     setError(null);
     try {
       await updateTicketStatus(selectedTicketId, status);
+
+      if (status === 'testing') {
+        await sendAIMessage(
+          selectedTicketId,
+          'Uma correção foi aplicada e o chamado está em fase de teste. Por favor, verifique se o problema foi resolvido e aprove ou recuse a solução.'
+        );
+      }
+
       await loadDetail(selectedTicketId);
       await loadTickets();
     } catch (err: any) {
@@ -166,147 +200,140 @@ const SupportTicketsDashboard: React.FC = () => {
     }
   };
 
-  /* Em telas pequenas, ao selecionar ticket mostra só o detalhe */
   const showDetailMobile = selectedTicketId && detail;
 
   return (
     <div className="h-full flex flex-col min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 px-4 pt-4 pb-2">
-        <h2 className="text-lg font-semibold text-ai-text">Tickets de suporte</h2>
-        <p className="text-xs text-ai-subtext">Gerencie chamados internos e responda em tempo real.</p>
+      <div className="shrink-0 px-5 pt-5 pb-3">
+        <h2 className="text-lg font-bold text-slate-800">Tickets de suporte</h2>
+        <p className="text-xs text-slate-500 mt-0.5">Gerencie chamados internos e responda em tempo real.</p>
       </div>
 
       {error && (
-        <div className="shrink-0 px-4">
-          <p className="text-xs text-rose-500 bg-rose-50 rounded px-2 py-1">{error}</p>
+        <div className="shrink-0 px-5">
+          <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
         </div>
       )}
 
-      {/* Corpo: dois painéis lado a lado */}
-      <div className="flex-1 min-h-0 flex overflow-hidden px-4 pb-4 gap-4">
+      <div className="flex-1 min-h-0 flex overflow-hidden px-5 pb-5 gap-4">
 
-        {/* ===== PAINEL ESQUERDO: Lista de tickets ===== */}
+        {/* ===== LEFT: Ticket List ===== */}
         <section
-          className={`border border-ai-border rounded-lg bg-ai-surface/30 flex flex-col min-h-0 overflow-hidden
+          className={`border border-slate-200 rounded-xl bg-slate-50/50 flex flex-col min-h-0 overflow-hidden
             w-full lg:w-[320px] lg:min-w-[260px] lg:max-w-[360px] shrink-0
             ${showDetailMobile ? 'hidden lg:flex' : 'flex'}`}
         >
-          {/* Filtros */}
-          <div className="shrink-0 p-3 border-b border-ai-border space-y-2">
-            <div className="flex items-center gap-2 rounded-md border border-ai-border px-2 py-1.5">
-              <Search size={14} className="text-ai-subtext shrink-0" />
+          <div className="shrink-0 p-3 border-b border-slate-200 space-y-2">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+              <Search size={14} className="text-slate-400 shrink-0" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por usuário ou assunto"
-                className="bg-transparent text-sm text-ai-text flex-1 outline-none min-w-0"
+                className="bg-transparent text-sm text-slate-700 flex-1 outline-none min-w-0 placeholder:text-slate-400"
               />
             </div>
-            <div className="flex gap-2 flex-wrap">
-              {statusOptions.map((option) => (
+            <div className="flex gap-1.5 flex-wrap">
+              {statusOptions.map((opt) => (
                 <button
-                  key={option.value}
+                  key={opt.value}
                   type="button"
-                  onClick={() => setStatusFilter(option.value)}
-                  className={`px-2 py-1 rounded text-xs border ${
-                    statusFilter === option.value
-                      ? 'border-ai-accent bg-ai-accent/10 text-ai-accent'
-                      : 'border-ai-border text-ai-subtext hover:bg-ai-surface2'
+                  onClick={() => setStatusFilter(opt.value)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all active:scale-95 duration-150 ${
+                    statusFilter === opt.value
+                      ? 'border-blue-400 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 text-slate-500 hover:bg-white'
                   }`}
                 >
-                  {option.label}
+                  {opt.label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Lista — cards em vez de tabela */}
           <div className="flex-1 min-h-0 overflow-y-auto">
             {loading ? (
-              <div className="h-full flex items-center justify-center text-ai-subtext text-sm gap-2">
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm gap-2">
                 <Loader2 size={14} className="animate-spin" />
                 Carregando...
               </div>
             ) : tickets.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-ai-subtext text-sm px-3 text-center">
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm px-3 text-center">
                 Nenhum ticket encontrado.
               </div>
             ) : (
-              <div className="divide-y divide-ai-border/60">
-                {tickets.map((ticket) => (
-                  <button
-                    key={ticket.id}
-                    type="button"
-                    onClick={() => setSelectedTicketId(ticket.id)}
-                    className={`w-full text-left px-3 py-2.5 hover:bg-ai-surface2 focus:outline-none focus:bg-ai-surface2 transition-colors ${
-                      selectedTicketId === ticket.id ? 'bg-ai-accent/10' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-ai-text truncate">
-                        {ticket.user_name || 'Usuário'}
-                      </span>
-                      <span
-                        className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-                          ticket.status === 'open'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-emerald-100 text-emerald-700'
-                        }`}
-                      >
-                        {statusLabel[ticket.status]}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-ai-subtext mt-0.5">
-                      {typeLabel[ticket.ticket_type]}
-                    </p>
-                    <p className="text-xs text-ai-text truncate mt-0.5">
-                      {ticket.subject}
-                    </p>
-                    <p className="text-[10px] text-ai-subtext mt-0.5">
-                      {new Date(ticket.last_message_at || ticket.created_at).toLocaleDateString('pt-BR')}
-                    </p>
-                  </button>
-                ))}
+              <div className="divide-y divide-slate-100">
+                {tickets.map((ticket) => {
+                  const badge = statusBadge[ticket.status];
+                  return (
+                    <button
+                      key={ticket.id}
+                      type="button"
+                      onClick={() => setSelectedTicketId(ticket.id)}
+                      className={`w-full text-left px-3 py-2.5 hover:bg-white/80 focus:outline-none transition-colors ${
+                        selectedTicketId === ticket.id ? 'bg-blue-50/60' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-slate-700 truncate">{ticket.user_name || 'Usuário'}</span>
+                        <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${badge}`}>
+                          {statusConfig[ticket.status].label}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{typeLabel[ticket.ticket_type]}</p>
+                      <p className="text-xs text-slate-600 truncate mt-0.5">{ticket.subject}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {new Date(ticket.last_message_at || ticket.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         </section>
 
-        {/* ===== PAINEL DIREITO: Detalhe do ticket ===== */}
+        {/* ===== RIGHT: Ticket Detail ===== */}
         <section
-          className={`border border-ai-border rounded-lg bg-ai-surface/30 min-h-0 min-w-0 flex-1 flex flex-col overflow-hidden
+          className={`border border-slate-200 rounded-xl bg-white min-h-0 min-w-0 flex-1 flex flex-col overflow-hidden
             ${showDetailMobile ? 'flex' : 'hidden lg:flex'}`}
         >
           {!selectedTicketId || !detail ? (
-            <div className="h-full flex items-center justify-center text-ai-subtext text-sm gap-2">
+            <div className="h-full flex items-center justify-center text-slate-400 text-sm gap-2">
               <MessageSquare size={15} />
               Selecione um ticket para ver os detalhes.
             </div>
           ) : (
             <>
-              {/* Cabeçalho do ticket */}
-              <div className="shrink-0 p-3 border-b border-ai-border">
+              {/* Ticket header */}
+              <div className="shrink-0 p-4 border-b border-slate-200">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    {/* Botão voltar em mobile */}
                     <button
                       type="button"
                       onClick={() => setSelectedTicketId(null)}
-                      className="lg:hidden text-xs text-ai-accent hover:underline mb-1"
+                      className="lg:hidden text-xs text-blue-600 hover:underline mb-1"
                     >
                       ← Voltar à lista
                     </button>
-                    <p className="text-sm font-semibold text-ai-text truncate">{detail.ticket.subject}</p>
-                    <p className="text-xs text-ai-subtext">
-                      {detail.ticket.user_name || 'Usuário'} • {typeLabel[detail.ticket.ticket_type]}
+                    <p className="text-sm font-bold text-slate-800 truncate">{detail.ticket.subject}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {detail.ticket.user_name || 'Usuário'} · {typeLabel[detail.ticket.ticket_type]}
                     </p>
+                    {(detail.ticket.location_area || detail.ticket.specific_screen) && (
+                      <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                        <MapPin size={10} className="shrink-0" />
+                        {detail.ticket.location_area && LOCATION_LABELS[detail.ticket.location_area]}
+                        {detail.ticket.specific_screen && <> · {detail.ticket.specific_screen}</>}
+                      </p>
+                    )}
                     {detail.ticket.current_url && (
                       <a
                         href={detail.ticket.current_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] text-ai-accent hover:underline mt-1 max-w-full"
+                        className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline mt-1 max-w-full"
                         title={detail.ticket.current_url}
                       >
                         <ExternalLink size={10} className="shrink-0" />
@@ -314,82 +341,121 @@ const SupportTicketsDashboard: React.FC = () => {
                       </a>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleStatusChange('open')}
-                      className={`px-2 py-1 rounded text-xs border ${
-                        detail.ticket.status === 'open'
-                          ? 'border-amber-500 bg-amber-100/60 text-amber-800'
-                          : 'border-ai-border text-ai-subtext hover:bg-ai-surface2'
-                      }`}
-                    >
-                      Em Aberto
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleStatusChange('done')}
-                      className={`px-2 py-1 rounded text-xs border ${
-                        detail.ticket.status === 'done'
-                          ? 'border-emerald-500 bg-emerald-100/70 text-emerald-800'
-                          : 'border-ai-border text-ai-subtext hover:bg-ai-surface2'
-                      }`}
-                    >
-                      Feito
-                    </button>
+
+                  {/* Status buttons */}
+                  <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                    {(['open', 'in_progress', 'testing', 'done'] as SupportTicketStatus[]).map((s) => {
+                      const cfg = statusConfig[s];
+                      const isActive = detail.ticket.status === s;
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          disabled={saving}
+                          onClick={() => handleStatusChange(s)}
+                          className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-all active:scale-95 duration-150 ${
+                            isActive ? cfg.className : 'border-slate-200 text-slate-400 hover:bg-slate-50'
+                          }`}
+                        >
+                          {cfg.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
 
-              {/* Mensagens */}
+              {/* Messages */}
               <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-                {detail.messages.map((message) => {
-                  const linked = attachmentsByMessage.get(message.id) || [];
-                  return (
-                    <div key={message.id} className="rounded-md border border-ai-border p-2.5 bg-ai-bg/50">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-medium text-ai-text">{message.author_name || 'Usuário'}</p>
-                        <p className="text-[11px] text-ai-subtext">
-                          {new Date(message.created_at).toLocaleString('pt-BR')}
-                        </p>
+                {detail.messages.map((msg) => {
+                  const linked = attachmentsByMessage.get(msg.id) || [];
+                  const isAI = msg.author_type === 'ai';
+                  const isAgent = msg.author_type === 'agent';
+                  const isUser = msg.author_type === 'user';
+
+                  if (isAI) {
+                    return (
+                      <div key={msg.id} className="flex items-start gap-2 animate-fade-in">
+                        <BotAvatar />
+                        <div className="max-w-[75%] rounded-xl px-4 py-2.5 text-sm bg-white border border-blue-200 text-slate-700 shadow-sm">
+                          <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                          <p className="text-[10px] text-slate-400 mt-1 text-right">
+                            {new Date(msg.created_at).toLocaleString('pt-BR')}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-sm text-ai-text whitespace-pre-wrap break-words">{message.message}</p>
-                      {linked.map((attachment) => (
-                        <a key={attachment.id} href={attachment.signed_url} target="_blank" rel="noreferrer" className="block mt-2">
-                          {attachment.signed_url ? (
-                            <img
-                              src={attachment.signed_url}
-                              alt={attachment.file_name}
-                              className="max-h-52 rounded border border-ai-border"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <span className="text-xs underline text-ai-subtext">{attachment.file_name}</span>
-                          )}
-                        </a>
-                      ))}
+                    );
+                  }
+
+                  return (
+                    <div key={msg.id} className={`flex ${isAgent ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+                      <div
+                        className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm shadow-sm ${
+                          isAgent
+                            ? 'bg-amber-50 border border-amber-200 text-slate-800'
+                            : isUser
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                          <p className={`text-[10px] font-semibold ${
+                            isAgent ? 'text-amber-600' : isUser ? 'text-white/70' : 'text-slate-400'
+                          }`}>
+                            {isAgent ? 'Agente Técnico' : (msg.author_name || 'Usuário')}
+                          </p>
+                          <p className={`text-[10px] ${isUser ? 'text-white/50' : 'text-slate-400'}`}>
+                            {new Date(msg.created_at).toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+                        <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                        {linked.map((att) => (
+                          <a key={att.id} href={att.signed_url} target="_blank" rel="noreferrer" className="block mt-2">
+                            {att.signed_url ? (
+                              <img
+                                src={att.signed_url}
+                                alt={att.file_name}
+                                className="max-h-52 rounded-lg border border-slate-200"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <span className="text-xs underline text-slate-400">{att.file_name}</span>
+                            )}
+                          </a>
+                        ))}
+                        {isUser && (
+                          <div className="flex justify-end mt-1">
+                            {msg.read_at ? (
+                              <CheckCheck size={13} className="text-cyan-400" />
+                            ) : (
+                              <Check size={13} className="text-white/40" />
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
+                <div ref={messagesEndRef} />
               </div>
 
-              {/* Responder */}
-              <div className="shrink-0 p-3 border-t border-ai-border">
-                <div className="flex gap-2">
+              {/* Reply */}
+              <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50">
+                <div className="flex gap-2 items-end">
                   <textarea
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
                     onKeyDown={handleReplyKeyDown}
                     placeholder="Responder ticket... (Ctrl+Enter para enviar)"
-                    className="flex-1 rounded-md border border-ai-border bg-ai-bg px-3 py-2 text-sm text-ai-text resize-none h-20 min-w-0"
+                    className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 resize-none h-[52px] min-w-0 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   />
                   <button
                     type="button"
                     disabled={saving || !reply.trim()}
                     onClick={handleReply}
-                    className="px-3 py-2 rounded bg-ai-accent text-white text-sm disabled:opacity-50 self-end shrink-0"
+                    className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-blue-700 transition-all active:scale-95 duration-150 shrink-0 flex items-center gap-2"
                   >
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : 'Enviar'}
+                    {saving ? <Loader2 size={14} className="animate-spin" /> : <><Send size={14} /> Enviar</>}
                   </button>
                 </div>
               </div>
