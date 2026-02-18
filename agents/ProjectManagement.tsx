@@ -12,7 +12,7 @@ import {
   type ProjectRow,
   type ProjectStakeholderRow,
 } from '../lib/projects';
-import { fetchDeliveries, createDelivery, updateDelivery, type DeliveryRow } from '../lib/deliveries';
+import { fetchDeliveries, createDelivery, updateDelivery, deleteDelivery, type DeliveryRow } from '../lib/deliveries';
 
 interface ProjectManagementProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -62,9 +62,11 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
   const [editing, setEditing] = useState<ProjectRow | null>(null);
   const [formData, setFormData] = useState<ProjectFormState>(initialForm);
   const [selectedDeliveryIds, setSelectedDeliveryIds] = useState<Set<string>>(new Set());
-  const [newDeliveryName, setNewDeliveryName] = useState('');
-  const [newDeliveryDescription, setNewDeliveryDescription] = useState('');
-  const [creatingDelivery, setCreatingDelivery] = useState(false);
+  const [editingDeliveryId, setEditingDeliveryId] = useState<string | null>(null);
+  const [editDeliveryName, setEditDeliveryName] = useState('');
+  const [editDeliveryDescription, setEditDeliveryDescription] = useState('');
+  const [savingDelivery, setSavingDelivery] = useState(false);
+  const [deletingDeliveryId, setDeletingDeliveryId] = useState<string | null>(null);
   const onToastRef = useRef(onToast);
 
   useEffect(() => {
@@ -111,8 +113,9 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
   const resetForm = useCallback(() => {
     setFormData(initialForm);
     setSelectedDeliveryIds(new Set());
-    setNewDeliveryName('');
-    setNewDeliveryDescription('');
+    setEditingDeliveryId(null);
+    setEditDeliveryName('');
+    setEditDeliveryDescription('');
   }, []);
 
   const openNew = useCallback(() => {
@@ -136,8 +139,9 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
       stakeholder_matrix: project.stakeholder_matrix.length > 0 ? project.stakeholder_matrix : [{ name: '', activity: '' }],
     });
     setSelectedDeliveryIds(new Set(linkedIds));
-    setNewDeliveryName('');
-    setNewDeliveryDescription('');
+    setEditingDeliveryId(null);
+    setEditDeliveryName('');
+    setEditDeliveryDescription('');
     setView('form');
   };
 
@@ -182,19 +186,10 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
     });
   }, []);
 
-  const toggleDeliverySelection = useCallback((deliveryId: string) => {
-    setSelectedDeliveryIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(deliveryId)) next.delete(deliveryId);
-      else next.add(deliveryId);
-      return next;
-    });
-  }, []);
-
-  const availableDeliveries = useMemo(() => {
-    if (!editing) return deliveries.filter((d) => !d.project_id);
-    return deliveries.filter((d) => !d.project_id || d.project_id === editing.id);
-  }, [deliveries, editing]);
+  const selectedDeliveries = useMemo(
+    () => deliveries.filter((delivery) => selectedDeliveryIds.has(delivery.id)),
+    [deliveries, selectedDeliveryIds]
+  );
 
   const syncProjectDeliveries = useCallback(async (
     projectId: string,
@@ -299,34 +294,94 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
     }
   };
 
-  const handleCreateInlineDelivery = async () => {
-    if (creatingDelivery) return;
+  const startNewDelivery = useCallback(() => {
+    setEditingDeliveryId('new');
+    setEditDeliveryName('');
+    setEditDeliveryDescription('');
+  }, []);
+
+  const startEditDelivery = useCallback((delivery: DeliveryRow) => {
+    setEditingDeliveryId(delivery.id);
+    setEditDeliveryName(delivery.name || '');
+    setEditDeliveryDescription(delivery.description || '');
+  }, []);
+
+  const cancelDeliveryEdit = useCallback(() => {
+    setEditingDeliveryId(null);
+    setEditDeliveryName('');
+    setEditDeliveryDescription('');
+  }, []);
+
+  const handleSaveDelivery = useCallback(async () => {
+    if (savingDelivery) return;
     if (!effectiveUserId) {
       onToast?.('Selecione um analista para continuar.', 'warning');
       return;
     }
-    if (!newDeliveryName.trim()) {
+    if (!editDeliveryName.trim()) {
       onToast?.('Informe o nome da entrega planejada.', 'warning');
       return;
     }
-    setCreatingDelivery(true);
+    setSavingDelivery(true);
     try {
-      const created = await createDelivery(effectiveUserId, {
-        name: newDeliveryName,
-        description: newDeliveryDescription,
-        client_id: selectedClient?.id || null,
-      });
-      setDeliveries((prev) => [...prev, created]);
-      setSelectedDeliveryIds((prev) => new Set(prev).add(created.id));
-      setNewDeliveryName('');
-      setNewDeliveryDescription('');
-      onToast?.('Entrega planejada criada.', 'success');
+      if (editingDeliveryId && editingDeliveryId !== 'new') {
+        const updated = await updateDelivery(editingDeliveryId, {
+          name: editDeliveryName,
+          description: editDeliveryDescription,
+          client_id: selectedClient?.id || null,
+          project_id: editing?.id || null,
+        });
+        setDeliveries((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+        onToast?.('Entrega planejada atualizada.', 'success');
+      } else {
+        const created = await createDelivery(effectiveUserId, {
+          name: editDeliveryName,
+          description: editDeliveryDescription,
+          client_id: selectedClient?.id || null,
+          project_id: editing?.id || null,
+        });
+        setDeliveries((prev) => [...prev, created]);
+        setSelectedDeliveryIds((prev) => new Set(prev).add(created.id));
+        onToast?.('Entrega planejada criada.', 'success');
+      }
+      cancelDeliveryEdit();
     } catch (e) {
-      onToast?.(e instanceof Error ? e.message : 'Erro ao criar entrega planejada.', 'error');
+      onToast?.(e instanceof Error ? e.message : 'Erro ao salvar entrega planejada.', 'error');
     } finally {
-      setCreatingDelivery(false);
+      setSavingDelivery(false);
     }
-  };
+  }, [
+    cancelDeliveryEdit,
+    editDeliveryDescription,
+    editDeliveryName,
+    editing?.id,
+    editingDeliveryId,
+    effectiveUserId,
+    onToast,
+    savingDelivery,
+    selectedClient?.id,
+  ]);
+
+  const handleDeleteDelivery = useCallback(async (deliveryId: string) => {
+    if (deletingDeliveryId) return;
+    if (!window.confirm('Deseja excluir esta entrega planejada?')) return;
+    setDeletingDeliveryId(deliveryId);
+    try {
+      await deleteDelivery(deliveryId);
+      setDeliveries((prev) => prev.filter((item) => item.id !== deliveryId));
+      setSelectedDeliveryIds((prev) => {
+        const next = new Set(prev);
+        next.delete(deliveryId);
+        return next;
+      });
+      if (editingDeliveryId === deliveryId) cancelDeliveryEdit();
+      onToast?.('Entrega planejada removida.', 'success');
+    } catch (e) {
+      onToast?.(e instanceof Error ? e.message : 'Erro ao excluir entrega planejada.', 'error');
+    } finally {
+      setDeletingDeliveryId(null);
+    }
+  }, [cancelDeliveryEdit, deletingDeliveryId, editingDeliveryId, onToast]);
 
   if (view === 'form') {
     return (
@@ -479,58 +534,137 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
           </section>
 
           <section className="space-y-3">
-            <label className="block text-sm font-medium text-ai-text">Entregas Planejadas</label>
-            <div className="rounded-lg border border-ai-border bg-ai-bg p-3 space-y-2 max-h-56 overflow-y-auto">
-              {availableDeliveries.length === 0 ? (
-                <p className="text-xs text-ai-subtext">Nenhuma entrega disponível. Crie uma nova abaixo.</p>
-              ) : (
-                availableDeliveries.map((delivery) => (
-                  <label
-                    key={delivery.id}
-                    className="flex items-start gap-2 p-2 rounded hover:bg-ai-surface cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      className="mt-0.5"
-                      checked={selectedDeliveryIds.has(delivery.id)}
-                      onChange={() => toggleDeliverySelection(delivery.id)}
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-sm text-ai-text font-medium">{delivery.name}</span>
-                      <span className="block text-xs text-ai-subtext whitespace-pre-wrap">{delivery.description || 'Sem descrição.'}</span>
-                    </span>
-                  </label>
-                ))
-              )}
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-ai-text">Entregas Planejadas</label>
+              <button
+                type="button"
+                onClick={startNewDelivery}
+                disabled={savingDelivery}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-ai-border text-ai-subtext hover:text-ai-text text-xs disabled:opacity-60"
+              >
+                <Plus size={14} />
+                Nova Entrega
+              </button>
             </div>
 
-            <div className="rounded-lg border border-ai-border bg-ai-bg p-3 space-y-2">
-              <p className="text-xs font-medium text-ai-text">Nova Entrega Planejada</p>
-              <input
-                type="text"
-                value={newDeliveryName}
-                onChange={(e) => setNewDeliveryName(e.target.value)}
-                className="w-full px-3 py-2 border border-ai-border rounded-md bg-white text-ai-text text-sm"
-                placeholder="Nome da entrega"
-              />
-              <textarea
-                rows={2}
-                value={newDeliveryDescription}
-                onChange={(e) => setNewDeliveryDescription(e.target.value)}
-                className="w-full px-3 py-2 border border-ai-border rounded-md bg-white text-ai-text text-sm resize-none"
-                placeholder="Descrição da entrega planejada"
-              />
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleCreateInlineDelivery}
-                  disabled={creatingDelivery}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ai-accent text-white text-xs hover:opacity-90 disabled:opacity-60"
-                >
-                  {creatingDelivery && <Loader2 size={14} className="animate-spin" />}
-                  Adicionar entrega
-                </button>
+            {editingDeliveryId === 'new' && (
+              <div className="rounded-lg border border-ai-border bg-ai-bg p-3 space-y-2">
+                <p className="text-xs font-medium text-ai-text">Nova Entrega Planejada</p>
+                <input
+                  type="text"
+                  value={editDeliveryName}
+                  onChange={(e) => setEditDeliveryName(e.target.value)}
+                  className="w-full px-3 py-2 border border-ai-border rounded-md bg-white text-ai-text text-sm"
+                  placeholder="Nome da entrega"
+                />
+                <textarea
+                  rows={2}
+                  value={editDeliveryDescription}
+                  onChange={(e) => setEditDeliveryDescription(e.target.value)}
+                  className="w-full px-3 py-2 border border-ai-border rounded-md bg-white text-ai-text text-sm resize-none"
+                  placeholder="Descrição da entrega planejada"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelDeliveryEdit}
+                    className="px-3 py-1.5 rounded-md border border-ai-border text-ai-subtext hover:text-ai-text text-xs"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveDelivery}
+                    disabled={savingDelivery}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ai-accent text-white text-xs hover:opacity-90 disabled:opacity-60"
+                  >
+                    {savingDelivery && <Loader2 size={14} className="animate-spin" />}
+                    Salvar entrega
+                  </button>
+                </div>
               </div>
+            )}
+
+            <div className="rounded-lg border border-ai-border bg-ai-bg p-3 space-y-2 max-h-56 overflow-y-auto">
+              {selectedDeliveries.length === 0 ? (
+                <p className="text-xs text-ai-subtext">Nenhuma entrega vinculada ao projeto. Clique em \"Nova Entrega\" para começar.</p>
+              ) : (
+                selectedDeliveries.map((delivery) => (
+                  <article
+                    key={delivery.id}
+                    className="rounded-md border border-ai-border bg-ai-surface p-2.5"
+                  >
+                    {editingDeliveryId === delivery.id ? (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={editDeliveryName}
+                          onChange={(e) => setEditDeliveryName(e.target.value)}
+                          className="w-full px-3 py-2 border border-ai-border rounded-md bg-white text-ai-text text-sm"
+                          placeholder="Nome da entrega"
+                        />
+                        <textarea
+                          rows={2}
+                          value={editDeliveryDescription}
+                          onChange={(e) => setEditDeliveryDescription(e.target.value)}
+                          className="w-full px-3 py-2 border border-ai-border rounded-md bg-white text-ai-text text-sm resize-none"
+                          placeholder="Descrição da entrega planejada"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={cancelDeliveryEdit}
+                            className="px-3 py-1.5 rounded-md border border-ai-border text-ai-subtext hover:text-ai-text text-xs"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveDelivery}
+                            disabled={savingDelivery}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ai-accent text-white text-xs hover:opacity-90 disabled:opacity-60"
+                          >
+                            {savingDelivery && <Loader2 size={14} className="animate-spin" />}
+                            Atualizar entrega
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm text-ai-text font-medium">{delivery.name}</p>
+                          <p className="text-xs text-ai-subtext whitespace-pre-wrap">
+                            {delivery.description || 'Sem descrição.'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => startEditDelivery(delivery)}
+                            className="p-1.5 rounded text-ai-subtext hover:text-ai-text hover:bg-ai-surface2"
+                            title="Editar entrega"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDelivery(delivery.id)}
+                            disabled={deletingDeliveryId === delivery.id}
+                            className="p-1.5 rounded text-red-500 hover:bg-red-50 disabled:opacity-60"
+                            title="Excluir entrega"
+                          >
+                            {deletingDeliveryId === delivery.id ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                ))
+              )}
             </div>
           </section>
 
