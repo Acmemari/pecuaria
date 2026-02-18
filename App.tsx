@@ -158,9 +158,9 @@ const AppContent: React.FC = () => {
 
       const cattleProfit: Agent = {
         id: 'cattle-profit',
-        name: 'Calculadoras',
+        name: 'Assistente',
         description: 'Análise econômica completa.',
-        icon: 'calculator',
+        icon: 'brain-circuit',
         category: 'financeiro',
         status: checkPermission('Calculadora') ? 'active' : 'locked'
       };
@@ -279,7 +279,7 @@ const AppContent: React.FC = () => {
       // 1. Cadastros (área de trabalho com cards: Fazendas, Clientes, Pessoas)
       orderedList.push(cadastrosAgent);
 
-      // 2. Calculadoras (inclui Rentabilidade na Engorda, Comparador e Planejamento Ágil)
+      // 2. Assistente (inclui Rentabilidade na Engorda, Comparador e Planejamento Ágil)
       orderedList.push(cattleProfit);
 
       // 3. Questionários
@@ -320,9 +320,9 @@ const AppContent: React.FC = () => {
         },
         {
           id: 'cattle-profit',
-          name: 'Calculadoras',
+          name: 'Assistente',
           description: 'Análise econômica completa.',
-          icon: 'calculator',
+          icon: 'brain-circuit',
           category: 'financeiro',
           status: 'active'
         },
@@ -442,9 +442,9 @@ const AppContent: React.FC = () => {
     const fallbackAgents: Agent[] = [
       {
         id: 'cattle-profit',
-        name: 'Calculadoras',
+        name: 'Assistente',
         description: 'Análise econômica completa.',
-        icon: 'calculator',
+        icon: 'brain-circuit',
         category: 'financeiro',
         status: 'active'
       }

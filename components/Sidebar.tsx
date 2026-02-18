@@ -101,6 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
         {/* Header */}
         <div className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-ai-border bg-ai-bg">
           <div className="flex items-center space-x-2 text-ai-text">
+            <BrainCircuit size={16} className="text-ai-accent" />
             <span className="font-bold tracking-tight text-base">pecuarIA</span>
           </div>
           {/* Close button - visible on mobile, hidden on desktop when sidebar is always visible */}
