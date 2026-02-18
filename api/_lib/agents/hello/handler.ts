@@ -31,7 +31,8 @@ export async function runHelloAgent(args: {
 
   const parsed = safeJsonParseWithRepair<HelloOutput>(response.content, helloOutputSchema);
   if (!parsed.success) {
-    throw new Error(`HELLO_AGENT_OUTPUT_INVALID: ${parsed.error}`);
+    const parseError = 'error' in parsed ? parsed.error : 'unknown parse error';
+    throw new Error(`HELLO_AGENT_OUTPUT_INVALID: ${parseError}`);
   }
 
   return {

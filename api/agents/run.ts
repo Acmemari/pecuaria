@@ -8,6 +8,7 @@ import { getFallbackRoutes, routeAgent } from '../_lib/ai/router';
 import { checkAndIncrementRateLimit } from '../_lib/ai/rate-limit';
 import { commitUsage, releaseReservation, reserveTokens } from '../_lib/ai/usage';
 import { logAgentRun } from '../_lib/ai/logging';
+import type { HelloInput } from '../_lib/agents/hello/manifest';
 import type { AIProviderName, PlanId } from '../_lib/ai/types';
 
 const runRequestSchema = z.object({
@@ -154,7 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (manifest.id === 'hello') {
           const result = await runHelloAgent({
-            input: inputValidation.data as z.infer<typeof manifest.inputSchema>,
+            input: inputValidation.data as HelloInput,
             provider,
             model: route.model,
           });
