@@ -160,7 +160,7 @@ const AppContent: React.FC = () => {
         id: 'cattle-profit',
         name: 'Assistente',
         description: 'Análise econômica completa.',
-        icon: 'brain-circuit',
+        icon: 'bot',
         category: 'financeiro',
         status: checkPermission('Calculadora') ? 'active' : 'locked'
       };
@@ -322,7 +322,7 @@ const AppContent: React.FC = () => {
           id: 'cattle-profit',
           name: 'Assistente',
           description: 'Análise econômica completa.',
-          icon: 'brain-circuit',
+          icon: 'bot',
           category: 'financeiro',
           status: 'active'
         },
@@ -444,7 +444,7 @@ const AppContent: React.FC = () => {
         id: 'cattle-profit',
         name: 'Assistente',
         description: 'Análise econômica completa.',
-        icon: 'brain-circuit',
+        icon: 'bot',
         category: 'financeiro',
         status: 'active'
       }

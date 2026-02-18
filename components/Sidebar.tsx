@@ -24,7 +24,8 @@ import {
   ListTodo,
   Calendar,
   BrainCircuit,
-  HelpCircle
+  HelpCircle,
+  Bot
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -294,6 +295,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                       {agent.icon === 'file-check' && <FileCheck size={16} />}
                       {agent.icon === 'calendar' && <Calendar size={16} />}
                       {agent.icon === 'brain-circuit' && <BrainCircuit size={16} />}
+                      {agent.icon === 'bot' && <Bot size={16} />}
                       {agent.icon === 'help-circle' && <HelpCircle size={16} />}
                       {agent.icon === 'folder-plus' && <FolderPlus size={16} />}
                     </div>
