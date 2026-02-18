@@ -551,7 +551,11 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
               </div>
 
               {/* Analista Responsável */}
-              <div data-error={formErrors.analystId ? 'true' : undefined}>
+              <div
+                data-error={formErrors.analystId ? 'true' : undefined}
+                onClick={currentUser.role !== 'admin' ? () => onToast?.('Entre em contato com a Inttegra', 'warning') : undefined}
+                className={currentUser.role !== 'admin' ? 'cursor-pointer' : undefined}
+              >
                 <label className="block text-sm font-medium text-ai-text mb-2">
                   Analista Responsável <span className="text-ai-error">*</span>
                 </label>
