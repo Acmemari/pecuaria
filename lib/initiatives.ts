@@ -28,22 +28,9 @@ export interface InitiativeTaskRow {
   completed: boolean;
   completed_at: string | null;
   due_date: string | null;
-  responsible_person_id: string | null;
-  kanban_status: KanbanStatus;
-  kanban_order: number;
   sort_order: number;
   created_at: string;
   updated_at: string;
-}
-
-export type KanbanStatus = 'A Fazer' | 'Andamento' | 'Pausado' | 'Concluído';
-
-const KANBAN_STATUSES: readonly KanbanStatus[] = ['A Fazer', 'Andamento', 'Pausado', 'Concluído'] as const;
-
-function validateKanbanStatus(status: string): asserts status is KanbanStatus {
-  if (!KANBAN_STATUSES.includes(status as KanbanStatus)) {
-    throw new Error('Status do Kanban inválido.');
-  }
 }
 
 export interface InitiativeMilestoneRow {
@@ -61,10 +48,6 @@ export interface InitiativeMilestoneRow {
 export interface InitiativeWithProgress extends InitiativeRow {
   progress: number;
   milestones?: InitiativeMilestoneRow[];
-}
-
-export interface InitiativeWithTeam extends InitiativeWithProgress {
-  team: { name: string; role: string }[];
 }
 
 export interface FetchInitiativesFilters {
@@ -90,18 +73,9 @@ export interface CreateInitiativePayload {
 // ─── Validação local ────────────────────────────────────────────────────────
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// farms.id é TEXT (ex: "farm-<timestamp>-<random>"), então farm_id NÃO é UUID.
-// Ainda validamos para evitar filter injection ao interpolar no `.or(...)`.
-const FARM_ID_SAFE_REGEX = /^[a-z0-9][a-z0-9_-]{0,127}$/i;
 
 function validateUUID(id: string, fieldName: string): void {
   if (!id || !UUID_REGEX.test(id)) {
-    throw new Error(`${fieldName} inválido.`);
-  }
-}
-
-function validateFarmIdText(id: string, fieldName: string): void {
-  if (!id?.trim() || !FARM_ID_SAFE_REGEX.test(id.trim())) {
     throw new Error(`${fieldName} inválido.`);
   }
 }
@@ -126,20 +100,8 @@ function validatePayload(payload: CreateInitiativePayload): void {
     throw new Error('A entrega vinculada é obrigatória.');
   }
   validateUUID(payload.delivery_id, 'Entrega');
-  if (payload.farm_id) {
-    // farm_id é TEXT (não UUID)
-    validateFarmIdText(payload.farm_id, 'ID da fazenda');
-  }
-  if (payload.client_id && !UUID_REGEX.test(payload.client_id)) {
-    throw new Error('ID do cliente inválido.');
-  }
-  // Validar formato ISO das datas
-  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-  if (payload.start_date && !ISO_DATE.test(payload.start_date)) {
-    throw new Error('Formato de data de início inválido (esperado: YYYY-MM-DD).');
-  }
-  if (payload.end_date && !ISO_DATE.test(payload.end_date)) {
-    throw new Error('Formato de data final inválido (esperado: YYYY-MM-DD).');
+  if (payload.farm_id && !payload.client_id) {
+    throw new Error('Não é possível vincular uma fazenda sem informar o cliente.');
   }
   if (payload.start_date && payload.end_date && payload.start_date > payload.end_date) {
     throw new Error('A data de início não pode ser posterior à data final.');
@@ -153,9 +115,8 @@ function validatePayload(payload: CreateInitiativePayload): void {
   const totalPercent = payload.milestones
     .filter((m) => m.title?.trim())
     .reduce((s, m) => s + (m.percent || 0), 0);
-  const hasValidMilestones = payload.milestones.some((m) => m.title?.trim());
-  if (hasValidMilestones && totalPercent !== 100) {
-    throw new Error(`A soma dos marcos deve ser exatamente 100% (atual: ${totalPercent}%).`);
+  if (totalPercent > 100) {
+    throw new Error(`A soma dos marcos (${totalPercent}%) excede 100%.`);
   }
   for (const m of payload.milestones.filter((mil) => mil.title?.trim() && mil.due_date)) {
     if (payload.start_date && m.due_date! < payload.start_date) {
@@ -180,35 +141,18 @@ export async function fetchInitiatives(
   filters?: FetchInitiativesFilters
 ): Promise<InitiativeWithProgress[]> {
   if (!effectiveUserId?.trim()) return [];
-  const validUserId = effectiveUserId.trim();
-  if (!UUID_REGEX.test(validUserId)) {
-    console.error(`ID do usuário inválido: ${validUserId}`);
-    return [];
-  }
 
   let q = supabase
     .from('initiatives')
     .select('*')
-    .eq('created_by', validUserId)
+    .eq('created_by', effectiveUserId)
     .order('start_date', { ascending: true, nullsFirst: false });
 
   if (filters?.clientId?.trim()) {
-    const validClientId = filters.clientId.trim();
-    if (!UUID_REGEX.test(validClientId)) {
-      console.error(`ID do cliente inválido: ${validClientId}`);
-      return [];
-    }
-    q = q.eq('client_id', validClientId);
+    q = q.eq('client_id', filters.clientId);
   }
   if (filters?.farmId?.trim()) {
-    const validFarmId = filters.farmId.trim();
-    // farmId é TEXT; validar antes da interpolação para prevenir filter injection.
-    if (!FARM_ID_SAFE_REGEX.test(validFarmId)) {
-      console.error(`ID da fazenda inválido: ${validFarmId}`);
-      return [];
-    }
-    // Mostra iniciativas da fazenda selecionada + globais (farm_id IS NULL)
-    q = q.or(`farm_id.eq.${validFarmId},farm_id.is.null`);
+    q = q.eq('farm_id', filters.farmId);
   }
 
   const { data: initiatives, error: initError } = await q;
@@ -239,40 +183,6 @@ export async function fetchInitiatives(
       milestones: list.sort((a, b) => a.sort_order - b.sort_order),
     } as InitiativeWithProgress;
   });
-}
-
-/**
- * Busca iniciativas com times (team) em batch.
- * Reutiliza fetchInitiatives e adiciona busca de initiative_team em lote.
- */
-export async function fetchInitiativesWithTeams(
-  effectiveUserId: string,
-  filters?: FetchInitiativesFilters
-): Promise<InitiativeWithTeam[]> {
-  const initiatives = await fetchInitiatives(effectiveUserId, filters);
-  if (initiatives.length === 0) return [];
-
-  const ids = initiatives.map((i) => i.id);
-  const { data: teamRows, error: teamError } = await supabase
-    .from('initiative_team')
-    .select('initiative_id, name, role, sort_order')
-    .in('initiative_id', ids)
-    .order('sort_order');
-
-  if (teamError) {
-    console.error('[fetchInitiativesWithTeams] team error:', teamError);
-  }
-
-  const teamByInit = (teamRows || []).reduce<Record<string, { name: string; role: string }[]>>((acc, t) => {
-    if (!acc[t.initiative_id]) acc[t.initiative_id] = [];
-    acc[t.initiative_id].push({ name: t.name || '', role: t.role || '' });
-    return acc;
-  }, {});
-
-  return initiatives.map((i) => ({
-    ...i,
-    team: teamByInit[i.id] || [],
-  }));
 }
 
 /**
@@ -477,63 +387,6 @@ export async function updateInitiative(
 }
 
 /**
- * Atualiza apenas datas da iniciativa (sem recriar time/marcos).
- * Uso principal: edição direta no Gantt via drag/resize.
- */
-export async function patchInitiativeDates(
-  initiativeId: string,
-  startDate: string,
-  endDate: string
-): Promise<void> {
-  if (!initiativeId?.trim()) throw new Error('ID da iniciativa é obrigatório.');
-  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-  if (!ISO_DATE.test(startDate) || !ISO_DATE.test(endDate)) {
-    throw new Error('Datas inválidas (esperado: YYYY-MM-DD).');
-  }
-  if (startDate > endDate) {
-    throw new Error('A data inicial não pode ser posterior à data final.');
-  }
-
-  const { error } = await supabase
-    .from('initiatives')
-    .update({
-      start_date: startDate,
-      end_date: endDate,
-    })
-    .eq('id', initiativeId);
-
-  if (error) {
-    throw new Error(error.message || 'Erro ao atualizar datas da iniciativa.');
-  }
-}
-
-/**
- * Atualiza apenas a data limite de um marco.
- * Uso principal: edição direta no Gantt via drag.
- */
-export async function patchMilestoneDueDate(
-  milestoneId: string,
-  dueDate: string
-): Promise<void> {
-  if (!milestoneId?.trim()) throw new Error('ID do marco é obrigatório.');
-  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-  if (!ISO_DATE.test(dueDate)) {
-    throw new Error('Data inválida (esperado: YYYY-MM-DD).');
-  }
-
-  const { error } = await supabase
-    .from('initiative_milestones')
-    .update({
-      due_date: dueDate,
-    })
-    .eq('id', milestoneId);
-
-  if (error) {
-    throw new Error(error.message || 'Erro ao atualizar prazo do marco.');
-  }
-}
-
-/**
  * Exclui iniciativa por ID.
  * FKs estão configuradas com ON DELETE CASCADE para team, milestones e evidências.
  * Também remove (best-effort) arquivos do bucket de evidências.
@@ -647,7 +500,7 @@ export async function fetchInitiativeDetail(
   if (milestoneIds.length > 0) {
     const { data: taskRows, error: tasksError } = await supabase
       .from('initiative_tasks')
-      .select('id, milestone_id, title, description, completed, completed_at, due_date, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+      .select('id, milestone_id, title, description, completed, completed_at, due_date, sort_order, created_at, updated_at')
       .in('milestone_id', milestoneIds)
       .order('sort_order');
     if (tasksError) throw tasksError;
@@ -677,9 +530,6 @@ export interface CreateInitiativeTaskPayload {
   title: string;
   description?: string;
   due_date?: string | null;
-  responsible_person_id: string;
-  kanban_status?: KanbanStatus;
-  kanban_order?: number;
   sort_order?: number;
 }
 
@@ -696,7 +546,7 @@ export async function listTasksByMilestone(milestoneId: string): Promise<Initiat
   validateUUID(milestoneId, 'Marco');
   const { data, error } = await supabase
     .from('initiative_tasks')
-    .select('id, milestone_id, title, description, completed, completed_at, due_date, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+    .select('id, milestone_id, title, description, completed, completed_at, due_date, sort_order, created_at, updated_at')
     .eq('milestone_id', milestoneId)
     .order('sort_order');
   if (error) throw error;
@@ -709,11 +559,6 @@ export async function createTask(
 ): Promise<InitiativeTaskRow> {
   validateUUID(milestoneId, 'Marco');
   validateTaskTitle(payload.title);
-  if (!payload.responsible_person_id?.trim()) {
-    throw new Error('O responsável é obrigatório.');
-  }
-  validateUUID(payload.responsible_person_id, 'Responsável');
-  if (payload.kanban_status) validateKanbanStatus(payload.kanban_status);
 
   const { data, error } = await supabase
     .from('initiative_tasks')
@@ -722,12 +567,9 @@ export async function createTask(
       title: sanitizeText(payload.title),
       description: payload.description?.trim() ? sanitizeText(payload.description) : null,
       due_date: payload.due_date?.trim() || null,
-      responsible_person_id: payload.responsible_person_id,
-      kanban_status: payload.kanban_status || 'A Fazer',
-      kanban_order: Number.isFinite(payload.kanban_order) ? Number(payload.kanban_order) : 0,
       sort_order: Number.isFinite(payload.sort_order) ? Number(payload.sort_order) : 0,
     })
-    .select('id, milestone_id, title, description, completed, completed_at, due_date, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+    .select('id, milestone_id, title, description, completed, completed_at, due_date, sort_order, created_at, updated_at')
     .single();
   if (error || !data) throw new Error(error?.message || 'Erro ao criar tarefa.');
   return data as InitiativeTaskRow;
@@ -739,9 +581,6 @@ export async function updateTask(
     title: string;
     description: string | null;
     due_date: string | null;
-    responsible_person_id: string;
-    kanban_status: KanbanStatus;
-    kanban_order: number;
     completed: boolean;
     sort_order: number;
   }>
@@ -759,21 +598,6 @@ export async function updateTask(
   if (payload.due_date !== undefined) {
     updateData.due_date = payload.due_date?.trim() || null;
   }
-  if (payload.responsible_person_id !== undefined) {
-    if (!payload.responsible_person_id?.trim()) {
-      throw new Error('O responsável é obrigatório.');
-    }
-    validateUUID(payload.responsible_person_id, 'Responsável');
-    updateData.responsible_person_id = payload.responsible_person_id;
-  }
-  if (payload.kanban_status !== undefined) {
-    validateKanbanStatus(payload.kanban_status);
-    updateData.kanban_status = payload.kanban_status;
-  }
-  if (payload.kanban_order !== undefined) {
-    if (!Number.isFinite(payload.kanban_order)) throw new Error('Ordem do Kanban inválida.');
-    updateData.kanban_order = payload.kanban_order;
-  }
   if (typeof payload.sort_order === 'number') {
     updateData.sort_order = payload.sort_order;
   }
@@ -790,40 +614,10 @@ export async function updateTask(
     .from('initiative_tasks')
     .update(updateData)
     .eq('id', taskId)
-    .select('id, milestone_id, title, description, completed, completed_at, due_date, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+    .select('id, milestone_id, title, description, completed, completed_at, due_date, sort_order, created_at, updated_at')
     .single();
   if (error || !data) throw new Error(error?.message || 'Erro ao atualizar tarefa.');
   return data as InitiativeTaskRow;
-}
-
-export async function updateTasksKanban(
-  updates: Array<{
-    id: string;
-    kanban_status: KanbanStatus;
-    kanban_order: number;
-    completed?: boolean;
-  }>
-): Promise<void> {
-  if (!Array.isArray(updates) || updates.length === 0) return;
-  for (const u of updates) {
-    validateUUID(u.id, 'Tarefa');
-    validateKanbanStatus(u.kanban_status);
-    if (!Number.isFinite(u.kanban_order)) throw new Error('Ordem do Kanban inválida.');
-  }
-
-  const chunkSize = 12;
-  for (let i = 0; i < updates.length; i += chunkSize) {
-    const chunk = updates.slice(i, i + chunkSize);
-    await Promise.all(
-      chunk.map((u) =>
-        updateTask(u.id, {
-          kanban_status: u.kanban_status,
-          kanban_order: u.kanban_order,
-          ...(typeof u.completed === 'boolean' ? { completed: u.completed } : {}),
-        })
-      )
-    );
-  }
 }
 
 export async function toggleTaskCompleted(taskId: string): Promise<void> {

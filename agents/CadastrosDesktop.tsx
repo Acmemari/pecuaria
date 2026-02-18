@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Users, UserCircle, FolderPlus } from 'lucide-react';
+import { Building2, Users, UserCircle, Package } from 'lucide-react';
 
 interface CadastroCardProps {
   title: string;
@@ -35,7 +35,7 @@ interface CadastrosDesktopProps {
   onSelectFazendas: () => void;
   onSelectClientes?: () => void;
   onSelectPessoas: () => void;
-  onSelectProjetoEntregas?: () => void;
+  onSelectEntregas: () => void;
   showClientes?: boolean;
 }
 
@@ -43,7 +43,7 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
   onSelectFazendas,
   onSelectClientes,
   onSelectPessoas,
-  onSelectProjetoEntregas,
+  onSelectEntregas,
   showClientes = false,
 }) => {
   const cards = [
@@ -63,6 +63,14 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
       icon: <UserCircle size={24} />,
       onClick: onSelectPessoas,
     },
+    {
+      id: 'entregas',
+      title: 'Cadastro de Entregas',
+      description:
+        'Cadastre entregas para vincular nas iniciativas de gestão do projeto.',
+      icon: <Package size={24} />,
+      onClick: onSelectEntregas,
+    },
     ...(showClientes && onSelectClientes
       ? [
           {
@@ -75,18 +83,6 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
           },
         ]
       : []),
-    ...(onSelectProjetoEntregas
-      ? [
-          {
-            id: 'projeto-entregas',
-            title: 'Projeto e Entregas',
-            description:
-              'Gerencie projetos, entregas e iniciativas do portfólio.',
-            icon: <FolderPlus size={24} />,
-            onClick: onSelectProjetoEntregas,
-          },
-        ]
-      : []),
   ];
 
   return (
@@ -96,7 +92,7 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
           Cadastros
         </h1>
         <p className="text-sm text-gray-500 max-w-2xl">
-          Escolha um bloco para gerenciar fazendas, clientes, pessoas e projetos.
+          Escolha um bloco para gerenciar fazendas, clientes e pessoas.
         </p>
       </header>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

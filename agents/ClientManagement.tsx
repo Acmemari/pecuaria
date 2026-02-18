@@ -93,27 +93,29 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
       }
 
       if (data) {
-        // Buscar informações dos analistas em paralelo (otimizado)
         const uniqueAnalystIds = [...new Set(data.map(c => c.analyst_id).filter(Boolean))];
         
-        // Buscar todos os analistas de uma vez
         const { data: analystsData } = await supabase
           .from('user_profiles')
           .select('id, name, email')
           .in('id', uniqueAnalystIds);
 
-        // Criar mapa de analistas para lookup O(1)
         const analystsMap = new Map(
           (analystsData || []).map(a => [a.id, a])
         );
 
-        // Mapear clientes com seus analistas
-        const clientsWithAnalysts = data.map(client => ({
-          ...client,
+        const mappedClients = data.map(client => ({
+          id: client.id,
+          name: client.name,
+          phone: client.phone || '',
+          email: client.email,
+          analystId: client.analyst_id,
+          createdAt: client.created_at,
+          updatedAt: client.updated_at,
           analyst: analystsMap.get(client.analyst_id) || null
         }));
 
-        setClients(clientsWithAnalysts as any);
+        setClients(mappedClients as any);
       }
     } catch (err: any) {
       console.error('[ClientManagement] Unexpected error:', err);
@@ -125,20 +127,21 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
 
   const loadFarms = useCallback(async () => {
     try {
-      // Buscar fazendas do banco de dados que pertencem aos clientes do analista
-      // As RLS policies garantem que só veremos fazendas dos nossos clientes
       const { data: dbFarms, error: dbError } = await supabase
         .from('farms')
         .select('*')
         .order('name', { ascending: true });
 
-      if (!dbError && dbFarms && dbFarms.length > 0) {
+      if (dbError) {
+        console.error('[ClientManagement] Error loading farms from DB:', dbError);
+      }
+
+      if (dbFarms && dbFarms.length > 0) {
         const convertedFarms = mapFarmsFromDatabase(dbFarms);
         setFarms(convertedFarms);
         return;
       }
 
-      // Fallback: carregar do localStorage
       const storedFarms = localStorage.getItem('agro-farms');
       if (storedFarms) {
         const parsedFarms = JSON.parse(storedFarms);
@@ -151,11 +154,10 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
 
   const loadAnalysts = async () => {
     try {
-      // Buscar apenas usuários com qualification='analista' (não incluir administradores que não são analistas)
       const { data, error: queryError } = await supabase
         .from('user_profiles')
-        .select('id, name, email, qualification')
-        .eq('qualification', 'analista')
+        .select('id, name, email, qualification, role')
+        .or('qualification.eq.analista,role.eq.admin')
         .order('name', { ascending: true });
 
       if (queryError) {
@@ -164,7 +166,10 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
       }
 
       if (data) {
-        setAnalysts(data);
+        const uniqueAnalysts = Array.from(
+          new Map(data.map(a => [a.id, a])).values()
+        );
+        setAnalysts(uniqueAnalysts);
       }
     } catch (err: any) {
       console.error('[ClientManagement] Error loading analysts:', err);
@@ -196,6 +201,19 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
     e.preventDefault();
 
     if (!validateForm()) {
+      const freshErrors: string[] = [];
+      if (!formData.name.trim()) freshErrors.push('Nome');
+      if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) freshErrors.push('Email');
+      if (!formData.analystId) freshErrors.push('Analista responsável');
+
+      if (freshErrors.length > 0) {
+        onToast?.(`Corrija os campos obrigatórios: ${freshErrors.join(', ')}`, 'error');
+      }
+
+      const firstErrorField = document.querySelector('[data-error="true"]');
+      if (firstErrorField) {
+        firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
@@ -423,6 +441,20 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
+  // Escutar evento de novo cliente da barra superior
+  useEffect(() => {
+    const handleNewClient = () => {
+      resetForm();
+      setView('form');
+    };
+
+    window.addEventListener('clientNewClient', handleNewClient);
+    return () => {
+      window.removeEventListener('clientNewClient', handleNewClient);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Memoizar lista filtrada para melhorar performance
   const filteredClients = useMemo(() => {
     if (!searchTerm) return clients;
@@ -467,7 +499,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Nome */}
-              <div>
+              <div data-error={formErrors.name ? 'true' : undefined}>
                 <label className="block text-sm font-medium text-ai-text mb-2">
                   Nome do Cliente <span className="text-ai-error">*</span>
                 </label>
@@ -500,7 +532,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
               </div>
 
               {/* Email */}
-              <div>
+              <div data-error={formErrors.email ? 'true' : undefined}>
                 <label className="block text-sm font-medium text-ai-text mb-2">
                   Email <span className="text-ai-error">*</span>
                 </label>
@@ -519,7 +551,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
               </div>
 
               {/* Analista Responsável */}
-              <div>
+              <div data-error={formErrors.analystId ? 'true' : undefined}>
                 <label className="block text-sm font-medium text-ai-text mb-2">
                   Analista Responsável <span className="text-ai-error">*</span>
                 </label>
@@ -555,7 +587,10 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
                 </label>
                 <div className="max-h-48 overflow-y-auto border border-ai-border rounded-md p-3 bg-ai-surface2">
                   {farms.length === 0 ? (
-                    <p className="text-sm text-ai-subtext">Nenhuma fazenda cadastrada no sistema.</p>
+                    <div className="text-sm text-ai-subtext space-y-1">
+                      <p>Nenhuma fazenda disponível para vinculação.</p>
+                      <p className="text-xs">Cadastre fazendas na área de "Cadastro de Fazendas" para poder vinculá-las aos clientes.</p>
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       {farms.map(farm => (
@@ -580,9 +615,11 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
                     </div>
                   )}
                 </div>
-                <p className="mt-1 text-xs text-ai-subtext">
-                  Selecione as fazendas que pertencem a este cliente
-                </p>
+                {farms.length > 0 && (
+                  <p className="mt-1 text-xs text-ai-subtext">
+                    Selecione as fazendas que pertencem a este cliente
+                  </p>
+                )}
               </div>
 
               {/* Actions */}

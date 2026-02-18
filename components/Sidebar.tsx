@@ -22,11 +22,9 @@ import {
   FolderPlus,
   LayoutDashboard,
   ListTodo,
-  Columns3,
   Calendar,
   BrainCircuit,
-  HelpCircle,
-  Network
+  HelpCircle
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -42,17 +40,7 @@ interface SidebarProps {
 
 const INICIATIVAS_OVERVIEW_ID = 'iniciativas-overview';
 const INICIATIVAS_ATIVIDADES_ID = 'iniciativas-atividades';
-const INICIATIVAS_KANBAN_ID = 'iniciativas-kanban';
-const INICIATIVAS_ENTREGAS_ID = 'iniciativas-entregas';
-const CALENDAR_ID = 'calendar';
-const PROJECT_STRUCTURE_ID = 'project-structure';
-const isIniciativasView = (id: string) =>
-  id === INICIATIVAS_OVERVIEW_ID ||
-  id === INICIATIVAS_ATIVIDADES_ID ||
-  id === INICIATIVAS_KANBAN_ID ||
-  id === INICIATIVAS_ENTREGAS_ID ||
-  id === CALENDAR_ID ||
-  id === PROJECT_STRUCTURE_ID;
+const isIniciativasView = (id: string) => id === INICIATIVAS_OVERVIEW_ID || id === INICIATIVAS_ATIVIDADES_ID;
 
 interface Questionnaire {
   id: string;
@@ -191,17 +179,6 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                   </button>
                   <button
                     type="button"
-                    onClick={() => onSelectAgent(INICIATIVAS_ENTREGAS_ID)}
-                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === INICIATIVAS_ENTREGAS_ID
-                      ? 'bg-ai-accent/10 text-ai-accent'
-                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                      }`}
-                  >
-                    <FolderPlus size={14} className="flex-shrink-0 mr-2" />
-                    <span className="truncate">Projeto e Entregas</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => onSelectAgent(INICIATIVAS_ATIVIDADES_ID)}
                     className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === INICIATIVAS_ATIVIDADES_ID
                       ? 'bg-ai-accent/10 text-ai-accent'
@@ -211,46 +188,11 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                     <ListTodo size={14} className="flex-shrink-0 mr-2" />
                     <span className="truncate">Atividades</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectAgent(INICIATIVAS_KANBAN_ID)}
-                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === INICIATIVAS_KANBAN_ID
-                      ? 'bg-ai-accent/10 text-ai-accent'
-                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                      }`}
-                  >
-                    <Columns3 size={14} className="flex-shrink-0 mr-2" />
-                    <span className="truncate">Kanban</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectAgent(CALENDAR_ID)}
-                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === CALENDAR_ID
-                      ? 'bg-ai-accent/10 text-ai-accent'
-                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                      }`}
-                  >
-                    <Calendar size={14} className="flex-shrink-0 mr-2" />
-                    <span className="truncate">Calendário</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectAgent(PROJECT_STRUCTURE_ID)}
-                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === PROJECT_STRUCTURE_ID
-                      ? 'bg-ai-accent/10 text-ai-accent'
-                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                      }`}
-                  >
-                    <Network size={14} className="flex-shrink-0 mr-2" />
-                    <span className="truncate">Estrutura do Projeto</span>
-                  </button>
                 </div>
               )}
             </div>
 
-            {agents
-              .filter((agent) => agent.id !== 'calendar')
-              .map((agent, index) => {
+            {agents.map((agent, index) => {
               const isActive = activeAgentId === agent.id;
               const isLocked = agent.status !== 'active';
 

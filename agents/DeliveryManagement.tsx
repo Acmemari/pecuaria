@@ -1,176 +1,34 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  DndContext,
-  DragEndEvent,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
-  Plus,
-  ArrowLeft,
-  Loader2,
-  Pencil,
-  Trash2,
-  Package,
-  Calendar,
-  Users,
-  PlusCircle,
-  X,
-  Link2,
-  Unlink,
-  CheckSquare,
-  GripVertical,
-} from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Plus, ArrowLeft, Loader2, Pencil, Trash2, Package } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
-import { useClient } from '../contexts/ClientContext';
 import {
   fetchDeliveries,
   createDelivery,
   updateDelivery,
   deleteDelivery,
-  linkDeliveryToProject,
-  unlinkDeliveryFromProject,
-  reorderDeliveries,
   type DeliveryRow,
 } from '../lib/deliveries';
-import {
-  fetchProjects,
-  createProject,
-  updateProject,
-  deleteProject,
-  type ProjectRow,
-  type ProjectStakeholderRow,
-} from '../lib/projects';
-import DateInputBR from '../components/DateInputBR';
 
 interface DeliveryManagementProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
-const initialStakeholderRow = (): ProjectStakeholderRow => ({ name: '', activity: '' });
-
-const initialProjectForm = {
-  name: '',
-  transformations_achievements: '',
-  success_evidence: [] as string[],
-  start_date: '',
-  end_date: '',
-  stakeholder_matrix: [] as ProjectStakeholderRow[],
-};
-
-const initialDeliveryForm = {
+const initialForm = {
   name: '',
   description: '',
-  transformations_achievements: '',
-  due_date: '',
 };
-
-const formatDate = (d: string | null) => {
-  if (!d) return '—';
-  try {
-    return new Date(d + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  } catch {
-    return d;
-  }
-};
-
-function SortableDeliveryItem({
-  delivery,
-  onEdit,
-  onUnlink,
-  onDelete,
-  unlinkingId,
-  deletingDeliveryId,
-}: {
-  delivery: DeliveryRow;
-  onEdit: (d: DeliveryRow) => void;
-  onUnlink: (id: string) => void;
-  onDelete: (id: string) => void;
-  unlinkingId: string | null;
-  deletingDeliveryId: string | null;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: delivery.id });
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-  return (
-    <li
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg border border-ai-border bg-ai-bg"
-    >
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          className="p-1 rounded text-ai-subtext hover:text-ai-text hover:bg-ai-surface2 cursor-grab active:cursor-grabbing touch-manipulation shrink-0"
-          aria-label="Arrastar para reordenar"
-        >
-          <GripVertical size={16} />
-        </button>
-        <span className="text-sm font-medium text-ai-text truncate">{delivery.name}</span>
-      </div>
-      <div className="flex items-center gap-1 flex-shrink-0">
-        <button type="button" onClick={(e) => { e.stopPropagation(); onEdit(delivery); }} className="p-1.5 rounded text-ai-subtext hover:text-ai-accent hover:bg-ai-surface2" title="Editar entrega">
-          <Pencil size={14} />
-        </button>
-        <button type="button" onClick={() => onUnlink(delivery.id)} disabled={unlinkingId === delivery.id} className="p-1.5 rounded text-ai-subtext hover:text-amber-600 hover:bg-amber-50 disabled:opacity-50" title="Desvincular do projeto">
-          {unlinkingId === delivery.id ? <Loader2 size={14} className="animate-spin" /> : <Unlink size={14} />}
-        </button>
-        <button type="button" onClick={() => onDelete(delivery.id)} disabled={deletingDeliveryId === delivery.id} className="p-1.5 rounded text-ai-subtext hover:text-red-500 hover:bg-red-50 disabled:opacity-50" title="Excluir entrega">
-          {deletingDeliveryId === delivery.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-        </button>
-      </div>
-    </li>
-  );
-}
 
 const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
   const { user } = useAuth();
   const { selectedAnalyst } = useAnalyst();
-  const { selectedClient } = useClient();
-  const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
-  const [deliveriesForProject, setDeliveriesForProject] = useState<DeliveryRow[]>([]);
   const [view, setView] = useState<'list' | 'form'>('list');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [editingProject, setEditingProject] = useState<ProjectRow | null>(null);
-  const [projectForm, setProjectForm] = useState(initialProjectForm);
-  const [deliveryFormOpen, setDeliveryFormOpen] = useState<'create' | 'edit' | null>(null);
-  const [editingDelivery, setEditingDelivery] = useState<DeliveryRow | null>(null);
-  const [deliveryForm, setDeliveryForm] = useState(initialDeliveryForm);
-  const [savingDelivery, setSavingDelivery] = useState(false);
-  const [linkDeliveryId, setLinkDeliveryId] = useState('');
-  const [linkingDelivery, setLinkingDelivery] = useState(false);
-  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
-  const [deletingDeliveryId, setDeletingDeliveryId] = useState<string | null>(null);
-  const [reordering, setReordering] = useState(false);
-  const successEvidenceInputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
-  );
-
-  const onToastRef = useRef(onToast);
-  onToastRef.current = onToast;
-  const toast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info') => {
-    onToastRef.current?.(message, type);
-  }, []);
+  const [editing, setEditing] = useState<DeliveryRow | null>(null);
+  const [formData, setFormData] = useState(initialForm);
 
   const isAdmin = user?.role === 'admin';
   const effectiveUserId = useMemo(
@@ -178,288 +36,88 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
     [isAdmin, selectedAnalyst, user?.id]
   );
 
-  const clientFilter = useMemo(() => (selectedClient?.id ? { clientId: selectedClient.id } : undefined), [selectedClient?.id]);
-
-  const unlinkedDeliveries = useMemo(() => deliveries.filter((d) => !d.project_id), [deliveries]);
-
-  const loadProjects = useCallback(async () => {
-    if (!effectiveUserId) return;
-    const rows = await fetchProjects(effectiveUserId, clientFilter);
-    setProjects(rows);
-  }, [effectiveUserId, clientFilter]);
-
   const loadDeliveries = useCallback(async () => {
     if (!effectiveUserId) return;
-    const rows = await fetchDeliveries(effectiveUserId, clientFilter);
-    setDeliveries(rows);
-  }, [effectiveUserId, clientFilter]);
-
-  const loadDeliveriesForProject = useCallback(
-    async (projectId: string) => {
-      if (!effectiveUserId) return;
-      const rows = await fetchDeliveries(effectiveUserId, { ...clientFilter, projectId });
-      setDeliveriesForProject(rows);
-    },
-    [effectiveUserId, clientFilter]
-  );
-
-  useEffect(() => {
-    if (!effectiveUserId) { setLoading(false); return; }
-    let stale = false;
     setLoading(true);
-    Promise.all([
-      fetchProjects(effectiveUserId, clientFilter),
-      fetchDeliveries(effectiveUserId, clientFilter),
-    ])
-      .then(([projectRows, deliveryRows]) => {
-        if (stale) return;
-        setProjects(projectRows);
-        setDeliveries(deliveryRows);
-      })
-      .catch((e) => {
-        if (stale) return;
-        toast(e instanceof Error ? e.message : 'Erro ao carregar dados.', 'error');
-      })
-      .finally(() => {
-        if (!stale) setLoading(false);
-      });
-    return () => { stale = true; };
-  }, [effectiveUserId, clientFilter, toast]);
+    try {
+      const rows = await fetchDeliveries(effectiveUserId);
+      setDeliveries(rows);
+    } catch (e) {
+      onToast?.(e instanceof Error ? e.message : 'Erro ao carregar entregas.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [effectiveUserId, onToast]);
 
   useEffect(() => {
-    if (!editingProject?.id || !effectiveUserId) return;
-    let stale = false;
-    fetchDeliveries(effectiveUserId, { ...clientFilter, projectId: editingProject.id })
-      .then((rows) => { if (!stale) setDeliveriesForProject(rows); })
-      .catch((e) => {
-        if (!stale) toast(e instanceof Error ? e.message : 'Erro ao carregar entregas do projeto.', 'error');
-      });
-    return () => { stale = true; };
-  }, [editingProject?.id, effectiveUserId, clientFilter, toast]);
+    loadDeliveries();
+  }, [loadDeliveries]);
 
-  const openNewProject = () => {
-    setEditingProject(null);
-    setProjectForm(initialProjectForm);
+  const openNew = () => {
+    setEditing(null);
+    setFormData(initialForm);
     setView('form');
-    setDeliveriesForProject([]);
   };
 
-  const openEditProject = (project: ProjectRow) => {
-    setEditingProject(project);
-    setProjectForm({
-      name: project.name || '',
-      transformations_achievements: project.transformations_achievements || '',
-      success_evidence: Array.isArray(project.success_evidence) ? project.success_evidence : [],
-      start_date: project.start_date ? project.start_date.slice(0, 10) : '',
-      end_date: project.end_date ? project.end_date.slice(0, 10) : '',
-      stakeholder_matrix: Array.isArray(project.stakeholder_matrix) && project.stakeholder_matrix.length > 0
-        ? project.stakeholder_matrix
-        : [],
+  const openEdit = (delivery: DeliveryRow) => {
+    setEditing(delivery);
+    setFormData({
+      name: delivery.name || '',
+      description: delivery.description || '',
     });
     setView('form');
   };
 
-  const handleSaveProject = useCallback(async () => {
+  const handleSave = async () => {
     if (!effectiveUserId) {
-      toast('Selecione um analista para continuar.', 'warning');
+      onToast?.('Selecione um analista para continuar.', 'warning');
       return;
     }
-    if (!projectForm.name.trim()) {
-      toast('O nome do projeto é obrigatório.', 'warning');
+    if (!formData.name.trim()) {
+      onToast?.('O nome da entrega é obrigatório.', 'warning');
       return;
     }
+
     setSaving(true);
     try {
-      const payload = {
-        name: projectForm.name.trim(),
-        client_id: selectedClient?.id || null,
-        transformations_achievements: projectForm.transformations_achievements.trim() || null,
-        success_evidence: projectForm.success_evidence.filter((s) => s.trim()),
-        start_date: projectForm.start_date.trim() || null,
-        end_date: projectForm.end_date.trim() || null,
-        stakeholder_matrix: projectForm.stakeholder_matrix.filter((r) => r.name.trim() || r.activity.trim()),
-      };
-      if (editingProject) {
-        const updated = await updateProject(editingProject.id, payload);
-        setEditingProject(updated);
-        toast('Projeto atualizado com sucesso.', 'success');
+      if (editing) {
+        await updateDelivery(editing.id, formData);
+        onToast?.('Entrega atualizada com sucesso.', 'success');
       } else {
-        const created = await createProject(effectiveUserId, payload);
-        setEditingProject(created);
-        toast('Projeto criado. Agora vincule as entregas abaixo.', 'success');
+        await createDelivery(effectiveUserId, formData);
+        onToast?.('Entrega criada com sucesso.', 'success');
       }
-      await loadProjects();
+      setView('list');
+      setEditing(null);
+      setFormData(initialForm);
+      await loadDeliveries();
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao salvar projeto.', 'error');
+      onToast?.(e instanceof Error ? e.message : 'Erro ao salvar entrega.', 'error');
     } finally {
       setSaving(false);
     }
-  }, [effectiveUserId, projectForm, editingProject, selectedClient?.id, toast, loadProjects]);
+  };
 
-  const handleDeleteProject = useCallback(async (projectId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este projeto? As entregas vinculadas serão desvinculadas.')) return;
-    setDeletingId(projectId);
+  const handleDelete = async (deliveryId: string) => {
+    setDeletingId(deliveryId);
     try {
-      await deleteProject(projectId);
-      toast('Projeto removido com sucesso.', 'success');
-      setView('list');
-      setEditingProject(null);
-      await Promise.all([loadProjects(), loadDeliveries()]);
+      await deleteDelivery(deliveryId);
+      onToast?.('Entrega removida com sucesso.', 'success');
+      await loadDeliveries();
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao excluir projeto.', 'error');
+      onToast?.(e instanceof Error ? e.message : 'Erro ao excluir entrega.', 'error');
     } finally {
       setDeletingId(null);
     }
-  }, [toast, loadProjects, loadDeliveries]);
-
-  const openCreateDelivery = useCallback(() => {
-    setDeliveryForm(initialDeliveryForm);
-    setEditingDelivery(null);
-    setDeliveryFormOpen('create');
-  }, []);
-
-  const openEditDelivery = useCallback((d: DeliveryRow) => {
-    setDeliveryForm({
-      name: d.name || '',
-      description: d.description || '',
-      transformations_achievements: d.transformations_achievements || '',
-      due_date: d.due_date ? d.due_date.slice(0, 10) : '',
-    });
-    setEditingDelivery(d);
-    setDeliveryFormOpen('edit');
-  }, []);
-
-  const closeDeliveryForm = useCallback(() => {
-    setDeliveryFormOpen(null);
-    setEditingDelivery(null);
-    setDeliveryForm(initialDeliveryForm);
-  }, []);
-
-  const handleSaveDelivery = useCallback(async () => {
-    if (!effectiveUserId || !editingProject) return;
-    if (!deliveryForm.name.trim()) {
-      toast('O nome da entrega é obrigatório.', 'warning');
-      return;
-    }
-    setSavingDelivery(true);
-    try {
-      const payload = {
-        name: deliveryForm.name.trim(),
-        description: deliveryForm.description.trim() || undefined,
-        transformations_achievements: deliveryForm.transformations_achievements.trim() || undefined,
-        due_date: deliveryForm.due_date.trim() || undefined,
-        client_id: selectedClient?.id || null,
-        project_id: editingProject.id,
-      };
-      if (deliveryFormOpen === 'create') {
-        await createDelivery(effectiveUserId, payload);
-        toast('Entrega adicionada ao projeto.', 'success');
-      } else if (editingDelivery) {
-        await updateDelivery(editingDelivery.id, payload);
-        toast('Entrega atualizada.', 'success');
-      }
-      closeDeliveryForm();
-      await Promise.all([
-        loadDeliveriesForProject(editingProject.id),
-        loadDeliveries(),
-      ]);
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao salvar entrega.', 'error');
-    } finally {
-      setSavingDelivery(false);
-    }
-  }, [effectiveUserId, editingProject, deliveryForm, deliveryFormOpen, editingDelivery, selectedClient?.id, toast, closeDeliveryForm, loadDeliveriesForProject, loadDeliveries]);
-
-  const handleLinkDelivery = useCallback(async () => {
-    if (!editingProject || !linkDeliveryId) return;
-    setLinkingDelivery(true);
-    try {
-      await linkDeliveryToProject(linkDeliveryId, editingProject.id);
-      setLinkDeliveryId('');
-      toast('Entrega vinculada ao projeto.', 'success');
-      await Promise.all([
-        loadDeliveriesForProject(editingProject.id),
-        loadDeliveries(),
-      ]);
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao vincular entrega.', 'error');
-    } finally {
-      setLinkingDelivery(false);
-    }
-  }, [editingProject, linkDeliveryId, toast, loadDeliveriesForProject, loadDeliveries]);
-
-  const handleUnlinkDelivery = useCallback(async (deliveryId: string) => {
-    setUnlinkingId(deliveryId);
-    try {
-      await unlinkDeliveryFromProject(deliveryId);
-      toast('Entrega desvinculada do projeto.', 'success');
-      if (editingProject) {
-        await Promise.all([
-          loadDeliveriesForProject(editingProject.id),
-          loadDeliveries(),
-        ]);
-      } else {
-        await loadDeliveries();
-      }
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao desvincular.', 'error');
-    } finally {
-      setUnlinkingId(null);
-    }
-  }, [editingProject, toast, loadDeliveriesForProject, loadDeliveries]);
-
-  const handleDragEnd = useCallback(
-    async (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-      const oldIndex = deliveriesForProject.findIndex((d) => d.id === active.id);
-      const newIndex = deliveriesForProject.findIndex((d) => d.id === over.id);
-      if (oldIndex === -1 || newIndex === -1) return;
-      const newOrder = arrayMove(deliveriesForProject, oldIndex, newIndex);
-      const updates = newOrder.map((d, i) => ({ id: d.id, sort_order: i }));
-      setReordering(true);
-      try {
-        await reorderDeliveries(updates);
-        setDeliveriesForProject(newOrder.map((d, i) => ({ ...d, sort_order: i })));
-        toast('Ordem atualizada.', 'success');
-      } catch (e) {
-        toast(e instanceof Error ? e.message : 'Erro ao reordenar entregas.', 'error');
-        if (editingProject?.id) await loadDeliveriesForProject(editingProject.id);
-      } finally {
-        setReordering(false);
-      }
-    },
-    [deliveriesForProject, editingProject?.id, loadDeliveriesForProject, toast]
-  );
-
-  const handleDeleteDelivery = useCallback(async (deliveryId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta entrega?')) return;
-    setDeletingDeliveryId(deliveryId);
-    try {
-      await deleteDelivery(deliveryId);
-      toast('Entrega excluída.', 'success');
-      if (editingProject) {
-        await Promise.all([
-          loadDeliveriesForProject(editingProject.id),
-          loadDeliveries(),
-        ]);
-      } else {
-        await loadDeliveries();
-      }
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro ao excluir entrega.', 'error');
-    } finally {
-      setDeletingDeliveryId(null);
-    }
-  }, [editingProject, toast, loadDeliveriesForProject, loadDeliveries]);
+  };
 
   if (view === 'form') {
     return (
-      <div className="h-full flex flex-col overflow-auto p-6 md:p-8 max-w-4xl mx-auto">
+      <div className="h-full flex flex-col p-6 md:p-8 max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <button
             type="button"
-            onClick={() => { setView('list'); setEditingProject(null); }}
+            onClick={() => setView('list')}
             className="inline-flex items-center gap-1.5 text-ai-subtext hover:text-ai-text text-sm"
           >
             <ArrowLeft size={16} />
@@ -467,278 +125,53 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
           </button>
         </div>
 
-        <div className="space-y-8">
-          <div className="bg-ai-surface border border-ai-border rounded-xl p-6 space-y-5">
-            <h1 className="text-xl font-bold text-ai-text">
-              {editingProject ? 'Editar Projeto' : 'Novo Projeto'}
-            </h1>
+        <div className="bg-ai-surface border border-ai-border rounded-xl p-6 space-y-5">
+          <h1 className="text-xl font-bold text-ai-text">
+            {editing ? 'Editar Entrega' : 'Nova Entrega'}
+          </h1>
 
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Nome do Projeto <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={projectForm.name}
-                onChange={(e) => setProjectForm((p) => ({ ...p, name: e.target.value }))}
-                className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm"
-                placeholder="Ex.: Growth Partnership"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Descrição das transformações e conquistas</label>
-              <textarea
-                rows={4}
-                value={projectForm.transformations_achievements}
-                onChange={(e) => setProjectForm((p) => ({ ...p, transformations_achievements: e.target.value }))}
-                className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm resize-none"
-                placeholder="Transformações e conquistas esperadas."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-2 flex items-center gap-1.5">
-                <CheckSquare size={14} />
-                Evidências de sucesso do projeto
-              </label>
-              <p className="text-xs text-ai-subtext mb-2">Lista numerada: descreva cada evidência de sucesso em uma linha.</p>
-              <div className="border border-ai-border rounded-lg overflow-hidden">
-                <div className="divide-y divide-ai-border">
-                  {projectForm.success_evidence.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-ai-bg/30">
-                      <span className="flex-shrink-0 w-6 text-sm font-semibold text-ai-subtext tabular-nums">{idx + 1}.</span>
-                      <input
-                        ref={(el) => { successEvidenceInputRefs.current[idx] = el; }}
-                        type="text"
-                        value={item}
-                        onChange={(e) => {
-                          const next = [...projectForm.success_evidence];
-                          next[idx] = e.target.value;
-                          setProjectForm((p) => ({ ...p, success_evidence: next }));
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const next = [...projectForm.success_evidence];
-                            next.splice(idx + 1, 0, '');
-                            setProjectForm((p) => ({ ...p, success_evidence: next }));
-                            setTimeout(() => successEvidenceInputRefs.current[idx + 1]?.focus(), 0);
-                          }
-                        }}
-                        className="flex-1 px-2 py-1.5 border border-ai-border rounded bg-ai-bg text-ai-text text-sm"
-                        placeholder="Descreva a evidência de sucesso"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setProjectForm((p) => ({ ...p, success_evidence: p.success_evidence.filter((_, i) => i !== idx) }))}
-                        className="p-1.5 rounded text-ai-subtext hover:text-red-500 hover:bg-red-50 flex-shrink-0"
-                        title="Remover"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="px-3 py-2 border-t border-ai-border bg-ai-surface2/50">
-                  <button
-                    type="button"
-                    onClick={() => setProjectForm((p) => ({ ...p, success_evidence: [...p.success_evidence, ''] }))}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-ai-accent hover:underline"
-                  >
-                    <PlusCircle size={14} />
-                    Adicionar evidência
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-ai-text mb-1 flex items-center gap-1.5"><Calendar size={14} /> Data inicial</label>
-                <DateInputBR value={projectForm.start_date} onChange={(v) => setProjectForm((p) => ({ ...p, start_date: v }))} placeholder="dd/mm/aaaa" className="w-full" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ai-text mb-1 flex items-center gap-1.5"><Calendar size={14} /> Data final</label>
-                <DateInputBR value={projectForm.end_date} onChange={(v) => setProjectForm((p) => ({ ...p, end_date: v }))} placeholder="dd/mm/aaaa" className="w-full" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-2 flex items-center gap-1.5"><Users size={14} /> Matriz de Stakeholder</label>
-              <p className="text-xs text-ai-subtext mb-2">Nome e atividade por linha.</p>
-              <div className="border border-ai-border rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-ai-surface2 border-b border-ai-border">
-                      <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider text-xs w-[45%]">Nome</th>
-                      <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider text-xs">Atividade</th>
-                      <th className="w-10" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {projectForm.stakeholder_matrix.map((row, idx) => (
-                      <tr key={idx} className="border-b border-ai-border/50 last:border-b-0">
-                        <td className="px-3 py-1.5">
-                          <input
-                            type="text"
-                            value={row.name}
-                            onChange={(e) => {
-                              const next = [...projectForm.stakeholder_matrix];
-                              next[idx] = { ...next[idx], name: e.target.value };
-                              setProjectForm((p) => ({ ...p, stakeholder_matrix: next }));
-                            }}
-                            className="w-full px-2 py-1.5 border border-ai-border rounded bg-ai-bg text-ai-text text-sm"
-                            placeholder="Nome"
-                          />
-                        </td>
-                        <td className="px-3 py-1.5">
-                          <input
-                            type="text"
-                            value={row.activity}
-                            onChange={(e) => {
-                              const next = [...projectForm.stakeholder_matrix];
-                              next[idx] = { ...next[idx], activity: e.target.value };
-                              setProjectForm((p) => ({ ...p, stakeholder_matrix: next }));
-                            }}
-                            className="w-full px-2 py-1.5 border border-ai-border rounded bg-ai-bg text-ai-text text-sm"
-                            placeholder="Atividade"
-                          />
-                        </td>
-                        <td className="px-1 py-1.5">
-                          <button type="button" onClick={() => setProjectForm((p) => ({ ...p, stakeholder_matrix: p.stakeholder_matrix.filter((_, i) => i !== idx) }))} className="p-1 rounded text-ai-subtext hover:text-red-500 hover:bg-red-50">
-                            <X size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="px-3 py-2 border-t border-ai-border bg-ai-surface2/50">
-                  <button type="button" onClick={() => setProjectForm((p) => ({ ...p, stakeholder_matrix: [...p.stakeholder_matrix, initialStakeholderRow()] }))} className="inline-flex items-center gap-1.5 text-xs font-medium text-ai-accent hover:underline">
-                    <PlusCircle size={14} /> Adicionar linha
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={() => { setView('list'); setEditingProject(null); }} className="px-4 py-2 rounded-md border border-ai-border text-ai-subtext hover:text-ai-text">Cancelar</button>
-              <button type="button" onClick={handleSaveProject} disabled={saving} className="px-4 py-2 rounded-md bg-ai-accent text-white hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2">
-                {saving && <Loader2 size={16} className="animate-spin" />}
-                {editingProject ? 'Atualizar projeto' : 'Salvar projeto'}
-              </button>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-ai-text mb-1">
+              Nome <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+              className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm"
+              placeholder="Ex.: Reestruturação Comercial Fase 1"
+            />
           </div>
 
-          {editingProject && (
-            <div className="bg-ai-surface border border-ai-border rounded-xl p-6 space-y-4">
-              <h2 className="text-lg font-bold text-ai-text flex items-center gap-2">
-                <Package size={18} />
-                Entregas do projeto
-                {reordering && <span className="text-xs font-normal text-ai-subtext">Salvando ordem…</span>}
-              </h2>
+          <div>
+            <label className="block text-sm font-medium text-ai-text mb-1">Descrição</label>
+            <textarea
+              rows={4}
+              value={formData.description}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+              className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm resize-none"
+              placeholder="Descreva objetivo, escopo e critérios da entrega."
+            />
+          </div>
 
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={openCreateDelivery} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-ai-accent text-white text-sm hover:opacity-90">
-                  <Plus size={14} />
-                  Nova entrega
-                </button>
-                <div className="flex gap-2 items-center">
-                  <select
-                    value={linkDeliveryId}
-                    onChange={(e) => setLinkDeliveryId(e.target.value)}
-                    className="px-3 py-1.5 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm min-w-[200px]"
-                  >
-                    <option value="">Vincular entrega existente</option>
-                    {unlinkedDeliveries.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
-                  <button type="button" onClick={handleLinkDelivery} disabled={!linkDeliveryId || linkingDelivery} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-ai-border text-ai-text text-sm hover:bg-ai-surface2 disabled:opacity-50">
-                    {linkingDelivery ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
-                    Vincular
-                  </button>
-                </div>
-              </div>
-
-              {deliveryFormOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeDeliveryForm}>
-                  <div className="bg-ai-surface border border-ai-border rounded-xl p-6 max-w-lg w-full shadow-xl space-y-4" onClick={(e) => e.stopPropagation()}>
-                    <h3 className="text-lg font-bold text-ai-text">{deliveryFormOpen === 'create' ? 'Nova entrega' : 'Editar entrega'}</h3>
-                    <div>
-                      <label className="block text-sm font-medium text-ai-text mb-1">Nome <span className="text-red-500">*</span></label>
-                      <input
-                        type="text"
-                        value={deliveryForm.name}
-                        onChange={(e) => setDeliveryForm((p) => ({ ...p, name: e.target.value }))}
-                        className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm"
-                        placeholder="Ex.: Atualização de processos gerenciais"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-ai-text mb-1">Descrição</label>
-                      <textarea
-                        rows={3}
-                        value={deliveryForm.description}
-                        onChange={(e) => setDeliveryForm((p) => ({ ...p, description: e.target.value }))}
-                        className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm resize-none"
-                        placeholder="Descreva o escopo da entrega."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-ai-text mb-1">Transformações e conquistas</label>
-                      <textarea
-                        rows={3}
-                        value={deliveryForm.transformations_achievements}
-                        onChange={(e) => setDeliveryForm((p) => ({ ...p, transformations_achievements: e.target.value }))}
-                        className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm resize-none"
-                        placeholder="Conquistas esperadas com esta entrega."
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-ai-text mb-1 flex items-center gap-1.5"><Calendar size={14} /> Prazo</label>
-                      <DateInputBR value={deliveryForm.due_date} onChange={(v) => setDeliveryForm((p) => ({ ...p, due_date: v }))} placeholder="dd/mm/aaaa" className="w-full" />
-                    </div>
-                    <div className="flex justify-end gap-3 pt-2">
-                      <button type="button" onClick={closeDeliveryForm} className="px-4 py-2 rounded-md border border-ai-border text-ai-subtext hover:text-ai-text">Cancelar</button>
-                      <button type="button" onClick={handleSaveDelivery} disabled={savingDelivery || !deliveryForm.name.trim()} className="px-4 py-2 rounded-md bg-ai-accent text-white hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2">
-                        {savingDelivery && <Loader2 size={16} className="animate-spin" />}
-                        Salvar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {deliveriesForProject.length === 0 ? (
-                <p className="text-sm text-ai-subtext">Nenhuma entrega vinculada. Crie uma nova ou vincule uma existente.</p>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={deliveriesForProject.map((d) => d.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <ul className="space-y-2">
-                      {deliveriesForProject.map((d) => (
-                        <SortableDeliveryItem
-                          key={d.id}
-                          delivery={d}
-                          onEdit={openEditDelivery}
-                          onUnlink={handleUnlinkDelivery}
-                          onDelete={handleDeleteDelivery}
-                          unlinkingId={unlinkingId}
-                          deletingDeliveryId={deletingDeliveryId}
-                        />
-                      ))}
-                    </ul>
-                  </SortableContext>
-                </DndContext>
-              )}
-            </div>
-          )}
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setView('list')}
+              className="px-4 py-2 rounded-md border border-ai-border text-ai-subtext hover:text-ai-text"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 rounded-md bg-ai-accent text-white hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
+            >
+              {saving && <Loader2 size={16} className="animate-spin" />}
+              {editing ? 'Atualizar' : 'Salvar'}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -748,12 +181,16 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
     <div className="h-full flex flex-col p-6 md:p-8 max-w-6xl mx-auto">
       <header className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-ai-text tracking-tight">Projeto e Entregas</h1>
-          <p className="text-sm text-ai-subtext">Cadastre projetos e vincule as entregas a cada projeto.</p>
+          <h1 className="text-2xl font-bold text-ai-text tracking-tight">Cadastro de Entregas</h1>
+          <p className="text-sm text-ai-subtext">Gerencie as entregas que serão vinculadas às iniciativas.</p>
         </div>
-        <button type="button" onClick={openNewProject} className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-ai-accent text-white hover:opacity-90">
+        <button
+          type="button"
+          onClick={openNew}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-ai-accent text-white hover:opacity-90"
+        >
           <Plus size={16} />
-          Novo Projeto
+          Nova Entrega
         </button>
       </header>
 
@@ -761,40 +198,47 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
         <div className="flex items-center justify-center h-48">
           <Loader2 size={28} className="animate-spin text-ai-accent" />
         </div>
-      ) : projects.length === 0 ? (
+      ) : deliveries.length === 0 ? (
         <div className="rounded-xl border border-dashed border-ai-border bg-ai-surface p-10 text-center">
           <Package size={28} className="mx-auto text-ai-subtext mb-2" />
-          <p className="text-ai-subtext text-sm">Nenhum projeto cadastrado.</p>
+          <p className="text-ai-subtext text-sm">Nenhuma entrega cadastrada.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {projects.map((project) => (
+          {deliveries.map((delivery) => (
             <article
-              key={project.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => openEditProject(project)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEditProject(project); } }}
-              className="rounded-xl border border-ai-border bg-ai-surface p-4 flex flex-col gap-3 cursor-pointer hover:shadow-md hover:border-ai-accent/30 transition-all"
+              key={delivery.id}
+              className="rounded-xl border border-ai-border bg-ai-surface p-4 flex flex-col gap-3"
             >
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-sm font-semibold text-ai-text">{project.name}</h3>
-                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                  <button type="button" onClick={() => openEditProject(project)} className="p-1.5 rounded text-ai-subtext hover:text-ai-text hover:bg-ai-surface2" title="Editar">
+                <h3 className="text-sm font-semibold text-ai-text">{delivery.name}</h3>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => openEdit(delivery)}
+                    className="p-1.5 rounded text-ai-subtext hover:text-ai-text hover:bg-ai-surface2"
+                    title="Editar"
+                  >
                     <Pencil size={14} />
                   </button>
-                  <button type="button" onClick={() => handleDeleteProject(project.id)} disabled={deletingId === project.id} className="p-1.5 rounded text-red-500 hover:bg-red-50 disabled:opacity-60" title="Excluir">
-                    {deletingId === project.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(delivery.id)}
+                    disabled={deletingId === delivery.id}
+                    className="p-1.5 rounded text-red-500 hover:bg-red-50 disabled:opacity-60"
+                    title="Excluir"
+                  >
+                    {deletingId === delivery.id ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
                   </button>
                 </div>
               </div>
-              <div className="flex items-center gap-3 text-xs text-ai-subtext">
-                <span className="flex items-center gap-1"><Calendar size={12} /> {formatDate(project.start_date)} — {formatDate(project.end_date)}</span>
-                {(project.stakeholder_matrix?.length ?? 0) > 0 && (
-                  <span className="flex items-center gap-1"><Users size={12} /> {project.stakeholder_matrix.length} stakeholder(s)</span>
-                )}
-              </div>
-              <p className="text-xs text-ai-subtext whitespace-pre-wrap line-clamp-2">{project.transformations_achievements || 'Sem descrição.'}</p>
+              <p className="text-xs text-ai-subtext whitespace-pre-wrap">
+                {delivery.description || 'Sem descrição.'}
+              </p>
             </article>
           ))}
         </div>

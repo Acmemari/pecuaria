@@ -233,6 +233,7 @@ function DroppableColumn({
 
 export default function InitiativeTasksKanban({
   milestones,
+  filterByResponsibleIds,
   onToast,
   onRefresh,
   responsibleLabel,
@@ -241,6 +242,7 @@ export default function InitiativeTasksKanban({
   onDeleteTask,
 }: {
   milestones: InitiativeMilestoneRow[];
+  filterByResponsibleIds?: string[];
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
   onRefresh?: () => Promise<void>;
   responsibleLabel: (personId: string | null) => string;
@@ -258,6 +260,12 @@ export default function InitiativeTasksKanban({
     return out;
   }, [milestones]);
 
+  const filteredFlatTasks = useMemo(() => {
+    if (!filterByResponsibleIds?.length) return flatTasks;
+    const set = new Set(filterByResponsibleIds);
+    return flatTasks.filter((t) => t.responsible_person_id && set.has(t.responsible_person_id));
+  }, [flatTasks, filterByResponsibleIds]);
+
   const [tasksById, setTasksById] = useState<Record<string, FlatTask>>({});
   const [columns, setColumns] = useState<Record<KanbanStatus, string[]>>({
     'A Fazer': [],
@@ -273,12 +281,11 @@ export default function InitiativeTasksKanban({
 
   useEffect(() => {
     const byId: Record<string, FlatTask> = {};
-    for (const t of flatTasks) byId[t.id] = t;
+    for (const t of filteredFlatTasks) byId[t.id] = t;
     setTasksById(byId);
 
     const next: Record<KanbanStatus, string[]> = { 'A Fazer': [], Andamento: [], Pausado: [], Concluído: [] };
-    // Fallback: default A Fazer if missing
-    const sorted = [...flatTasks].sort((a, b) => {
+    const sorted = [...filteredFlatTasks].sort((a, b) => {
       const ao = Number.isFinite(a.kanban_order) ? a.kanban_order : a.sort_order;
       const bo = Number.isFinite(b.kanban_order) ? b.kanban_order : b.sort_order;
       return ao - bo;
@@ -288,7 +295,7 @@ export default function InitiativeTasksKanban({
       next[STATUSES.includes(status) ? status : 'A Fazer'].push(t.id);
     }
     setColumns(next);
-  }, [flatTasks]);
+  }, [filteredFlatTasks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
