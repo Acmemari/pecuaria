@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { ArrowLeftRight, Target, Star, CircleDollarSign } from 'lucide-react';
+import { ArrowLeftRight, Target, Star, CircleDollarSign, ClipboardCheck } from 'lucide-react';
 
 type TabId = 'todos' | 'favoritos' | 'recentes';
 
@@ -58,6 +58,7 @@ interface CalculadorasDesktopProps {
   onSelectSimulator: () => void;
   onSelectComparador: () => void;
   onSelectPlanejamentoAgil?: () => void;
+  onSelectAvaliacaoProtocolo?: () => void;
   showPlanejamentoAgil?: boolean;
 }
 
@@ -65,6 +66,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
   onSelectSimulator,
   onSelectComparador,
   onSelectPlanejamentoAgil,
+  onSelectAvaliacaoProtocolo,
   showPlanejamentoAgil = false,
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>('todos');
@@ -113,7 +115,22 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
       }
     : null;
 
-  const cards = planejamentoCard ? [...baseCards, planejamentoCard] : baseCards;
+  const avaliacaoCard = onSelectAvaliacaoProtocolo
+    ? {
+        id: 'avaliacao-protocolo',
+        title: 'Avaliação Protocolo 5-3-9',
+        description:
+          'Avaliação completa nas dimensões Gente, Gestão e Produção. Diagnóstico estruturado para identificar pontos fortes e oportunidades de melhoria na operação pecuária.',
+        icon: <ClipboardCheck size={24} />,
+        onClick: onSelectAvaliacaoProtocolo,
+      }
+    : null;
+
+  const cards = [
+    ...baseCards,
+    ...(planejamentoCard ? [planejamentoCard] : []),
+    ...(avaliacaoCard ? [avaliacaoCard] : []),
+  ];
 
   const filteredCards =
     activeTab === 'favoritos'
