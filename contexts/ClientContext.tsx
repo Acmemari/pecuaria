@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { Client } from '../types';
 
 interface ClientContextType {
@@ -26,7 +26,7 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return null;
   });
 
-  const setSelectedClient = (client: Client | null) => {
+  const setSelectedClient = useCallback((client: Client | null) => {
     setSelectedClientState(client);
     if (client) {
       localStorage.setItem('selectedClientId', JSON.stringify(client));
@@ -35,10 +35,15 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Limpar também a fazenda selecionada quando o cliente for limpo
       localStorage.removeItem('selectedFarmId');
     }
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    selectedClient,
+    setSelectedClient
+  }), [selectedClient, setSelectedClient]);
 
   return (
-    <ClientContext.Provider value={{ selectedClient, setSelectedClient }}>
+    <ClientContext.Provider value={value}>
       {children}
     </ClientContext.Provider>
   );

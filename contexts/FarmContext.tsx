@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { Farm } from '../types';
 import { useClient } from './ClientContext';
 
@@ -59,8 +59,14 @@ export const FarmProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('selectedFarm');
   }, []);
 
+  const value = useMemo(() => ({
+    selectedFarm,
+    setSelectedFarm,
+    clearFarm
+  }), [selectedFarm, setSelectedFarm, clearFarm]);
+
   return (
-    <FarmContext.Provider value={{ selectedFarm, setSelectedFarm, clearFarm }}>
+    <FarmContext.Provider value={value}>
       {children}
     </FarmContext.Provider>
   );

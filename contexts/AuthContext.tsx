@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { User, AuthContextType, Plan } from '../types';
 import { supabase } from '../lib/supabase';
 import { loadUserProfile } from '../lib/auth/loadUserProfile';
@@ -189,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     // NÃO chamar setIsLoading(true) aqui para não causar re-montagem do LoginPage
     // O LoginPage já tem seu próprio estado de loading (isSubmitting)
     try {
@@ -270,12 +270,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, error: 'Erro inesperado ao realizar login.' };
     } catch (error: any) {
       console.error('Login error:', error);
-      // NÃO chamar setIsLoading aqui para manter o LoginPage montado e preservar o erro
       return { success: false, error: error.message || 'Erro inesperado ao realizar login.' };
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     // Clear user state immediately to ensure UI update
     setUser(null);
     try {
@@ -283,9 +282,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Logout error:', error);
     }
-  };
+  }, []);
 
-  const signInWithOAuth = async (provider: 'google') => {
+  const signInWithOAuth = useCallback(async (provider: 'google') => {
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -308,17 +307,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('OAuth error:', error);
       throw error;
     }
-  };
+  }, []);
 
-  const checkPermission = (feature: string): boolean => {
+  const checkPermission = useCallback((feature: string): boolean => {
     return checkPermissionUtil(user, feature);
-  };
+  }, [user]);
 
-  const checkLimit = (limit: keyof Plan['limits'], currentValue: number): boolean => {
+  const checkLimit = useCallback((limit: keyof Plan['limits'], currentValue: number): boolean => {
     return checkLimitUtil(user, limit, currentValue);
-  };
+  }, [user]);
 
-  const signup = async (email: string, password: string, name: string, phone: string, organizationName?: string): Promise<{ success: boolean; error?: string }> => {
+  const signup = useCallback(async (email: string, password: string, name: string, phone: string, organizationName?: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
       // Sign up with Supabase Auth
@@ -394,9 +393,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
       return { success: false, error: error.message || 'Erro ao criar conta' };
     }
-  };
+  }, []);
 
-  const upgradePlan = async (planId: Plan['id']) => {
+  const upgradePlan = useCallback(async (planId: Plan['id']) => {
     if (!user) return;
 
     try {
@@ -416,9 +415,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error upgrading plan:', error);
     }
-  };
+  }, [user]);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!user) return;
     try {
       const userProfile = await loadUserProfile(user.id, 1, 0);
@@ -428,9 +427,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error refreshing profile:', error);
     }
-  };
+  }, [user]);
 
-  const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+  const resetPassword = useCallback(async (email: string): Promise<{ success: boolean; error?: string }> => {
     try {
       // Garantir que a URL use o protocolo correto (https em produção)
       const origin = window.location.origin || (window.location.protocol + '//' + window.location.host);
@@ -465,9 +464,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Reset password error:', error);
       return { success: false, error: error.message || 'Erro inesperado ao enviar email de recuperação.' };
     }
-  };
+  }, []);
 
-  const updatePassword = async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
+  const updatePassword = useCallback(async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const { error } = await supabase.auth.updateUser({
         password: newPassword
@@ -496,30 +495,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Update password error:', error);
       return { success: false, error: error.message || 'Erro inesperado ao atualizar senha.' };
     }
-  };
+  }, []);
 
   // Função para limpar estado de recovery (quando usuário cancela ou volta ao login)
-  const clearPasswordRecovery = () => {
+  const clearPasswordRecovery = useCallback(() => {
     setIsPasswordRecovery(false);
-  };
+  }, []);
+
+  const authContextValue = useMemo(() => ({
+    user,
+    login,
+    logout,
+    isLoading,
+    isPasswordRecovery,
+    checkPermission,
+    checkLimit,
+    upgradePlan,
+    refreshProfile,
+    signInWithOAuth,
+    signup,
+    resetPassword,
+    updatePassword,
+    clearPasswordRecovery
+  }), [
+    user, login, logout, isLoading, isPasswordRecovery,
+    checkPermission, checkLimit, upgradePlan, refreshProfile,
+    signInWithOAuth, signup, resetPassword, updatePassword, clearPasswordRecovery
+  ]);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      login,
-      logout,
-      isLoading,
-      isPasswordRecovery,
-      checkPermission,
-      checkLimit,
-      upgradePlan,
-      refreshProfile,
-      signInWithOAuth,
-      signup,
-      resetPassword,
-      updatePassword,
-      clearPasswordRecovery
-    }}>
+    <AuthContext.Provider value={authContextValue}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,0 +1,85 @@
+﻿
+> pecuaria@1.3.58 build
+> vite build
+
+vite v6.4.1 building for production...
+transforming...
+Γ£ô 3591 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                           1.37 kB Γöé gzip:   0.75 kB
+dist/assets/QuestionnaireResultsDashboard.CL7A18vU.css    0.76 kB Γöé gzip:   0.36 kB
+dist/assets/DateInputBR.B5U4kmJ6.css                     22.68 kB Γöé gzip:   3.19 kB
+dist/assets/index.pKc06e6y.css                           97.05 kB Γöé gzip:  16.15 kB
+dist/assets/InitiativesActivities.BHvQCCB4.css          148.79 kB Γöé gzip:  52.35 kB
+dist/assets/index.DhIIJcNp.js                             0.09 kB Γöé gzip:   0.10 kB
+dist/assets/inputSanitizer.dR08MoNg.js                    0.15 kB Γöé gzip:   0.13 kB
+dist/assets/chevron-right.QYL6ZTfL.js                     0.30 kB Γöé gzip:   0.25 kB
+dist/assets/circle-check-big.Cg44ku-7.js                  0.36 kB Γöé gzip:   0.28 kB
+dist/assets/clsx.B-dksMZM.js                              0.37 kB Γöé gzip:   0.24 kB
+dist/assets/square-check-big.Y9X4TP3d.js                  0.40 kB Γöé gzip:   0.30 kB
+dist/assets/pen.DKMu-09l.js                               0.41 kB Γöé gzip:   0.31 kB
+dist/assets/funnel.DMLwsV2f.js                            0.42 kB Γöé gzip:   0.31 kB
+dist/assets/chart-column.XC6wNjDT.js                      0.42 kB Γöé gzip:   0.30 kB
+dist/assets/map-pin.CGRKv9V6.js                           0.43 kB Γöé gzip:   0.33 kB
+dist/assets/pencil.DCpd0XIM.js                            0.45 kB Γöé gzip:   0.33 kB
+dist/assets/bot._9KJXCVH.js                               0.50 kB Γöé gzip:   0.33 kB
+dist/assets/package.CftMNOLk.js                           0.55 kB Γöé gzip:   0.36 kB
+dist/assets/file-text.2z3D0kI9.js                         0.56 kB Γöé gzip:   0.35 kB
+dist/assets/file-down.DvyBum5i.js                         0.82 kB Γöé gzip:   0.42 kB
+dist/assets/file.C7IkdSy3.js                              1.00 kB Γöé gzip:   0.39 kB
+dist/assets/CadastrosDesktop.DUIwRAdT.js                  2.68 kB Γöé gzip:   1.23 kB
+dist/assets/deliveries.BC-zh5Uc.js                        2.74 kB Γöé gzip:   1.11 kB
+dist/assets/projects.c1GsITLR.js                          3.37 kB Γöé gzip:   1.05 kB
+dist/assets/people.BtuF63GQ.js                            4.09 kB Γöé gzip:   1.45 kB
+dist/assets/CalculadorasDesktop.D5SmAytd.js               4.44 kB Γöé gzip:   1.95 kB
+dist/assets/scenarios.BJL8HPoX.js                         4.82 kB Γöé gzip:   1.76 kB
+dist/assets/AgentHub.9TJF2MR1.js                          4.94 kB Γöé gzip:   1.92 kB
+dist/assets/ForgotPasswordPage.BCQsQW6p.js                5.03 kB Γöé gzip:   1.71 kB
+dist/assets/ResetPasswordPage.CukegXiF.js                 5.38 kB Γöé gzip:   1.64 kB
+dist/assets/DeliveryManagement.-rdn4538.js                5.48 kB Γöé gzip:   1.88 kB
+dist/assets/calculations.CAm5He7i.js                      6.62 kB Γöé gzip:   2.42 kB
+dist/assets/AnalystManagement.Cn9zm74o.js                 8.68 kB Γöé gzip:   2.46 kB
+dist/assets/initiatives.C8TeMFkw.js                      10.86 kB Γöé gzip:   2.89 kB
+dist/assets/ChatAgent.CZqfVc_E.js                        12.12 kB Γöé gzip:   4.44 kB
+dist/assets/SupportTicketsDashboard.DRtiUH7E.js          12.12 kB Γöé gzip:   3.97 kB
+dist/assets/index.BCH-ek3h.js                            13.02 kB Γöé gzip:   5.19 kB
+dist/assets/AgentTrainingAdmin.Dh9gZGUm.js               13.21 kB Γöé gzip:   3.86 kB
+dist/assets/ProjectManagement.Bh9hFKoG.js                15.23 kB Γöé gzip:   3.99 kB
+dist/assets/ClientDocuments.DcGZXVSN.js                  16.33 kB Γöé gzip:   5.19 kB
+dist/assets/QuestionnaireFiller.DW2T-kXm.js              17.20 kB Γöé gzip:   5.26 kB
+dist/assets/generateReportPDF.BcasNFVQ.js                17.84 kB Γöé gzip:   4.76 kB
+dist/assets/PeopleManagement.BWLupaPh.js                 18.13 kB Γöé gzip:   5.49 kB
+dist/assets/AdminDashboard.zS6whTjL.js                   19.34 kB Γöé gzip:   5.36 kB
+dist/assets/MarketTrends.ISh95Va8.js                     19.91 kB Γöé gzip:   6.53 kB
+dist/assets/ClientManagement.D2iHLtBc.js                 22.30 kB Γöé gzip:   6.12 kB
+dist/assets/purify.es.B9ZVCkUG.js                        22.64 kB Γöé gzip:   8.75 kB
+dist/assets/SavedScenarios.DajwhZ3P.js                   25.02 kB Γöé gzip:   6.57 kB
+dist/assets/CattleProfitCalculator.CEKoP5FI.js           26.26 kB Γöé gzip:   8.43 kB
+dist/assets/Comparator.Dgb9Frdd.js                       26.41 kB Γöé gzip:   6.00 kB
+dist/assets/InitiativesOverview.CnaKhFCx.js              29.06 kB Γöé gzip:   8.52 kB
+dist/assets/ProjectStructureReport.BQM-_qQX.js           30.48 kB Γöé gzip:   9.48 kB
+dist/assets/FarmManagement.B_H4YHuR.js                   35.17 kB Γöé gzip:   8.20 kB
+dist/assets/AgilePlanning.CYabF4If.js                    81.25 kB Γöé gzip:  14.92 kB
+dist/assets/QuestionnaireResultsDashboard.Cq8uCPgb.js    98.69 kB Γöé gzip:  29.21 kB
+dist/assets/index.es.CNPAdRs1.js                        159.39 kB Γöé gzip:  53.43 kB
+dist/assets/DateInputBR.DufbsOdY.js                     192.74 kB Γöé gzip:  50.19 kB
+dist/assets/html2canvas.esm.QH1iLAAe.js                 202.38 kB Γöé gzip:  48.04 kB
+dist/assets/CalendarAgent.vWrtR5ij.js                   265.06 kB Γöé gzip:  77.44 kB
+dist/assets/BarChart.W78LpuBH.js                        341.09 kB Γöé gzip: 102.71 kB
+dist/assets/jspdf.es.min.1HU1KyRg.js                    387.88 kB Γöé gzip: 127.19 kB
+dist/assets/InitiativesActivities.CEbu0Q4j.js           674.10 kB Γöé gzip: 183.35 kB
+dist/assets/index.D5B7jS86.js                           898.37 kB Γöé gzip: 269.20 kB
+node.exe : 
+No linha:1 caractere:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: 
+https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+Γ£ô built in 2m 9s

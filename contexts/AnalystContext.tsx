@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { User } from '../types';
 
 interface AnalystContextType {
@@ -22,22 +22,27 @@ export const AnalystProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return null;
   });
 
-  const setSelectedAnalyst = (analyst: User | null) => {
+  const setSelectedAnalyst = useCallback((analyst: User | null) => {
     setSelectedAnalystState(analyst);
     if (analyst) {
       localStorage.setItem('selectedAnalystId', JSON.stringify(analyst));
     } else {
       localStorage.removeItem('selectedAnalystId');
     }
-    
+
     // Ao trocar de analista, limpar cliente e fazenda selecionados
     // Isso garante que o admin não veja dados do analista anterior
     localStorage.removeItem('selectedClientId');
     localStorage.removeItem('selectedFarmId');
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    selectedAnalyst,
+    setSelectedAnalyst
+  }), [selectedAnalyst, setSelectedAnalyst]);
 
   return (
-    <AnalystContext.Provider value={{ selectedAnalyst, setSelectedAnalyst }}>
+    <AnalystContext.Provider value={value}>
       {children}
     </AnalystContext.Provider>
   );

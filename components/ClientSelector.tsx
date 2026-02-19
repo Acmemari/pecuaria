@@ -85,7 +85,7 @@ const ClientSelector: React.FC = () => {
         .from('clients')
         .select('*')
         .order('name', { ascending: true });
-      
+
       // Filtrar pelo analista efetivo
       if (effectiveAnalystId) {
         query.eq('analyst_id', effectiveAnalystId);
@@ -96,7 +96,7 @@ const ClientSelector: React.FC = () => {
         setIsLoading(false);
         return;
       }
-      
+
       const { data, error } = await query;
 
       if (error) {
@@ -115,9 +115,9 @@ const ClientSelector: React.FC = () => {
           createdAt: client.created_at,
           updatedAt: client.updated_at
         }));
-        
+
         setClients(mappedClients);
-        
+
         // Validar o cliente salvo no localStorage
         const savedClientId = localStorage.getItem('selectedClientId');
         let savedClient: Client | null = null;
@@ -128,10 +128,10 @@ const ClientSelector: React.FC = () => {
             savedClient = null;
           }
         }
-        
+
         // Verificar se o cliente salvo ainda existe na lista e pertence ao analista atual
         const savedClientExists = savedClient && mappedClients.find(c => c.id === savedClient!.id);
-        
+
         // Se não houver cliente selecionado e houver clientes, usar o salvo ou o primeiro
         if (!selectedClient && mappedClients.length > 0) {
           const clientToSelect = savedClientExists ? savedClient! : mappedClients[0];
@@ -152,9 +152,13 @@ const ClientSelector: React.FC = () => {
         }
         // Se o cliente selecionado está na lista, garantir que está salvo e atualizado
         else if (selectedClient && mappedClients.find(c => c.id === selectedClient.id)) {
-          // Atualizar o cliente salvo com os dados mais recentes da lista
+          // Atualizar o cliente salvo com os dados mais recentes da lista se houver mudanças reais
           const updatedClient = mappedClients.find(c => c.id === selectedClient.id);
-          if (updatedClient) {
+          if (updatedClient && (
+            updatedClient.name !== selectedClient.name ||
+            updatedClient.email !== selectedClient.email ||
+            updatedClient.phone !== selectedClient.phone
+          )) {
             setSelectedClient(updatedClient);
             localStorage.setItem('selectedClientId', JSON.stringify(updatedClient));
           }
@@ -182,9 +186,8 @@ const ClientSelector: React.FC = () => {
       <button
         onClick={() => clients.length > 0 && setIsOpen(!isOpen)}
         disabled={clients.length === 0}
-        className={`flex items-center gap-2 px-3 py-1.5 bg-ai-surface2 border border-ai-border rounded-md text-sm text-ai-text transition-colors min-w-[180px] ${
-          clients.length > 0 ? 'hover:bg-ai-surface3 cursor-pointer' : 'opacity-60 cursor-not-allowed'
-        }`}
+        className={`flex items-center gap-2 px-3 py-1.5 bg-ai-surface2 border border-ai-border rounded-md text-sm text-ai-text transition-colors min-w-[180px] ${clients.length > 0 ? 'hover:bg-ai-surface3 cursor-pointer' : 'opacity-60 cursor-not-allowed'
+          }`}
         title={clients.length > 0 ? "Selecionar cliente" : "Nenhum cliente cadastrado"}
       >
         {isLoading ? (
@@ -230,11 +233,10 @@ const ClientSelector: React.FC = () => {
                 <button
                   key={client.id}
                   onClick={() => handleSelectClient(client)}
-                  className={`w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2 ${
-                    selectedClient?.id === client.id
+                  className={`w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2 ${selectedClient?.id === client.id
                       ? 'bg-ai-accent/10 text-ai-accent'
                       : 'text-ai-text hover:bg-ai-surface2'
-                  }`}
+                    }`}
                 >
                   {selectedClient?.id === client.id && (
                     <Check className="w-4 h-4 text-ai-accent flex-shrink-0" />

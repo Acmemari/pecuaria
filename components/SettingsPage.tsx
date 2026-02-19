@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import { User } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { createUserProfileIfMissing } from '../lib/auth/createProfile';
 import {
   User as UserIcon,
   Lock,
@@ -316,7 +317,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         .from('user_profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
+
+      // If profile is missing, try creating it once and keep UI defaults.
+      if (!data && !error) {
+        await createUserProfileIfMissing(user.id);
+      }
 
       if (data && !error) {
         setProfileData({
@@ -339,26 +345,81 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const handleSaveProfile = async () => {
     setIsSaving(true);
     try {
-      const { error } = await supabase
+      const trimmedName = profileData.name.trim();
+      const trimmedEmail = profileData.email.trim();
+
+      if (!trimmedName) {
+        throw new Error('O nome não pode ficar vazio');
+      }
+
+      if (!trimmedEmail) {
+        throw new Error('O email não pode ficar vazio');
+      }
+
+      let { data: updatedProfile, error } = await supabase
         .from('user_profiles')
         .update({
-          name: profileData.name,
+          name: trimmedName,
           phone: profileData.phone || null,
-          avatar: profileData.avatar
+          avatar: profileData.avatar,
+          updated_at: new Date().toISOString()
         })
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .select('id')
+        .maybeSingle();
 
       if (error) throw error;
 
-      // Update email if changed
-      if (profileData.email !== user.email) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: profileData.email
-        });
-        if (emailError) throw emailError;
+      // If no row was updated, profile might be missing: create and retry once.
+      if (!updatedProfile) {
+        const created = await createUserProfileIfMissing(user.id);
+        if (!created) {
+          throw new Error('Não foi possível localizar ou criar seu perfil para salvar as alterações.');
+        }
+
+        const retry = await supabase
+          .from('user_profiles')
+          .update({
+            name: trimmedName,
+            phone: profileData.phone || null,
+            avatar: profileData.avatar,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id)
+          .select('id')
+          .maybeSingle();
+
+        if (retry.error) throw retry.error;
+        if (!retry.data) {
+          throw new Error('Não foi possível salvar as alterações do perfil.');
+        }
       }
 
+      const authUpdatePayload: {
+        email?: string;
+        data: { name: string; full_name: string; avatar: string };
+      } = {
+        data: {
+          name: trimmedName,
+          full_name: trimmedName,
+          avatar: profileData.avatar
+        }
+      };
+
+      // Keep auth metadata in sync to avoid stale name after reload/login.
+      if (trimmedEmail !== user.email) {
+        authUpdatePayload.email = trimmedEmail;
+      }
+
+      const { error: authError } = await supabase.auth.updateUser(authUpdatePayload);
+      if (authError) throw authError;
+
       await refreshProfile();
+      setProfileData(prev => ({
+        ...prev,
+        name: trimmedName,
+        email: trimmedEmail
+      }));
       onToast('Perfil atualizado com sucesso!', 'success');
       setHasUnsavedChanges(false);
     } catch (error: any) {
