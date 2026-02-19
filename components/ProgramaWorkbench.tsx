@@ -235,7 +235,10 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   const mountedRef = useRef(true);
   const toastRef = useRef(onToast);
   useEffect(() => { toastRef.current = onToast; }, [onToast]);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const toast = useCallback(
     (msg: string, type: 'success' | 'error' | 'warning' | 'info') => {
