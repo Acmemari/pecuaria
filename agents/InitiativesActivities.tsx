@@ -1022,11 +1022,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                                       rows={2}
                                       placeholder="Descrição (opcional)"
                                     />
-                                    <input
-                                      type="date"
+                                    <DateInputBR
                                       value={taskEditDraft.dueDate}
-                                      onChange={(e) => setTaskEditDraft((prev) => ({ ...prev, dueDate: e.target.value }))}
-                                      className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
+                                      onChange={(v) => setTaskEditDraft((prev) => ({ ...prev, dueDate: v }))}
+                                      className="max-w-[180px]"
                                     />
                                     <div className="flex items-center justify-end gap-2">
                                       <button
@@ -1113,11 +1112,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                               className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
                               placeholder="Nova tarefa (obrigatório)"
                             />
-                            <input
-                              type="date"
+                            <DateInputBR
                               value={getTaskDraft(m.id).dueDate}
-                              onChange={(e) => updateTaskDraft(m.id, 'dueDate', e.target.value)}
-                              className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
+                              onChange={(v) => updateTaskDraft(m.id, 'dueDate', v)}
+                              className="max-w-[180px]"
                             />
                             <button
                               type="button"

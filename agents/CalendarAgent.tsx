@@ -6,6 +6,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import ptBrLocale from '@fullcalendar/core/locales/pt-br';
 import type { DateSelectArg, EventClickArg, EventInput } from '@fullcalendar/core';
 import { AlertTriangle, Trash2 } from 'lucide-react';
+import DateInputBR from '../components/DateInputBR';
 
 /**
  * Calendário - visualização mensal, semanal e diária de eventos.
@@ -93,11 +94,9 @@ const CalendarAgent: React.FC = () => {
                 <label className="block text-xs font-medium text-ai-subtext uppercase tracking-wider mb-1">
                   Data
                 </label>
-                <input
-                  type="date"
+                <DateInputBR
                   value={promptState.date}
-                  onChange={(e) => setPromptState((p) => ({ ...p, date: e.target.value }))}
-                  className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text"
+                  onChange={(v) => setPromptState((p) => ({ ...p, date: v }))}
                 />
               </div>
             </div>

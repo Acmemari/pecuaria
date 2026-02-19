@@ -1,0 +1,729 @@
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+} from 'react';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { Client, Farm, User } from '../types';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
+import { mapFarmsFromDatabase } from '../lib/utils/farmMapper';
+
+const PAGE_SIZE = 50;
+const HIERARCHY_STORAGE_KEY = 'hierarchySelection.v1';
+
+interface HierarchyLoadingState {
+  analysts: boolean;
+  clients: boolean;
+  farms: boolean;
+}
+
+interface HierarchyErrorState {
+  analysts: string | null;
+  clients: string | null;
+  farms: string | null;
+}
+
+interface HierarchyHasMoreState {
+  analysts: boolean;
+  clients: boolean;
+  farms: boolean;
+}
+
+interface HierarchyState {
+  analystId: string | null;
+  clientId: string | null;
+  farmId: string | null;
+  selectedAnalyst: User | null;
+  selectedClient: Client | null;
+  selectedFarm: Farm | null;
+  analysts: User[];
+  clients: Client[];
+  farms: Farm[];
+  loading: HierarchyLoadingState;
+  errors: HierarchyErrorState;
+  hasMore: HierarchyHasMoreState;
+}
+
+type HierarchyAction =
+  | { type: 'HYDRATE_IDS'; payload: { analystId: string | null; clientId: string | null; farmId: string | null } }
+  | { type: 'SET_ANALYSTS'; payload: { data: User[]; append: boolean; hasMore: boolean } }
+  | { type: 'SET_CLIENTS'; payload: { data: Client[]; append: boolean; hasMore: boolean } }
+  | { type: 'SET_FARMS'; payload: { data: Farm[]; append: boolean; hasMore: boolean } }
+  | { type: 'SET_SELECTED_ANALYST'; payload: User | null }
+  | { type: 'SET_SELECTED_CLIENT'; payload: Client | null }
+  | { type: 'SET_SELECTED_FARM'; payload: Farm | null }
+  | { type: 'SET_LOADING'; payload: { level: keyof HierarchyLoadingState; value: boolean } }
+  | { type: 'SET_ERROR'; payload: { level: keyof HierarchyErrorState; value: string | null } }
+  | { type: 'SELECT_ANALYST_ID'; payload: string | null }
+  | { type: 'SELECT_CLIENT_ID'; payload: string | null }
+  | { type: 'SELECT_FARM_ID'; payload: string | null };
+
+interface HierarchyContextType extends HierarchyState {
+  effectiveAnalystId: string | null;
+  setSelectedAnalyst: (analyst: User | null) => void;
+  setSelectedClient: (client: Client | null) => void;
+  setSelectedFarm: (farm: Farm | null) => void;
+  selectAnalystById: (id: string | null) => void;
+  selectClientById: (id: string | null) => void;
+  selectFarmById: (id: string | null) => void;
+  clearFarm: () => void;
+  searchAnalysts: (term: string) => Promise<void>;
+  searchClients: (term: string) => Promise<void>;
+  searchFarms: (term: string) => Promise<void>;
+  loadMoreAnalysts: () => Promise<void>;
+  loadMoreClients: () => Promise<void>;
+  loadMoreFarms: () => Promise<void>;
+  refreshCurrentLevel: (level: 'analysts' | 'clients' | 'farms') => Promise<void>;
+}
+
+const initialState: HierarchyState = {
+  analystId: null,
+  clientId: null,
+  farmId: null,
+  selectedAnalyst: null,
+  selectedClient: null,
+  selectedFarm: null,
+  analysts: [],
+  clients: [],
+  farms: [],
+  loading: {
+    analysts: false,
+    clients: false,
+    farms: false,
+  },
+  errors: {
+    analysts: null,
+    clients: null,
+    farms: null,
+  },
+  hasMore: {
+    analysts: true,
+    clients: true,
+    farms: true,
+  },
+};
+
+const HierarchyContext = createContext<HierarchyContextType | undefined>(undefined);
+
+function parseLegacyId(value: string | null): string | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (typeof parsed === 'string') return parsed;
+    if (parsed && typeof parsed === 'object' && typeof parsed.id === 'string') return parsed.id;
+  } catch {
+    if (value.length > 20) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function loadInitialPersistedIds(): { analystId: string | null; clientId: string | null; farmId: string | null } {
+  const fallback = { analystId: null, clientId: null, farmId: null };
+  try {
+    const modernRaw = localStorage.getItem(HIERARCHY_STORAGE_KEY);
+    if (modernRaw) {
+      const modern = JSON.parse(modernRaw);
+      return {
+        analystId: typeof modern?.analystId === 'string' ? modern.analystId : null,
+        clientId: typeof modern?.clientId === 'string' ? modern.clientId : null,
+        farmId: typeof modern?.farmId === 'string' ? modern.farmId : null,
+      };
+    }
+  } catch {
+    // ignore invalid storage
+  }
+
+  const analystId = parseLegacyId(localStorage.getItem('selectedAnalystId'));
+  const clientId = parseLegacyId(localStorage.getItem('selectedClientId'));
+  const farmId = localStorage.getItem('selectedFarmId') || parseLegacyId(localStorage.getItem('selectedFarm'));
+  return { analystId, clientId, farmId: farmId || null };
+}
+
+function hierarchyReducer(state: HierarchyState, action: HierarchyAction): HierarchyState {
+  switch (action.type) {
+    case 'HYDRATE_IDS':
+      return {
+        ...state,
+        analystId: action.payload.analystId,
+        clientId: action.payload.clientId,
+        farmId: action.payload.farmId,
+      };
+    case 'SET_ANALYSTS':
+      return {
+        ...state,
+        analysts: action.payload.append ? [...state.analysts, ...action.payload.data] : action.payload.data,
+        hasMore: { ...state.hasMore, analysts: action.payload.hasMore },
+      };
+    case 'SET_CLIENTS':
+      return {
+        ...state,
+        clients: action.payload.append ? [...state.clients, ...action.payload.data] : action.payload.data,
+        hasMore: { ...state.hasMore, clients: action.payload.hasMore },
+      };
+    case 'SET_FARMS':
+      return {
+        ...state,
+        farms: action.payload.append ? [...state.farms, ...action.payload.data] : action.payload.data,
+        hasMore: { ...state.hasMore, farms: action.payload.hasMore },
+      };
+    case 'SET_SELECTED_ANALYST':
+      return {
+        ...state,
+        selectedAnalyst: action.payload,
+      };
+    case 'SET_SELECTED_CLIENT':
+      return {
+        ...state,
+        selectedClient: action.payload,
+      };
+    case 'SET_SELECTED_FARM':
+      return {
+        ...state,
+        selectedFarm: action.payload,
+      };
+    case 'SET_LOADING':
+      return {
+        ...state,
+        loading: { ...state.loading, [action.payload.level]: action.payload.value },
+      };
+    case 'SET_ERROR':
+      return {
+        ...state,
+        errors: { ...state.errors, [action.payload.level]: action.payload.value },
+      };
+    case 'SELECT_ANALYST_ID':
+      return {
+        ...state,
+        analystId: action.payload,
+        selectedAnalyst: state.analysts.find((a) => a.id === action.payload) || null,
+        clientId: null,
+        farmId: null,
+        selectedClient: null,
+        selectedFarm: null,
+        clients: [],
+        farms: [],
+      };
+    case 'SELECT_CLIENT_ID':
+      return {
+        ...state,
+        clientId: action.payload,
+        selectedClient: state.clients.find((c) => c.id === action.payload) || null,
+        farmId: null,
+        selectedFarm: null,
+        farms: [],
+      };
+    case 'SELECT_FARM_ID':
+      return {
+        ...state,
+        farmId: action.payload,
+        selectedFarm: state.farms.find((f) => f.id === action.payload) || null,
+      };
+    default:
+      return state;
+  }
+}
+
+function mapAnalystRow(row: any): User {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role || 'client',
+    qualification: row.qualification || 'visitante',
+  };
+}
+
+function mapClientRow(row: any): Client {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone || '',
+    email: row.email,
+    analystId: row.analyst_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const [state, dispatch] = useReducer(hierarchyReducer, initialState);
+  const stateRef = useRef(state);
+  const paginationRef = useRef({
+    analystsOffset: 0,
+    clientsOffset: 0,
+    farmsOffset: 0,
+    analystsSearch: '',
+    clientsSearch: '',
+    farmsSearch: '',
+  });
+  const abortRef = useRef<{
+    analysts: AbortController | null;
+    clients: AbortController | null;
+    farms: AbortController | null;
+  }>({
+    analysts: null,
+    clients: null,
+    farms: null,
+  });
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const effectiveAnalystId = useMemo(() => {
+    if (!user) return null;
+    if (user.role === 'admin') return state.analystId;
+    return user.id;
+  }, [user, state.analystId]);
+
+  useEffect(() => {
+    const initial = loadInitialPersistedIds();
+    dispatch({ type: 'HYDRATE_IDS', payload: initial });
+  }, []);
+
+  useEffect(() => {
+    const payload = {
+      analystId: state.analystId,
+      clientId: state.clientId,
+      farmId: state.farmId,
+    };
+    localStorage.setItem(HIERARCHY_STORAGE_KEY, JSON.stringify(payload));
+  }, [state.analystId, state.clientId, state.farmId]);
+
+  const nextController = useCallback((level: keyof HierarchyLoadingState) => {
+    abortRef.current[level]?.abort();
+    const controller = new AbortController();
+    abortRef.current[level] = controller;
+    return controller;
+  }, []);
+
+  const loadAnalysts = useCallback(async (options?: { append?: boolean; search?: string }) => {
+    if (!user || user.role !== 'admin') return;
+    const append = options?.append ?? false;
+    const search = options?.search ?? paginationRef.current.analystsSearch;
+    paginationRef.current.analystsSearch = search;
+    if (!append) paginationRef.current.analystsOffset = 0;
+
+    const offset = paginationRef.current.analystsOffset;
+    const controller = nextController('analysts');
+    dispatch({ type: 'SET_LOADING', payload: { level: 'analysts', value: true } });
+    dispatch({ type: 'SET_ERROR', payload: { level: 'analysts', value: null } });
+
+    try {
+      let query = supabase
+        .from('user_profiles')
+        .select('id, name, email, qualification, role')
+        .eq('qualification', 'analista')
+        .order('name', { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1)
+        .abortSignal(controller.signal);
+
+      if (search) {
+        query = query.ilike('name', `%${search}%`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const mapped = (data || []).map(mapAnalystRow);
+      dispatch({
+        type: 'SET_ANALYSTS',
+        payload: {
+          data: mapped,
+          append,
+          hasMore: mapped.length === PAGE_SIZE,
+        },
+      });
+      paginationRef.current.analystsOffset = append ? offset + mapped.length : mapped.length;
+
+      const current = stateRef.current;
+      const selectedId = current.analystId;
+      if (!selectedId && mapped.length > 0 && !search) {
+        dispatch({ type: 'SELECT_ANALYST_ID', payload: mapped[0].id });
+      } else if (selectedId && !append) {
+        const exists = mapped.some((analyst) => analyst.id === selectedId);
+        if (!exists) {
+          dispatch({ type: 'SELECT_ANALYST_ID', payload: mapped.length > 0 ? mapped[0].id : null });
+        } else {
+          dispatch({
+            type: 'SET_SELECTED_ANALYST',
+            payload: mapped.find((analyst) => analyst.id === selectedId) || null,
+          });
+        }
+      }
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
+      dispatch({
+        type: 'SET_ERROR',
+        payload: { level: 'analysts', value: error?.message || 'Falha ao carregar analistas.' },
+      });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: { level: 'analysts', value: false } });
+    }
+  }, [nextController, user]);
+
+  const loadClients = useCallback(async (options?: { append?: boolean; search?: string }) => {
+    if (!user || !effectiveAnalystId) {
+      dispatch({ type: 'SET_CLIENTS', payload: { data: [], append: false, hasMore: false } });
+      dispatch({ type: 'SELECT_CLIENT_ID', payload: null });
+      return;
+    }
+
+    const append = options?.append ?? false;
+    const search = options?.search ?? paginationRef.current.clientsSearch;
+    paginationRef.current.clientsSearch = search;
+    if (!append) paginationRef.current.clientsOffset = 0;
+
+    const offset = paginationRef.current.clientsOffset;
+    const controller = nextController('clients');
+    dispatch({ type: 'SET_LOADING', payload: { level: 'clients', value: true } });
+    dispatch({ type: 'SET_ERROR', payload: { level: 'clients', value: null } });
+
+    try {
+      let query = supabase
+        .from('clients')
+        .select('*')
+        .eq('analyst_id', effectiveAnalystId)
+        .order('name', { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1)
+        .abortSignal(controller.signal);
+
+      if (search) {
+        query = query.ilike('name', `%${search}%`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const mapped = (data || []).map(mapClientRow);
+      dispatch({
+        type: 'SET_CLIENTS',
+        payload: {
+          data: mapped,
+          append,
+          hasMore: mapped.length === PAGE_SIZE,
+        },
+      });
+      paginationRef.current.clientsOffset = append ? offset + mapped.length : mapped.length;
+
+      const current = stateRef.current;
+      const selectedId = current.clientId;
+      if (!selectedId && mapped.length > 0 && !search) {
+        dispatch({ type: 'SELECT_CLIENT_ID', payload: mapped[0].id });
+      } else if (selectedId && !append) {
+        const exists = mapped.some((client) => client.id === selectedId);
+        if (!exists) {
+          dispatch({ type: 'SELECT_CLIENT_ID', payload: mapped.length > 0 ? mapped[0].id : null });
+        } else {
+          dispatch({
+            type: 'SET_SELECTED_CLIENT',
+            payload: mapped.find((client) => client.id === selectedId) || null,
+          });
+        }
+      }
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
+      dispatch({
+        type: 'SET_ERROR',
+        payload: { level: 'clients', value: error?.message || 'Falha ao carregar clientes.' },
+      });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: { level: 'clients', value: false } });
+    }
+  }, [effectiveAnalystId, nextController, user]);
+
+  const loadFarms = useCallback(async (options?: { append?: boolean; search?: string }) => {
+    const selectedClientId = stateRef.current.clientId;
+    if (!selectedClientId) {
+      dispatch({ type: 'SET_FARMS', payload: { data: [], append: false, hasMore: false } });
+      dispatch({ type: 'SELECT_FARM_ID', payload: null });
+      return;
+    }
+
+    const append = options?.append ?? false;
+    const search = options?.search ?? paginationRef.current.farmsSearch;
+    paginationRef.current.farmsSearch = search;
+    if (!append) paginationRef.current.farmsOffset = 0;
+
+    const offset = paginationRef.current.farmsOffset;
+    const controller = nextController('farms');
+    dispatch({ type: 'SET_LOADING', payload: { level: 'farms', value: true } });
+    dispatch({ type: 'SET_ERROR', payload: { level: 'farms', value: null } });
+
+    try {
+      let query = supabase
+        .from('farms')
+        .select('*')
+        .eq('client_id', selectedClientId)
+        .order('name', { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1)
+        .abortSignal(controller.signal);
+
+      if (search) {
+        query = query.ilike('name', `%${search}%`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const mapped = mapFarmsFromDatabase(data || []);
+      dispatch({
+        type: 'SET_FARMS',
+        payload: {
+          data: mapped,
+          append,
+          hasMore: mapped.length === PAGE_SIZE,
+        },
+      });
+      paginationRef.current.farmsOffset = append ? offset + mapped.length : mapped.length;
+
+      const current = stateRef.current;
+      const selectedId = current.farmId;
+      if (!selectedId && mapped.length > 0 && !search) {
+        dispatch({ type: 'SELECT_FARM_ID', payload: mapped[0].id });
+      } else if (selectedId && !append) {
+        const exists = mapped.some((farm) => farm.id === selectedId);
+        if (!exists) {
+          dispatch({ type: 'SELECT_FARM_ID', payload: mapped.length > 0 ? mapped[0].id : null });
+        } else {
+          dispatch({
+            type: 'SET_SELECTED_FARM',
+            payload: mapped.find((farm) => farm.id === selectedId) || null,
+          });
+        }
+      }
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
+      dispatch({
+        type: 'SET_ERROR',
+        payload: { level: 'farms', value: error?.message || 'Falha ao carregar fazendas.' },
+      });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: { level: 'farms', value: false } });
+    }
+  }, [nextController]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === 'admin') {
+      void loadAnalysts({ append: false, search: '' });
+      return;
+    }
+    dispatch({
+      type: 'SET_SELECTED_ANALYST',
+      payload: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        qualification: user.qualification,
+      },
+    });
+  }, [loadAnalysts, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    void loadClients({ append: false, search: '' });
+  }, [effectiveAnalystId, loadClients, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    void loadFarms({ append: false, search: '' });
+  }, [state.clientId, loadFarms, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const runValidation = async () => {
+      const current = stateRef.current;
+      if (!current.analystId && !current.clientId && !current.farmId) return;
+
+      const { data, error } = await supabase.rpc('validate_hierarchy', {
+        p_analyst_id: current.analystId,
+        p_client_id: current.clientId,
+        p_farm_id: current.farmId,
+      });
+
+      if (error || !data || !Array.isArray(data) || data.length === 0) {
+        // Se RPC ainda não existir, mantém fallback sem quebrar.
+        return;
+      }
+
+      const result = data[0];
+      const nextAnalystId = result.analyst_valid ? current.analystId : null;
+      const nextClientId = result.client_valid ? current.clientId : null;
+      const nextFarmId = result.farm_valid ? current.farmId : null;
+
+      dispatch({
+        type: 'HYDRATE_IDS',
+        payload: {
+          analystId: nextAnalystId,
+          clientId: nextClientId,
+          farmId: nextFarmId,
+        },
+      });
+    };
+
+    void runValidation();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const channelName = `hierarchy-sync-${user.id}-${effectiveAnalystId || 'none'}-${state.clientId || 'none'}`;
+    const channel: RealtimeChannel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'clients',
+          filter: effectiveAnalystId ? `analyst_id=eq.${effectiveAnalystId}` : undefined,
+        },
+        () => {
+          void loadClients({ append: false, search: paginationRef.current.clientsSearch });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'farms',
+          filter: state.clientId ? `client_id=eq.${state.clientId}` : undefined,
+        },
+        () => {
+          void loadFarms({ append: false, search: paginationRef.current.farmsSearch });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [effectiveAnalystId, loadClients, loadFarms, state.clientId, user]);
+
+  const setSelectedAnalyst = useCallback((analyst: User | null) => {
+    dispatch({ type: 'SELECT_ANALYST_ID', payload: analyst?.id || null });
+    dispatch({ type: 'SET_SELECTED_ANALYST', payload: analyst });
+  }, []);
+
+  const setSelectedClient = useCallback((client: Client | null) => {
+    dispatch({ type: 'SELECT_CLIENT_ID', payload: client?.id || null });
+    dispatch({ type: 'SET_SELECTED_CLIENT', payload: client });
+  }, []);
+
+  const setSelectedFarm = useCallback((farm: Farm | null) => {
+    dispatch({ type: 'SELECT_FARM_ID', payload: farm?.id || null });
+    dispatch({ type: 'SET_SELECTED_FARM', payload: farm });
+  }, []);
+
+  const selectAnalystById = useCallback((id: string | null) => {
+    dispatch({ type: 'SELECT_ANALYST_ID', payload: id });
+  }, []);
+
+  const selectClientById = useCallback((id: string | null) => {
+    dispatch({ type: 'SELECT_CLIENT_ID', payload: id });
+  }, []);
+
+  const selectFarmById = useCallback((id: string | null) => {
+    dispatch({ type: 'SELECT_FARM_ID', payload: id });
+  }, []);
+
+  const clearFarm = useCallback(() => {
+    dispatch({ type: 'SELECT_FARM_ID', payload: null });
+    dispatch({ type: 'SET_SELECTED_FARM', payload: null });
+  }, []);
+
+  const searchAnalysts = useCallback(async (term: string) => {
+    await loadAnalysts({ append: false, search: term });
+  }, [loadAnalysts]);
+
+  const searchClients = useCallback(async (term: string) => {
+    await loadClients({ append: false, search: term });
+  }, [loadClients]);
+
+  const searchFarms = useCallback(async (term: string) => {
+    await loadFarms({ append: false, search: term });
+  }, [loadFarms]);
+
+  const loadMoreAnalysts = useCallback(async () => {
+    if (!stateRef.current.hasMore.analysts || stateRef.current.loading.analysts) return;
+    await loadAnalysts({ append: true });
+  }, [loadAnalysts]);
+
+  const loadMoreClients = useCallback(async () => {
+    if (!stateRef.current.hasMore.clients || stateRef.current.loading.clients) return;
+    await loadClients({ append: true });
+  }, [loadClients]);
+
+  const loadMoreFarms = useCallback(async () => {
+    if (!stateRef.current.hasMore.farms || stateRef.current.loading.farms) return;
+    await loadFarms({ append: true });
+  }, [loadFarms]);
+
+  const refreshCurrentLevel = useCallback(async (level: 'analysts' | 'clients' | 'farms') => {
+    if (level === 'analysts') {
+      await loadAnalysts({ append: false, search: paginationRef.current.analystsSearch });
+      return;
+    }
+    if (level === 'clients') {
+      await loadClients({ append: false, search: paginationRef.current.clientsSearch });
+      return;
+    }
+    await loadFarms({ append: false, search: paginationRef.current.farmsSearch });
+  }, [loadAnalysts, loadClients, loadFarms]);
+
+  const value = useMemo<HierarchyContextType>(() => ({
+    ...state,
+    effectiveAnalystId,
+    setSelectedAnalyst,
+    setSelectedClient,
+    setSelectedFarm,
+    selectAnalystById,
+    selectClientById,
+    selectFarmById,
+    clearFarm,
+    searchAnalysts,
+    searchClients,
+    searchFarms,
+    loadMoreAnalysts,
+    loadMoreClients,
+    loadMoreFarms,
+    refreshCurrentLevel,
+  }), [
+    state,
+    effectiveAnalystId,
+    setSelectedAnalyst,
+    setSelectedClient,
+    setSelectedFarm,
+    selectAnalystById,
+    selectClientById,
+    selectFarmById,
+    clearFarm,
+    searchAnalysts,
+    searchClients,
+    searchFarms,
+    loadMoreAnalysts,
+    loadMoreClients,
+    loadMoreFarms,
+    refreshCurrentLevel,
+  ]);
+
+  return <HierarchyContext.Provider value={value}>{children}</HierarchyContext.Provider>;
+};
+
+export const useHierarchy = () => {
+  const context = useContext(HierarchyContext);
+  if (context === undefined) {
+    throw new Error('useHierarchy must be used within a HierarchyProvider');
+  }
+  return context;
+};

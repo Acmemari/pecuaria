@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, RefreshCw, X, FolderOpen, Package, Layers, CheckSquare } from 'lucide-react';
+import {
+  Loader2, RefreshCw, X, FolderOpen, Package, Layers, CheckSquare,
+  Info, Calendar, Target, CheckCircle2, Users, Trash2, Save, Plus,
+} from 'lucide-react';
 import {
   createProject,
   deleteProject,
@@ -22,6 +25,7 @@ import {
 import { sanitizeText } from '../lib/inputSanitizer';
 import { supabase } from '../lib/supabase';
 import HierarchyColumn, { type HierarchyColumnItem } from './HierarchyColumn';
+import DateInputBR from './DateInputBR';
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -131,9 +135,10 @@ function updateAtIndex<T>(arr: T[], idx: number, updater: (item: T) => T): T[] {
 
 const ModalShell: React.FC<{
   title: string;
+  subtitle?: string;
   onClose: () => void;
   children: React.ReactNode;
-}> = ({ title, onClose, children }) => {
+}> = ({ title, subtitle, onClose, children }) => {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -162,22 +167,31 @@ const ModalShell: React.FC<{
         ref={contentRef}
         className="w-full max-w-2xl rounded-xl border border-ai-border bg-ai-bg shadow-xl max-h-[88vh] flex flex-col"
       >
-        <header className="flex items-center justify-between px-5 py-3 border-b border-ai-border shrink-0">
-          <h3 className="text-base font-semibold text-ai-text">{title}</h3>
+        <header className="flex items-start justify-between px-6 py-4 border-b border-ai-border shrink-0">
+          <div>
+            <h3 className="text-lg font-semibold text-ai-text">{title}</h3>
+            {subtitle && <p className="text-sm text-ai-subtext mt-0.5">{subtitle}</p>}
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1 text-sm text-ai-subtext hover:text-ai-text transition-colors"
+            className="mt-1 text-ai-subtext hover:text-ai-text transition-colors"
           >
-            <X size={16} />
-            Fechar
+            <X size={18} />
           </button>
         </header>
-        <div className="p-5 space-y-4 overflow-y-auto">{children}</div>
+        <div className="p-6 space-y-5 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
 };
+
+const SectionHeader: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
+  <div className="flex items-center gap-2 pt-1">
+    {icon}
+    <span className="text-xs font-semibold tracking-wider text-ai-subtext uppercase">{label}</span>
+  </div>
+);
 
 // ─── StakeholderMatrixEditor ────────────────────────────────────────────────
 
@@ -438,7 +452,8 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     setEditingId(id);
     setProgramForm({
       name: t.name || '', description: t.description || '',
-      start_date: t.start_date || '', end_date: t.end_date || '',
+      start_date: t.start_date || '',
+      end_date: t.end_date || '',
       transformations_achievements: t.transformations_achievements || '',
       success_evidence: t.success_evidence.length ? [...t.success_evidence] : [''],
       stakeholder_matrix: t.stakeholder_matrix.length ? [...t.stakeholder_matrix] : [{ name: '', activity: '' }],
@@ -891,45 +906,65 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
 
       {/* ── Program Modal ──────────────────────────────────────────────── */}
       {modalEntity === 'program' && (
-        <ModalShell title={modalMode === 'create' ? 'Novo Programa' : 'Editar Programa'} onClose={saving ? () => {} : closeModal}>
+        <ModalShell
+          title={modalMode === 'create' ? 'Novo Programa' : 'Editar Programa'}
+          subtitle="Preencha os detalhes para criar uma nova iniciativa."
+          onClose={saving ? () => {} : closeModal}
+        >
+          {/* INFORMAÇÕES BÁSICAS */}
+          <SectionHeader icon={<Info size={14} className="text-ai-accent" />} label="Informações Básicas" />
           <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Nome *</label>
+            <label className="block text-sm font-medium text-ai-text mb-1">
+              Nome do Programa <span className="text-red-500">*</span>
+            </label>
             <input type="text" value={programForm.name}
               onChange={(e) => setProgramForm((p) => ({ ...p, name: e.target.value }))}
-              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
+              placeholder="Ex: Transformação Digital 2024"
+              className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50" />
           </div>
           <div>
             <label className="block text-sm font-medium text-ai-text mb-1">Descrição</label>
             <textarea rows={3} value={programForm.description}
               onChange={(e) => setProgramForm((p) => ({ ...p, description: e.target.value }))}
-              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none" />
+              placeholder="Descreva os objetivos principais e o contexto do programa..."
+              className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50 resize-none" />
           </div>
+
+          {/* CRONOGRAMA */}
+          <SectionHeader icon={<Calendar size={14} className="text-ai-accent" />} label="Cronograma" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Data de início</label>
-              <input type="date" value={programForm.start_date}
-                onChange={(e) => setProgramForm((p) => ({ ...p, start_date: e.target.value }))}
-                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
+              <label className="block text-sm font-medium text-ai-text mb-1">Data de Início</label>
+              <DateInputBR
+                value={programForm.start_date}
+                onChange={(v) => setProgramForm((p) => ({ ...p, start_date: v }))}
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Data final</label>
-              <input type="date" value={programForm.end_date}
-                onChange={(e) => setProgramForm((p) => ({ ...p, end_date: e.target.value }))}
-                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
+              <label className="block text-sm font-medium text-ai-text mb-1">Data Final</label>
+              <DateInputBR
+                value={programForm.end_date}
+                onChange={(v) => setProgramForm((p) => ({ ...p, end_date: v }))}
+                min={programForm.start_date || undefined}
+              />
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Transformações esperadas</label>
-            <textarea rows={3} value={programForm.transformations_achievements}
-              onChange={(e) => setProgramForm((p) => ({ ...p, transformations_achievements: e.target.value }))}
-              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none" />
-          </div>
-          <div className="space-y-2">
+
+          {/* TRANSFORMAÇÕES ESPERADAS */}
+          <SectionHeader icon={<Target size={14} className="text-ai-accent" />} label="Transformações Esperadas" />
+          <textarea rows={3} value={programForm.transformations_achievements}
+            onChange={(e) => setProgramForm((p) => ({ ...p, transformations_achievements: e.target.value }))}
+            placeholder="Quais mudanças reais este programa trará para a organização?"
+            className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50 resize-none" />
+
+          {/* EVIDÊNCIAS DE SUCESSO */}
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="block text-sm font-medium text-ai-text">Evidências de sucesso</label>
+              <SectionHeader icon={<CheckCircle2 size={14} className="text-ai-accent" />} label="Evidências de Sucesso" />
               <button type="button"
                 onClick={() => setProgramForm((p) => ({ ...p, success_evidence: [...p.success_evidence, ''] }))}
-                className="rounded-md border border-ai-border px-2 py-1 text-xs text-ai-subtext hover:text-ai-text">
+                className="inline-flex items-center gap-1 text-xs font-medium text-ai-accent hover:text-ai-accent/80 transition-colors">
+                <Plus size={12} />
                 Adicionar item
               </button>
             </div>
@@ -939,30 +974,65 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
                   onChange={(e) => setProgramForm((p) => ({
                     ...p, success_evidence: updateAtIndex(p.success_evidence, idx, () => e.target.value),
                   }))}
-                  className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
+                  placeholder={`Evidência ${idx + 1}`}
+                  className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50" />
                 <button type="button"
                   onClick={() => setProgramForm((p) => ({
                     ...p, success_evidence: removeAtIndex(p.success_evidence, idx, ''),
                   }))}
-                  className="rounded border border-ai-border px-2 py-1 text-xs text-red-500 hover:bg-red-50">
-                  Remover
+                  className="shrink-0 p-2 text-ai-subtext hover:text-red-500 transition-colors">
+                  <Trash2 size={15} />
                 </button>
               </div>
             ))}
           </div>
-          <StakeholderMatrixEditor
-            rows={programForm.stakeholder_matrix}
-            onChange={(rows) => setProgramForm((p) => ({ ...p, stakeholder_matrix: rows }))}
-          />
-          <div className="flex justify-end gap-2 pt-2">
+
+          {/* MATRIZ DE STAKEHOLDERS */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <SectionHeader icon={<Users size={14} className="text-ai-accent" />} label="Matriz de Stakeholders" />
+              <button type="button"
+                onClick={() => setProgramForm((p) => ({ ...p, stakeholder_matrix: [...p.stakeholder_matrix, { name: '', activity: '' }] }))}
+                className="inline-flex items-center gap-1 text-xs font-medium text-ai-accent hover:text-ai-accent/80 transition-colors">
+                <Plus size={12} />
+                Adicionar linha
+              </button>
+            </div>
+            {programForm.stakeholder_matrix.map((row, idx) => (
+              <div key={`sh-${idx}`} className="flex items-center gap-2">
+                <input type="text" value={row.name}
+                  onChange={(e) => setProgramForm((p) => ({
+                    ...p, stakeholder_matrix: updateAtIndex(p.stakeholder_matrix, idx, (r) => ({ ...r, name: e.target.value })),
+                  }))}
+                  placeholder="Nome / Cargo"
+                  className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50" />
+                <input type="text" value={row.activity}
+                  onChange={(e) => setProgramForm((p) => ({
+                    ...p, stakeholder_matrix: updateAtIndex(p.stakeholder_matrix, idx, (r) => ({ ...r, activity: e.target.value })),
+                  }))}
+                  placeholder="Atividade / Responsabilidade"
+                  className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50" />
+                <button type="button"
+                  onClick={() => setProgramForm((p) => ({
+                    ...p, stakeholder_matrix: removeAtIndex(p.stakeholder_matrix, idx, { name: '', activity: '' }),
+                  }))}
+                  className="shrink-0 p-2 text-ai-subtext hover:text-red-500 transition-colors">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div className="flex justify-end gap-3 pt-3 border-t border-ai-border">
             <button type="button" onClick={closeModal} disabled={saving}
-              className="rounded-md border border-ai-border px-3 py-2 text-sm text-ai-subtext hover:text-ai-text disabled:opacity-50">
+              className="rounded-lg px-4 py-2.5 text-sm font-medium text-ai-subtext hover:text-ai-text disabled:opacity-50 transition-colors">
               Cancelar
             </button>
             <button type="button" onClick={saveProgram} disabled={saving}
-              className="inline-flex items-center gap-2 rounded-md bg-ai-accent px-3 py-2 text-sm text-white disabled:opacity-60">
-              {saving && <Loader2 size={14} className="animate-spin" />}
-              {modalMode === 'create' ? 'Salvar' : 'Atualizar'}
+              className="inline-flex items-center gap-2 rounded-lg bg-ai-accent px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-ai-accent/90 disabled:opacity-60 transition-colors">
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              {modalMode === 'create' ? 'Salvar Programa' : 'Atualizar Programa'}
             </button>
           </div>
         </ModalShell>
@@ -991,9 +1061,10 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           </div>
           <div>
             <label className="block text-sm font-medium text-ai-text mb-1">Data prevista</label>
-            <input type="date" value={deliveryForm.due_date}
-              onChange={(e) => setDeliveryForm((p) => ({ ...p, due_date: e.target.value }))}
-              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
+            <DateInputBR
+              value={deliveryForm.due_date}
+              onChange={(v) => setDeliveryForm((p) => ({ ...p, due_date: v }))}
+            />
           </div>
           <StakeholderMatrixEditor
             rows={deliveryForm.stakeholder_matrix}
@@ -1031,9 +1102,10 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
             </div>
             <div>
               <label className="block text-sm font-medium text-ai-text mb-1">Data prevista</label>
-              <input type="date" value={activityForm.due_date}
-                onChange={(e) => setActivityForm((p) => ({ ...p, due_date: e.target.value }))}
-                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
+              <DateInputBR
+                value={activityForm.due_date}
+                onChange={(v) => setActivityForm((p) => ({ ...p, due_date: v }))}
+              />
             </div>
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-ai-text">
@@ -1073,9 +1145,10 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-ai-text mb-1">Data prevista</label>
-              <input type="date" value={taskForm.due_date}
-                onChange={(e) => setTaskForm((p) => ({ ...p, due_date: e.target.value }))}
-                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
+              <DateInputBR
+                value={taskForm.due_date}
+                onChange={(v) => setTaskForm((p) => ({ ...p, due_date: v }))}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-ai-text mb-1">Status Kanban</label>

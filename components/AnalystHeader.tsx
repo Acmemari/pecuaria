@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { HelpCircle, Loader2, User } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useClient } from '../contexts/ClientContext';
-import { useAnalyst } from '../contexts/AnalystContext';
-import { useFarm } from '../contexts/FarmContext';
+import { useHierarchy } from '../contexts/HierarchyContext';
 import ClientSelector from './ClientSelector';
 import FarmSelector from './FarmSelector';
 import AnalystSelector from './AnalystSelector';
 import SupportTicketModal from './SupportTicketModal';
 import { getAdminUnreadCount, subscribeAdminUnread } from '../lib/supportTickets';
+import SelectorErrorBoundary from './hierarchy/SelectorErrorBoundary';
 
 interface AnalystHeaderProps {
   // Props mantidas para retrocompatibilidade, mas agora usamos o contexto
@@ -18,23 +17,10 @@ interface AnalystHeaderProps {
 
 const AnalystHeader: React.FC<AnalystHeaderProps> = () => {
   const { user } = useAuth();
-  const { selectedClient, setSelectedClient } = useClient();
-  const { selectedAnalyst } = useAnalyst();
-  const { selectedFarm, setSelectedFarm, clearFarm } = useFarm();
+  const { selectedClient, selectedAnalyst } = useHierarchy();
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [isLoadingUnread, setIsLoadingUnread] = useState(false);
   const [adminUnreadCount, setAdminUnreadCount] = useState(0);
-
-  // Limpar cliente quando mudar de analista (apenas para admin)
-  useEffect(() => {
-    if (user?.role === 'admin' && selectedAnalyst && selectedClient) {
-      if (selectedClient.analystId !== selectedAnalyst.id) {
-        setSelectedClient(null);
-        clearFarm();
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAnalyst, user?.role]);
 
   const refreshUnread = useCallback(async () => {
     if (user?.role !== 'admin') return;
@@ -85,7 +71,9 @@ const AnalystHeader: React.FC<AnalystHeaderProps> = () => {
           {user.role === 'admin' ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-ai-subtext font-medium">Analista:</span>
-              <AnalystSelector />
+              <SelectorErrorBoundary fallbackLabel="Analista">
+                <AnalystSelector />
+              </SelectorErrorBoundary>
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -107,7 +95,9 @@ const AnalystHeader: React.FC<AnalystHeaderProps> = () => {
             <>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-ai-subtext font-medium">Cliente:</span>
-                <ClientSelector />
+                <SelectorErrorBoundary fallbackLabel="Cliente">
+                  <ClientSelector />
+                </SelectorErrorBoundary>
               </div>
 
               {/* Seletor de Fazenda (apenas se houver cliente selecionado) */}
@@ -116,7 +106,9 @@ const AnalystHeader: React.FC<AnalystHeaderProps> = () => {
                   <div className="h-6 w-px bg-ai-border" />
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-ai-subtext font-medium">Fazenda:</span>
-                    <FarmSelector selectedFarm={selectedFarm} onSelectFarm={setSelectedFarm} />
+                    <SelectorErrorBoundary fallbackLabel="Fazenda">
+                      <FarmSelector />
+                    </SelectorErrorBoundary>
                   </div>
                 </>
               )}

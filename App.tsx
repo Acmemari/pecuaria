@@ -6,9 +6,8 @@ import SettingsPage from './components/SettingsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LocationProvider, useLocation } from './contexts/LocationContext';
-import { ClientProvider } from './contexts/ClientContext';
-import { AnalystProvider } from './contexts/AnalystContext';
-import { FarmProvider, useFarm } from './contexts/FarmContext';
+import { useFarm } from './contexts/FarmContext';
+import { HierarchyProvider } from './contexts/HierarchyContext';
 import AnalystHeader from './components/AnalystHeader';
 import { Agent } from './types';
 import { Menu, Construction, Loader2, ArrowLeft, Plus } from 'lucide-react';
@@ -891,13 +890,9 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <LocationProvider>
-        <ClientProvider>
-          <FarmProvider>
-            <AnalystProvider>
-              <AppContent />
-            </AnalystProvider>
-          </FarmProvider>
-        </ClientProvider>
+        <HierarchyProvider>
+          <AppContent />
+        </HierarchyProvider>
       </LocationProvider>
     </AuthProvider>
   );
