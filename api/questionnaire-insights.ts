@@ -88,7 +88,7 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS * 2);
 
 /* ─── Gemini client (inline) ─── */
-const MODEL = 'gemini-2.5-flash';
+const MODEL = 'gemini-2.0-flash';
 const GEMINI_TIMEOUT_MS = 60_000; // 60 segundos
 
 const SYSTEM_INSTRUCTION = `Você é um consultor especializado em gestão pecuária.

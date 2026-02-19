@@ -7,7 +7,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
 
-const MODEL = 'gemini-2.5-flash';
+const MODEL = 'gemini-2.0-flash';
 const GEMINI_TIMEOUT_MS = 30_000;
 
 function setCors(res: VercelResponse) {
