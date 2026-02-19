@@ -12,12 +12,100 @@ import {
   Edit2,
   CheckCircle2,
   XCircle,
-  Info
+  Info,
+  Users
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useClient } from '../contexts/ClientContext';
 import { useAuth } from '../contexts/AuthContext';
 import { mapFarmsFromDatabase, buildFarmDatabasePayload, isMissingColumnError } from '../lib/utils/farmMapper';
+import FarmPermissionsModal from '../components/FarmPermissionsModal';
+import { useFarmPermissions, useBatchFarmPermissions, type FarmPermissionsResult } from '../lib/permissions/useFarmPermissions';
+
+interface FarmCardProps {
+  farm: Farm;
+  onEdit: (farm: Farm) => void;
+  onDelete: (farmId: string) => void;
+  onOpenPermissions: (farm: Farm) => void;
+  canManagePermissions: boolean;
+  perms: FarmPermissionsResult;
+  userIsAdmin: boolean;
+}
+
+function FarmCard({
+  farm,
+  onEdit,
+  onDelete,
+  onOpenPermissions,
+  canManagePermissions,
+  perms,
+  userIsAdmin,
+}: FarmCardProps) {
+  const bypass = userIsAdmin;
+  if (!bypass && perms.isHidden('farms:card')) return null;
+  const canEdit = bypass || perms.canEdit('farms:form');
+  const canDelete = bypass || perms.canEdit('farms:delete');
+  return (
+    <div className="bg-white rounded-lg border border-ai-border p-3 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-semibold text-ai-text mb-2 truncate">{farm.name}</h3>
+          <div className="space-y-1 text-xs text-ai-subtext">
+            <div className="flex items-center gap-1.5">
+              <MapPin size={12} className="flex-shrink-0" />
+              <span className="truncate">{farm.city}, {farm.state}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Building2 size={12} className="flex-shrink-0" />
+              <span className="truncate">{farm.propertyType}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Factory size={12} className="flex-shrink-0" />
+              <span className="truncate">{farm.productionSystem}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Scale size={12} className="flex-shrink-0" />
+              <span className="truncate">{farm.weightMetric}</span>
+            </div>
+            {farm.commercializesGenetics && (
+              <div className="flex items-center gap-1.5 text-ai-accent">
+                <Dna size={12} className="flex-shrink-0" />
+                <span className="truncate">Comercializa genética</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2 pt-3 border-t border-ai-border">
+        <button
+          onClick={() => onEdit(farm)}
+          disabled={!canEdit}
+          className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-ai-border text-ai-text rounded-lg hover:bg-ai-surface2 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Edit2 size={14} />
+          Editar
+        </button>
+        {canManagePermissions && (
+          <button
+            onClick={() => onOpenPermissions(farm)}
+            className="px-2 py-1.5 text-xs border border-ai-border text-ai-text rounded-lg hover:bg-ai-surface2 transition-colors flex items-center justify-center gap-1"
+            title="Gerenciar permissões"
+          >
+            <Users size={14} />
+          </button>
+        )}
+        {canDelete && (
+          <button
+            onClick={() => onDelete(farm.id)}
+            className="px-2 py-1.5 text-xs border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface FarmManagementProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -50,6 +138,14 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const [editingFarm, setEditingFarm] = useState<Farm | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingNew, setIsCreatingNew] = useState(true); // Flag para indicar criação de nova fazenda
+  const [farmResponsibilities, setFarmResponsibilities] = useState<Record<string, boolean>>({});
+  const [permissionsModalFarm, setPermissionsModalFarm] = useState<Farm | null>(null);
+
+  const formPerms = useFarmPermissions(editingFarm?.id ?? null, user?.id);
+  const batchPerms = useBatchFarmPermissions(farms.map((f) => f.id), user?.id);
+  const formReadOnly = editingFarm
+    ? (user?.role !== 'admin' && !formPerms.canEdit('farms:form'))
+    : false;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -433,6 +529,31 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     }
   }, [farms.length, isLoading, view, editingFarm, isCreatingNew]);
 
+  // Load farm responsibilities (is_responsible) for current analyst
+  useEffect(() => {
+    if (!user || (user.qualification !== 'analista' && user.role !== 'admin') || farms.length === 0) {
+      setFarmResponsibilities({});
+      return;
+    }
+    const farmIds = farms.map(f => f.id);
+    supabase
+      .from('analyst_farms')
+      .select('farm_id, is_responsible')
+      .eq('analyst_id', user.id)
+      .in('farm_id', farmIds)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('[FarmManagement] Error loading farm responsibilities:', error);
+          return;
+        }
+        const map: Record<string, boolean> = {};
+        (data || []).forEach((row: { farm_id: string; is_responsible?: boolean }) => {
+          map[row.farm_id] = row.is_responsible ?? false;
+        });
+        setFarmResponsibilities(map);
+      });
+  }, [user?.id, user?.qualification, user?.role, farms.map((f) => f.id).join(',')]);
+
   const loadFarms = async () => {
     try {
       // Primeiro, tentar carregar do banco de dados (farms vinculadas ao analista/cliente)
@@ -593,7 +714,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     }
   };
 
-  const linkFarmToAnalyst = async (farmId: string, analystId: string) => {
+  const linkFarmToAnalyst = async (farmId: string, analystId: string, isResponsible = false) => {
     try {
       // Verificar se o vínculo já existe
       const { data: existing } = await supabase
@@ -601,7 +722,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         .select('id')
         .eq('analyst_id', analystId)
         .eq('farm_id', farmId)
-        .single();
+        .maybeSingle();
 
       if (!existing) {
         // Criar vínculo se não existir
@@ -609,7 +730,9 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           .from('analyst_farms')
           .insert({
             analyst_id: analystId,
-            farm_id: farmId
+            farm_id: farmId,
+            is_responsible: isResponsible,
+            permissions: {}
           });
 
         if (error) {
@@ -735,7 +858,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
         await linkFarmToClient(newFarm.id, selectedClient.id);
         if (user && (user.qualification === 'analista' || user.role === 'admin')) {
-          await linkFarmToAnalyst(newFarm.id, user.id);
+          await linkFarmToAnalyst(newFarm.id, user.id, true);
         }
       } catch (err) {
         console.error('[FarmManagement] Error saving farm to database:', err);
@@ -935,6 +1058,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   // List View
   if (view === 'list') {
     return (
+      <>
       <div className="h-full flex flex-col p-4 md:p-6">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-ai-text">Cadastro de Fazendas</h1>
@@ -953,58 +1077,30 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 flex-1 overflow-y-auto">
           {farms.map((farm) => (
-            <div
+            <FarmCard
               key={farm.id}
-              className="bg-white rounded-lg border border-ai-border p-3 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-ai-text mb-2 truncate">{farm.name}</h3>
-                  <div className="space-y-1 text-xs text-ai-subtext">
-                    <div className="flex items-center gap-1.5">
-                      <MapPin size={12} className="flex-shrink-0" />
-                      <span className="truncate">{farm.city}, {farm.state}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Building2 size={12} className="flex-shrink-0" />
-                      <span className="truncate">{farm.propertyType}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Factory size={12} className="flex-shrink-0" />
-                      <span className="truncate">{farm.productionSystem}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Scale size={12} className="flex-shrink-0" />
-                      <span className="truncate">{farm.weightMetric}</span>
-                    </div>
-                    {farm.commercializesGenetics && (
-                      <div className="flex items-center gap-1.5 text-ai-accent">
-                        <Dna size={12} className="flex-shrink-0" />
-                        <span className="truncate">Comercializa genética</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2 pt-3 border-t border-ai-border">
-                <button
-                  onClick={() => handleEdit(farm)}
-                  className="flex-1 px-2 py-1.5 text-xs border border-ai-border text-ai-text rounded-lg hover:bg-ai-surface2 transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <Edit2 size={14} />
-                  Editar
-                </button>
-                <button
-                  onClick={() => handleDelete(farm.id)}
-                  className="px-2 py-1.5 text-xs border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
+              farm={farm}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              onOpenPermissions={setPermissionsModalFarm}
+              canManagePermissions={user?.role === 'admin' || !!farmResponsibilities[farm.id]}
+              perms={batchPerms[farm.id] ?? { permissions: {}, canView: () => false, canEdit: () => false, isHidden: () => true, isLoading: true, isResponsible: false, hasAccess: false }}
+              userIsAdmin={user?.role === 'admin'}
+            />
           ))}
         </div>
       </div>
+      {permissionsModalFarm && (
+        <FarmPermissionsModal
+          open={!!permissionsModalFarm}
+          onClose={() => setPermissionsModalFarm(null)}
+          farmId={permissionsModalFarm.id}
+          farmName={permissionsModalFarm.name}
+          isCurrentUserResponsible={user?.role === 'admin' || !!farmResponsibilities[permissionsModalFarm.id]}
+          onToast={onToast}
+        />
+      )}
+      </>
     );
   }
 
@@ -1036,6 +1132,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       `}</style>
 
       <form onSubmit={handleSubmit} className="max-w-7xl w-full bg-white rounded-lg border border-ai-border p-4 flex flex-col">
+        <fieldset disabled={formReadOnly} className={formReadOnly ? 'opacity-75' : ''}>
         <div className="flex flex-col min-h-0">
         {/* Alerta se não houver cliente selecionado */}
         {!editingFarm && !selectedClient && (
@@ -1516,6 +1613,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         </div>
 
         </div>
+        </fieldset>
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4 border-t border-ai-border flex-shrink-0 mt-4">
           <button
@@ -1527,7 +1625,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           </button>
           <button
             type="submit"
-            disabled={!editingFarm && !selectedClient}
+            disabled={formReadOnly || (!editingFarm && !selectedClient)}
             className="flex-1 px-4 py-2 text-sm bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             title={!editingFarm && !selectedClient ? 'Selecione um cliente antes de cadastrar uma fazenda' : ''}
           >

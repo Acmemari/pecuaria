@@ -1,0 +1,397 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Users, Plus, Trash2, ChevronRight } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  PERMISSION_KEYS,
+  DEFAULT_PERMISSIONS,
+  type PermissionLevel,
+} from '../lib/permissions/permissionKeys';
+
+interface AnalystOption {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface AnalystWithAccess {
+  id: string;
+  analyst_id: string;
+  farm_id: string;
+  is_responsible: boolean;
+  permissions: Record<string, string>;
+  analyst?: { id: string; name: string; email: string } | null;
+}
+
+interface FarmPermissionsModalProps {
+  open: boolean;
+  onClose: () => void;
+  farmId: string;
+  farmName: string;
+  isCurrentUserResponsible: boolean;
+  onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
+}
+
+export default function FarmPermissionsModal({
+  open,
+  onClose,
+  farmId,
+  farmName,
+  isCurrentUserResponsible,
+  onToast,
+}: FarmPermissionsModalProps) {
+  const { user } = useAuth();
+  const [analystsToAdd, setAnalystsToAdd] = useState<AnalystOption[]>([]);
+  const [selectedAnalystToAdd, setSelectedAnalystToAdd] = useState('');
+  const [analystsWithAccess, setAnalystsWithAccess] = useState<AnalystWithAccess[]>([]);
+  const [selectedAnalystId, setSelectedAnalystId] = useState<string | null>(null);
+  const [editedPermissions, setEditedPermissions] = useState<Record<string, PermissionLevel>>({});
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const loadAnalystsToAdd = useCallback(async () => {
+    if (!user?.organizationId) return;
+    const { data, error } = await supabase.rpc('get_analysts_same_org', {
+      p_org_id: user.organizationId,
+      p_exclude_user_id: user.id,
+    });
+    if (error) {
+      console.error('[FarmPermissionsModal] Error loading analysts:', error);
+      return;
+    }
+    setAnalystsToAdd((data || []) as AnalystOption[]);
+  }, [user?.id, user?.organizationId]);
+
+  const loadAnalystsWithAccess = useCallback(async () => {
+    const { data, error } = await supabase.rpc('get_analyst_farm_details', {
+      p_farm_id: farmId,
+    });
+    if (error) {
+      console.error('[FarmPermissionsModal] Error loading analyst_farms:', error);
+      setAnalystsWithAccess([]);
+      return;
+    }
+    const rows = ((data || []) as {
+      id: string;
+      analyst_id: string;
+      farm_id: string;
+      is_responsible: boolean;
+      permissions: Record<string, string>;
+      analyst_name: string | null;
+      analyst_email: string | null;
+    }[]).map((r) => ({
+      id: r.id,
+      analyst_id: r.analyst_id,
+      farm_id: r.farm_id,
+      is_responsible: r.is_responsible,
+      permissions: r.permissions,
+      analyst:
+        r.analyst_name != null || r.analyst_email != null
+          ? { id: r.analyst_id, name: r.analyst_name ?? '', email: r.analyst_email ?? '' }
+          : null,
+    })) as AnalystWithAccess[];
+    setAnalystsWithAccess(rows);
+  }, [farmId]);
+
+  useEffect(() => {
+    if (!open || !farmId) return;
+    setLoading(true);
+    Promise.all([loadAnalystsToAdd(), loadAnalystsWithAccess()]).finally(() => setLoading(false));
+  }, [open, farmId, loadAnalystsToAdd, loadAnalystsWithAccess]);
+
+  useEffect(() => {
+    if (selectedAnalystId) {
+      const row = analystsWithAccess.find(a => a.analyst_id === selectedAnalystId);
+      const perms = (row?.permissions || {}) as Record<string, string>;
+      const merged = { ...DEFAULT_PERMISSIONS };
+      for (const [k, v] of Object.entries(perms)) {
+        if (v === 'hidden' || v === 'view' || v === 'edit') merged[k] = v as PermissionLevel;
+      }
+      setEditedPermissions(merged);
+    } else {
+      setEditedPermissions({});
+    }
+  }, [selectedAnalystId, analystsWithAccess]);
+
+  const handleAddAnalyst = async () => {
+    if (!selectedAnalystToAdd || !isCurrentUserResponsible) return;
+    setAdding(true);
+    try {
+      const { error } = await supabase.from('analyst_farms').insert({
+        analyst_id: selectedAnalystToAdd,
+        farm_id: farmId,
+        is_responsible: false,
+        permissions: DEFAULT_PERMISSIONS,
+      });
+      if (error) throw error;
+      onToast?.('Analista adicionado com sucesso.', 'success');
+      setSelectedAnalystToAdd('');
+      await loadAnalystsWithAccess();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao adicionar analista';
+      onToast?.(msg, 'error');
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleRemoveAnalyst = async (analystId: string) => {
+    const row = analystsWithAccess.find(a => a.analyst_id === analystId);
+    if (!row || row.is_responsible || !isCurrentUserResponsible) return;
+    if (!window.confirm('Remover acesso deste analista à fazenda?')) return;
+    try {
+      const { error } = await supabase.from('analyst_farms').delete().eq('id', row.id);
+      if (error) throw error;
+      onToast?.('Analista removido.', 'success');
+      if (selectedAnalystId === analystId) setSelectedAnalystId(null);
+      await loadAnalystsWithAccess();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao remover analista';
+      onToast?.(msg, 'error');
+    }
+  };
+
+  const handleSavePermissions = async () => {
+    if (!selectedAnalystId || !isCurrentUserResponsible) return;
+    setSaving(true);
+    try {
+      const row = analystsWithAccess.find(a => a.analyst_id === selectedAnalystId);
+      if (!row) return;
+      const { error } = await supabase
+        .from('analyst_farms')
+        .update({ permissions: editedPermissions })
+        .eq('id', row.id);
+      if (error) throw error;
+      onToast?.('Permissões atualizadas.', 'success');
+      await loadAnalystsWithAccess();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao salvar permissões';
+      onToast?.(msg, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setPermissionFor = (key: string, level: PermissionLevel) => {
+    setEditedPermissions(prev => ({ ...prev, [key]: level }));
+  };
+
+  if (!open) return null;
+
+  const availableToAdd = analystsToAdd.filter(
+    a => !analystsWithAccess.some(r => r.analyst_id === a.id)
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-ai-border">
+          <div className="flex items-center gap-2">
+            <Users size={20} className="text-ai-accent" />
+            <h2 className="text-lg font-semibold text-ai-text">
+              Gerenciar permissões — {farmName}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-ai-subtext hover:text-ai-text hover:bg-ai-surface2 rounded transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {loading ? (
+            <p className="text-sm text-ai-subtext">Carregando...</p>
+          ) : (
+            <>
+              {!user?.organizationId ? (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  Configure sua empresa vinculada para adicionar analistas.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-ai-text">
+                    Adicionar analista (mesma empresa)
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedAnalystToAdd}
+                      onChange={e => setSelectedAnalystToAdd(e.target.value)}
+                      className="flex-1 px-3 py-2 text-sm border border-ai-border rounded-lg bg-white"
+                    >
+                      <option value="">Selecione um analista</option>
+                      {availableToAdd.map(a => (
+                        <option key={a.id} value={a.id}>
+                          {a.name} ({a.email})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleAddAnalyst}
+                      disabled={!selectedAnalystToAdd || adding}
+                      className="px-3 py-2 bg-ai-accent text-white rounded-lg text-sm font-medium hover:bg-ai-accentHover disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <Plus size={16} />
+                      Adicionar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-ai-text mb-2">
+                  Analistas com acesso
+                </label>
+                <ul className="space-y-2">
+                  {analystsWithAccess.map(row => (
+                    <li
+                      key={row.id}
+                      className={`flex items-center justify-between p-2 rounded-lg border ${
+                        selectedAnalystId === row.analyst_id
+                          ? 'border-ai-accent bg-ai-accent/5'
+                          : 'border-ai-border hover:bg-ai-surface2'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedAnalystId(
+                            selectedAnalystId === row.analyst_id ? null : row.analyst_id
+                          )
+                        }
+                        className="flex-1 flex items-center justify-between text-left"
+                      >
+                        <span className="text-sm font-medium text-ai-text">
+                          {row.analyst?.name || row.analyst?.email || row.analyst_id}
+                          {row.is_responsible && (
+                            <span className="ml-2 text-xs text-ai-subtext">(responsável)</span>
+                          )}
+                        </span>
+                        <ChevronRight
+                          size={16}
+                          className={`text-ai-subtext transition-transform ${
+                            selectedAnalystId === row.analyst_id ? 'rotate-90' : ''
+                          }`}
+                        />
+                      </button>
+                      {!row.is_responsible && isCurrentUserResponsible && (
+                        <button
+                          onClick={() => handleRemoveAnalyst(row.analyst_id)}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded ml-1"
+                          title="Remover"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {selectedAnalystId && (
+                <div className="border border-ai-border rounded-lg p-4 space-y-4">
+                  <h3 className="text-sm font-semibold text-ai-text">
+                    Permissões por entidade
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4 text-xs">
+                    <div className="space-y-2">
+                      <div className="font-medium text-red-700">Não aparecerá</div>
+                      {PERMISSION_KEYS.filter(k => editedPermissions[k.key] === 'hidden').map(
+                        pk => (
+                          <div
+                            key={pk.key}
+                            className="flex items-center justify-between py-1 px-2 bg-red-50 rounded"
+                          >
+                            <span>{pk.label}</span>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => setPermissionFor(pk.key, 'view')}
+                                className="text-ai-accent hover:underline"
+                              >
+                                Ver
+                              </button>
+                              <button
+                                onClick={() => setPermissionFor(pk.key, 'edit')}
+                                className="text-ai-accent hover:underline"
+                              >
+                                Editar
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <div className="font-medium text-amber-700">Apenas ver</div>
+                      {PERMISSION_KEYS.filter(k => editedPermissions[k.key] === 'view').map(pk => (
+                        <div
+                          key={pk.key}
+                          className="flex items-center justify-between py-1 px-2 bg-amber-50 rounded"
+                        >
+                          <span>{pk.label}</span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => setPermissionFor(pk.key, 'hidden')}
+                              className="text-ai-subtext hover:underline"
+                            >
+                              Ocultar
+                            </button>
+                            <button
+                              onClick={() => setPermissionFor(pk.key, 'edit')}
+                              className="text-ai-accent hover:underline"
+                            >
+                              Editar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      <div className="font-medium text-green-700">Ver e editar</div>
+                      {PERMISSION_KEYS.filter(pk => editedPermissions[pk.key] === 'edit').map(pk => (
+                        <div
+                          key={pk.key}
+                          className="flex items-center justify-between py-1 px-2 bg-green-50 rounded"
+                        >
+                          <span>{pk.label}</span>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => setPermissionFor(pk.key, 'hidden')}
+                              className="text-ai-subtext hover:underline"
+                            >
+                              Ocultar
+                            </button>
+                            <button
+                              onClick={() => setPermissionFor(pk.key, 'view')}
+                              className="text-ai-accent hover:underline"
+                            >
+                              Ver
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-xs text-ai-subtext">
+                    Entidades sem definição explícita usam valor padrão.
+                  </p>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleSavePermissions}
+                      disabled={saving}
+                      className="px-4 py-2 bg-ai-accent text-white rounded-lg text-sm font-medium hover:bg-ai-accentHover disabled:opacity-50"
+                    >
+                      {saving ? 'Salvando...' : 'Salvar permissões'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
