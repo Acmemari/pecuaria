@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Farm } from '../types';
 import { 
   Plus, 
@@ -11,11 +11,13 @@ import {
   Trash2,
   Edit2,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Info
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useClient } from '../contexts/ClientContext';
 import { useAuth } from '../contexts/AuthContext';
+import { mapFarmsFromDatabase, buildFarmDatabasePayload, isMissingColumnError } from '../lib/utils/farmMapper';
 
 interface FarmManagementProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -38,6 +40,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const { selectedClient } = useClient();
   const [farms, setFarms] = useState<Farm[]>([]);
   const [view, setView] = useState<'list' | 'form'>('form'); // Inicia direto no formulário
+  const [availableClientsCount, setAvailableClientsCount] = useState<number | null>(null);
+  const [loadingClientsAvailability, setLoadingClientsAvailability] = useState(false);
 
   // Notificar App.tsx sobre mudanças de view
   useEffect(() => {
@@ -56,10 +60,13 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     // Dimensões
     totalArea: '',
     pastureArea: '',
-    agricultureArea: '',
+    forageProductionArea: '',
+    agricultureAreaOwned: '',
+    agricultureAreaLeased: '',
     otherCrops: '',
     infrastructure: '',
     reserveAndAPP: '',
+    otherArea: '',
     propertyValue: '',
     operationPecuary: '', // Operação pecuária
     operationAgricultural: '', // Operação Agrícola
@@ -148,13 +155,14 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     return isNaN(num) ? undefined : num;
   };
 
+
   // Handle numeric input change (for hectare fields)
   const handleNumericChange = (field: string, value: string) => {
     const formatted = formatNumberWithDecimals(value);
     setFormData({ ...formData, [field]: formatted });
     
     // Limpar erro de área total quando qualquer área for modificada
-    if (errors.totalArea && (field === 'totalArea' || field === 'pastureArea' || field === 'agricultureArea' || field === 'otherCrops' || field === 'infrastructure' || field === 'reserveAndAPP')) {
+    if (errors.totalArea && (field === 'totalArea' || field === 'pastureArea' || field === 'forageProductionArea' || field === 'agricultureAreaOwned' || field === 'agricultureAreaLeased' || field === 'otherCrops' || field === 'infrastructure' || field === 'reserveAndAPP' || field === 'otherArea')) {
       setErrors({ ...errors, totalArea: '' });
     }
   };
@@ -174,11 +182,14 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   // Calculate sum of all partial areas
   const calculateTotalAreaSum = (): number => {
     const pasture = parseNumber(formData.pastureArea) || 0;
-    const agriculture = parseNumber(formData.agricultureArea) || 0;
+    const forageProduction = parseNumber(formData.forageProductionArea) || 0;
+    const agricultureOwned = parseNumber(formData.agricultureAreaOwned) || 0;
+    const agricultureLeased = parseNumber(formData.agricultureAreaLeased) || 0;
     const otherCrops = parseNumber(formData.otherCrops) || 0;
     const infrastructure = parseNumber(formData.infrastructure) || 0;
     const reserve = parseNumber(formData.reserveAndAPP) || 0;
-    return pasture + agriculture + otherCrops + infrastructure + reserve;
+    const other = parseNumber(formData.otherArea) || 0;
+    return pasture + forageProduction + agricultureOwned + agricultureLeased + otherCrops + infrastructure + reserve + other;
   };
 
   // Check if total area matches the sum of partial areas
@@ -234,7 +245,9 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const calculateAreaValues = () => {
     const propertyValueNum = parseInteger(formData.propertyValue);
     const pastureAreaNum = parseNumber(formData.pastureArea) || 0;
-    const agricultureAreaNum = parseNumber(formData.agricultureArea) || 0;
+    const agricultureAreaOwnedNum = parseNumber(formData.agricultureAreaOwned) || 0;
+    const agricultureAreaLeasedNum = parseNumber(formData.agricultureAreaLeased) || 0;
+    const agricultureAreaNum = agricultureAreaOwnedNum + agricultureAreaLeasedNum;
     const otherCropsAreaNum = parseNumber(formData.otherCrops) || 0;
     const variation = formData.agricultureVariation / 100; // Converter de porcentagem para decimal
 
@@ -286,7 +299,9 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   useEffect(() => {
     const propertyValueNum = parseInteger(formData.propertyValue);
     const pastureAreaNum = parseNumber(formData.pastureArea) || 0;
-    const agricultureAreaNum = parseNumber(formData.agricultureArea) || 0;
+    const agricultureAreaOwnedNum = parseNumber(formData.agricultureAreaOwned) || 0;
+    const agricultureAreaLeasedNum = parseNumber(formData.agricultureAreaLeased) || 0;
+    const agricultureAreaNum = agricultureAreaOwnedNum + agricultureAreaLeasedNum;
     const otherCropsAreaNum = parseNumber(formData.otherCrops) || 0;
 
     // Só preencher automaticamente se houver valor da propriedade e áreas produtivas
@@ -348,12 +363,68 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.propertyValue, formData.pastureArea, formData.agricultureArea, formData.otherCrops, formData.agricultureVariation]);
+  }, [formData.propertyValue, formData.pastureArea, formData.agricultureAreaOwned, formData.agricultureAreaLeased, formData.otherCrops, formData.agricultureVariation]);
 
   // Load farms from localStorage
   useEffect(() => {
     loadFarms();
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchAvailableClients = async () => {
+      if (!user) {
+        if (isMounted) {
+          setAvailableClientsCount(0);
+          setLoadingClientsAvailability(false);
+        }
+        return;
+      }
+
+      setLoadingClientsAvailability(true);
+      try {
+        let query = supabase
+          .from('clients')
+          .select('*', { count: 'exact', head: true });
+
+        if (user.qualification === 'analista' && user.role !== 'admin') {
+          query = query.eq('analyst_id', user.id);
+        }
+
+        const { count, error } = await query;
+        if (error) {
+          console.error('[FarmManagement] Error loading clients count:', error);
+          if (isMounted) setAvailableClientsCount(0);
+          return;
+        }
+
+        if (isMounted) setAvailableClientsCount(count ?? 0);
+      } catch (err) {
+        console.error('[FarmManagement] Unexpected error loading clients count:', err);
+        if (isMounted) setAvailableClientsCount(0);
+      } finally {
+        if (isMounted) setLoadingClientsAvailability(false);
+      }
+    };
+
+    fetchAvailableClients();
+
+    const handleClientsChanged = () => {
+      fetchAvailableClients();
+    };
+
+    window.addEventListener('clientAdded', handleClientsChanged);
+    window.addEventListener('clientUpdated', handleClientsChanged);
+    window.addEventListener('clientDeleted', handleClientsChanged);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('clientAdded', handleClientsChanged);
+      window.removeEventListener('clientUpdated', handleClientsChanged);
+      window.removeEventListener('clientDeleted', handleClientsChanged);
+    };
+  }, [user]);
 
   // Se houver fazendas e estiver no formulário vazio (sem estar criando nova), mudar para lista
   useEffect(() => {
@@ -373,58 +444,22 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           .order('created_at', { ascending: false });
 
         if (!dbError && dbFarms && dbFarms.length > 0) {
-          // Converter do formato do banco para o formato Farm
-          const convertedFarms: Farm[] = dbFarms.map(farm => ({
-            id: farm.id,
-            name: farm.name,
-            country: farm.country,
-            state: farm.state || '',
-            city: farm.city,
-            clientId: farm.client_id,
-            totalArea: farm.total_area,
-            pastureArea: farm.pasture_area,
-            agricultureArea: farm.agriculture_area,
-            otherCrops: farm.other_crops,
-            infrastructure: farm.infrastructure,
-            reserveAndAPP: farm.reserve_and_app,
-            propertyValue: farm.property_value,
-            operationPecuary: farm.operation_pecuary,
-            operationAgricultural: farm.operation_agricultural,
-            otherOperations: farm.other_operations,
-            agricultureVariation: farm.agriculture_variation,
-            propertyType: farm.property_type as 'Própria' | 'Arrendada',
-            weightMetric: farm.weight_metric as 'Arroba (@)' | 'Quilograma (Kg)',
-            averageHerd: farm.average_herd,
-            herdValue: farm.herd_value,
-            commercializesGenetics: farm.commercializes_genetics || false,
-            productionSystem: farm.production_system as 'Cria' | 'Recria-Engorda' | 'Ciclo Completo',
-            createdAt: farm.created_at || new Date().toISOString(),
-            updatedAt: farm.updated_at || new Date().toISOString()
-          }));
-          
-          console.log('[FarmManagement] Loaded farms from database:', convertedFarms.length, 'farms');
+          const convertedFarms = mapFarmsFromDatabase(dbFarms);
           setFarms(convertedFarms);
-          
-          // Sincronizar com localStorage para compatibilidade
           localStorage.setItem(STORAGE_KEY, JSON.stringify(convertedFarms));
           return convertedFarms;
         }
       }
 
-      // Fallback: carregar do localStorage
       const stored = localStorage.getItem(STORAGE_KEY);
-      console.log('[FarmManagement] Loading farms from localStorage:', stored);
       if (stored) {
         const parsed = JSON.parse(stored);
         const farmsArray = Array.isArray(parsed) ? parsed : [];
-        console.log('[FarmManagement] Parsed farms:', farmsArray.length, 'farms');
         setFarms(farmsArray);
         return farmsArray;
-      } else {
-        console.log('[FarmManagement] No farms found in localStorage');
-        setFarms([]);
-        return [];
       }
+      setFarms([]);
+      return [];
     } catch (error) {
       console.error('[FarmManagement] Erro ao carregar fazendas:', error);
       setFarms([]);
@@ -436,22 +471,10 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
   const saveFarms = (farmsToSave: Farm[]) => {
     try {
-      console.log('[FarmManagement] Saving farms to localStorage:', farmsToSave);
-      const jsonString = JSON.stringify(farmsToSave);
-      localStorage.setItem(STORAGE_KEY, jsonString);
-      
-      // Verify the save
-      const verification = localStorage.getItem(STORAGE_KEY);
-      if (verification) {
-        console.log('[FarmManagement] Farms saved successfully. Verification:', JSON.parse(verification));
-        setFarms(farmsToSave);
-      } else {
-        console.error('[FarmManagement] Failed to verify save - localStorage returned null');
-        onToast?.('Erro ao salvar fazenda: falha na verificação', 'error');
-      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(farmsToSave));
+      setFarms(farmsToSave);
     } catch (error) {
-      console.error('[FarmManagement] Erro ao salvar fazendas:', error);
-      onToast?.('Erro ao salvar fazenda: ' + (error instanceof Error ? error.message : 'Erro desconhecido'), 'error');
+      console.error('[FarmManagement] Erro ao salvar cache local:', error);
     }
   };
 
@@ -460,7 +483,10 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
     // Validar se há cliente selecionado (obrigatório para criar fazenda)
     if (!editingFarm && !selectedClient) {
-      newErrors.client = 'É necessário selecionar um cliente antes de cadastrar uma fazenda';
+      const isAwaitingClients = !loadingClientsAvailability && (availableClientsCount ?? 0) === 0;
+      newErrors.client = isAwaitingClients
+        ? 'Aguardando cadastro de clientes para liberar o cadastro de fazendas.'
+        : 'É necessário selecionar um cliente antes de cadastrar uma fazenda';
     }
 
     // Validar se o cliente está vinculado ao analista
@@ -602,8 +628,17 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
     // Validação adicional: não permitir criar fazenda sem cliente
     if (!editingFarm && !selectedClient) {
-      onToast?.('Por favor, selecione um cliente antes de cadastrar uma fazenda', 'error');
-      setErrors({ client: 'É necessário selecionar um cliente antes de cadastrar uma fazenda' });
+      const isAwaitingClients = !loadingClientsAvailability && (availableClientsCount ?? 0) === 0;
+      const waitingMessage = 'Aguardando cadastro de clientes para liberar o cadastro de fazendas';
+      onToast?.(
+        isAwaitingClients ? waitingMessage : 'Por favor, selecione um cliente antes de cadastrar uma fazenda',
+        'error'
+      );
+      setErrors({
+        client: isAwaitingClients
+          ? `${waitingMessage}.`
+          : 'É necessário selecionar um cliente antes de cadastrar uma fazenda'
+      });
       return;
     }
 
@@ -631,10 +666,13 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       city: formData.city,
       totalArea: parseNumber(formData.totalArea),
       pastureArea: parseNumber(formData.pastureArea),
-      agricultureArea: parseNumber(formData.agricultureArea),
+      forageProductionArea: parseNumber(formData.forageProductionArea),
+      agricultureAreaOwned: parseNumber(formData.agricultureAreaOwned),
+      agricultureAreaLeased: parseNumber(formData.agricultureAreaLeased),
       otherCrops: parseNumber(formData.otherCrops),
       infrastructure: parseNumber(formData.infrastructure),
       reserveAndAPP: parseNumber(formData.reserveAndAPP),
+      otherArea: parseNumber(formData.otherArea),
       propertyValue: parseInteger(formData.propertyValue),
       operationPecuary: parseInteger(formData.operationPecuary),
       operationAgricultural: parseInteger(formData.operationAgricultural),
@@ -670,9 +708,6 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       updatedFarms = [...farms, newFarm];
     }
 
-    console.log('[FarmManagement] Submitting form. Current farms:', farms.length, 'Updated farms:', updatedFarms.length);
-    console.log('[FarmManagement] New farm data:', editingFarm ? 'Updating' : 'Creating', updatedFarms);
-    
     saveFarms(updatedFarms);
     
     // Para novas fazendas, sempre deve haver cliente selecionado (já validado acima)
@@ -684,53 +719,23 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
       const newFarm = updatedFarms[updatedFarms.length - 1];
       
-      // Salvar fazenda no banco de dados PRIMEIRO
       try {
-        const { error: dbError } = await supabase
-          .from('farms')
-          .insert({
-            id: newFarm.id,
-            name: newFarm.name,
-            country: newFarm.country,
-            state: newFarm.state || null,
-            city: newFarm.city,
-            client_id: selectedClient.id,
-            total_area: newFarm.totalArea || null,
-            pasture_area: newFarm.pastureArea || null,
-            agriculture_area: newFarm.agricultureArea || null,
-            other_crops: newFarm.otherCrops || null,
-            infrastructure: newFarm.infrastructure || null,
-            reserve_and_app: newFarm.reserveAndAPP || null,
-            property_value: newFarm.propertyValue || null,
-            operation_pecuary: (newFarm as any).operationPecuary || null,
-            operation_agricultural: (newFarm as any).operationAgricultural || null,
-            other_operations: (newFarm as any).otherOperations || null,
-            agriculture_variation: (newFarm as any).agricultureVariation || 0,
-            property_type: newFarm.propertyType,
-            weight_metric: newFarm.weightMetric,
-            average_herd: newFarm.averageHerd || null,
-            herd_value: newFarm.herdValue || null,
-            commercializes_genetics: newFarm.commercializesGenetics,
-            production_system: newFarm.productionSystem || null
-          });
+        const { base, extended } = buildFarmDatabasePayload(newFarm, selectedClient.id);
+
+        let { error: dbError } = await supabase.from('farms').insert(extended);
+        if (dbError && isMissingColumnError(dbError)) {
+          ({ error: dbError } = await supabase.from('farms').insert(base));
+        }
 
         if (dbError) {
           console.error('[FarmManagement] Error saving farm to database:', dbError);
           onToast?.('Erro ao salvar fazenda no banco de dados: ' + dbError.message, 'error');
           return;
-        } else {
-          console.log('[FarmManagement] Farm saved to database successfully');
-          
-          // Após salvar com sucesso, criar os vínculos
-          // Vincular fazenda ao cliente na tabela client_farms (obrigatório)
-      await linkFarmToClient(newFarm.id, selectedClient.id);
-      
-          // Vincular fazenda ao analista logado (obrigatório)
-      if (user && (user.qualification === 'analista' || user.role === 'admin')) {
-        await linkFarmToAnalyst(newFarm.id, user.id);
-          } else {
-            onToast?.('Aviso: Usuário não é analista. A fazenda foi cadastrada mas pode não estar vinculada corretamente.', 'warning');
-          }
+        }
+
+        await linkFarmToClient(newFarm.id, selectedClient.id);
+        if (user && (user.qualification === 'analista' || user.role === 'admin')) {
+          await linkFarmToAnalyst(newFarm.id, user.id);
         }
       } catch (err) {
         console.error('[FarmManagement] Error saving farm to database:', err);
@@ -741,48 +746,35 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       // Disparar evento para atualizar o FarmSelector
       window.dispatchEvent(new CustomEvent('farmAdded'));
     } else if (editingFarm) {
-      // Atualizar fazenda no banco de dados também
       try {
-        const { error: dbError } = await supabase
+        const updatedFarm: Partial<Farm> = {
+          ...farmData,
+          id: editingFarm.id
+        };
+        const clientIdForDb = selectedClient?.id || editingFarm.clientId || null;
+        const { base, extended } = buildFarmDatabasePayload(updatedFarm, clientIdForDb);
+
+        let { error: dbError } = await supabase
           .from('farms')
-          .upsert({
-            id: editingFarm.id,
-            name: formData.name,
-            country: formData.country,
-            state: formData.state || null,
-            city: formData.city,
-            client_id: selectedClient?.id || editingFarm.clientId || null,
-            total_area: parseNumber(formData.totalArea) || null,
-            pasture_area: parseNumber(formData.pastureArea) || null,
-            agriculture_area: parseNumber(formData.agricultureArea) || null,
-            other_crops: parseNumber(formData.otherCrops) || null,
-            infrastructure: parseNumber(formData.infrastructure) || null,
-            reserve_and_app: parseNumber(formData.reserveAndAPP) || null,
-            property_value: parseInteger(formData.propertyValue) || null,
-            operation_pecuary: parseInteger(formData.operationPecuary) || null,
-            operation_agricultural: parseInteger(formData.operationAgricultural) || null,
-            other_operations: parseInteger(formData.otherOperations) || null,
-            agriculture_variation: formData.agricultureVariation || 0,
-            property_type: formData.propertyType,
-            weight_metric: formData.weightMetric,
-            average_herd: formData.averageHerd ? parseInt(formData.averageHerd.replace(/\./g, ''), 10) : null,
-            herd_value: parseInteger(formData.herdValue) || null,
-            commercializes_genetics: formData.commercializesGenetics,
-            production_system: formData.productionSystem || null
-          }, {
-            onConflict: 'id'
-          });
+          .upsert(extended, { onConflict: 'id' });
+
+        if (dbError && isMissingColumnError(dbError)) {
+          ({ error: dbError } = await supabase
+            .from('farms')
+            .upsert(base, { onConflict: 'id' }));
+        }
 
         if (dbError) {
           console.error('[FarmManagement] Error updating farm in database:', dbError);
-        } else {
-          console.log('[FarmManagement] Farm updated in database successfully');
+          onToast?.('Erro ao atualizar fazenda no banco de dados: ' + dbError.message, 'error');
+          return;
         }
       } catch (err) {
         console.error('[FarmManagement] Error updating farm in database:', err);
+        onToast?.('Erro ao atualizar fazenda no banco de dados', 'error');
+        return;
       }
-      
-      // Disparar evento para atualizar o FarmSelector quando uma fazenda for editada
+
       window.dispatchEvent(new CustomEvent('farmUpdated'));
     }
     
@@ -848,7 +840,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
   const handleEdit = (farm: Farm) => {
     setEditingFarm(farm);
-    setIsCreatingNew(false); // Não está criando, está editando
+    setIsCreatingNew(false);
     setFormData({
       name: farm.name,
       country: farm.country,
@@ -856,15 +848,18 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       city: farm.city,
       totalArea: formatNumberForDisplay(farm.totalArea),
       pastureArea: formatNumberForDisplay(farm.pastureArea),
-      agricultureArea: formatNumberForDisplay(farm.agricultureArea),
+      forageProductionArea: formatNumberForDisplay(farm.forageProductionArea),
+      agricultureAreaOwned: formatNumberForDisplay(farm.agricultureAreaOwned),
+      agricultureAreaLeased: formatNumberForDisplay(farm.agricultureAreaLeased),
       otherCrops: formatNumberForDisplay(farm.otherCrops),
       infrastructure: formatNumberForDisplay(farm.infrastructure),
       reserveAndAPP: formatNumberForDisplay(farm.reserveAndAPP),
+      otherArea: formatNumberForDisplay(farm.otherArea),
       propertyValue: formatIntegerForDisplay(farm.propertyValue),
-      operationPecuary: formatIntegerForDisplay((farm as any).operationPecuary),
-      operationAgricultural: formatIntegerForDisplay((farm as any).operationAgricultural),
-      otherOperations: formatIntegerForDisplay((farm as any).otherOperations),
-      agricultureVariation: (farm as any).agricultureVariation || 0,
+      operationPecuary: formatIntegerForDisplay(farm.operationPecuary),
+      operationAgricultural: formatIntegerForDisplay(farm.operationAgricultural),
+      otherOperations: formatIntegerForDisplay(farm.otherOperations),
+      agricultureVariation: farm.agricultureVariation || 0,
       propertyType: farm.propertyType,
       weightMetric: farm.weightMetric,
       averageHerd: farm.averageHerd ? farm.averageHerd.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '',
@@ -883,10 +878,13 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       city: '',
       totalArea: '',
       pastureArea: '',
-      agricultureArea: '',
+      forageProductionArea: '',
+      agricultureAreaOwned: '',
+      agricultureAreaLeased: '',
       otherCrops: '',
       infrastructure: '',
       reserveAndAPP: '',
+      otherArea: '',
       propertyValue: '',
       operationPecuary: '',
       operationAgricultural: '',
@@ -1045,10 +1043,20 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
             <div className="flex items-start gap-2">
               <span className="text-yellow-600 font-semibold">⚠️ Atenção:</span>
               <div className="flex-1">
-                <p className="text-sm text-yellow-800">
-                  É necessário selecionar um cliente antes de cadastrar uma fazenda. 
-                  Por favor, selecione um cliente no cabeçalho da aplicação.
-                </p>
+                {loadingClientsAvailability ? (
+                  <p className="text-sm text-yellow-800">
+                    Verificando clientes cadastrados...
+                  </p>
+                ) : (availableClientsCount ?? 0) === 0 ? (
+                  <p className="text-sm text-yellow-800">
+                    Aguardando cadastro de clientes. Cadastre um cliente em Cadastro de Clientes para liberar o cadastro de fazendas.
+                  </p>
+                ) : (
+                  <p className="text-sm text-yellow-800">
+                    É necessário selecionar um cliente antes de cadastrar uma fazenda.
+                    Por favor, selecione um cliente no cabeçalho da aplicação.
+                  </p>
+                )}
                 {errors.client && (
                   <p className="text-red-600 text-sm mt-1 font-medium">{errors.client}</p>
                 )}
@@ -1190,7 +1198,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               SOMA TOTAL: {formatNumberForDisplay(calculateTotalAreaSum())} ha
             </p>
           </div>
-          <div className="grid grid-cols-6 gap-2">
+          <div className="grid grid-cols-5 gap-2 mb-2">
             <div>
               <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Área Total</label>
               <input
@@ -1220,17 +1228,48 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Área Agricultura</label>
+              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide flex items-center gap-1">
+                Prod. Volumoso
+                <span title="Área perene de produção de volumoso">
+                  <Info size={12} className="text-ai-subtext cursor-help" />
+                </span>
+              </label>
               <input
                 type="text"
-                value={formData.agricultureArea}
-                onChange={(e) => handleNumericChange('agricultureArea', e.target.value)}
-                onBlur={() => handleNumericBlur('agricultureArea')}
+                value={formData.forageProductionArea}
+                onChange={(e) => handleNumericChange('forageProductionArea', e.target.value)}
+                onBlur={() => handleNumericBlur('forageProductionArea')}
                 placeholder="0,00"
                 inputMode="decimal"
                 className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
               />
             </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Agric. Própria</label>
+              <input
+                type="text"
+                value={formData.agricultureAreaOwned}
+                onChange={(e) => handleNumericChange('agricultureAreaOwned', e.target.value)}
+                onBlur={() => handleNumericBlur('agricultureAreaOwned')}
+                placeholder="0,00"
+                inputMode="decimal"
+                className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Agric. Arrendada</label>
+              <input
+                type="text"
+                value={formData.agricultureAreaLeased}
+                onChange={(e) => handleNumericChange('agricultureAreaLeased', e.target.value)}
+                onBlur={() => handleNumericBlur('agricultureAreaLeased')}
+                placeholder="0,00"
+                inputMode="decimal"
+                className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
             <div>
               <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Outras Culturas</label>
               <input
@@ -1262,6 +1301,18 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 value={formData.reserveAndAPP}
                 onChange={(e) => handleNumericChange('reserveAndAPP', e.target.value)}
                 onBlur={() => handleNumericBlur('reserveAndAPP')}
+                placeholder="0,00"
+                inputMode="decimal"
+                className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Outros</label>
+              <input
+                type="text"
+                value={formData.otherArea}
+                onChange={(e) => handleNumericChange('otherArea', e.target.value)}
+                onBlur={() => handleNumericBlur('otherArea')}
                 placeholder="0,00"
                 inputMode="decimal"
                 className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"

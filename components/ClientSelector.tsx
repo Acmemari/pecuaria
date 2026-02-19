@@ -222,7 +222,7 @@ const ClientSelector: React.FC = () => {
           ) : clients.length === 0 ? (
             <div className="p-4 text-center">
               <p className="text-xs text-ai-subtext">Nenhum cliente cadastrado</p>
-              <p className="text-[10px] text-ai-subtext mt-1">Cadastre clientes em Gestão de Clientes</p>
+              <p className="text-[10px] text-ai-subtext mt-1">Cadastre clientes em Cadastro de Clientes</p>
             </div>
           ) : (
             <div className="py-1">

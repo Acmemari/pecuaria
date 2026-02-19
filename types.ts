@@ -149,15 +149,23 @@ export interface Farm {
   country: string;
   state: string;
   city: string;
-  clientId?: string; // Vinculação ao cliente
+  clientId?: string;
   // Dimensões (em hectares)
   totalArea?: number;
   pastureArea?: number;
-  agricultureArea?: number;
+  forageProductionArea?: number;
+  agricultureAreaOwned?: number;
+  agricultureAreaLeased?: number;
   otherCrops?: number;
   infrastructure?: number;
   reserveAndAPP?: number;
+  otherArea?: number;
   propertyValue?: number;
+  // Valores de operação
+  operationPecuary?: number;
+  operationAgricultural?: number;
+  otherOperations?: number;
+  agricultureVariation?: number;
   // Dados da propriedade
   propertyType: 'Própria' | 'Arrendada';
   weightMetric: 'Arroba (@)' | 'Quilograma (Kg)';
@@ -192,6 +200,17 @@ export interface ClientAnalyst {
   clientId: string;
   analystId: string; // ID do usuário analista
   createdAt: string;
+}
+
+export interface ClientOwner {
+  id: string;
+  clientId: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ============================================================================

@@ -20,17 +20,41 @@ import { Client, Farm } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useFarmOperations } from '../lib/hooks/useFarmOperations';
-import { mapFarmsFromDatabase } from '../lib/utils/farmMapper';
 
 interface ClientManagementProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
+type PhoneCountryOption = {
+  iso: 'BR' | 'PY' | 'UY' | 'BO' | 'CO' | 'AR';
+  code: string;
+  label: string;
+  localLengths: number[];
+};
+
+type OwnerFormRow = {
+  name: string;
+  email: string;
+  phone: string;
+  phoneCountryCode: string;
+};
+
+const PHONE_COUNTRIES: PhoneCountryOption[] = [
+  { iso: 'BR', code: '+55', label: 'BR +55', localLengths: [10, 11] },
+  { iso: 'PY', code: '+595', label: 'PY +595', localLengths: [9] },
+  { iso: 'UY', code: '+598', label: 'UY +598', localLengths: [8] },
+  { iso: 'BO', code: '+591', label: 'BO +591', localLengths: [8] },
+  { iso: 'CO', code: '+57', label: 'CO +57', localLengths: [10] },
+  { iso: 'AR', code: '+54', label: 'AR +54', localLengths: [10] },
+];
+
+const DEFAULT_PHONE_COUNTRY_CODE = '+55';
+
 const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
+  type OwnerFieldError = { email?: string; phone?: string };
   const { user: currentUser } = useAuth();
   const { getClientFarms, deleteFarm } = useFarmOperations();
   const [clients, setClients] = useState<Client[]>([]);
-  const [farms, setFarms] = useState<Farm[]>([]);
   const [analysts, setAnalysts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,12 +68,16 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
-  const [selectedClientFarms, setSelectedClientFarms] = useState<string[]>([]);
+  const [owners, setOwners] = useState<OwnerFormRow[]>([]);
+  const [ownerErrors, setOwnerErrors] = useState<OwnerFieldError[]>([]);
+  const [editingClientFarms, setEditingClientFarms] = useState<Farm[]>([]);
+  const [loadingEditingClientFarms, setLoadingEditingClientFarms] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    phoneCountryCode: DEFAULT_PHONE_COUNTRY_CODE,
     email: '',
     analystId: currentUser?.id || ''
   });
@@ -59,7 +87,6 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
   useEffect(() => {
     if (currentUser && (currentUser.role === 'admin' || currentUser.qualification === 'analista')) {
       loadClients();
-      loadFarms();
       loadAnalysts();
     } else if (currentUser) {
       setError('Acesso negado. Apenas analistas e administradores podem acessar esta página.');
@@ -125,33 +152,6 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
     }
   }, [currentUser]);
 
-  const loadFarms = useCallback(async () => {
-    try {
-      const { data: dbFarms, error: dbError } = await supabase
-        .from('farms')
-        .select('*')
-        .order('name', { ascending: true });
-
-      if (dbError) {
-        console.error('[ClientManagement] Error loading farms from DB:', dbError);
-      }
-
-      if (dbFarms && dbFarms.length > 0) {
-        const convertedFarms = mapFarmsFromDatabase(dbFarms);
-        setFarms(convertedFarms);
-        return;
-      }
-
-      const storedFarms = localStorage.getItem('agro-farms');
-      if (storedFarms) {
-        const parsedFarms = JSON.parse(storedFarms);
-        setFarms(parsedFarms || []);
-      }
-    } catch (err: any) {
-      console.error('[ClientManagement] Error loading farms:', err);
-    }
-  }, []);
-
   const loadAnalysts = async () => {
     try {
       const { data, error: queryError } = await supabase
@@ -193,8 +193,106 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
       errors.analystId = 'Analista responsável é obrigatório';
     }
 
+    if (formData.phone.trim()) {
+      const country = getCountryByCode(formData.phoneCountryCode);
+      const phoneDigits = normalizeLocalDigits(formData.phone, formData.phoneCountryCode);
+      if (!country.localLengths.includes(phoneDigits.length)) {
+        errors.phone = `Telefone inválido para ${country.label}`;
+      }
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  const getCountryByCode = (countryCode: string): PhoneCountryOption => (
+    PHONE_COUNTRIES.find((country) => country.code === countryCode)
+    || PHONE_COUNTRIES.find((country) => country.code === DEFAULT_PHONE_COUNTRY_CODE)!
+  );
+
+  const normalizeLocalDigits = (value: string, countryCode: string): string => {
+    const country = getCountryByCode(countryCode);
+    const digitsOnly = value.replace(/\D/g, '');
+    const countryDigits = countryCode.replace(/\D/g, '');
+    const withoutCode = digitsOnly.startsWith(countryDigits)
+      ? digitsOnly.slice(countryDigits.length)
+      : digitsOnly;
+    const maxLength = Math.max(...country.localLengths);
+    return withoutCode.slice(0, maxLength);
+  };
+
+  const formatLocalPhoneByCountry = (countryCode: string, rawValue: string): string => {
+    const country = getCountryByCode(countryCode);
+    const digits = normalizeLocalDigits(rawValue, countryCode);
+
+    if (country.iso === 'BR') {
+      if (digits.length <= 2) return digits;
+      if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+      if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+      return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    }
+
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+    return `${digits.slice(0, 3)} ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  };
+
+  const composePhoneWithCountry = (countryCode: string, localPhone: string): string | null => {
+    const normalized = formatLocalPhoneByCountry(countryCode, localPhone);
+    const localDigits = normalized.replace(/\D/g, '');
+    if (!localDigits) return null;
+    return `${countryCode} ${normalized}`;
+  };
+
+  const splitPhoneForForm = (rawPhone?: string | null): { countryCode: string; localPhone: string } => {
+    if (!rawPhone?.trim()) {
+      return { countryCode: DEFAULT_PHONE_COUNTRY_CODE, localPhone: '' };
+    }
+
+    const normalized = rawPhone.trim();
+    const byPrefix = PHONE_COUNTRIES.find((country) => normalized.startsWith(`${country.code} `) || normalized.startsWith(country.code));
+    if (byPrefix) {
+      const countryDigits = byPrefix.code.replace(/\D/g, '');
+      const allDigits = normalized.replace(/\D/g, '');
+      const localDigits = allDigits.startsWith(countryDigits) ? allDigits.slice(countryDigits.length) : allDigits;
+      return {
+        countryCode: byPrefix.code,
+        localPhone: formatLocalPhoneByCountry(byPrefix.code, localDigits),
+      };
+    }
+
+    return {
+      countryCode: DEFAULT_PHONE_COUNTRY_CODE,
+      localPhone: formatLocalPhoneByCountry(DEFAULT_PHONE_COUNTRY_CODE, normalized),
+    };
+  };
+
+  const validateOwnerContacts = (): boolean => {
+    const nextErrors: OwnerFieldError[] = owners.map(() => ({}));
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    let hasError = false;
+
+    owners.forEach((owner, idx) => {
+      const email = owner.email.trim();
+      const country = getCountryByCode(owner.phoneCountryCode);
+      const phoneDigits = normalizeLocalDigits(owner.phone, owner.phoneCountryCode);
+      const hasContent = owner.name.trim() || email || phoneDigits;
+
+      if (!hasContent) return;
+
+      if (email && !emailRegex.test(email)) {
+        nextErrors[idx].email = 'Informe um e-mail válido';
+        hasError = true;
+      }
+
+      if (phoneDigits && !country.localLengths.includes(phoneDigits.length)) {
+        nextErrors[idx].phone = `Telefone inválido para ${country.label}`;
+        hasError = true;
+      }
+    });
+
+    setOwnerErrors(nextErrors);
+    return !hasError;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -217,6 +315,11 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
       return;
     }
 
+    if (!validateOwnerContacts()) {
+      onToast?.('Corrija os contatos dos proprietários gestores (e-mail/telefone).', 'error');
+      return;
+    }
+
     setIsSaving(true);
 
     try {
@@ -226,7 +329,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
           .from('clients')
           .update({
             name: formData.name.trim(),
-            phone: formData.phone.trim() || null,
+            phone: composePhoneWithCountry(formData.phoneCountryCode, formData.phone),
             email: formData.email.trim(),
             analyst_id: formData.analystId,
             updated_at: new Date().toISOString()
@@ -239,8 +342,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
           throw updateError;
         }
 
-        // Update client-farm relationships
-        await updateClientFarms(editingClient.id);
+        await saveClientOwners(editingClient.id);
 
         onToast?.('Cliente atualizado com sucesso!', 'success');
       } else {
@@ -249,7 +351,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
           .from('clients')
           .insert({
             name: formData.name.trim(),
-            phone: formData.phone.trim() || null,
+            phone: composePhoneWithCountry(formData.phoneCountryCode, formData.phone),
             email: formData.email.trim(),
             analyst_id: formData.analystId
           })
@@ -260,9 +362,8 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
           throw insertError;
         }
 
-        // Create client-farm relationships
-        if (data && selectedClientFarms.length > 0) {
-          await updateClientFarms(data.id);
+        if (data) {
+          await saveClientOwners(data.id);
         }
 
         onToast?.('Cliente cadastrado com sucesso!', 'success');
@@ -287,60 +388,79 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
     }
   };
 
-  const updateClientFarms = async (clientId: string) => {
-    try {
-      // Get current client farms
-      const { data: currentFarms } = await supabase
-        .from('client_farms')
-        .select('farm_id')
-        .eq('client_id', clientId);
+  const saveClientOwners = async (clientId: string) => {
+    const { error: deleteError } = await supabase
+      .from('client_owners')
+      .delete()
+      .eq('client_id', clientId);
 
-      const currentFarmIds = (currentFarms || []).map(cf => cf.farm_id);
+    if (deleteError) {
+      throw new Error(`Erro ao limpar gestores: ${deleteError.message}`);
+    }
 
-      // Remove farms that are no longer selected
-      const farmsToRemove = currentFarmIds.filter(id => !selectedClientFarms.includes(id));
-      if (farmsToRemove.length > 0) {
-        await supabase
-          .from('client_farms')
-          .delete()
-          .eq('client_id', clientId)
-          .in('farm_id', farmsToRemove);
+    const validOwners = owners.filter(o => o.name.trim());
+    if (validOwners.length > 0) {
+      const { error: insertError } = await supabase
+        .from('client_owners')
+        .insert(
+          validOwners.map((o, i) => ({
+            client_id: clientId,
+            name: o.name.trim(),
+            email: o.email.trim().toLowerCase() || null,
+            phone: composePhoneWithCountry(o.phoneCountryCode, o.phone),
+            sort_order: i,
+          }))
+        );
+
+      if (insertError) {
+        throw new Error(`Erro ao salvar gestores: ${insertError.message}`);
       }
-
-      // Add new farms
-      const farmsToAdd = selectedClientFarms.filter(id => !currentFarmIds.includes(id));
-      if (farmsToAdd.length > 0) {
-        await supabase
-          .from('client_farms')
-          .insert(
-            farmsToAdd.map(farmId => ({
-              client_id: clientId,
-              farm_id: farmId
-            }))
-          );
-      }
-    } catch (err: any) {
-      console.error('[ClientManagement] Error updating client farms:', err);
     }
   };
 
   const handleEdit = async (client: Client) => {
+    const clientPhoneParts = splitPhoneForForm(client.phone || '');
     setEditingClient(client);
     setFormData({
       name: client.name,
-      phone: client.phone || '',
+      phone: clientPhoneParts.localPhone,
+      phoneCountryCode: clientPhoneParts.countryCode,
       email: client.email,
       analystId: client.analystId
     });
-
-    // Load client farms
-    const { data } = await supabase
-      .from('client_farms')
-      .select('farm_id')
-      .eq('client_id', client.id);
-
-    setSelectedClientFarms((data || []).map(cf => cf.farm_id));
     setView('form');
+
+    setLoadingEditingClientFarms(true);
+    setEditingClientFarms([]);
+
+    try {
+      const [{ data: ownersResult }, farmsResult] = await Promise.all([
+        supabase
+          .from('client_owners')
+          .select('name, email, phone, sort_order')
+          .eq('client_id', client.id)
+          .order('sort_order', { ascending: true }),
+        getClientFarms(client.id)
+      ]);
+
+      setOwners(
+        (ownersResult || []).map(o => ({
+          name: o.name || '',
+          email: o.email || '',
+          phone: splitPhoneForForm(o.phone || '').localPhone,
+          phoneCountryCode: splitPhoneForForm(o.phone || '').countryCode,
+        }))
+      );
+      setOwnerErrors(Array((ownersResult || []).length).fill({}));
+      setEditingClientFarms(farmsResult || []);
+    } catch (err) {
+      console.error('[ClientManagement] Error loading client details:', err);
+      setOwners([]);
+      setOwnerErrors([]);
+      setEditingClientFarms([]);
+    } finally {
+      setLoadingEditingClientFarms(false);
+    }
   };
 
   const handleDelete = useCallback(async (clientId: string) => {
@@ -411,12 +531,16 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
     setFormData({
       name: '',
       phone: '',
+      phoneCountryCode: DEFAULT_PHONE_COUNTRY_CODE,
       email: '',
       analystId: currentUser?.id || ''
     });
     setFormErrors({});
     setEditingClient(null);
-    setSelectedClientFarms([]);
+    setOwners([]);
+    setOwnerErrors([]);
+    setEditingClientFarms([]);
+    setLoadingEditingClientFarms(false);
   };
 
   const handleCancel = () => {
@@ -498,10 +622,10 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Nome */}
+              {/* Nome do Cliente / Grupo Econômico */}
               <div data-error={formErrors.name ? 'true' : undefined}>
                 <label className="block text-sm font-medium text-ai-text mb-2">
-                  Nome do Cliente <span className="text-ai-error">*</span>
+                  Nome do Cliente / Grupo Econômico <span className="text-ai-error">*</span>
                 </label>
                 <input
                   type="text"
@@ -512,29 +636,55 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
                   }`}
                   placeholder="Digite o nome do cliente"
                 />
+                <p className="mt-1 text-xs text-ai-subtext">
+                  Nome do Cliente, Agropecuária ou Grupo Econômico
+                </p>
                 {formErrors.name && (
                   <p className="mt-1 text-sm text-ai-error">{formErrors.name}</p>
                 )}
               </div>
 
-              {/* Telefone */}
-              <div>
+              {/* Telefone do Contato Administrativo */}
+              <div data-error={formErrors.phone ? 'true' : undefined}>
                 <label className="block text-sm font-medium text-ai-text mb-2">
-                  Telefone
+                  Telefone do Contato Administrativo
                 </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-4 py-2 bg-ai-surface2 border border-ai-border rounded-md text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
-                  placeholder="(00) 00000-0000"
-                />
+                <div className="grid grid-cols-[120px_1fr] gap-2">
+                  <select
+                    value={formData.phoneCountryCode}
+                    onChange={(e) => {
+                      const nextCode = e.target.value;
+                      setFormData({
+                        ...formData,
+                        phoneCountryCode: nextCode,
+                        phone: formatLocalPhoneByCountry(nextCode, formData.phone),
+                      });
+                    }}
+                    className="w-full px-3 py-2 bg-ai-surface2 border border-ai-border rounded-md text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent text-sm"
+                  >
+                    {PHONE_COUNTRIES.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: formatLocalPhoneByCountry(formData.phoneCountryCode, e.target.value) })}
+                    className="w-full px-4 py-2 bg-ai-surface2 border border-ai-border rounded-md text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+                {formErrors.phone && (
+                  <p className="mt-1 text-sm text-ai-error">{formErrors.phone}</p>
+                )}
               </div>
 
-              {/* Email */}
+              {/* E-mail do Contato Administrativo */}
               <div data-error={formErrors.email ? 'true' : undefined}>
                 <label className="block text-sm font-medium text-ai-text mb-2">
-                  Email <span className="text-ai-error">*</span>
+                  E-mail do Contato Administrativo <span className="text-ai-error">*</span>
                 </label>
                 <input
                   type="email"
@@ -549,6 +699,175 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
                   <p className="mt-1 text-sm text-ai-error">{formErrors.email}</p>
                 )}
               </div>
+
+              {/* Proprietário(s) Gestores */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-ai-text">
+                    Proprietário(s) Gestores
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOwners([...owners, { name: '', email: '', phone: '', phoneCountryCode: DEFAULT_PHONE_COUNTRY_CODE }]);
+                      setOwnerErrors([...ownerErrors, {}]);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-ai-border text-ai-subtext hover:text-ai-text text-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Adicionar
+                  </button>
+                </div>
+                <p className="text-xs text-ai-subtext mb-3">
+                  Nome dos sócios gestores relacionados com a operação
+                </p>
+                {owners.length === 0 ? (
+                  <div className="border border-dashed border-ai-border rounded-md p-4 text-center">
+                    <p className="text-xs text-ai-subtext">Nenhum proprietário gestor cadastrado.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOwners([{ name: '', email: '', phone: '', phoneCountryCode: DEFAULT_PHONE_COUNTRY_CODE }]);
+                        setOwnerErrors([{}]);
+                      }}
+                      className="mt-2 text-xs text-ai-accent hover:underline"
+                    >
+                      Adicionar primeiro proprietário
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {owners.map((owner, idx) => (
+                      <div key={`owner-${idx}`} className="rounded-lg border border-ai-border bg-ai-surface2 p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-ai-subtext">Proprietário {idx + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOwners(owners.filter((_, i) => i !== idx));
+                              setOwnerErrors(ownerErrors.filter((_, i) => i !== idx));
+                            }}
+                            className="p-1 rounded text-red-500 hover:bg-red-50"
+                            title="Remover proprietário"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            value={owner.name}
+                            onChange={(e) => {
+                              const next = [...owners];
+                              next[idx] = { ...next[idx], name: e.target.value };
+                              setOwners(next);
+                            }}
+                            className="w-full px-3 py-2 bg-ai-bg border border-ai-border rounded-md text-ai-text text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                            placeholder="Nome"
+                          />
+                          <input
+                            type="email"
+                            value={owner.email}
+                            onChange={(e) => {
+                              const next = [...owners];
+                              next[idx] = {
+                                ...next[idx],
+                                email: e.target.value.replace(/\s+/g, '').toLowerCase(),
+                              };
+                              setOwners(next);
+                              const nextOwnerErrors = [...ownerErrors];
+                              nextOwnerErrors[idx] = { ...nextOwnerErrors[idx], email: undefined };
+                              setOwnerErrors(nextOwnerErrors);
+                            }}
+                            className="w-full px-3 py-2 bg-ai-bg border border-ai-border rounded-md text-ai-text text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                            placeholder="nome@dominio.com"
+                          />
+                          {ownerErrors[idx]?.email && (
+                            <p className="text-xs text-ai-error">{ownerErrors[idx]?.email}</p>
+                          )}
+                          <div className="grid grid-cols-[96px_1fr] gap-2">
+                            <select
+                              value={owner.phoneCountryCode}
+                              onChange={(e) => {
+                                const next = [...owners];
+                                const nextCode = e.target.value;
+                                next[idx] = {
+                                  ...next[idx],
+                                  phoneCountryCode: nextCode,
+                                  phone: formatLocalPhoneByCountry(nextCode, next[idx].phone),
+                                };
+                                setOwners(next);
+                                const nextOwnerErrors = [...ownerErrors];
+                                nextOwnerErrors[idx] = { ...nextOwnerErrors[idx], phone: undefined };
+                                setOwnerErrors(nextOwnerErrors);
+                              }}
+                              className="w-full px-2 py-2 bg-ai-bg border border-ai-border rounded-md text-ai-text text-xs focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                            >
+                              {PHONE_COUNTRIES.map((country) => (
+                                <option key={country.code} value={country.code}>
+                                  {country.iso} {country.code}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="tel"
+                              value={owner.phone}
+                              onChange={(e) => {
+                                const next = [...owners];
+                                next[idx] = { ...next[idx], phone: formatLocalPhoneByCountry(next[idx].phoneCountryCode, e.target.value) };
+                                setOwners(next);
+                                const nextOwnerErrors = [...ownerErrors];
+                                nextOwnerErrors[idx] = { ...nextOwnerErrors[idx], phone: undefined };
+                                setOwnerErrors(nextOwnerErrors);
+                              }}
+                              className="w-full px-3 py-2 bg-ai-bg border border-ai-border rounded-md text-ai-text text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent"
+                              placeholder="(00) 00000-0000"
+                            />
+                          </div>
+                          {ownerErrors[idx]?.phone && (
+                            <p className="text-xs text-ai-error">{ownerErrors[idx]?.phone}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {editingClient && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Building2 className="w-4 h-4 text-ai-subtext" />
+                    <label className="block text-sm font-medium text-ai-text">
+                      Fazendas cadastradas para este cliente
+                    </label>
+                  </div>
+                  {loadingEditingClientFarms ? (
+                    <div className="border border-ai-border rounded-md p-4 flex items-center gap-2 text-ai-subtext text-sm">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Carregando fazendas...</span>
+                    </div>
+                  ) : editingClientFarms.length === 0 ? (
+                    <div className="border border-dashed border-ai-border rounded-md p-4 text-center">
+                      <p className="text-xs text-ai-subtext">Nenhuma fazenda cadastrada para este cliente.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {editingClientFarms.map((farm) => (
+                        <div
+                          key={farm.id}
+                          className="rounded-md border border-ai-border bg-ai-surface2 px-3 py-2"
+                        >
+                          <p className="text-sm font-medium text-ai-text">{farm.name}</p>
+                          <p className="text-xs text-ai-subtext">
+                            {farm.city}, {farm.state || farm.country}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Analista Responsável */}
               <div
@@ -580,48 +899,6 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
                 {currentUser.role !== 'admin' && (
                   <p className="mt-1 text-xs text-ai-subtext">
                     Você será automaticamente vinculado como analista responsável
-                  </p>
-                )}
-              </div>
-
-              {/* Fazendas Vinculadas */}
-              <div>
-                <label className="block text-sm font-medium text-ai-text mb-2">
-                  Fazendas Vinculadas
-                </label>
-                <div className="max-h-48 overflow-y-auto border border-ai-border rounded-md p-3 bg-ai-surface2">
-                  {farms.length === 0 ? (
-                    <div className="text-sm text-ai-subtext space-y-1">
-                      <p>Nenhuma fazenda disponível para vinculação.</p>
-                      <p className="text-xs">Cadastre fazendas na área de "Cadastro de Fazendas" para poder vinculá-las aos clientes.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {farms.map(farm => (
-                        <label key={farm.id} className="flex items-center space-x-2 cursor-pointer hover:bg-ai-surface p-2 rounded">
-                          <input
-                            type="checkbox"
-                            checked={selectedClientFarms.includes(farm.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedClientFarms([...selectedClientFarms, farm.id]);
-                              } else {
-                                setSelectedClientFarms(selectedClientFarms.filter(id => id !== farm.id));
-                              }
-                            }}
-                            className="w-4 h-4 text-ai-accent rounded focus:ring-ai-accent"
-                          />
-                          <span className="text-sm text-ai-text">
-                            {farm.name} - {farm.city}, {farm.state || farm.country}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {farms.length > 0 && (
-                  <p className="mt-1 text-xs text-ai-subtext">
-                    Selecione as fazendas que pertencem a este cliente
                   </p>
                 )}
               </div>
@@ -726,6 +1003,9 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
                         Analista
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-ai-subtext uppercase tracking-wider">
+                        Gestores
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-ai-subtext uppercase tracking-wider">
                         Fazendas
                       </th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-ai-subtext uppercase tracking-wider">
@@ -771,6 +1051,7 @@ const ClientRow: React.FC<ClientRowProps> = ({
   getClientFarms
 }) => {
   const [farmsCount, setFarmsCount] = useState<number | null>(null);
+  const [ownersCount, setOwnersCount] = useState<number | null>(null);
   const [loadingFarms, setLoadingFarms] = useState(false);
   const [showFarmsModal, setShowFarmsModal] = useState(false);
   const [clientFarmsList, setClientFarmsList] = useState<Farm[]>([]);
@@ -778,7 +1059,20 @@ const ClientRow: React.FC<ClientRowProps> = ({
 
   useEffect(() => {
     loadFarmsCount();
+    loadOwnersCount();
   }, [client.id]);
+
+  const loadOwnersCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('client_owners')
+        .select('*', { count: 'exact', head: true })
+        .eq('client_id', client.id);
+      if (!error) setOwnersCount(count ?? 0);
+    } catch {
+      setOwnersCount(0);
+    }
+  };
 
   const loadFarmsCount = async () => {
     setLoadingFarms(true);
@@ -864,6 +1158,12 @@ const ClientRow: React.FC<ClientRowProps> = ({
           </div>
         </td>
         <td className="px-6 py-4">
+          <div className="flex items-center space-x-1 text-sm text-ai-text">
+            <Users className="w-4 h-4 text-ai-subtext" />
+            <span>{ownersCount ?? 0}</span>
+          </div>
+        </td>
+        <td className="px-6 py-4">
           {loadingFarms ? (
             <Loader2 className="w-4 h-4 animate-spin text-ai-accent" />
           ) : (
@@ -910,7 +1210,7 @@ const ClientRow: React.FC<ClientRowProps> = ({
       {/* Modal de Fazendas */}
       {showFarmsModal && (
         <tr>
-          <td colSpan={5} className="p-0">
+          <td colSpan={6} className="p-0">
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowFarmsModal(false)}>
               <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 <div className="p-6 border-b border-ai-border flex items-center justify-between">

@@ -1,10 +1,5 @@
 import { Farm } from '../../types';
 
-/**
- * Converte dados da fazenda do formato do banco (snake_case) para o formato da aplicação (camelCase)
- * @param dbFarm Dados da fazenda do banco de dados
- * @returns Farm object no formato da aplicação
- */
 export function mapFarmFromDatabase(dbFarm: any): Farm {
   return {
     id: dbFarm.id,
@@ -15,64 +10,87 @@ export function mapFarmFromDatabase(dbFarm: any): Farm {
     clientId: dbFarm.client_id,
     totalArea: dbFarm.total_area,
     pastureArea: dbFarm.pasture_area,
-    agricultureArea: dbFarm.agriculture_area,
+    forageProductionArea: dbFarm.forage_production_area,
+    agricultureAreaOwned: dbFarm.agriculture_area_owned ?? dbFarm.agriculture_area,
+    agricultureAreaLeased: dbFarm.agriculture_area_leased,
     otherCrops: dbFarm.other_crops,
     infrastructure: dbFarm.infrastructure,
     reserveAndAPP: dbFarm.reserve_and_app,
+    otherArea: dbFarm.other_area,
     propertyValue: dbFarm.property_value,
     operationPecuary: dbFarm.operation_pecuary,
     operationAgricultural: dbFarm.operation_agricultural,
     otherOperations: dbFarm.other_operations,
     agricultureVariation: dbFarm.agriculture_variation,
-    propertyType: dbFarm.property_type as 'Própria' | 'Arrendada',
-    weightMetric: dbFarm.weight_metric as 'Arroba (@)' | 'Quilograma (Kg)',
+    propertyType: dbFarm.property_type as Farm['propertyType'],
+    weightMetric: dbFarm.weight_metric as Farm['weightMetric'],
     averageHerd: dbFarm.average_herd,
     herdValue: dbFarm.herd_value,
     commercializesGenetics: dbFarm.commercializes_genetics || false,
-    productionSystem: dbFarm.production_system as 'Cria' | 'Recria-Engorda' | 'Ciclo Completo',
+    productionSystem: dbFarm.production_system as Farm['productionSystem'],
     createdAt: dbFarm.created_at || new Date().toISOString(),
     updatedAt: dbFarm.updated_at || new Date().toISOString()
   };
 }
 
+export function mapFarmsFromDatabase(dbFarms: any[]): Farm[] {
+  return dbFarms.map(mapFarmFromDatabase);
+}
+
 /**
- * Converte dados da fazenda do formato da aplicação para o formato do banco
- * @param farm Farm object no formato da aplicação
- * @returns Objeto no formato do banco de dados
+ * Monta o payload para insert/upsert no banco.
+ * Retorna { base, extended } onde:
+ *   - base: campos que existem na tabela original (compatibilidade)
+ *   - extended: base + colunas novas (dimensões v2)
  */
-export function mapFarmToDatabase(farm: Partial<Farm>) {
-  return {
+export function buildFarmDatabasePayload(
+  farm: Partial<Farm>,
+  clientId?: string | null
+) {
+  const agricultureTotal =
+    ((farm.agricultureAreaOwned || 0) + (farm.agricultureAreaLeased || 0)) || null;
+
+  const base: Record<string, unknown> = {
     id: farm.id,
     name: farm.name,
     country: farm.country,
     state: farm.state || null,
     city: farm.city,
-    client_id: farm.clientId || null,
-    total_area: farm.totalArea || null,
-    pasture_area: farm.pastureArea || null,
-    agriculture_area: farm.agricultureArea || null,
-    other_crops: farm.otherCrops || null,
-    infrastructure: farm.infrastructure || null,
-    reserve_and_app: farm.reserveAndAPP || null,
-    property_value: farm.propertyValue || null,
-    operation_pecuary: (farm as any).operationPecuary || null,
-    operation_agricultural: (farm as any).operationAgricultural || null,
-    other_operations: (farm as any).otherOperations || null,
-    agriculture_variation: (farm as any).agricultureVariation || 0,
+    client_id: clientId ?? farm.clientId ?? null,
+    total_area: farm.totalArea ?? null,
+    pasture_area: farm.pastureArea ?? null,
+    agriculture_area: agricultureTotal,
+    other_crops: farm.otherCrops ?? null,
+    infrastructure: farm.infrastructure ?? null,
+    reserve_and_app: farm.reserveAndAPP ?? null,
+    property_value: farm.propertyValue ?? null,
+    operation_pecuary: farm.operationPecuary ?? null,
+    operation_agricultural: farm.operationAgricultural ?? null,
+    other_operations: farm.otherOperations ?? null,
+    agriculture_variation: farm.agricultureVariation ?? 0,
     property_type: farm.propertyType,
     weight_metric: farm.weightMetric,
-    average_herd: farm.averageHerd || null,
-    herd_value: farm.herdValue || null,
-    commercializes_genetics: farm.commercializesGenetics,
+    average_herd: farm.averageHerd ?? null,
+    herd_value: farm.herdValue ?? null,
+    commercializes_genetics: farm.commercializesGenetics ?? false,
     production_system: farm.productionSystem || null
   };
+
+  const extended: Record<string, unknown> = {
+    ...base,
+    forage_production_area: farm.forageProductionArea ?? null,
+    agriculture_area_owned: farm.agricultureAreaOwned ?? null,
+    agriculture_area_leased: farm.agricultureAreaLeased ?? null,
+    other_area: farm.otherArea ?? null
+  };
+
+  return { base, extended };
 }
 
-/**
- * Converte array de fazendas do banco para o formato da aplicação
- * @param dbFarms Array de fazendas do banco
- * @returns Array de Farm objects
- */
-export function mapFarmsFromDatabase(dbFarms: any[]): Farm[] {
-  return dbFarms.map(mapFarmFromDatabase);
+export function isMissingColumnError(error: any): boolean {
+  const msg = String(error?.message || '').toLowerCase();
+  return (
+    msg.includes("in the schema cache") ||
+    (msg.includes("could not find the '") && msg.includes("' column"))
+  );
 }

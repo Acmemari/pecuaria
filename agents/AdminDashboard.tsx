@@ -516,7 +516,7 @@ const AdminDashboard: React.FC = () => {
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                   <p className="text-xs text-amber-800">
                     <strong>Clientes</strong> devem ser vinculados a um analista na tela de
-                    <strong> Gestão de Clientes</strong>. O vínculo com empresa é opcional.
+                    <strong> Cadastro de Clientes</strong>. O vínculo com empresa é opcional.
                   </p>
                 </div>
               )}

@@ -1,8 +1,8 @@
 import React from 'react';
-import { Building2, Users, UserCircle, Package, FolderOpen } from 'lucide-react';
+import { Building2, Users, UserCircle, ClipboardList, TrendingUp } from 'lucide-react';
 
 interface CadastroCardProps {
-  title: string;
+  title: React.ReactNode;
   description: string;
   icon: React.ReactNode;
   onClick: () => void;
@@ -31,12 +31,25 @@ const CadastroCard: React.FC<CadastroCardProps> = ({
   </button>
 );
 
+const CadastroTitle: React.FC<{ entity: string }> = ({ entity }) => (
+  <div className="flex flex-col items-start text-left">
+    <span className="text-[0.6rem] font-medium text-gray-400">cadastro de</span>
+    <span className="text-lg font-bold text-gray-900">{entity}</span>
+  </div>
+);
+
+const ProgramWorkIcon: React.FC = () => (
+  <div className="relative w-6 h-6">
+    <ClipboardList size={24} className="text-gray-500" />
+    <TrendingUp size={14} className="text-gray-700 absolute -right-1 -bottom-1" />
+  </div>
+);
+
 interface CadastrosDesktopProps {
   onSelectProjeto?: () => void;
   onSelectFazendas: () => void;
   onSelectClientes?: () => void;
   onSelectPessoas: () => void;
-  onSelectEntregas: () => void;
   showClientes?: boolean;
 }
 
@@ -45,51 +58,14 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
   onSelectFazendas,
   onSelectClientes,
   onSelectPessoas,
-  onSelectEntregas,
   showClientes = false,
 }) => {
   const cards = [
-    ...(onSelectProjeto
-      ? [
-          {
-            id: 'projeto',
-            title: 'Cadastro de Projeto',
-            description:
-              'Gerencie projetos, defina transformações esperadas, stakeholders e vincule entregas.',
-            icon: <FolderOpen size={24} />,
-            onClick: onSelectProjeto,
-          },
-        ]
-      : []),
-    {
-      id: 'fazendas',
-      title: 'Cadastro de Fazendas',
-      description:
-        'Gerencie propriedades rurais, dados da fazenda e configurações por cliente.',
-      icon: <Building2 size={24} />,
-      onClick: onSelectFazendas,
-    },
-    {
-      id: 'pessoas',
-      title: 'Cadastro de Pessoas',
-      description:
-        'Colaboradores, consultores, fornecedores e clientes familiares.',
-      icon: <UserCircle size={24} />,
-      onClick: onSelectPessoas,
-    },
-    {
-      id: 'entregas',
-      title: 'Cadastro de Entregas',
-      description:
-        'Cadastre entregas para vincular nas iniciativas de gestão do projeto.',
-      icon: <Package size={24} />,
-      onClick: onSelectEntregas,
-    },
     ...(showClientes && onSelectClientes
       ? [
           {
             id: 'clientes',
-            title: 'Gestão de Clientes',
+            title: <CadastroTitle entity="Clientes" />,
             description:
               'Cadastre e gerencie clientes, vinculando fazendas e acompanhando o relacionamento.',
             icon: <Users size={24} />,
@@ -97,6 +73,34 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
           },
         ]
       : []),
+    {
+      id: 'fazendas',
+      title: <CadastroTitle entity="Fazendas" />,
+      description:
+        'Gerencie propriedades rurais, dados da fazenda e configurações por cliente.',
+      icon: <Building2 size={24} />,
+      onClick: onSelectFazendas,
+    },
+    ...(onSelectProjeto
+      ? [
+          {
+            id: 'projeto',
+            title: <CadastroTitle entity="Programa de Trabalho" />,
+            description:
+              'Gerencie programas de trabalho, defina transformações esperadas, stakeholders e organize entregas, atividades e tarefas.',
+            icon: <ProgramWorkIcon />,
+            onClick: onSelectProjeto,
+          },
+        ]
+      : []),
+    {
+      id: 'pessoas',
+      title: <CadastroTitle entity="Pessoas" />,
+      description:
+        'Colaboradores, consultores, fornecedores e clientes familiares.',
+      icon: <UserCircle size={24} />,
+      onClick: onSelectPessoas,
+    },
   ];
 
   return (
@@ -106,7 +110,7 @@ const CadastrosDesktop: React.FC<CadastrosDesktopProps> = ({
           Cadastros
         </h1>
         <p className="text-sm text-gray-500 max-w-2xl">
-          Escolha um bloco para gerenciar fazendas, clientes e pessoas.
+          Escolha um bloco para um novo cadastro
         </p>
       </header>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

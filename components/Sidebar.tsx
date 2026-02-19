@@ -25,7 +25,8 @@ import {
   Calendar,
   BrainCircuit,
   HelpCircle,
-  Bot
+  Bot,
+  ClipboardList,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -44,6 +45,7 @@ const INICIATIVAS_ATIVIDADES_ID = 'iniciativas-atividades';
 const PROJECT_STRUCTURE_ID = 'project-structure';
 const isIniciativasView = (id: string) =>
   id === INICIATIVAS_OVERVIEW_ID || id === INICIATIVAS_ATIVIDADES_ID || id === PROJECT_STRUCTURE_ID;
+
 
 interface Questionnaire {
   id: string;
@@ -154,7 +156,32 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
           </div>
 
           <nav className="space-y-0.5 px-2">
-            {/* Gestão do Projeto (menu retrátil: Visão Geral + Atividades) */}
+            {/* Cadastros - sempre primeiro */}
+            {agents.filter((a) => a.id === 'cadastros').map((agent) => {
+              const isActive = activeAgentId === agent.id;
+              const isLocked = agent.status !== 'active';
+              return (
+                <div key={agent.id} className="space-y-0.5 mb-1">
+                  <button
+                    onClick={() => !isLocked && onSelectAgent(agent.id)}
+                    disabled={isLocked}
+                    className={`
+                      w-full flex items-center px-3 py-2 rounded-md transition-all relative group
+                      ${isActive ? 'bg-ai-accent/10 text-ai-accent' : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'}
+                      ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                    `}
+                    title={agent.name}
+                  >
+                    <div className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}>
+                      <ClipboardList size={16} />
+                    </div>
+                    <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
+                    {isLocked && <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />}
+                  </button>
+                </div>
+              );
+            })}
+            {/* Gestão do Programa (menu retrátil: Visão Geral + Atividades) */}
             <div className="space-y-0.5 mb-1">
               <button
                 type="button"
@@ -163,11 +190,11 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                   ? 'bg-ai-accent/5 text-ai-accent'
                   : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                   }`}
-                title="Gestão do Projeto"
+                title="Gestão do Programa"
               >
                 <div className="flex items-center">
                   <FolderOpen size={16} className="flex-shrink-0 text-ai-subtext group-hover:text-ai-text" />
-                  <span className="ml-3 text-sm font-medium block truncate">Gestão do Projeto</span>
+                  <span className="ml-3 text-sm font-medium block truncate">Gestão do Programa</span>
                 </div>
                 <ChevronDown
                   size={14}
@@ -213,7 +240,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
               )}
             </div>
 
-            {agents.map((agent, index) => {
+            {agents.filter((a) => a.id !== 'cadastros').map((agent) => {
               const isActive = activeAgentId === agent.id;
               const isLocked = agent.status !== 'active';
 

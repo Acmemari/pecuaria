@@ -185,7 +185,7 @@ const AppContent: React.FC = () => {
 
       const clientManagement: Agent = {
         id: 'client-management',
-        name: 'Gestão de Clientes',
+        name: 'Cadastro de Clientes',
         description: 'Cadastrar e gerenciar clientes',
         icon: 'users',
         category: 'admin',
@@ -467,6 +467,7 @@ const AppContent: React.FC = () => {
   const isIniciativasAtividades = activeAgentId === 'iniciativas-atividades';
   const isProjectStructure = activeAgentId === 'project-structure';
   const isCalendar = activeAgentId === 'calendar';
+  const isProgramaCadastro = activeAgentId === 'cadastros' && cadastroView === 'project';
   const headerTitle = isIniciativasOverview
     ? 'Visão Geral'
     : isIniciativasAtividades
@@ -475,6 +476,8 @@ const AppContent: React.FC = () => {
         ? 'Estrutura do Projeto'
         : isCalendar
           ? 'Calendário'
+          : isProgramaCadastro
+            ? 'Programa de Trabalho'
           : activeAgent?.name;
 
   const renderContent = () => {
@@ -601,7 +604,6 @@ const AppContent: React.FC = () => {
                 onSelectFazendas={() => setCadastroView('farm')}
                 onSelectClientes={() => setCadastroView('client')}
                 onSelectPessoas={() => setCadastroView('people')}
-                onSelectEntregas={() => setCadastroView('delivery')}
                 showClientes={user?.role === 'admin' || user?.qualification === 'analista'}
               />
             </Suspense>
