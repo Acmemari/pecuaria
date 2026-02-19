@@ -57,7 +57,7 @@ const AppContent: React.FC = () => {
   const { country } = useLocation();
   const { selectedFarm, setSelectedFarm } = useFarm();
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
-  const [viewMode, setViewMode] = useState<'desktop' | 'simulator' | 'comparator' | 'agile-planning'>('desktop');
+  const [viewMode, setViewMode] = useState<'desktop' | 'simulator' | 'comparator' | 'agile-planning' | 'avaliacao-protocolo'>('desktop');
   const [cadastroView, setCadastroView] = useState<'desktop' | 'farm' | 'client' | 'people' | 'delivery' | 'project'>('desktop');
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
@@ -131,9 +131,13 @@ const AppContent: React.FC = () => {
     };
   }, []);
 
-  const addToast = (toast: Toast) => {
+  const addToast = React.useCallback((toast: Toast) => {
     setToasts(prev => [...prev, toast]);
-  };
+  }, []);
+
+  const handleToast = React.useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    addToast({ id: Date.now().toString(), message, type });
+  }, [addToast]);
 
   const removeToast = (id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
@@ -158,20 +162,11 @@ const AppContent: React.FC = () => {
 
       const cattleProfit: Agent = {
         id: 'cattle-profit',
-        name: 'Assistente',
+        name: 'Assistentes',
         description: 'Análise econômica completa.',
         icon: 'bot',
         category: 'financeiro',
         status: checkPermission('Calculadora') ? 'active' : 'locked'
-      };
-
-      const questionnairesAgent: Agent = {
-        id: 'questionnaires',
-        name: 'Questionários',
-        description: 'Questionários de avaliação',
-        icon: 'file-check',
-        category: 'zootecnico',
-        status: 'active'
       };
 
       const clientDocuments: Agent = {
@@ -282,10 +277,7 @@ const AppContent: React.FC = () => {
       // 2. Assistente (inclui Rentabilidade na Engorda, Comparador e Planejamento Ágil)
       orderedList.push(cattleProfit);
 
-      // 3. Questionários
-      orderedList.push(questionnairesAgent);
-
-      // 4. Documentos
+      // 3. Documentos
       orderedList.push(clientDocuments);
 
       // 8. Calendário
@@ -320,7 +312,7 @@ const AppContent: React.FC = () => {
         },
         {
           id: 'cattle-profit',
-          name: 'Assistente',
+          name: 'Assistentes',
           description: 'Análise econômica completa.',
           icon: 'bot',
           category: 'financeiro',
@@ -393,7 +385,7 @@ const AppContent: React.FC = () => {
         </div>
       }>
         <ResetPasswordPage
-          onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+          onToast={handleToast}
           onSuccess={() => clearPasswordRecovery()}
         />
       </Suspense>
@@ -410,7 +402,7 @@ const AppContent: React.FC = () => {
           </div>
         }>
           <ForgotPasswordPage
-            onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+            onToast={handleToast}
             onBack={() => setAuthPage('login')}
           />
         </Suspense>
@@ -420,7 +412,7 @@ const AppContent: React.FC = () => {
 
     return (
       <LoginPage
-        onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+        onToast={handleToast}
         onForgotPassword={() => setAuthPage('forgot-password')}
       />
     );
@@ -442,7 +434,7 @@ const AppContent: React.FC = () => {
     const fallbackAgents: Agent[] = [
       {
         id: 'cattle-profit',
-        name: 'Assistente',
+        name: 'Assistentes',
         description: 'Análise econômica completa.',
         icon: 'bot',
         category: 'financeiro',
@@ -468,17 +460,20 @@ const AppContent: React.FC = () => {
   const isProjectStructure = activeAgentId === 'project-structure';
   const isCalendar = activeAgentId === 'calendar';
   const isProgramaCadastro = activeAgentId === 'cadastros' && cadastroView === 'project';
-  const headerTitle = isIniciativasOverview
-    ? 'Visão Geral'
-    : isIniciativasAtividades
-      ? 'Atividades'
-      : isProjectStructure
-        ? 'Estrutura do Projeto'
-        : isCalendar
-          ? 'Calendário'
-          : isProgramaCadastro
-            ? 'Programa de Trabalho'
-          : activeAgent?.name;
+  const isAvaliacaoProtocolo = activeAgentId === 'cattle-profit' && viewMode === 'avaliacao-protocolo';
+  const headerTitle = isAvaliacaoProtocolo
+    ? 'Avaliação Protocolo 5-3-9'
+    : isIniciativasOverview
+      ? 'Visão Geral'
+      : isIniciativasAtividades
+        ? 'Atividades'
+        : isProjectStructure
+          ? 'Estrutura do Projeto'
+          : isCalendar
+            ? 'Calendário'
+            : isProgramaCadastro
+              ? 'Programa de Trabalho'
+            : activeAgent?.name;
 
   const renderContent = () => {
     if (activeAgentId === 'settings') {
@@ -486,7 +481,7 @@ const AppContent: React.FC = () => {
         <SettingsPage
           user={user}
           onBack={() => setActiveAgentId('cattle-profit')}
-          onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+          onToast={handleToast}
           onLogout={logout}
         />
       );
@@ -505,9 +500,6 @@ const AppContent: React.FC = () => {
       );
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7741/ingest/774fafa3-280b-4b2a-82e5-82eb3a2d712c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5bc854'},body:JSON.stringify({sessionId:'5bc854',location:'App.tsx:renderContent',message:'renderContent branch',data:{activeAgentId,isProjectStructure:activeAgentId==='project-structure'},timestamp:Date.now(),hypothesisId:'H2-H3'})}).catch(()=>{});
-    // #endregion
     switch (activeAgentId) {
       case 'cattle-profit':
         if (viewMode === 'desktop') {
@@ -517,7 +509,20 @@ const AppContent: React.FC = () => {
                 onSelectSimulator={() => setViewMode('simulator')}
                 onSelectComparador={() => setViewMode('comparator')}
                 onSelectPlanejamentoAgil={() => setViewMode('agile-planning')}
+                onSelectAvaliacaoProtocolo={() => setViewMode('avaliacao-protocolo')}
                 showPlanejamentoAgil={user?.role === 'admin' || user?.qualification === 'analista'}
+              />
+            </Suspense>
+          );
+        }
+        if (viewMode === 'avaliacao-protocolo') {
+          return (
+            <Suspense fallback={<LoadingFallback />}>
+              <QuestionnaireFiller
+                questionnaireId="gente-gestao-producao"
+                onToast={handleToast}
+                initialData={editingQuestionnaire}
+                onClearInitialData={() => setEditingQuestionnaire(null)}
               />
             </Suspense>
           );
@@ -526,7 +531,7 @@ const AppContent: React.FC = () => {
           return (user?.role === 'admin' || user?.qualification === 'analista') ? (
             <Suspense fallback={<LoadingFallback />}>
               <AgilePlanning
-                onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+                onToast={handleToast}
               />
             </Suspense>
           ) : (
@@ -577,7 +582,8 @@ const AppContent: React.FC = () => {
               }}
               onEditQuestionnaire={(q) => {
                 setEditingQuestionnaire(q);
-                setActiveAgentId('questionnaire-gente-gestao-producao');
+                setViewMode('avaliacao-protocolo');
+                setActiveAgentId('cattle-profit');
               }}
               onToast={addToast}
             />
@@ -613,7 +619,7 @@ const AppContent: React.FC = () => {
           return (
             <Suspense fallback={<LoadingFallback />}>
               <ProjectManagement
-                onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+                onToast={handleToast}
               />
             </Suspense>
           );
@@ -622,7 +628,7 @@ const AppContent: React.FC = () => {
           return (
             <Suspense fallback={<LoadingFallback />}>
               <FarmManagement
-                onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+                onToast={handleToast}
               />
             </Suspense>
           );
@@ -631,7 +637,7 @@ const AppContent: React.FC = () => {
           return (user?.role === 'admin' || user?.qualification === 'analista') ? (
             <Suspense fallback={<LoadingFallback />}>
               <ClientManagement
-                onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+                onToast={handleToast}
               />
             </Suspense>
           ) : (
@@ -642,7 +648,7 @@ const AppContent: React.FC = () => {
           return (
             <Suspense fallback={<LoadingFallback />}>
               <DeliveryManagement
-                onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+                onToast={handleToast}
               />
             </Suspense>
           );
@@ -650,7 +656,7 @@ const AppContent: React.FC = () => {
         return (
           <Suspense fallback={<LoadingFallback />}>
             <PeopleManagement
-              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+              onToast={handleToast}
             />
           </Suspense>
         );
@@ -682,7 +688,7 @@ const AppContent: React.FC = () => {
         return user.role === 'admin' ? (
           <Suspense fallback={<LoadingFallback />}>
             <AnalystManagement
-              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+              onToast={handleToast}
             />
           </Suspense>
         ) : (
@@ -694,7 +700,7 @@ const AppContent: React.FC = () => {
         return (user.role === 'admin' || user.qualification === 'analista') ? (
           <Suspense fallback={<LoadingFallback />}>
             <AgilePlanning
-              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+              onToast={handleToast}
             />
           </Suspense>
         ) : (
@@ -708,22 +714,11 @@ const AppContent: React.FC = () => {
             />
           </Suspense>
         );
-      case 'questionnaire-gente-gestao-producao':
-        return (
-          <Suspense fallback={<LoadingFallback />}>
-            <QuestionnaireFiller
-              questionnaireId="gente-gestao-producao"
-              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
-              initialData={editingQuestionnaire}
-              onClearInitialData={() => setEditingQuestionnaire(null)}
-            />
-          </Suspense>
-        );
       case 'client-documents':
         return (
           <Suspense fallback={<LoadingFallback />}>
             <ClientDocuments
-              onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })}
+              onToast={handleToast}
             />
           </Suspense>
         );
@@ -736,13 +731,13 @@ const AppContent: React.FC = () => {
       case 'iniciativas-atividades':
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <InitiativesActivities onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })} />
+            <InitiativesActivities onToast={handleToast} />
           </Suspense>
         );
       case 'project-structure':
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <ProjectStructureReport onToast={(message, type) => addToast({ id: Date.now().toString(), message, type })} />
+            <ProjectStructureReport onToast={handleToast} />
           </Suspense>
         );
       case 'calendar':

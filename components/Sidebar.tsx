@@ -43,45 +43,19 @@ interface SidebarProps {
 const INICIATIVAS_OVERVIEW_ID = 'iniciativas-overview';
 const INICIATIVAS_ATIVIDADES_ID = 'iniciativas-atividades';
 const PROJECT_STRUCTURE_ID = 'project-structure';
+const CALENDAR_ID = 'calendar';
 const isIniciativasView = (id: string) =>
-  id === INICIATIVAS_OVERVIEW_ID || id === INICIATIVAS_ATIVIDADES_ID || id === PROJECT_STRUCTURE_ID;
+  id === INICIATIVAS_OVERVIEW_ID || id === INICIATIVAS_ATIVIDADES_ID || id === PROJECT_STRUCTURE_ID || id === CALENDAR_ID;
 
-
-interface Questionnaire {
-  id: string;
-  name: string;
-  description?: string;
-  title?: string;
-}
 
 const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent, isOpen, toggleSidebar, user, onLogout, onSettingsClick }) => {
   const { country, setCountry } = useLocation();
-  const [isQuestionnairesOpen, setIsQuestionnairesOpen] = useState(false);
-  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
   const [isIniciativasOpen, setIsIniciativasOpen] = useState(() => isIniciativasView(activeAgentId));
-
-  // Função para carregar questionários (estrutura básica)
-  useEffect(() => {
-    // Questionário pré-cadastrado "Gente/Gestão/Produção"
-    setQuestionnaires([
-      {
-        id: 'gente-gestao-producao',
-        name: 'Gente/Gestão/Produção',
-        description: 'Questionário completo de avaliação'
-      }
-    ]);
-  }, []);
 
   // Manter submenu Iniciativas aberto quando um filho estiver ativo
   useEffect(() => {
     if (isIniciativasView(activeAgentId)) setIsIniciativasOpen(true);
   }, [activeAgentId]);
-
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7741/ingest/774fafa3-280b-4b2a-82e5-82eb3a2d712c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5bc854'},body:JSON.stringify({sessionId:'5bc854',location:'Sidebar.tsx:render',message:'Sidebar state',data:{isOpen,isIniciativasOpen,activeAgentId,hasProjectStructureId:activeAgentId==='project-structure'},timestamp:Date.now(),hypothesisId:'H1-H2-H5'})}).catch(()=>{});
-  }, [isOpen, isIniciativasOpen, activeAgentId]);
-  // #endregion
 
   return (
     <>
@@ -181,7 +155,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                 </div>
               );
             })}
-            {/* Gestão do Programa (menu retrátil: Visão Geral + Atividades) */}
+            {/* Gerenciamento (menu retrátil: Visão Geral + Atividades) */}
             <div className="space-y-0.5 mb-1">
               <button
                 type="button"
@@ -190,11 +164,11 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                   ? 'bg-ai-accent/5 text-ai-accent'
                   : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                   }`}
-                title="Gestão do Programa"
+                title="Gerenciamento"
               >
                 <div className="flex items-center">
                   <FolderOpen size={16} className="flex-shrink-0 text-ai-subtext group-hover:text-ai-text" />
-                  <span className="ml-3 text-sm font-medium block truncate">Gestão do Programa</span>
+                  <span className="ml-3 text-sm font-medium block truncate">Gerenciamento</span>
                 </div>
                 <ChevronDown
                   size={14}
@@ -236,63 +210,24 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                     <FolderOpen size={14} className="flex-shrink-0 mr-2" />
                     <span className="truncate">Estrutura do Projeto</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => onSelectAgent(CALENDAR_ID)}
+                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === CALENDAR_ID
+                      ? 'bg-ai-accent/10 text-ai-accent'
+                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                      }`}
+                  >
+                    <Calendar size={14} className="flex-shrink-0 mr-2" />
+                    <span className="truncate">Calendário</span>
+                  </button>
                 </div>
               )}
             </div>
 
-            {agents.filter((a) => a.id !== 'cadastros').map((agent) => {
+            {agents.filter((a) => a.id !== 'cadastros' && a.id !== 'calendar').map((agent) => {
               const isActive = activeAgentId === agent.id;
               const isLocked = agent.status !== 'active';
-
-              // Tratamento especial para o item Questionários (Menu Accordion)
-              if (agent.id === 'questionnaires') {
-                return (
-                  <React.Fragment key={agent.id}>
-                    <div className="space-y-0.5">
-                      <button
-                        onClick={() => setIsQuestionnairesOpen(!isQuestionnairesOpen)}
-                        className="w-full flex items-center justify-between px-3 py-2 rounded-md transition-all text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text cursor-pointer group"
-                        title="Questionários"
-                      >
-                        <div className="flex items-center">
-                          <FileCheck size={16} className="flex-shrink-0 text-ai-subtext group-hover:text-ai-text" />
-                          <span className="ml-3 text-sm font-medium block text-left truncate">Questionários</span>
-                        </div>
-                        <ChevronDown
-                          size={14}
-                          className={`transition-transform duration-200 ${isQuestionnairesOpen ? 'rotate-180' : ''}`}
-                        />
-                      </button>
-
-                      {/* Submenu de Questionários */}
-                      {isQuestionnairesOpen && (
-                        <div className="ml-4 space-y-0.5 border-l border-ai-border pl-2">
-                          {questionnaires.length > 0 ? (
-                            questionnaires.map((questionnaire) => (
-                              <button
-                                key={questionnaire.id}
-                                onClick={() => {
-                                  onSelectAgent(`questionnaire-${questionnaire.id}`);
-                                }}
-                                className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === `questionnaire-${questionnaire.id}`
-                                  ? 'bg-ai-accent/10 text-ai-accent'
-                                  : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                                  }`}
-                              >
-                                <span className="truncate">{questionnaire.name || questionnaire.title}</span>
-                              </button>
-                            ))
-                          ) : (
-                            <div className="px-2 py-1.5 text-xs text-ai-subtext italic">
-                              Nenhum questionário
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </React.Fragment>
-                );
-              }
 
               return (
                 <React.Fragment key={agent.id}>

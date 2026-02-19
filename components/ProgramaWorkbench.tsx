@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, X, FolderOpen, Package, Layers, CheckSquare } from 'lucide-react';
+import { Loader2, RefreshCw, X, FolderOpen, Package, Layers, CheckSquare } from 'lucide-react';
 import {
   createProject,
   deleteProject,
@@ -11,11 +11,11 @@ import {
 } from '../lib/projects';
 import {
   deleteDelivery,
-  fetchDeliveries,
+  fetchDeliveriesByProject,
   type DeliveryRow,
 } from '../lib/deliveries';
 import {
-  fetchInitiatives,
+  fetchInitiativesByDelivery,
   type InitiativeMilestoneRow,
   type InitiativeWithProgress,
 } from '../lib/initiatives';
@@ -244,9 +244,13 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     []
   );
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [loadingDeliveries, setLoadingDeliveries] = useState(false);
+  const [loadingActivities, setLoadingActivities] = useState(false);
 
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
@@ -271,29 +275,70 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     [selectedClientId]
   );
 
-  // ── Data loading ──────────────────────────────────────────────────────
+  // ── Cascade data loading ───────────────────────────────────────────────
 
-  const loadAll = useCallback(async () => {
+  const loadProjects = useCallback(async () => {
     if (!mountedRef.current) return;
-    setLoading(true);
+    setLoadingProjects(true);
+    setErrorMessage(null);
     try {
-      const [p, d, i] = await Promise.all([
-        fetchProjects(effectiveUserId, filters),
-        fetchDeliveries(effectiveUserId, filters),
-        fetchInitiatives(effectiveUserId, filters),
-      ]);
+      const p = await fetchProjects(effectiveUserId, filters);
       if (!mountedRef.current) return;
       setProjects(p);
-      setDeliveries(d);
-      setInitiatives(i);
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao carregar dados.', 'error');
+      const msg = err instanceof Error ? err.message : 'Erro ao carregar programas.';
+      if (mountedRef.current) setErrorMessage(msg);
+      toast(msg, 'error');
     } finally {
-      if (mountedRef.current) setLoading(false);
+      if (mountedRef.current) setLoadingProjects(false);
     }
   }, [effectiveUserId, filters, toast]);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  const loadDeliveriesForProject = useCallback(async (projectId: string) => {
+    if (!mountedRef.current) return;
+    setLoadingDeliveries(true);
+    try {
+      const d = await fetchDeliveriesByProject(projectId);
+      if (mountedRef.current) setDeliveries(d);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao carregar entregas.', 'error');
+      if (mountedRef.current) setDeliveries([]);
+    } finally {
+      if (mountedRef.current) setLoadingDeliveries(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    if (selectedProgramId) {
+      loadDeliveriesForProject(selectedProgramId);
+    } else {
+      setDeliveries([]);
+    }
+  }, [selectedProgramId, loadDeliveriesForProject]);
+
+  const loadActivitiesForDelivery = useCallback(async (deliveryId: string) => {
+    if (!mountedRef.current) return;
+    setLoadingActivities(true);
+    try {
+      const i = await fetchInitiativesByDelivery(deliveryId);
+      if (mountedRef.current) setInitiatives(i);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Erro ao carregar atividades.', 'error');
+      if (mountedRef.current) setInitiatives([]);
+    } finally {
+      if (mountedRef.current) setLoadingActivities(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    if (selectedDeliveryId) {
+      loadActivitiesForDelivery(selectedDeliveryId);
+    } else {
+      setInitiatives([]);
+    }
+  }, [selectedDeliveryId, loadActivitiesForDelivery]);
 
   const loadTasksForActivity = useCallback(async (activityId: string): Promise<WorkbenchTask[]> => {
     const { data, error } = await supabase
@@ -319,11 +364,6 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
 
   // ── Derived state ─────────────────────────────────────────────────────
 
-  const selectedProgramDeliveries = useMemo(
-    () => (selectedProgramId ? deliveries.filter((d) => d.project_id === selectedProgramId) : []),
-    [deliveries, selectedProgramId]
-  );
-
   const selectedDeliveryActivities = useMemo<FlattenedActivity[]>(() => {
     if (!selectedDeliveryId) return [];
     return initiatives
@@ -331,26 +371,6 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       .flatMap((i) => (i.milestones || []).map((m) => ({ ...m, initiative_name: i.name })))
       .sort((a, b) => a.sort_order - b.sort_order);
   }, [initiatives, selectedDeliveryId]);
-
-  // Reset cascading selections when parent disappears
-  useEffect(() => {
-    if (selectedProgramId && !projects.some((p) => p.id === selectedProgramId)) {
-      setSelectedProgramId(null);
-    }
-  }, [projects, selectedProgramId]);
-
-  useEffect(() => {
-    if (selectedDeliveryId && !selectedProgramDeliveries.some((d) => d.id === selectedDeliveryId)) {
-      setSelectedDeliveryId(null);
-    }
-  }, [selectedProgramDeliveries, selectedDeliveryId]);
-
-  useEffect(() => {
-    if (selectedActivityId && !selectedDeliveryActivities.some((a) => a.id === selectedActivityId)) {
-      setSelectedActivityId(null);
-      setTasks([]);
-    }
-  }, [selectedDeliveryActivities, selectedActivityId]);
 
   // ── Column items (memoized) ───────────────────────────────────────────
 
@@ -364,12 +384,12 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   );
 
   const deliveryItems = useMemo<HierarchyColumnItem[]>(
-    () => selectedProgramDeliveries.map((d) => ({
+    () => deliveries.map((d) => ({
       id: d.id,
       title: d.name,
       subtitle: d.due_date ? `Prazo: ${formatDateBR(d.due_date)}` : 'Sem prazo definido',
     })),
-    [selectedProgramDeliveries]
+    [deliveries]
   );
 
   const activityItems = useMemo<HierarchyColumnItem[]>(
@@ -423,7 +443,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   }, [projects]);
 
   const openEditDelivery = useCallback((id: string) => {
-    const t = selectedProgramDeliveries.find((d) => d.id === id);
+    const t = deliveries.find((d) => d.id === id);
     if (!t) return;
     setModalEntity('delivery');
     setModalMode('edit');
@@ -434,7 +454,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       due_date: t.due_date || '',
       stakeholder_matrix: t.stakeholder_matrix.length ? [...t.stakeholder_matrix] : [{ name: '', activity: '' }],
     });
-  }, [selectedProgramDeliveries]);
+  }, [deliveries]);
 
   const openEditActivity = useCallback((id: string) => {
     const t = selectedDeliveryActivities.find((a) => a.id === id);
@@ -529,7 +549,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       const saved = editingId
         ? await updateProject(editingId, payload)
         : await createProject(effectiveUserId, payload);
-      await loadAll();
+      await loadProjects();
       setSelectedProgramId(saved.id);
       toast(editingId ? 'Programa atualizado.' : 'Programa criado.', 'success');
       closeModal();
@@ -538,7 +558,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [saving, programForm, selectedClientId, editingId, effectiveUserId, loadAll, toast, closeModal]);
+  }, [saving, programForm, selectedClientId, editingId, effectiveUserId, loadProjects, toast, closeModal]);
 
   const deleteProgramById = useCallback(async (id: string) => {
     const t = projects.find((p) => p.id === id);
@@ -552,14 +572,14 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
         setSelectedActivityId(null);
         setTasks([]);
       }
-      await loadAll();
+      await loadProjects();
       toast('Programa removido.', 'success');
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao excluir programa.', 'error');
     } finally {
       setDeleting(null);
     }
-  }, [projects, selectedProgramId, loadAll, toast]);
+  }, [projects, selectedProgramId, loadProjects, toast]);
 
   // ── CRUD: Delivery ────────────────────────────────────────────────────
 
@@ -591,7 +611,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
         const { error } = await supabase.from('deliveries').insert({ created_by: effectiveUserId, ...payload });
         if (error) throw new Error(error.message);
       }
-      await loadAll();
+      await loadDeliveriesForProject(selectedProgramId);
       toast(editingId ? 'Entrega atualizada.' : 'Entrega criada.', 'success');
       closeModal();
     } catch (err) {
@@ -599,10 +619,10 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [saving, selectedProgramId, deliveryForm, selectedClientId, editingId, effectiveUserId, loadAll, toast, closeModal]);
+  }, [saving, selectedProgramId, deliveryForm, selectedClientId, editingId, effectiveUserId, loadDeliveriesForProject, toast, closeModal]);
 
   const deleteDeliveryById = useCallback(async (id: string) => {
-    const t = selectedProgramDeliveries.find((d) => d.id === id);
+    const t = deliveries.find((d) => d.id === id);
     if (!t || !window.confirm(`Excluir "${t.name}"?`)) return;
     setDeleting(id);
     try {
@@ -612,14 +632,14 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
         setSelectedActivityId(null);
         setTasks([]);
       }
-      await loadAll();
+      if (selectedProgramId) await loadDeliveriesForProject(selectedProgramId);
       toast('Entrega removida.', 'success');
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao excluir entrega.', 'error');
     } finally {
       setDeleting(null);
     }
-  }, [selectedProgramDeliveries, selectedDeliveryId, loadAll, toast]);
+  }, [deliveries, selectedDeliveryId, selectedProgramId, loadDeliveriesForProject, toast]);
 
   // ── CRUD: Activity ────────────────────────────────────────────────────
 
@@ -657,7 +677,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           });
         if (error) throw new Error(error.message);
       }
-      await loadAll();
+      await loadActivitiesForDelivery(selectedDeliveryId);
       toast(editingId ? 'Atividade atualizada.' : 'Atividade criada.', 'success');
       closeModal();
     } catch (err) {
@@ -665,7 +685,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [saving, selectedDeliveryId, activityForm, editingId, ensureInitiativeForDelivery, selectedDeliveryActivities.length, loadAll, toast, closeModal]);
+  }, [saving, selectedDeliveryId, activityForm, editingId, ensureInitiativeForDelivery, selectedDeliveryActivities.length, loadActivitiesForDelivery, toast, closeModal]);
 
   const deleteActivityById = useCallback(async (id: string) => {
     const t = selectedDeliveryActivities.find((a) => a.id === id);
@@ -675,14 +695,14 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       const { error } = await supabase.from('initiative_milestones').delete().eq('id', id);
       if (error) throw new Error(error.message);
       if (selectedActivityId === id) { setSelectedActivityId(null); setTasks([]); }
-      await loadAll();
+      if (selectedDeliveryId) await loadActivitiesForDelivery(selectedDeliveryId);
       toast('Atividade removida.', 'success');
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao excluir atividade.', 'error');
     } finally {
       setDeleting(null);
     }
-  }, [selectedDeliveryActivities, selectedActivityId, loadAll, toast]);
+  }, [selectedDeliveryActivities, selectedActivityId, selectedDeliveryId, loadActivitiesForDelivery, toast]);
 
   // ── CRUD: Task ────────────────────────────────────────────────────────
 
@@ -771,10 +791,26 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
 
   // ── Render ────────────────────────────────────────────────────────────
 
-  if (loading) {
+  if (loadingProjects && projects.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 size={28} className="animate-spin text-ai-accent" />
+      </div>
+    );
+  }
+
+  if (errorMessage && projects.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <p className="text-sm text-red-600">{errorMessage}</p>
+        <button
+          type="button"
+          onClick={loadProjects}
+          className="inline-flex items-center gap-2 rounded-md border border-ai-border px-4 py-2 text-sm text-ai-text hover:bg-ai-surface transition-colors"
+        >
+          <RefreshCw size={14} />
+          Tentar novamente
+        </button>
       </div>
     );
   }
@@ -795,6 +831,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           selectedId={selectedProgramId}
           accentClassName="bg-indigo-100 text-indigo-900"
           addLabel="Novo"
+          loading={loadingProjects}
           onAdd={() => openCreateModal('program')}
           onSelect={selectProgram}
           onEdit={openEditProgram}
@@ -810,6 +847,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           accentClassName="bg-blue-100 text-blue-900"
           addLabel="Nova"
           addDisabled={!selectedProgramId}
+          loading={loadingDeliveries}
           onAdd={() => openCreateModal('delivery')}
           onSelect={selectDelivery}
           onEdit={openEditDelivery}
@@ -825,6 +863,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           accentClassName="bg-emerald-100 text-emerald-900"
           addLabel="Nova"
           addDisabled={!selectedDeliveryId}
+          loading={loadingActivities}
           onAdd={() => openCreateModal('activity')}
           onSelect={selectActivity}
           onEdit={openEditActivity}

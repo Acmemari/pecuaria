@@ -190,6 +190,49 @@ export async function fetchInitiatives(
 }
 
 /**
+ * Busca iniciativas vinculadas a uma entrega específica, com milestones.
+ * Usado pelo ProgramaWorkbench para carregamento sob demanda por coluna.
+ */
+export async function fetchInitiativesByDelivery(
+  deliveryId: string
+): Promise<InitiativeWithProgress[]> {
+  if (!deliveryId?.trim()) return [];
+
+  const { data: initiatives, error: initError } = await supabase
+    .from('initiatives')
+    .select('*')
+    .eq('delivery_id', deliveryId)
+    .order('start_date', { ascending: true, nullsFirst: false });
+
+  if (initError) throw initError;
+  if (!initiatives?.length) return [];
+
+  const ids = initiatives.map((i) => i.id);
+  const { data: milestones, error: milError } = await supabase
+    .from('initiative_milestones')
+    .select('id, initiative_id, title, percent, completed, completed_at, sort_order, due_date')
+    .in('initiative_id', ids);
+
+  if (milError) throw milError;
+
+  const byInitiative = (milestones || []).reduce<Record<string, InitiativeMilestoneRow[]>>((acc, m) => {
+    if (!acc[m.initiative_id]) acc[m.initiative_id] = [];
+    acc[m.initiative_id].push(m as InitiativeMilestoneRow);
+    return acc;
+  }, {});
+
+  return initiatives.map((i) => {
+    const list = byInitiative[i.id] || [];
+    const progress = Math.min(100, Math.max(0, list.filter((m) => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0)));
+    return {
+      ...i,
+      progress,
+      milestones: list.sort((a, b) => a.sort_order - b.sort_order),
+    } as InitiativeWithProgress;
+  });
+}
+
+/**
  * Busca iniciativas com time e marcos para relatórios/telas de estrutura.
  * Reaproveita fetchInitiatives para manter regras de filtro/RLS em um único ponto.
  */
