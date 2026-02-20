@@ -46,41 +46,39 @@ function FarmCard({
   const canEdit = bypass || perms.canEdit('farms:form');
   const canDelete = bypass || perms.canEdit('farms:delete');
   return (
-    <div className="bg-white rounded-lg border border-ai-border p-3 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-ai-text mb-2 truncate">{farm.name}</h3>
-          <div className="space-y-1 text-xs text-ai-subtext">
-            <div className="flex items-center gap-1.5">
-              <MapPin size={12} className="flex-shrink-0" />
-              <span className="truncate">{farm.city}, {farm.state}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Building2 size={12} className="flex-shrink-0" />
-              <span className="truncate">{farm.propertyType}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Factory size={12} className="flex-shrink-0" />
-              <span className="truncate">{farm.productionSystem}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Scale size={12} className="flex-shrink-0" />
-              <span className="truncate">{farm.weightMetric}</span>
-            </div>
-            {farm.commercializesGenetics && (
-              <div className="flex items-center gap-1.5 text-ai-accent">
-                <Dna size={12} className="flex-shrink-0" />
-                <span className="truncate">Comercializa genética</span>
-              </div>
-            )}
+    <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md hover:border-gray-800 transition-all duration-200 flex flex-col w-full min-h-[200px]">
+      <div className="flex-1 min-w-0">
+        <h3 className="text-lg font-bold text-gray-900 mb-3 truncate">{farm.name}</h3>
+        <div className="space-y-1.5 text-xs text-gray-500">
+          <div className="flex items-center gap-1.5">
+            <MapPin size={12} className="flex-shrink-0" />
+            <span className="truncate">{farm.city}, {farm.state}</span>
           </div>
+          <div className="flex items-center gap-1.5">
+            <Building2 size={12} className="flex-shrink-0" />
+            <span className="truncate">{farm.propertyType}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Factory size={12} className="flex-shrink-0" />
+            <span className="truncate">{farm.productionSystem}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Scale size={12} className="flex-shrink-0" />
+            <span className="truncate">{farm.weightMetric}</span>
+          </div>
+          {farm.commercializesGenetics && (
+            <div className="flex items-center gap-1.5 text-ai-accent">
+              <Dna size={12} className="flex-shrink-0" />
+              <span className="truncate">Comercializa genética</span>
+            </div>
+          )}
         </div>
       </div>
-      <div className="flex flex-wrap gap-2 pt-3 border-t border-ai-border">
+      <div className="flex flex-wrap gap-2 pt-4 mt-4 border-t border-gray-200">
         <button
           onClick={() => onEdit(farm)}
           disabled={!canEdit}
-          className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-ai-border text-ai-text rounded-lg hover:bg-ai-surface2 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Edit2 size={14} />
           Editar
@@ -88,7 +86,7 @@ function FarmCard({
         {canManagePermissions && (
           <button
             onClick={() => onOpenPermissions(farm)}
-            className="px-2 py-1.5 text-xs border border-ai-border text-ai-text rounded-lg hover:bg-ai-surface2 transition-colors flex items-center justify-center gap-1"
+            className="px-3 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
             title="Gerenciar permissões"
           >
             <Users size={14} />
@@ -97,7 +95,7 @@ function FarmCard({
         {canDelete && (
           <button
             onClick={() => onDelete(farm.id)}
-            className="px-2 py-1.5 text-xs border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center"
+            className="px-3 py-2 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center"
           >
             <Trash2 size={14} />
           </button>
@@ -127,7 +125,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const { user } = useAuth();
   const { selectedClient } = useClient();
   const [farms, setFarms] = useState<Farm[]>([]);
-  const [view, setView] = useState<'list' | 'form'>('form'); // Inicia direto no formulário
+  const [view, setView] = useState<'list' | 'form'>('list');
   const [availableClientsCount, setAvailableClientsCount] = useState<number | null>(null);
   const [loadingClientsAvailability, setLoadingClientsAvailability] = useState(false);
 
@@ -137,7 +135,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   }, [view]);
   const [editingFarm, setEditingFarm] = useState<Farm | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreatingNew, setIsCreatingNew] = useState(true); // Flag para indicar criação de nova fazenda
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [farmResponsibilities, setFarmResponsibilities] = useState<Record<string, boolean>>({});
   const [permissionsModalFarm, setPermissionsModalFarm] = useState<Farm | null>(null);
 
@@ -1075,7 +1073,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 flex-1 overflow-y-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 overflow-y-auto content-start">
           {farms.map((farm) => (
             <FarmCard
               key={farm.id}
