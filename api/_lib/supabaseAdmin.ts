@@ -1,24 +1,47 @@
 import { createClient } from '@supabase/supabase-js';
+import { getServerEnv } from './env';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+let _client: ReturnType<typeof createClient> | null = null;
 
-if (!SUPABASE_URL) {
-  throw new Error('VITE_SUPABASE_URL is required for server-side Supabase client.');
+/**
+ * Lazily creates and caches the Supabase Admin client.
+ * Accepts both SUPABASE_URL and VITE_SUPABASE_URL via getServerEnv().
+ */
+function getClient(): ReturnType<typeof createClient> {
+  if (_client) return _client;
+
+  const env = getServerEnv();
+
+  _client = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        'x-client-info': 'pecuaria-api-admin',
+      },
+    },
+  });
+
+  return _client;
 }
 
-if (!SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error('SUPABASE_SERVICE_ROLE_KEY is required for server-side Supabase admin operations.');
-}
-
-export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-  global: {
-    headers: {
-      'x-client-info': 'pecuaria-api-admin',
+/**
+ * Supabase Admin client (service-role).
+ * Uses a lazy getter so the module can be imported without crashing if
+ * env vars are missing — the error surfaces when the client is first used.
+ */
+export const supabaseAdmin: ReturnType<typeof createClient> = new Proxy(
+  {} as ReturnType<typeof createClient>,
+  {
+    get(_target, prop, receiver) {
+      const client = getClient();
+      const value = Reflect.get(client, prop, receiver);
+      if (typeof value === 'function') {
+        return value.bind(client);
+      }
+      return value;
     },
   },
-});
+);

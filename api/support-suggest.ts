@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getProvider } from './_lib/ai/providers';
+import { completeWithFallback } from './_lib/ai/providers';
 
-const MODEL = 'gemini-2.5-flash';
+const PREFERRED_MODEL = 'gemini-2.5-flash';
 
 const SYSTEM_PROMPT = `Você é um assistente de suporte técnico proativo do sistema Pecuária.AI.
 Seu papel é ajudar o usuário a detalhar melhor o problema ou sugestão antes de abrir o chamado.
@@ -38,19 +38,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'O campo subject deve ter pelo menos 5 caracteres.' });
     }
 
-    const provider = getProvider('gemini');
-    const response = await provider.complete({
-      model: MODEL,
-      systemPrompt: SYSTEM_PROMPT,
-      userPrompt: buildUserPrompt({ subject: subject.trim(), ticketType, locationArea, specificScreen }),
-      maxTokens: 200,
-      temperature: 0.7,
-      timeoutMs: 15_000,
+    const response = await completeWithFallback({
+      preferredProvider: 'gemini',
+      model: PREFERRED_MODEL,
+      request: {
+        systemPrompt: SYSTEM_PROMPT,
+        userPrompt: buildUserPrompt({ subject: subject.trim(), ticketType, locationArea, specificScreen }),
+        maxTokens: 200,
+        temperature: 0.7,
+        timeoutMs: 15_000,
+      },
     });
 
     return res.status(200).json({ suggestion: response.content });
   } catch (err: any) {
     console.error('[support-suggest] Error:', err.message);
+
+    if (err.message?.includes('AI_NO_PROVIDERS')) {
+      return res.status(500).json({ error: 'Serviço de IA não configurado no servidor.' });
+    }
+
     return res.status(500).json({ error: 'Erro ao gerar sugestão. Tente novamente.' });
   }
 }

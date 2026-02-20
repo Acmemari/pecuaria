@@ -5,10 +5,9 @@
  * Response: { summary: string }
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
+import { completeWithFallback } from './_lib/ai/providers';
 
-const MODEL = 'gemini-2.0-flash';
-const GEMINI_TIMEOUT_MS = 30_000;
+const PREFERRED_MODEL = 'gemini-2.0-flash';
 
 function setCors(res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -40,13 +39,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Método não permitido' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
-    return res.status(500).json({
-      error: 'GEMINI_API_KEY não está configurada no servidor.',
-    });
-  }
-
   try {
     const { name, description, transformations_achievements } = req.body || {};
 
@@ -60,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const trans = typeof transformations_achievements === 'string' ? transformations_achievements.trim() : '';
     const hasExtra = desc || trans;
 
-    const prompt = `Você resume entregas de projetos em português de forma curta e conclusiva.
+    const userPrompt = `Você resume entregas de projetos em português de forma curta e conclusiva.
 
 REGRAS OBRIGATÓRIAS:
 - Escreva UM ÚNICO parágrafo com no máximo 200 caracteres.
@@ -74,25 +66,18 @@ ${hasExtra ? `Contexto adicional: ${desc || ''} ${trans || ''}`.trim() : ''}
 
 Responda SOMENTE com o parágrafo resumido (máximo 200 caracteres, completo, com ponto final).`;
 
-    const ai = new GoogleGenAI({ apiKey });
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Tempo limite excedido ao chamar a IA.')), GEMINI_TIMEOUT_MS);
-    });
-
-    const aiPromise = ai.models.generateContent({
-      model: MODEL,
-      contents: prompt,
-      config: {
-        maxOutputTokens: 256,
+    const response = await completeWithFallback({
+      preferredProvider: 'gemini',
+      model: PREFERRED_MODEL,
+      request: {
+        userPrompt,
+        maxTokens: 256,
         temperature: 0.3,
-        thinkingConfig: { thinkingBudget: 0 },
+        timeoutMs: 30_000,
       },
     });
 
-    const response = await Promise.race([aiPromise, timeoutPromise]);
-    const answer = response.text ?? '';
-
+    const answer = response.content;
     if (!answer.trim()) {
       return res.status(502).json({ error: 'Resposta vazia da IA.' });
     }
@@ -104,6 +89,11 @@ Responda SOMENTE com o parágrafo resumido (máximo 200 caracteres, completo, co
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao gerar resumo da entrega.';
     console.error('[delivery-summary]', message);
-    return res.status(500).json({ error: message });
+
+    if (message.includes('AI_NO_PROVIDERS')) {
+      return res.status(500).json({ error: 'Serviço de IA não configurado no servidor.' });
+    }
+
+    return res.status(500).json({ error: 'Erro ao gerar resumo da entrega. Tente novamente.' });
   }
 }

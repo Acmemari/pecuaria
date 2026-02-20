@@ -1,16 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
 import type { AIProvider, AIRequest, AIResponse } from '../types';
+import { getProviderKey } from '../../env';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
-
-function getApiKey(): string {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key || key.trim() === '') {
-    throw new Error('GEMINI_API_KEY is not configured.');
-  }
-  return key.trim();
-}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -25,9 +18,20 @@ function isRetryableError(err: unknown): boolean {
 
 export class GeminiProvider implements AIProvider {
   readonly name = 'gemini' as const;
-  private readonly client = new GoogleGenAI({ apiKey: getApiKey() });
+  private client: GoogleGenAI | null = null;
+
+  private getClient(): GoogleGenAI {
+    if (this.client) return this.client;
+    const key = getProviderKey('gemini');
+    if (!key) {
+      throw new Error('GEMINI_API_KEY is not configured.');
+    }
+    this.client = new GoogleGenAI({ apiKey: key });
+    return this.client;
+  }
 
   async complete(request: AIRequest): Promise<AIResponse> {
+    const client = this.getClient();
     const startedAt = Date.now();
     const timeoutMs = request.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const prompt = [request.systemPrompt, request.userPrompt].filter(Boolean).join('\n\n');
@@ -35,7 +39,7 @@ export class GeminiProvider implements AIProvider {
     let lastError: unknown;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const response = await this.client.models.generateContent({
+        const response = await client.models.generateContent({
           model: request.model,
           contents: prompt,
           config: {

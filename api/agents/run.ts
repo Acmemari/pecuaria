@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
+import type { AIProvider } from '../_lib/ai/types';
 import { supabaseAdmin } from '../_lib/supabaseAdmin';
 import { getAgentManifest } from '../_lib/agents/registry';
 import { runHelloAgent } from '../_lib/agents/hello/handler';
@@ -9,9 +10,22 @@ import { getFallbackRoutes, routeAgent } from '../_lib/ai/router';
 import { checkAndIncrementRateLimit } from '../_lib/ai/rate-limit';
 import { commitUsage, releaseReservation, reserveTokens } from '../_lib/ai/usage';
 import { logAgentRun } from '../_lib/ai/logging';
-import type { HelloInput } from '../_lib/agents/hello/manifest';
-import type { FeedbackInput } from '../_lib/agents/feedback/manifest';
 import type { AIProviderName, PlanId } from '../_lib/ai/types';
+
+type AgentHandler = (args: {
+  input: unknown;
+  provider: AIProvider;
+  model: string;
+}) => Promise<{
+  data: unknown;
+  usage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  latencyMs: number;
+}>;
+
+const agentHandlers: Record<string, AgentHandler> = {
+  hello: (args) => runHelloAgent({ ...args, input: args.input as Parameters<typeof runHelloAgent>[0]['input'] }),
+  feedback: (args) => runFeedbackAgent({ ...args, input: args.input as Parameters<typeof runFeedbackAgent>[0]['input'] }),
+};
 
 const runRequestSchema = z.object({
   agentId: z.string().min(1),
@@ -74,6 +88,7 @@ function mapErrorToStatus(errorCode: string): number {
   if (errorCode === 'RATE_LIMIT_EXCEEDED') return 429;
   if (errorCode === 'TOKEN_BUDGET_EXCEEDED') return 402;
   if (errorCode.startsWith('INPUT_') || errorCode.startsWith('AGENT_')) return 400;
+  if (errorCode.startsWith('FEEDBACK_AGENT_OUTPUT_INVALID')) return 400;
   return 500;
 }
 
@@ -149,42 +164,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let modelUsed = routes[0]?.model ?? manifest.modelPolicy.model;
     let latencyMs = 0;
 
+    const handler = agentHandlers[manifest.id];
+    if (!handler) {
+      throw new Error(`AGENT_NOT_IMPLEMENTED:${manifest.id}`);
+    }
+
+    const failedProviders: string[] = [];
+
     for (const route of routes) {
       try {
         const provider = getProvider(route.provider);
         providerUsed = route.provider;
         modelUsed = route.model;
 
-        if (manifest.id === 'hello') {
-          const result = await runHelloAgent({
-            input: inputValidation.data as HelloInput,
-            provider,
-            model: route.model,
-          });
-          outputData = result.data;
-          usage = result.usage;
-          latencyMs = result.latencyMs;
-        } else if (manifest.id === 'feedback') {
-          const result = await runFeedbackAgent({
-            input: inputValidation.data as FeedbackInput,
-            provider,
-            model: route.model,
-          });
-          outputData = result.data;
-          usage = result.usage;
-          latencyMs = result.latencyMs;
-        } else {
-          throw new Error(`AGENT_NOT_IMPLEMENTED:${manifest.id}`);
-        }
-
+        const result = await handler({
+          input: inputValidation.data,
+          provider,
+          model: route.model,
+        });
+        outputData = result.data;
+        usage = result.usage;
+        latencyMs = result.latencyMs;
         break;
       } catch (err) {
+        const reason = (err as Error)?.message ?? 'unknown';
+        console.error(
+          `[agents/run] Provider ${route.provider}/${route.model} failed:`,
+          reason,
+        );
+        failedProviders.push(`${route.provider}(${reason.slice(0, 120)})`);
         lastExecutionError = err;
       }
     }
 
     if (!outputData) {
-      throw new Error(`AGENT_EXECUTION_FAILED:${(lastExecutionError as Error)?.message ?? 'unknown error'}`);
+      const detail = failedProviders.length > 0
+        ? failedProviders.join(' | ')
+        : (lastExecutionError as Error)?.message ?? 'unknown error';
+      console.error('[agents/run] All providers exhausted:', detail);
+      throw new Error(`AGENT_EXECUTION_FAILED:${detail}`);
     }
 
     const commit = await commitUsage({
@@ -244,6 +262,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const errorCode = rawMessage.split(':')[0] || 'UNKNOWN_ERROR';
     const status = mapErrorToStatus(errorCode);
 
+    let clientError = rawMessage;
+    if (errorCode === 'AGENT_EXECUTION_FAILED') {
+      const isConfigError = rawMessage.includes('not configured') || rawMessage.includes('AI_NO_PROVIDERS');
+      clientError = isConfigError
+        ? 'Serviço de IA não configurado no servidor. Contate o suporte.'
+        : 'Problema temporário com o provedor de IA. Tente novamente em instantes.';
+      console.error('[agents/run] AGENT_EXECUTION_FAILED:', rawMessage);
+    }
+
     if (reservationId) {
       try {
         await releaseReservation(reservationId);
@@ -276,7 +303,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(status).json({
       success: false,
-      error: rawMessage,
+      error: clientError,
       code: errorCode,
     });
   }

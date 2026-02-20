@@ -2,14 +2,11 @@
  * API: Gerar insights com IA a partir dos resultados do questionário.
  * POST /api/questionnaire-insights
  * Body: { summary: string, farmName?: string }
- *
- * NOTA: Este arquivo é auto-contido (sem imports de _lib) para evitar
- * problemas de bundling no Vercel serverless functions.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { GoogleGenAI } from '@google/genai';
+import { completeWithFallback } from './_lib/ai/providers';
 
-/* ─── Regras do especialista (inline) ─── */
+/* ─── Regras do especialista ─── */
 const EXPERT_RULES = `
 DIRETRIZES DE CONSULTORIA (MÉTODO ANTONIO CHAKER):
 
@@ -62,8 +59,8 @@ FORMATO DA RESPOSTA:
 
 /* ─── Rate limiting in-memory (por IP) ─── */
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minuto
-const RATE_LIMIT_MAX = 10; // máx 10 requisições por minuto
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 10;
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -79,7 +76,6 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-// Limpar registros antigos periodicamente
 setInterval(() => {
   const now = Date.now();
   for (const [ip, record] of rateLimitMap) {
@@ -87,11 +83,10 @@ setInterval(() => {
   }
 }, RATE_LIMIT_WINDOW_MS * 2);
 
-/* ─── Gemini client (inline) ─── */
-const MODEL = 'gemini-2.0-flash';
-const GEMINI_TIMEOUT_MS = 60_000; // 60 segundos
+/* ─── Constants ─── */
+const PREFERRED_MODEL = 'gemini-2.0-flash';
 
-const SYSTEM_INSTRUCTION = `Você é um consultor especializado em gestão pecuária.
+const SYSTEM_PROMPT = `Você é um consultor especializado em gestão pecuária.
 
 INSTRUÇÕES:
 - Seja direto, pragmático e focado em resultados financeiros
@@ -100,30 +95,6 @@ INSTRUÇÕES:
 - IMPORTANTE: Sempre inicie sua resposta com "Analisando seus resultados, pudemos observar que..."
 - Não use expressões informais como "companheiro" ou similares
 - Mantenha um tom profissional e consultivo`;
-
-async function callGemini(prompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY!;
-  const ai = new GoogleGenAI({ apiKey });
-
-  // Timeout para a chamada ao Gemini
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
-
-  try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: `${SYSTEM_INSTRUCTION}\n\n${prompt}\n\nResposta:`,
-    });
-
-    const answer = response.text ?? '';
-    if (!answer) {
-      throw new Error('Resposta vazia do Gemini.');
-    }
-    return answer;
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 /* ─── Handler ─── */
 function setCors(res: VercelResponse) {
@@ -143,7 +114,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Método não permitido' });
   }
 
-  // Rate limiting
   const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
     || req.socket?.remoteAddress || 'unknown';
   if (!checkRateLimit(clientIp)) {
@@ -152,24 +122,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey.trim() === '') {
-    return res.status(500).json({
-      error: 'GEMINI_API_KEY não está configurada no servidor.',
-    });
-  }
-
   try {
     const { summary, farmName } = req.body || {};
 
-    // Validação de entrada
     if (!summary || typeof summary !== 'string') {
       return res.status(400).json({
         error: "O campo 'summary' é obrigatório e deve ser uma string.",
       });
     }
 
-    // Validação de tamanho para prevenir abuso
     if (summary.length > 50000) {
       return res.status(400).json({
         error: 'O resumo é muito longo (máximo 50.000 caracteres).',
@@ -182,7 +143,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Validação opcional de farmName
     if (farmName && typeof farmName !== 'string') {
       return res.status(400).json({
         error: "O campo 'farmName' deve ser uma string.",
@@ -195,7 +155,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const prompt = `Você é um consultor sênior de gestão pecuária (Método Instituto Inttegra). Analise os resultados do diagnóstico abaixo.
+    const userPrompt = `Você é um consultor sênior de gestão pecuária (Método Instituto Inttegra). Analise os resultados do diagnóstico abaixo.
 
 CONTEXTO E REGRAS DO ESPECIALISTA:
 ${EXPERT_RULES}
@@ -207,16 +167,29 @@ ${summary}
 Sua tarefa é cruzar os "DADOS DO DIAGNÓSTICO" com as "DIRETRIZES DE CONSULTORIA" acima e gerar um relatório.
 Siga estritamente o "FORMATO DA RESPOSTA" definido nas regras.`;
 
-    const answer = await callGemini(prompt);
-    return res.status(200).json({ answer });
-  } catch (err: any) {
-    console.error('[questionnaire-insights] Erro:', err);
+    const response = await completeWithFallback({
+      preferredProvider: 'gemini',
+      model: PREFERRED_MODEL,
+      request: {
+        systemPrompt: SYSTEM_PROMPT,
+        userPrompt,
+        maxTokens: 4096,
+        temperature: 0.7,
+        timeoutMs: 60_000,
+      },
+    });
 
-    // Categorizar erros para melhor tratamento
+    return res.status(200).json({ answer: response.content });
+  } catch (err: any) {
+    console.error('[questionnaire-insights] Erro:', err.message);
+
     let statusCode = 500;
     let errorMessage = 'Erro ao gerar insights com IA.';
 
-    if (err.message?.includes('API key')) {
+    if (err.message?.includes('AI_NO_PROVIDERS')) {
+      statusCode = 500;
+      errorMessage = 'Serviço de IA não configurado no servidor. Contate o suporte.';
+    } else if (err.message?.includes('API key') || err.message?.includes('not configured')) {
       statusCode = 500;
       errorMessage = 'Erro de configuração do servidor. Contate o suporte.';
     } else if (err.message?.includes('timeout') || err.message?.includes('ETIMEDOUT')) {
@@ -228,13 +201,11 @@ Siga estritamente o "FORMATO DA RESPOSTA" definido nas regras.`;
     } else if (err.message?.includes('network') || err.message?.includes('fetch')) {
       statusCode = 503;
       errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
-    } else if (err.message) {
-      errorMessage = err.message;
     }
 
     return res.status(statusCode).json({
       error: errorMessage,
-      code: err.code || 'UNKNOWN_ERROR',
+      code: err.code || 'AI_ERROR',
     });
   }
 }
