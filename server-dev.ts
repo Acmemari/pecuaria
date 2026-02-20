@@ -102,6 +102,10 @@ app.post('/api/delivery-summary', (req, res) => {
   handleApiRoute('./api/delivery-summary.ts', req, res);
 });
 
+app.post('/api/feedback-assist', (req, res) => {
+  handleApiRoute('./api/feedback-assist.ts', req, res);
+});
+
 app.post('/api/agents/run', (req, res) => {
   handleApiRoute('./api/agents/run.ts', req, res);
 });

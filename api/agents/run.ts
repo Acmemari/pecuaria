@@ -3,12 +3,14 @@ import { z } from 'zod';
 import { supabaseAdmin } from '../_lib/supabaseAdmin';
 import { getAgentManifest } from '../_lib/agents/registry';
 import { runHelloAgent } from '../_lib/agents/hello/handler';
+import { runFeedbackAgent } from '../_lib/agents/feedback/handler';
 import { getProvider } from '../_lib/ai/providers';
 import { getFallbackRoutes, routeAgent } from '../_lib/ai/router';
 import { checkAndIncrementRateLimit } from '../_lib/ai/rate-limit';
 import { commitUsage, releaseReservation, reserveTokens } from '../_lib/ai/usage';
 import { logAgentRun } from '../_lib/ai/logging';
 import type { HelloInput } from '../_lib/agents/hello/manifest';
+import type { FeedbackInput } from '../_lib/agents/feedback/manifest';
 import type { AIProviderName, PlanId } from '../_lib/ai/types';
 
 const runRequestSchema = z.object({
@@ -156,6 +158,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (manifest.id === 'hello') {
           const result = await runHelloAgent({
             input: inputValidation.data as HelloInput,
+            provider,
+            model: route.model,
+          });
+          outputData = result.data;
+          usage = result.usage;
+          latencyMs = result.latencyMs;
+        } else if (manifest.id === 'feedback') {
+          const result = await runFeedbackAgent({
+            input: inputValidation.data as FeedbackInput,
             provider,
             model: route.model,
           });

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { ArrowLeftRight, Target, Star, CircleDollarSign, ClipboardCheck } from 'lucide-react';
+import { ArrowLeftRight, Target, Star, CircleDollarSign, ClipboardCheck, MessageSquareText } from 'lucide-react';
 
 type TabId = 'todos' | 'favoritos' | 'recentes';
 
@@ -59,6 +59,7 @@ interface CalculadorasDesktopProps {
   onSelectComparador: () => void;
   onSelectPlanejamentoAgil?: () => void;
   onSelectAvaliacaoProtocolo?: () => void;
+  onSelectFeedbackAgent?: () => void;
   showPlanejamentoAgil?: boolean;
 }
 
@@ -67,6 +68,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
   onSelectComparador,
   onSelectPlanejamentoAgil,
   onSelectAvaliacaoProtocolo,
+  onSelectFeedbackAgent,
   showPlanejamentoAgil = false,
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>('todos');
@@ -126,10 +128,22 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
       }
     : null;
 
+  const feedbackCard = onSelectFeedbackAgent
+    ? {
+        id: 'feedback-agent',
+        title: 'Assistente de Feedback',
+        description:
+          'Crie feedbacks construtivos com tom adequado e estruturas profissionais como SBI, Sanduíche e Feedforward.',
+        icon: <MessageSquareText size={24} />,
+        onClick: onSelectFeedbackAgent,
+      }
+    : null;
+
   const cards = [
     ...baseCards,
     ...(planejamentoCard ? [planejamentoCard] : []),
     ...(avaliacaoCard ? [avaliacaoCard] : []),
+    ...(feedbackCard ? [feedbackCard] : []),
   ];
 
   const filteredCards =

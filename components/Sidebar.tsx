@@ -241,7 +241,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
               )}
             </div>
 
-            {agents.filter((a) => a.id !== 'cadastros' && a.id !== 'calendar' && a.id !== 'agent-hub').map((agent) => {
+            {agents.filter((a) => a.id !== 'cadastros' && a.id !== 'calendar').map((agent) => {
               const isActive = activeAgentId === agent.id;
               const isLocked = agent.status !== 'active';
 

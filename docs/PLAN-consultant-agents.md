@@ -1,4 +1,4 @@
-# PLAN: Ambiente de Agentes para Consultoria (Consultant Agent Hub)
+# PLAN: Ambiente de Agentes para Consultoria
 
 Este plano descreve a implementação de um ambiente centralizado no PecuarIA onde consultores podem interagir com agentes especializados para tarefas de campo e gestão.
 
@@ -10,7 +10,7 @@ Transformar o PecuarIA em uma plataforma "AI-First" para o consultor, oferecendo
 ---
 
 ## 🎯 Critérios de Sucesso
-1.  **Hub de Agentes**: Tela central onde o consultor pode escolher entre os 3 agentes iniciais.
+1.  **Assistentes Integrados**: Acesso aos agentes diretamente na área de Assistentes da aplicação.
 2.  **Agente de Solo**: Capacidade de interpretar dados de análise de solo e sugerir correções de forma lógica.
 3.  **Calendário Sanitário**: Geração automática de um calendário de vacinação/manejo baseado no perfil da fazenda.
 4.  **Análise de Endividamento**: Painel financeiro que calcula indicadores de risco e sustentabilidade.
@@ -30,7 +30,6 @@ Transformar o PecuarIA em uma plataforma "AI-First" para o consultor, oferecendo
 ```plaintext
 src/
 ├── agents/
-│   ├── AgentHub.tsx                 # Dashboard central de seleção
 │   ├── SoilAnalysisAgent.tsx        # Agente de Solo
 │   ├── SanitaryCalendarAgent.tsx    # Agente de Calendário (Evolução do atual)
 │   └── DebtAnalysisAgent.tsx        # Agente Financeiro
@@ -54,7 +53,7 @@ src/
     -   *Agente*: `database-architect` | *Skill*: `database-design`
 -   [ ] **Task 1.2**: Desenvolver os "System Prompts" especialistas no `agentPrompts.ts`.
     -   *Agente*: `backend-specialist` | *Skill*: `api-patterns`
--   [ ] **Task 1.3**: Criar o layout base `AgentHub.tsx` com cards para seleção dos agentes.
+-   [ ] **Task 1.3**: Criar cards de agentes na área de Assistentes para seleção dos especialistas.
     -   *Agente*: `frontend-specialist` | *Skill*: `frontend-design`
 
 ### Fase 2: Agente de Solo (P1)

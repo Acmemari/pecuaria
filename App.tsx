@@ -13,9 +13,6 @@ import { Agent } from './types';
 import { Menu, Construction, Loader2, ArrowLeft, Plus } from 'lucide-react';
 import { ToastContainer, Toast } from './components/Toast';
 
-// Lazy load AgentHub
-const AgentHub = lazy(() => import('./agents/AgentHub'));
-
 // Lazy load auth pages
 const ForgotPasswordPage = lazy(() => import('./components/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
@@ -39,6 +36,7 @@ const ClientDocuments = lazy(() => import('./agents/ClientDocuments'));
 const InitiativesOverview = lazy(() => import('./agents/InitiativesOverview'));
 const InitiativesActivities = lazy(() => import('./agents/InitiativesActivities'));
 const InitiativesKanban = lazy(() => import('./agents/InitiativesKanban'));
+const FeedbackAgent = lazy(() => import('./agents/FeedbackAgent'));
 const ProjectStructureReport = lazy(() => import('./agents/ProjectStructureReport'));
 const PeopleManagement = lazy(() => import('./agents/PeopleManagement'));
 const DeliveryManagement = lazy(() => import('./agents/DeliveryManagement'));
@@ -241,15 +239,6 @@ const AppContent: React.FC = () => {
         status: 'active'
       };
 
-      const agentHub: Agent = {
-        id: 'agent-hub',
-        name: 'Hub de Agentes',
-        description: 'Assistentes especialistas por domínio.',
-        icon: 'brain-circuit',
-        category: 'consultoria',
-        status: 'active'
-      };
-
       const adminDashboard: Agent = {
         id: 'admin-dashboard',
         name: 'Gestão de Usuários',
@@ -285,7 +274,6 @@ const AppContent: React.FC = () => {
 
       // Others (at the end)
       orderedList.push(savedScenarios);
-      orderedList.push(agentHub);
       orderedList.push(askAntonio);
 
       // Admin exclusives
@@ -510,6 +498,7 @@ const AppContent: React.FC = () => {
                 onSelectComparador={() => setViewMode('comparator')}
                 onSelectPlanejamentoAgil={() => setViewMode('agile-planning')}
                 onSelectAvaliacaoProtocolo={() => setViewMode('avaliacao-protocolo')}
+                onSelectFeedbackAgent={() => setActiveAgentId('agent-feedback')}
                 showPlanejamentoAgil={user?.role === 'admin' || user?.qualification === 'analista'}
               />
             </Suspense>
@@ -706,12 +695,10 @@ const AppContent: React.FC = () => {
         ) : (
           <div>Acesso negado.</div>
         );
-      case 'agent-hub':
+      case 'agent-feedback':
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <AgentHub
-              onSelectAgent={(id) => setActiveAgentId(id)}
-            />
+            <FeedbackAgent onToast={handleToast} />
           </Suspense>
         );
       case 'client-documents':

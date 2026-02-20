@@ -3,9 +3,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import QuestionnaireFiller from '../../../agents/QuestionnaireFiller';
 import { LocationProvider } from '../../../contexts/LocationContext';
-import { AnalystProvider } from '../../../contexts/AnalystContext';
-import { ClientProvider } from '../../../contexts/ClientContext';
-import { FarmProvider } from '../../../contexts/FarmContext';
 
 const STORAGE_KEY = 'agro-farms';
 
@@ -57,6 +54,21 @@ const mockFarm = {
 
 vi.mock('../../../contexts/AuthContext', () => ({
   useAuth: () => ({ user: mockUser }),
+}));
+
+vi.mock('../../../contexts/AnalystContext', () => ({
+  AnalystProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useAnalyst: () => ({ selectedAnalyst: null, setSelectedAnalyst: vi.fn() }),
+}));
+
+vi.mock('../../../contexts/ClientContext', () => ({
+  ClientProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useClient: () => ({ selectedClient: null, setSelectedClient: vi.fn() }),
+}));
+
+vi.mock('../../../contexts/FarmContext', () => ({
+  FarmProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useFarm: () => ({ selectedFarm: null, setSelectedFarm: vi.fn(), clearFarm: vi.fn() }),
 }));
 
 vi.mock('../../../lib/supabase', () => {
@@ -111,13 +123,7 @@ describe('QuestionnaireFiller', () => {
     const user = userEvent.setup({ delay: null });
     render(
       <LocationProvider>
-        <ClientProvider>
-          <FarmProvider>
-            <AnalystProvider>
-              <QuestionnaireFiller />
-            </AnalystProvider>
-          </FarmProvider>
-        </ClientProvider>
+        <QuestionnaireFiller />
       </LocationProvider>
     );
 

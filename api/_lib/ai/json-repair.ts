@@ -45,8 +45,44 @@ function closeOpenBraces(raw: string): string {
   return out;
 }
 
+function closeUnterminatedStrings(raw: string): string {
+  let inString = false;
+  let escaped = false;
+  let lastQuoteIdx = -1;
+
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      if (!inString) {
+        inString = true;
+        lastQuoteIdx = i;
+      } else {
+        inString = false;
+      }
+    }
+  }
+
+  if (inString && lastQuoteIdx >= 0) {
+    // If a JSON string ends with a lone backslash, complete escape before closing quote.
+    if (escaped) {
+      return raw + '\\"';
+    }
+    return raw + '"';
+  }
+  return raw;
+}
+
 function repairJson(raw: string): string {
   let candidate = extractJsonCandidate(raw);
+  candidate = closeUnterminatedStrings(candidate);
   candidate = stripTrailingCommas(candidate);
   candidate = closeOpenBraces(candidate);
   return candidate.trim();
