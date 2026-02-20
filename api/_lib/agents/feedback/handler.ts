@@ -73,7 +73,7 @@ export async function runFeedbackAgent(args: {
     responseFormat: 'json',
     temperature: 0.5,
     maxTokens: 4000,
-    timeoutMs: 45_000,
+    timeoutMs: 55_000,
   });
 
   const parsed = safeJsonParseWithRepair<FeedbackOutput>(response.content, feedbackOutputSchema);
