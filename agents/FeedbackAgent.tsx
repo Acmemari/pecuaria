@@ -56,15 +56,26 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
         signal: controller.signal,
       });
 
-      // Some dev/proxy failures can return empty or non-JSON bodies.
+      // Handle non-JSON responses gracefully (common in infra/proxy failures).
       const raw = await res.text();
-      const data = raw ? JSON.parse(raw) : null;
+      let data: any = null;
+      if (raw) {
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          console.error('[FeedbackAgent] Non-JSON API response', {
+            status: res.status,
+            statusText: res.statusText,
+            bodyPreview: raw.slice(0, 240),
+          });
+        }
+      }
 
       if (!res.ok) {
-        throw new Error(data?.error || 'Falha ao gerar feedback.');
+        throw new Error(data?.error || `Não foi possível gerar o feedback (${res.status}).`);
       }
       if (!data?.data) {
-        throw new Error('Resposta inválida da API de feedback.');
+        throw new Error('Não foi possível processar sua solicitação agora. Tente novamente em instantes.');
       }
       setResult(data.data as FeedbackOutput);
       onToast?.('Feedback gerado com sucesso.', 'success');
@@ -72,10 +83,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
       if (e?.name === 'AbortError') {
         return;
       }
-      const parseMessage =
-        e instanceof SyntaxError
-          ? 'A API retornou uma resposta inválida. Verifique se o servidor de API está ativo.'
-          : null;
+      const parseMessage = e instanceof SyntaxError ? 'Não foi possível processar sua solicitação agora.' : null;
       const message = parseMessage || e?.message || 'Erro inesperado ao gerar feedback.';
       setError(message);
       onToast?.(message, 'error');
