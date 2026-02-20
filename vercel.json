@@ -1,12 +1,6 @@
 {
   "functions": {
     "api/**/*.ts": {
-      "maxDuration": 30
-    },
-    "api/feedback-assist.ts": {
-      "maxDuration": 60
-    },
-    "api/agents/run.ts": {
       "maxDuration": 60
     }
   },
