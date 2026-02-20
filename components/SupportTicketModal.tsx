@@ -418,7 +418,18 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    if (e.key === 'Enter') {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const ta = e.target as HTMLTextAreaElement;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const val = ta.value;
+        const newVal = val.slice(0, start) + '\n' + val.slice(end);
+        setMessageInput(newVal);
+        setTimeout(() => ta.setSelectionRange(start + 1, start + 1), 0);
+        return;
+      }
       e.preventDefault();
       void handleSendMessage();
     }
@@ -921,7 +932,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                     onChange={(e) => setMessageInput(e.target.value)}
                     onPaste={handlePaste}
                     onKeyDown={handleKeyDown}
-                    placeholder="Digite ou cole imagem (Ctrl+V)... Ctrl+Enter para enviar"
+                    placeholder="Digite ou cole imagem (Ctrl+V)... Enter para enviar, Ctrl+Enter para nova linha"
                     className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 resize-none h-[52px] outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   />
                   <button
