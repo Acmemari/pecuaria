@@ -328,6 +328,7 @@ export default function FarmPermissionsModal({
       if (error) throw error;
       onToast?.('Permissões atualizadas.', 'success');
       await loadAnalystsWithAccess();
+      onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao salvar permissões';
       onToast?.(msg, 'error');

@@ -318,19 +318,11 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     dispatch({ type: 'SET_ERROR', payload: { level: 'analysts', value: null } });
 
     try {
-      let query = supabase
-        .from('user_profiles')
-        .select('id, name, email, qualification, role')
-        .eq('qualification', 'analista')
-        .order('name', { ascending: true })
-        .range(offset, offset + PAGE_SIZE - 1)
-        .abortSignal(controller.signal);
-
-      if (search) {
-        query = query.ilike('name', `%${search}%`);
-      }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc('get_analysts_for_admin', {
+        p_offset: offset,
+        p_limit: PAGE_SIZE,
+        p_search: search || null,
+      });
       if (error) throw error;
 
       const mapped = (data || []).map(mapAnalystRow);
