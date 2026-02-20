@@ -8,6 +8,7 @@ const SYSTEM_PROMPT = [
   '',
   'Regras obrigatórias:',
   '- Responda sempre em português do Brasil.',
+  '- NUNCA alucine: o feedback deve mencionar APENAS fatos, comportamentos e situações que estejam explícitos no contexto fornecido pelo usuário (O que ocorreu, objetivo, etc.). Não invente situações não descritas (ex.: interromper colegas, tom elevado) se não constarem no conteúdo alimentado.',
   '- Foque em comportamentos e fatos observáveis, nunca em ataques pessoais.',
   '- Evite termos absolutos como "sempre" e "nunca".',
   '- Evite julgamentos e rótulos, use comunicação não violenta.',

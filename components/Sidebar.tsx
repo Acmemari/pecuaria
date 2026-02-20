@@ -248,43 +248,6 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                 </div>
               )}
             </div>
-            {canAccessRh && (
-              <div className="space-y-0.5 mb-1">
-                <button
-                  type="button"
-                  onClick={() => setIsRhOpen(!isRhOpen)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group ${activeAgentId === RH_FEEDBACK_ID
-                    ? 'bg-ai-accent/5 text-ai-accent'
-                    : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                    }`}
-                  title="RH"
-                >
-                  <div className="flex items-center">
-                    <Users size={16} className="flex-shrink-0 text-ai-subtext group-hover:text-ai-text" />
-                    <span className="ml-3 text-sm font-medium block truncate">RH</span>
-                  </div>
-                  <ChevronDown
-                    size={14}
-                    className={`flex-shrink-0 transition-transform duration-200 ${isRhOpen ? 'rotate-180' : ''}`}
-                  />
-                </button>
-                {isRhOpen && (
-                  <div className="ml-4 space-y-0.5 border-l border-ai-border pl-2 overflow-hidden transition-all duration-200">
-                    <button
-                      type="button"
-                      onClick={() => onSelectAgent(RH_FEEDBACK_ID)}
-                      className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === RH_FEEDBACK_ID
-                        ? 'bg-ai-accent/10 text-ai-accent'
-                        : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                        }`}
-                    >
-                      <MessageSquareText size={14} className="flex-shrink-0 mr-2" />
-                      <span className="truncate">Feedback</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
 
             {agents.filter((a) => a.id !== 'cadastros' && a.id !== 'calendar').map((agent) => {
               const isActive = activeAgentId === agent.id;
@@ -329,6 +292,43 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                       <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />
                     )}
                   </button>
+                  {agent.id === 'cattle-profit' && canAccessRh && (
+                    <div className="space-y-0.5 mb-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsRhOpen(!isRhOpen)}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group ${activeAgentId === RH_FEEDBACK_ID
+                          ? 'bg-ai-accent/5 text-ai-accent'
+                          : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                          }`}
+                        title="Equipe"
+                      >
+                        <div className="flex items-center">
+                          <Users size={16} className="flex-shrink-0 text-ai-subtext group-hover:text-ai-text" />
+                          <span className="ml-3 text-sm font-medium block truncate">Equipe</span>
+                        </div>
+                        <ChevronDown
+                          size={14}
+                          className={`flex-shrink-0 transition-transform duration-200 ${isRhOpen ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      {isRhOpen && (
+                        <div className="ml-4 space-y-0.5 border-l border-ai-border pl-2 overflow-hidden transition-all duration-200">
+                          <button
+                            type="button"
+                            onClick={() => onSelectAgent(RH_FEEDBACK_ID)}
+                            className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === RH_FEEDBACK_ID
+                              ? 'bg-ai-accent/10 text-ai-accent'
+                              : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                              }`}
+                          >
+                            <MessageSquareText size={14} className="flex-shrink-0 mr-2" />
+                            <span className="truncate">Feedback</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </React.Fragment>
               );
             })}

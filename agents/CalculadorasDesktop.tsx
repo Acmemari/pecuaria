@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { ArrowLeftRight, Target, Star, CircleDollarSign, ClipboardCheck, MessageSquareText } from 'lucide-react';
+import { ArrowLeftRight, Target, Star, CircleDollarSign, ClipboardCheck, MessageSquareText, Lock } from 'lucide-react';
 
 type TabId = 'todos' | 'favoritos' | 'recentes';
 
@@ -11,6 +11,7 @@ interface CalculatorCardProps {
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
   onClick: () => void;
+  locked?: boolean;
 }
 
 const CalculatorCard: React.FC<CalculatorCardProps> = ({
@@ -21,14 +22,18 @@ const CalculatorCard: React.FC<CalculatorCardProps> = ({
   isFavorite,
   onToggleFavorite,
   onClick,
+  locked = false,
 }) => (
   <button
     type="button"
-    onClick={onClick}
-    className="group relative flex flex-col p-6 rounded-2xl border border-gray-200 bg-white hover:border-gray-800 hover:shadow-sm transition-all duration-200 text-left w-full"
+    onClick={locked ? undefined : onClick}
+    disabled={locked}
+    className={`group relative flex flex-col p-5 rounded-xl border border-gray-200 bg-white text-left w-full transition-all duration-200 ${
+      locked ? 'opacity-70 cursor-not-allowed' : 'hover:border-gray-800 hover:shadow-sm cursor-pointer'
+    }`}
   >
     {/* Top row: icon left, star right */}
-    <div className="flex items-start justify-between gap-3 mb-4">
+    <div className="flex items-start justify-between gap-2 mb-3">
       <div className="flex items-center justify-center text-gray-500">
         {icon}
       </div>
@@ -36,21 +41,25 @@ const CalculatorCard: React.FC<CalculatorCardProps> = ({
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          onToggleFavorite(id);
+          if (!locked) onToggleFavorite(id);
         }}
-        className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-amber-500 transition-colors shrink-0"
+        className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-amber-500 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={locked}
         aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
       >
         <Star
-          size={20}
+          size={16}
           className={isFavorite ? 'fill-amber-400 text-amber-400' : ''}
         />
       </button>
     </div>
-    <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
-    <p className="text-xs text-gray-500 leading-relaxed line-clamp-5">
+    <h3 className="text-base font-bold text-gray-900 mb-1.5">{title}</h3>
+    <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-4">
       {description}
     </p>
+    {locked && (
+      <Lock size={12} className="absolute bottom-2 right-2 text-gray-400" aria-hidden />
+    )}
   </button>
 );
 
@@ -90,8 +99,8 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
       description:
         'Descubra o resultado por cabeça, a Taxa Interna de Retorno (TIR), a produção por hectare e mais de uma dezena de indicadores estratégicos, ajustados automaticamente para cada cenário.',
       icon: (
-        <div className="w-9 h-9 text-gray-500 flex items-center justify-center">
-          <CircleDollarSign size={34} strokeWidth={2.2} />
+        <div className="w-7 h-7 text-gray-500 flex items-center justify-center">
+          <CircleDollarSign size={27} strokeWidth={2.2} />
         </div>
       ),
       onClick: onSelectSimulator,
@@ -101,7 +110,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
       title: 'Comparador',
       description:
         'Compare cenários lado a lado com diferentes premissas. Visualize resultados e escolha a melhor estratégia para seu rebanho.',
-      icon: <ArrowLeftRight size={24} />,
+      icon: <ArrowLeftRight size={19} />,
       onClick: onSelectComparador,
     },
   ];
@@ -112,7 +121,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
         title: 'Planejamento Ágil',
         description:
           'Planejamento estratégico vinculado a cliente e fazenda. Defina metas, iniciativas e acompanhe o progresso.',
-        icon: <Target size={24} />,
+        icon: <Target size={19} />,
         onClick: onSelectPlanejamentoAgil,
       }
     : null;
@@ -123,27 +132,26 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
         title: 'Avaliação Protocolo 5-3-9',
         description:
           'Avaliação completa nas dimensões Gente, Gestão e Produção. Diagnóstico estruturado para identificar pontos fortes e oportunidades de melhoria na operação pecuária.',
-        icon: <ClipboardCheck size={24} />,
+        icon: <ClipboardCheck size={19} />,
         onClick: onSelectAvaliacaoProtocolo,
       }
     : null;
 
-  const feedbackCard = onSelectFeedbackAgent
-    ? {
-        id: 'feedback-agent',
-        title: 'Assistente de Feedback',
-        description:
-          'Crie feedbacks construtivos com tom adequado e estruturas profissionais como SBI, Sanduíche e Feedforward.',
-        icon: <MessageSquareText size={24} />,
-        onClick: onSelectFeedbackAgent,
-      }
-    : null;
+  const feedbackCard = {
+    id: 'feedback-agent',
+    title: 'Assistente de Feedback',
+    description:
+      'Crie feedbacks construtivos com tom adequado e estruturas profissionais como SBI, Sanduíche e Feedforward.',
+    icon: <MessageSquareText size={19} />,
+    onClick: onSelectFeedbackAgent ?? (() => {}),
+    locked: true,
+  };
 
   const cards = [
     ...baseCards,
     ...(planejamentoCard ? [planejamentoCard] : []),
     ...(avaliacaoCard ? [avaliacaoCard] : []),
-    ...(feedbackCard ? [feedbackCard] : []),
+    feedbackCard,
   ];
 
   const filteredCards =
@@ -178,7 +186,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
       </div>
 
       {/* Grid de cards - 3 colunas como na imagem */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {filteredCards.length === 0 ? (
           <p className="text-sm text-gray-500 col-span-full py-8">
             {activeTab === 'favoritos'
@@ -196,6 +204,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
               isFavorite={favoriteIds.has(card.id)}
               onToggleFavorite={toggleFavorite}
               onClick={card.onClick}
+              locked={!!('locked' in card && card.locked)}
             />
           ))
         )}
