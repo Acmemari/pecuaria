@@ -1,5 +1,33 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CheckCheck, ImageIcon, Loader2, Send, X } from 'lucide-react';
+import {
+  Check,
+  CheckCheck,
+  Loader2,
+  Reply,
+  Send,
+  X,
+  Home,
+  FileText,
+  Trash2,
+  Building2,
+  Users,
+  FolderTree,
+  LayoutList,
+  Package,
+  ListChecks,
+  SquareCheck,
+  LayoutDashboard,
+  Columns,
+  Paperclip,
+  FolderOpen,
+  Calculator,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  PERMISSION_KEYS,
+  PERMISSION_CATEGORY_LABELS,
+  type PermissionCategory,
+} from '../lib/permissions/permissionKeys';
 import { useAuth } from '../contexts/AuthContext';
 import {
   createTicket,
@@ -29,6 +57,15 @@ type DetailState = {
   attachments: SupportTicketAttachment[];
 };
 
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+function validateImageFile(file: File): string | null {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return 'Formato de imagem inválido.';
+  if (file.size > MAX_IMAGE_SIZE) return 'Imagem muito grande (máx 5MB).';
+  return null;
+}
+
 const ticketTypeLabel: Record<SupportTicketType, string> = {
   erro_tecnico: 'Erro Técnico',
   sugestao_solicitacao: 'Sugestão/Solicitação',
@@ -48,6 +85,30 @@ const LOCATION_OPTIONS: Array<{ value: SupportLocationArea; label: string }> = [
   { value: 'modal', label: 'Modal/Dialog' },
   { value: 'other', label: 'Outro' },
 ];
+
+const SCREEN_ICON_MAP: Record<string, LucideIcon> = {
+  Home,
+  FileText,
+  Trash2,
+  Building2,
+  Users,
+  FolderTree,
+  LayoutList,
+  Package,
+  ListChecks,
+  SquareCheck,
+  LayoutDashboard,
+  Columns,
+  Paperclip,
+  FolderOpen,
+  Calculator,
+};
+
+function getScreenLabelFromKey(key: string | null): string | null {
+  if (!key) return null;
+  const def = PERMISSION_KEYS.find((pk) => pk.key === key);
+  return def ? `${def.label} (${def.location})` : key;
+}
 
 const ErrorIcon = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="shrink-0">
@@ -85,10 +146,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
 
   const [newTicketType, setNewTicketType] = useState<SupportTicketType>('erro_tecnico');
   const [subject, setSubject] = useState('');
-  const [locationArea, setLocationArea] = useState<SupportLocationArea>('main');
-  const [specificScreen, setSpecificScreen] = useState('');
+  const [selectedScreenKey, setSelectedScreenKey] = useState<string | null>(null);
 
   const [messageInput, setMessageInput] = useState('');
+  const [replyingTo, setReplyingTo] = useState<SupportTicketMessage | null>(null);
   const [pastedImage, setPastedImage] = useState<File | null>(null);
   const [pastedImagePreview, setPastedImagePreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +159,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
   const [aiSuggestionLoading, setAiSuggestionLoading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const activeTicketIdRef = useRef(activeTicketId);
   activeTicketIdRef.current = activeTicketId;
 
@@ -106,6 +168,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [detail?.messages?.length]);
+
+  useEffect(() => {
+    setReplyingTo(null);
+  }, [activeTicketId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -122,7 +188,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
       setDetail(null);
       setShowNewForm(false);
       setSubject('');
-      setSpecificScreen('');
+      setSelectedScreenKey(null);
       setAiSuggestion('');
       setError(null);
       resetComposer();
@@ -139,14 +205,15 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     setAiSuggestionLoading(true);
     const timer = setTimeout(async () => {
       try {
+        const screenDef = selectedScreenKey ? PERMISSION_KEYS.find((pk) => pk.key === selectedScreenKey) : null;
         const res = await fetch('/api/support-suggest', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             subject: subject.trim(),
             ticketType: newTicketType,
-            locationArea: newTicketType === 'erro_tecnico' ? locationArea : undefined,
-            specificScreen: newTicketType === 'erro_tecnico' ? specificScreen : undefined,
+            locationArea: newTicketType === 'erro_tecnico' && screenDef ? 'main' : undefined,
+            specificScreen: newTicketType === 'erro_tecnico' && screenDef ? screenDef.label : undefined,
           }),
         });
         const data = await res.json();
@@ -162,7 +229,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
       clearTimeout(timer);
       setAiSuggestionLoading(false);
     };
-  }, [subject, newTicketType, locationArea, specificScreen, showNewForm]);
+  }, [subject, newTicketType, selectedScreenKey, showNewForm]);
 
   const attachmentByMessage = useMemo(() => {
     const map = new Map<string, SupportTicketAttachment[]>();
@@ -186,6 +253,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
 
   const resetComposer = () => {
     setMessageInput('');
+    setReplyingTo(null);
     setPastedImage(null);
     setPastedImagePreview(null);
   };
@@ -259,13 +327,13 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
         ticketType: newTicketType,
         subject,
         currentUrl: window.location.href,
-        locationArea: newTicketType === 'erro_tecnico' ? locationArea : undefined,
-        specificScreen: newTicketType === 'erro_tecnico' ? specificScreen : undefined,
+        locationArea: newTicketType === 'erro_tecnico' && selectedScreenKey ? 'main' : undefined,
+        specificScreen: newTicketType === 'erro_tecnico' ? (selectedScreenKey || undefined) : undefined,
         initialMessage: subject.trim() || undefined,
       });
       setShowNewForm(false);
       setSubject('');
-      setSpecificScreen('');
+      setSelectedScreenKey(null);
       setAiSuggestion('');
       await loadTickets();
       setActiveTicketId(ticket.id);
@@ -283,14 +351,24 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     event.preventDefault();
     const file = imageItem.getAsFile();
     if (!file) return;
-    const MAX_SIZE = 5 * 1024 * 1024;
-    const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!ALLOWED.includes(file.type)) { setError('Formato de imagem inválido.'); return; }
-    if (file.size > MAX_SIZE) { setError('Imagem muito grande (máx 5MB).'); return; }
+    const err = validateImageFile(file);
+    if (err) { setError(err); return; }
     if (pastedImagePreview) URL.revokeObjectURL(pastedImagePreview);
     setPastedImage(file);
     setPastedImagePreview(URL.createObjectURL(file));
     setError(null);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const err = validateImageFile(file);
+    if (err) { setError(err); return; }
+    if (pastedImagePreview) URL.revokeObjectURL(pastedImagePreview);
+    setPastedImage(file);
+    setPastedImagePreview(URL.createObjectURL(file));
+    setError(null);
+    e.target.value = '';
   };
 
   const handleSendMessage = async () => {
@@ -298,6 +376,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     if (!messageInput.trim() && !pastedImage) return;
     const text = messageInput.trim() || '[imagem]';
     const imageFile = pastedImage;
+    const replyToId = replyingTo?.id ?? null;
     setSending(true);
     setError(null);
     resetComposer();
@@ -312,6 +391,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
       created_at: new Date().toISOString(),
       read_at: null,
       author_name: (user as { name?: string })?.name || 'Você',
+      reply_to_id: replyToId,
     };
 
     setDetail((prev) =>
@@ -324,7 +404,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     );
 
     try {
-      await sendTicketMessage(activeTicketId, { message: text, imageFile });
+      await sendTicketMessage(activeTicketId, { message: text, imageFile, replyToId });
       await loadDetail(activeTicketId);
       await loadTickets();
     } catch (err: any) {
@@ -430,10 +510,13 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                     </span>
                   </div>
                   <p className="font-medium text-slate-700 truncate">{ticket.subject || ticketTypeLabel[ticket.ticket_type]}</p>
-                  {ticket.location_area && (
+                  {(ticket.specific_screen || ticket.location_area) && (
                     <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400" />
-                      {LOCATION_OPTIONS.find((o) => o.value === ticket.location_area)?.label || ticket.location_area}
+                      {getScreenLabelFromKey(ticket.specific_screen) ||
+                        LOCATION_OPTIONS.find((o) => o.value === ticket.location_area)?.label ||
+                        ticket.location_area ||
+                        ticket.specific_screen}
                     </p>
                   )}
                   <span className={`inline-block mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${cfg.className}`}>
@@ -491,32 +574,53 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                 </button>
               </div>
 
-              {/* Conditional fields for Erro Técnico */}
+              {/* Onde está o problema? – seleção visual (Erro Técnico) */}
               {newTicketType === 'erro_tecnico' && (
                 <div className="mb-6 p-4 rounded-xl border border-red-200 bg-red-50/50 animate-fade-in">
-                  <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-3">Detalhes do Problema</p>
-                  <div className="flex gap-3">
-                    <div className="flex-1">
-                      <select
-                        value={locationArea}
-                        onChange={(e) => setLocationArea(e.target.value as SupportLocationArea)}
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-                      >
-                        {LOCATION_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        value={specificScreen}
-                        onChange={(e) => setSpecificScreen(e.target.value)}
-                        placeholder="Ex: Tela de Clientes"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-                        maxLength={200}
-                      />
-                    </div>
+                  <p className="text-xs font-bold text-red-600 uppercase tracking-wider mb-3">
+                    Onde está o problema? Clique na tela ou funcionalidade
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                    {(['cadastros', 'gerenciamento', 'documentos', 'assistentes'] as PermissionCategory[]).map(
+                      (cat) => {
+                        const items = PERMISSION_KEYS.filter((pk) => pk.category === cat);
+                        if (items.length === 0) return null;
+                        return (
+                          <div key={cat}>
+                            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                              {PERMISSION_CATEGORY_LABELS[cat]}
+                            </p>
+                            <div className="space-y-1">
+                              {items.map((pk) => {
+                                const Icon = SCREEN_ICON_MAP[pk.icon] ?? FileText;
+                                const selected = selectedScreenKey === pk.key;
+                                return (
+                                  <button
+                                    key={pk.key}
+                                    type="button"
+                                    onClick={() => setSelectedScreenKey(selected ? null : pk.key)}
+                                    className={`w-full text-left flex items-start gap-2 p-2.5 rounded-lg border transition-all ${
+                                      selected
+                                        ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-200'
+                                        : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300'
+                                    }`}
+                                  >
+                                    <Icon size={16} className="shrink-0 mt-0.5 text-slate-500" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium text-slate-800 truncate">{pk.label}</p>
+                                      <p className="text-[11px] text-slate-500 truncate">{pk.location}</p>
+                                    </div>
+                                    {selected && (
+                                      <span className="shrink-0 text-[10px] font-semibold text-blue-600">✓</span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      }
+                    )}
                   </div>
                 </div>
               )}
@@ -588,11 +692,11 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                   <p className="text-sm font-bold text-slate-800 truncate">{detail.ticket.subject}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {ticketTypeLabel[detail.ticket.ticket_type]}
-                    {detail.ticket.location_area && (
-                      <> · {LOCATION_OPTIONS.find((o) => o.value === detail.ticket.location_area)?.label}</>
-                    )}
-                    {detail.ticket.specific_screen && (
-                      <> · {detail.ticket.specific_screen}</>
+                    {(detail.ticket.specific_screen || detail.ticket.location_area) && (
+                      <> · {getScreenLabelFromKey(detail.ticket.specific_screen) ||
+                        LOCATION_OPTIONS.find((o) => o.value === detail.ticket.location_area)?.label ||
+                        detail.ticket.location_area ||
+                        detail.ticket.specific_screen}</>
                     )}
                   </p>
                 </div>
@@ -635,22 +739,50 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                   const isAI = msg.author_type === 'ai';
                   const isAgent = msg.author_type === 'agent';
                   const linkedAttachments = attachmentByMessage.get(msg.id) || [];
+                  const repliedMsg = msg.reply_to_id
+                    ? detail.messages.find((m) => m.id === msg.reply_to_id)
+                    : null;
+                  const quotedText = repliedMsg
+                    ? (repliedMsg.message.length > 60
+                        ? repliedMsg.message.slice(0, 60).trim() + '...'
+                        : repliedMsg.message)
+                    : null;
 
                   if (isAI) {
                     return (
-                      <div key={msg.id} className="flex justify-start gap-2 animate-fade-in">
+                      <div key={msg.id} className="flex justify-start gap-2 animate-fade-in group">
                         <BotAvatar />
-                        <div className="max-w-[70%] rounded-xl px-4 py-3 text-sm bg-white border border-blue-200 text-slate-700 shadow-sm">
+                        <div className="max-w-[70%] rounded-xl px-4 py-3 text-sm bg-white border border-blue-200 text-slate-700 shadow-sm relative">
+                          {msg.reply_to_id && (
+                            <div className="mb-2 pl-2 border-l-2 border-blue-300 text-xs text-slate-500">
+                              <p className="font-medium text-slate-600">
+                                {repliedMsg?.author_type === 'ai'
+                                  ? 'Assistente'
+                                  : repliedMsg?.author_type === 'agent'
+                                    ? 'Agente Técnico'
+                                    : repliedMsg?.author_name || 'Usuário'}
+                              </p>
+                              <p className="truncate">{quotedText || 'Mensagem removida'}</p>
+                            </div>
+                          )}
                           <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                          <button
+                            type="button"
+                            onClick={() => setReplyingTo(msg)}
+                            className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-slate-100 transition-opacity"
+                            title="Responder"
+                          >
+                            <Reply size={14} className="text-slate-500" />
+                          </button>
                         </div>
                       </div>
                     );
                   }
 
                   return (
-                    <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+                    <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'} animate-fade-in group`}>
                       <div
-                        className={`max-w-[70%] rounded-xl px-4 py-3 text-sm shadow-sm ${
+                        className={`max-w-[70%] rounded-xl px-4 py-3 text-sm shadow-sm relative ${
                           mine
                             ? 'bg-blue-600 text-white'
                             : isAgent
@@ -658,6 +790,36 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                               : 'bg-slate-100 text-slate-700'
                         }`}
                       >
+                        <button
+                          type="button"
+                          onClick={() => setReplyingTo(msg)}
+                          className={`absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${
+                            mine ? 'hover:bg-blue-500' : 'hover:bg-slate-200'
+                          }`}
+                          title="Responder"
+                        >
+                          <Reply size={14} className={mine ? 'text-white/80' : 'text-slate-500'} />
+                        </button>
+                        {msg.reply_to_id && (
+                          <div
+                            className={`mb-2 pl-2 border-l-2 ${
+                              mine
+                                ? 'border-white/50 text-white/90'
+                                : isAgent
+                                  ? 'border-amber-400 text-amber-800'
+                                  : 'border-slate-400 text-slate-600'
+                            }`}
+                          >
+                            <p className="text-[10px] font-semibold">
+                              {repliedMsg?.author_type === 'ai'
+                                ? 'Assistente'
+                                : repliedMsg?.author_type === 'agent'
+                                  ? 'Agente Técnico'
+                                  : repliedMsg?.author_name || 'Usuário'}
+                            </p>
+                            <p className="text-xs truncate">{quotedText || 'Mensagem removida'}</p>
+                          </div>
+                        )}
                         {!mine && (
                           <p className={`text-[10px] font-semibold mb-1 ${isAgent ? 'text-amber-600' : 'text-slate-400'}`}>
                             {isAgent ? 'Agente Técnico' : (msg.author_name || 'Usuário')}
@@ -678,13 +840,15 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                             )}
                           </a>
                         ))}
-                        {/* Message status indicators for own messages */}
+                        {/* Message status indicators for own messages (WhatsApp-style) */}
                         {mine && (
-                          <div className="flex justify-end mt-1">
+                          <div className="flex justify-end mt-1" title={msg.read_at ? 'Lido' : msg.id?.startsWith('temp-') ? 'Enviado' : 'Recebido'}>
                             {msg.read_at ? (
                               <CheckCheck size={14} className="text-cyan-300" />
+                            ) : msg.id?.startsWith('temp-') ? (
+                              <Check size={14} className="text-white/50" />
                             ) : (
-                              <Check size={14} className="text-white/60" />
+                              <CheckCheck size={14} className="text-white/70" />
                             )}
                           </div>
                         )}
@@ -705,6 +869,33 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
 
               {/* Composer */}
               <div className="shrink-0 border-t border-slate-200 p-3 bg-slate-50">
+                {replyingTo && (
+                  <div className="mb-2 flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-semibold text-slate-500">
+                        Respondendo a{' '}
+                        {replyingTo.author_type === 'ai'
+                          ? 'Assistente'
+                          : replyingTo.author_type === 'agent'
+                            ? 'Agente Técnico'
+                            : replyingTo.author_name || 'Usuário'}
+                      </p>
+                      <p className="truncate text-slate-600">
+                        {replyingTo.message.length > 60
+                          ? replyingTo.message.slice(0, 60).trim() + '...'
+                          : replyingTo.message}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyingTo(null)}
+                      className="shrink-0 p-1 rounded hover:bg-slate-200 text-slate-500"
+                      title="Cancelar resposta"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
                 {pastedImagePreview && (
                   <div className="mb-2 relative inline-block">
                     <img src={pastedImagePreview} alt="Preview" className="max-h-20 rounded-lg border border-slate-200" />
@@ -718,27 +909,42 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                   </div>
                 )}
                 <div className="flex gap-2 items-end">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
                   <textarea
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onPaste={handlePaste}
                     onKeyDown={handleKeyDown}
-                    placeholder="Responder ticket... (Ctrl+Enter para enviar)"
+                    placeholder="Digite ou cole imagem (Ctrl+V)... Ctrl+Enter para enviar"
                     className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 resize-none h-[52px] outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   />
                   <button
                     type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 flex items-center justify-center shrink-0 transition-colors hover:text-slate-700"
+                    title="Anexar imagem"
+                  >
+                    <Paperclip size={20} />
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleSendMessage}
                     disabled={sending || (!messageInput.trim() && !pastedImage)}
-                    className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center disabled:opacity-40 hover:bg-blue-700 transition-all active:scale-95 duration-150"
+                    className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center disabled:opacity-40 hover:bg-blue-700 transition-all active:scale-95 duration-150 shrink-0"
                     title="Enviar"
                   >
                     {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                   </button>
                 </div>
                 <p className="mt-1.5 flex items-center gap-2 text-[11px] text-slate-400">
-                  <ImageIcon size={12} />
-                  Cole imagem (Ctrl+V) para anexar.
+                  <Paperclip size={12} />
+                  Cole imagem (Ctrl+V) no chat ou clique em Anexar
                 </p>
               </div>
             </>

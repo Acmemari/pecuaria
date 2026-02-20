@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CheckCheck, ExternalLink, Loader2, MapPin, MessageSquare, Search, Send } from 'lucide-react';
+import { Check, CheckCheck, ExternalLink, Loader2, MapPin, MessageSquare, Paperclip, Reply, Search, Send, X } from 'lucide-react';
 import {
   getTicketDetail,
   listAdminTickets,
@@ -51,6 +51,15 @@ const statusBadge: Record<SupportTicketStatus, string> = {
   done: 'bg-emerald-100 text-emerald-700',
 };
 
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+function validateImageFile(file: File): string | null {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return 'Formato inválido. Use JPEG, PNG, WEBP ou GIF.';
+  if (file.size > MAX_IMAGE_SIZE) return 'Imagem muito grande (máx 5MB).';
+  return null;
+}
+
 const BotAvatar = () => (
   <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
     <svg width="14" height="14" viewBox="0 0 16 16" fill="white">
@@ -71,12 +80,16 @@ const SupportTicketsDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | SupportTicketStatus>('all');
   const [search, setSearch] = useState('');
   const [reply, setReply] = useState('');
+  const [replyingTo, setReplyingTo] = useState<SupportTicketMessage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [replyImage, setReplyImage] = useState<File | null>(null);
+  const [replyImagePreview, setReplyImagePreview] = useState<string | null>(null);
   const selectedTicketIdRef = useRef(selectedTicketId);
   selectedTicketIdRef.current = selectedTicketId;
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 400);
@@ -88,6 +101,10 @@ const SupportTicketsDashboard: React.FC = () => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [detail?.messages?.length]);
+
+  useEffect(() => {
+    setReplyingTo(null);
+  }, [selectedTicketId]);
 
   const loadTickets = useCallback(async () => {
     setLoading(true);
@@ -143,6 +160,46 @@ const SupportTicketsDashboard: React.FC = () => {
     return () => { unsubscribe(); };
   }, [loadTickets]);
 
+  useEffect(() => {
+    return () => {
+      if (replyImagePreview) URL.revokeObjectURL(replyImagePreview);
+    };
+  }, [replyImagePreview]);
+
+  const resetReplyComposer = () => {
+    setReply('');
+    setReplyingTo(null);
+    setReplyImage(null);
+    setReplyImagePreview(null);
+  };
+
+  const handleReplyPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData?.items || []) as DataTransferItem[];
+    const imageItem = items.find((i: DataTransferItem) => i.type.startsWith('image/'));
+    if (!imageItem) return;
+    e.preventDefault();
+    const file = imageItem.getAsFile();
+    if (!file) return;
+    const err = validateImageFile(file);
+    if (err) { setError(err); return; }
+    if (replyImagePreview) URL.revokeObjectURL(replyImagePreview);
+    setReplyImage(file);
+    setReplyImagePreview(URL.createObjectURL(file));
+    setError(null);
+  };
+
+  const handleReplyFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const err = validateImageFile(file);
+    if (err) { setError(err); return; }
+    if (replyImagePreview) URL.revokeObjectURL(replyImagePreview);
+    setReplyImage(file);
+    setReplyImagePreview(URL.createObjectURL(file));
+    setError(null);
+    e.target.value = '';
+  };
+
   const attachmentsByMessage = useMemo(() => {
     const map = new Map<string, SupportTicketAttachment[]>();
     if (!detail?.attachments) return map;
@@ -156,11 +213,14 @@ const SupportTicketsDashboard: React.FC = () => {
   }, [detail?.attachments]);
 
   const handleReply = async () => {
-    if (!selectedTicketId || !reply.trim()) return;
+    if (!selectedTicketId || saving) return;
     const text = reply.trim();
+    const imageFile = replyImage;
+    if (!text && !imageFile) return;
+    const replyToId = replyingTo?.id ?? null;
     setSaving(true);
     setError(null);
-    setReply('');
+    resetReplyComposer();
 
     const optimisticId = `temp-${Date.now()}`;
     const optimisticMessage: SupportTicketMessage = {
@@ -168,10 +228,11 @@ const SupportTicketsDashboard: React.FC = () => {
       ticket_id: selectedTicketId,
       author_id: '',
       author_type: 'agent',
-      message: text,
+      message: text || '[imagem]',
       created_at: new Date().toISOString(),
       read_at: null,
       author_name: 'Agente Técnico',
+      reply_to_id: replyToId,
     };
 
     setDetail((prev) =>
@@ -181,7 +242,7 @@ const SupportTicketsDashboard: React.FC = () => {
     );
 
     try {
-      await sendTicketMessage(selectedTicketId, { message: text, authorType: 'agent' });
+      await sendTicketMessage(selectedTicketId, { message: text || '[imagem]', imageFile, authorType: 'agent', replyToId });
       await loadDetail(selectedTicketId);
       await loadTickets();
     } catch (err: any) {
@@ -200,6 +261,8 @@ const SupportTicketsDashboard: React.FC = () => {
       void handleReply();
     }
   };
+
+  const canSendReply = reply.trim() || replyImage;
 
   const handleStatusChange = async (status: SupportTicketStatus) => {
     if (!selectedTicketId) return;
@@ -396,25 +459,53 @@ const SupportTicketsDashboard: React.FC = () => {
                   const isAI = msg.author_type === 'ai';
                   const isAgent = msg.author_type === 'agent';
                   const isUser = msg.author_type === 'user';
+                  const repliedMsg = msg.reply_to_id
+                    ? detail.messages.find((m) => m.id === msg.reply_to_id)
+                    : null;
+                  const quotedText = repliedMsg
+                    ? (repliedMsg.message.length > 60
+                        ? repliedMsg.message.slice(0, 60).trim() + '...'
+                        : repliedMsg.message)
+                    : null;
 
                   if (isAI) {
                     return (
-                      <div key={msg.id} className="flex items-start gap-2 animate-fade-in">
+                      <div key={msg.id} className="flex items-start gap-2 animate-fade-in group">
                         <BotAvatar />
-                        <div className="max-w-[75%] rounded-xl px-4 py-2.5 text-sm bg-white border border-blue-200 text-slate-700 shadow-sm">
+                        <div className="max-w-[75%] rounded-xl px-4 py-2.5 text-sm bg-white border border-blue-200 text-slate-700 shadow-sm relative">
+                          {msg.reply_to_id && (
+                            <div className="mb-2 pl-2 border-l-2 border-blue-300 text-xs text-slate-500">
+                              <p className="font-medium text-slate-600">
+                                {repliedMsg?.author_type === 'ai'
+                                  ? 'Assistente'
+                                  : repliedMsg?.author_type === 'agent'
+                                    ? 'Agente Técnico'
+                                    : repliedMsg?.author_name || 'Usuário'}
+                              </p>
+                              <p className="truncate">{quotedText || 'Mensagem removida'}</p>
+                            </div>
+                          )}
                           <p className="whitespace-pre-wrap break-words">{msg.message}</p>
                           <p className="text-[10px] text-slate-400 mt-1 text-right">
                             {new Date(msg.created_at).toLocaleString('pt-BR')}
                           </p>
+                          <button
+                            type="button"
+                            onClick={() => setReplyingTo(msg)}
+                            className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-slate-100 transition-opacity"
+                            title="Responder"
+                          >
+                            <Reply size={14} className="text-slate-500" />
+                          </button>
                         </div>
                       </div>
                     );
                   }
 
                   return (
-                    <div key={msg.id} className={`flex ${isAgent ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+                    <div key={msg.id} className={`flex ${isAgent ? 'justify-end' : 'justify-start'} animate-fade-in group`}>
                       <div
-                        className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm shadow-sm ${
+                        className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm shadow-sm relative ${
                           isAgent
                             ? 'bg-amber-50 border border-amber-200 text-slate-800'
                             : isUser
@@ -422,6 +513,39 @@ const SupportTicketsDashboard: React.FC = () => {
                               : 'bg-slate-100 text-slate-700 border border-slate-200'
                         }`}
                       >
+                        <button
+                          type="button"
+                          onClick={() => setReplyingTo(msg)}
+                          className={`absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${
+                            isAgent ? 'hover:bg-amber-200' : isUser ? 'hover:bg-blue-500' : 'hover:bg-slate-200'
+                          }`}
+                          title="Responder"
+                        >
+                          <Reply
+                            size={14}
+                            className={isAgent ? 'text-amber-600' : isUser ? 'text-white/80' : 'text-slate-500'}
+                          />
+                        </button>
+                        {msg.reply_to_id && (
+                          <div
+                            className={`mb-2 pl-2 border-l-2 ${
+                              isAgent
+                                ? 'border-amber-400 text-amber-800'
+                                : isUser
+                                  ? 'border-white/50 text-white/90'
+                                  : 'border-slate-400 text-slate-600'
+                            }`}
+                          >
+                            <p className="text-[10px] font-semibold">
+                              {repliedMsg?.author_type === 'ai'
+                                ? 'Assistente'
+                                : repliedMsg?.author_type === 'agent'
+                                  ? 'Agente Técnico'
+                                  : repliedMsg?.author_name || 'Usuário'}
+                            </p>
+                            <p className="text-xs truncate">{quotedText || 'Mensagem removida'}</p>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between gap-3 mb-1">
                           <p className={`text-[10px] font-semibold ${
                             isAgent ? 'text-amber-600' : isUser ? 'text-white/70' : 'text-slate-400'
@@ -448,11 +572,13 @@ const SupportTicketsDashboard: React.FC = () => {
                           </a>
                         ))}
                         {isUser && (
-                          <div className="flex justify-end mt-1">
+                          <div className="flex justify-end mt-1" title={msg.read_at ? 'Lido' : msg.id?.startsWith('temp-') ? 'Enviado' : 'Recebido'}>
                             {msg.read_at ? (
                               <CheckCheck size={13} className="text-cyan-400" />
-                            ) : (
+                            ) : msg.id?.startsWith('temp-') ? (
                               <Check size={13} className="text-white/40" />
+                            ) : (
+                              <CheckCheck size={13} className="text-white/70" />
                             )}
                           </div>
                         )}
@@ -465,23 +591,82 @@ const SupportTicketsDashboard: React.FC = () => {
 
               {/* Reply */}
               <div className="shrink-0 p-3 border-t border-slate-200 bg-slate-50">
+                {replyingTo && (
+                  <div className="mb-2 flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-semibold text-slate-500">
+                        Respondendo a{' '}
+                        {replyingTo.author_type === 'ai'
+                          ? 'Assistente'
+                          : replyingTo.author_type === 'agent'
+                            ? 'Agente Técnico'
+                            : replyingTo.author_name || 'Usuário'}
+                      </p>
+                      <p className="truncate text-slate-600">
+                        {replyingTo.message.length > 60
+                          ? replyingTo.message.slice(0, 60).trim() + '...'
+                          : replyingTo.message}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyingTo(null)}
+                      className="shrink-0 p-1 rounded hover:bg-slate-200 text-slate-500"
+                      title="Cancelar resposta"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+                {replyImagePreview && (
+                  <div className="mb-2 relative inline-block">
+                    <img src={replyImagePreview} alt="Preview" className="max-h-20 rounded-lg border border-slate-200" />
+                    <button
+                      type="button"
+                      onClick={resetReplyComposer}
+                      className="absolute -top-2 -right-2 rounded-full bg-slate-700 text-white p-0.5"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
                 <div className="flex gap-2 items-end">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleReplyFileSelect}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 flex items-center justify-center shrink-0 transition-colors hover:text-slate-700"
+                    title="Anexar imagem"
+                  >
+                    <Paperclip size={20} />
+                  </button>
                   <textarea
                     value={reply}
                     onChange={(e) => setReply(e.target.value)}
+                    onPaste={handleReplyPaste}
                     onKeyDown={handleReplyKeyDown}
-                    placeholder="Responder ticket... (Ctrl+Enter para enviar)"
+                    placeholder="Digite ou cole imagem (Ctrl+V)... Ctrl+Enter para enviar"
                     className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 placeholder:text-slate-400 resize-none h-[52px] min-w-0 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   />
                   <button
                     type="button"
-                    disabled={saving || !reply.trim()}
+                    disabled={saving || !canSendReply}
                     onClick={handleReply}
                     className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-blue-700 transition-all active:scale-95 duration-150 shrink-0 flex items-center gap-2"
                   >
                     {saving ? <Loader2 size={14} className="animate-spin" /> : <><Send size={14} /> Enviar</>}
                   </button>
                 </div>
+                <p className="mt-1.5 flex items-center gap-2 text-[11px] text-slate-400">
+                  <Paperclip size={12} />
+                  Cole imagem (Ctrl+V) no chat ou clique em Anexar
+                </p>
               </div>
             </>
           )}
