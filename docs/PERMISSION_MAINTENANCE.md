@@ -11,14 +11,22 @@ As permissões são armazenadas em `analyst_farms.permissions` (JSONB) como mapa
 **Arquivo:** `lib/permissions/permissionKeys.ts`
 
 Contém:
-- `PERMISSION_KEYS`: array de todas as chaves com `key`, `label` e `category`
+- `PERMISSION_KEYS`: array de todas as chaves com `key`, `label`, `description`, `location`, `icon` e `category`
 - `DEFAULT_PERMISSIONS`: valor padrão para novos analistas adicionados
+- Categorias: `cadastros`, `gerenciamento`, `documentos`, `assistentes` (espelham o sidebar)
 
 ## Checklist ao adicionar nova tela/card/modal
 
 1. **Adicionar nova chave em `permissionKeys.ts`:**
    ```ts
-   { key: 'nova_feature:form', label: 'Formulário da nova feature', category: 'outros' }
+   {
+     key: 'nova_feature:form',
+     label: 'Cadastro da nova feature',
+     description: 'Formulário de dados da feature',
+     location: 'Seção > Subseção > Formulário',
+     icon: 'FileText',
+     category: 'cadastros', // ou gerenciamento, documentos, assistentes
+   }
    ```
    Inclua em `PERMISSION_KEYS` e em `DEFAULT_PERMISSIONS` (ex.: `'nova_feature:form': 'view'`).
 

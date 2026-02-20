@@ -144,7 +144,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
       'Crie feedbacks construtivos com tom adequado e estruturas profissionais como SBI, Sanduíche e Feedforward.',
     icon: <MessageSquareText size={19} />,
     onClick: onSelectFeedbackAgent ?? (() => {}),
-    locked: true,
+    locked: false,
   };
 
   const cards = [

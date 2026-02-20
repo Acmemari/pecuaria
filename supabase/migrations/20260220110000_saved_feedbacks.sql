@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.saved_feedbacks (
   generated_feedback TEXT NOT NULL,
   generated_structure TEXT NOT NULL,
   tips JSONB NOT NULL DEFAULT '[]'::jsonb,
-  farm_id UUID REFERENCES public.farms(id) ON DELETE SET NULL,
+  farm_id TEXT REFERENCES public.farms(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

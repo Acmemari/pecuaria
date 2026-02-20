@@ -19,8 +19,6 @@ import {
 import { Client, Farm } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { useHierarchy } from '../contexts/HierarchyContext';
-import { useFarmPermissions } from '../lib/permissions/useFarmPermissions';
 import { useFarmOperations } from '../lib/hooks/useFarmOperations';
 import { createPerson } from '../lib/people';
 
@@ -56,12 +54,10 @@ const DEFAULT_PHONE_COUNTRY_CODE = '+55';
 const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
   type OwnerFieldError = { email?: string; phone?: string };
   const { user: currentUser } = useAuth();
-  const { selectedFarm } = useHierarchy();
   const { getClientFarms, deleteFarm } = useFarmOperations();
-  const clientPerms = useFarmPermissions(selectedFarm?.id ?? null, currentUser?.id);
   const clientFormReadOnly = currentUser?.role === 'admin'
     ? false
-    : !clientPerms.canEdit('clients:form');
+    : currentUser?.qualification !== 'analista';
   const [clients, setClients] = useState<Client[]>([]);
   const [analysts, setAnalysts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -730,10 +726,11 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
   }
 
   if (view === 'form') {
+    const isViewMode = clientFormReadOnly;
     return (
-      <div className="h-full overflow-y-auto bg-ai-bg">
+      <div className={`h-full overflow-y-auto ${isViewMode ? 'bg-ai-bg' : 'bg-white'}`}>
         <div className="max-w-4xl mx-auto p-6">
-          <div className="bg-ai-surface rounded-lg shadow-lg p-6">
+          <div className={`rounded-lg shadow-lg p-6 ${isViewMode ? 'bg-ai-surface' : 'bg-white border border-ai-border'}`}>
             <div className="flex items-center justify-end mb-6">
               <button
                 onClick={handleCancel}
