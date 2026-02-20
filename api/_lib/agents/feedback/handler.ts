@@ -28,7 +28,7 @@ function labelOfModel(model: FeedbackInput['model']): string {
   if (model === 'sbi') return 'SBI';
   if (model === 'sanduiche') return 'Sanduíche';
   if (model === 'feedforward') return 'Feedforward';
-  return 'Automático (escolha o melhor entre SBI, Sanduíche e Feedforward)';
+  return 'Automático (escolha o melhor entre SBI e Feedforward; não use Sanduíche)';
 }
 
 function buildUserPrompt(input: FeedbackInput): string {
@@ -38,6 +38,10 @@ function buildUserPrompt(input: FeedbackInput): string {
     `Tipo de feedback: ${input.feedbackType}`,
     `Objetivo: ${input.objective}`,
     `Destinatário: ${input.recipient}`,
+    `O que ocorreu: ${input.whatHappened || 'Não informado'}`,
+    `Data do ocorrido: ${input.eventDate || 'Não informada'}`,
+    `Momento do ocorrido: ${input.eventMoment || 'Não informado'}`,
+    `Prejuízos para a fazenda e pessoais: ${input.damages || 'Não informado'}`,
     `Tom desejado: ${input.tone}`,
     `Formato de uso: ${input.format}`,
     `Estrutura preferida: ${labelOfModel(input.model)}`,

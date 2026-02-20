@@ -43,6 +43,7 @@ const DeliveryManagement = lazy(() => import('./agents/DeliveryManagement'));
 const ProjectManagement = lazy(() => import('./agents/ProjectManagement'));
 const CalendarAgent = lazy(() => import('./agents/CalendarAgent'));
 const SupportTicketsDashboard = lazy(() => import('./agents/SupportTicketsDashboard'));
+const FeedbackList = lazy(() => import('./agents/FeedbackList'));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full">
@@ -447,6 +448,7 @@ const AppContent: React.FC = () => {
   const isIniciativasAtividades = activeAgentId === 'iniciativas-atividades';
   const isProjectStructure = activeAgentId === 'project-structure';
   const isCalendar = activeAgentId === 'calendar';
+  const isRhFeedbackList = activeAgentId === 'rh-feedback-list';
   const isProgramaCadastro = activeAgentId === 'cadastros' && cadastroView === 'project';
   const isAvaliacaoProtocolo = activeAgentId === 'cattle-profit' && viewMode === 'avaliacao-protocolo';
   const headerTitle = isAvaliacaoProtocolo
@@ -459,6 +461,8 @@ const AppContent: React.FC = () => {
           ? 'Estrutura do Projeto'
           : isCalendar
             ? 'Calendário'
+            : isRhFeedbackList
+              ? 'RH - Feedback'
             : isProgramaCadastro
               ? 'Programa de Trabalho'
             : activeAgent?.name;
@@ -699,6 +703,12 @@ const AppContent: React.FC = () => {
         return (
           <Suspense fallback={<LoadingFallback />}>
             <FeedbackAgent onToast={handleToast} />
+          </Suspense>
+        );
+      case 'rh-feedback-list':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <FeedbackList onToast={handleToast} />
           </Suspense>
         );
       case 'client-documents':
