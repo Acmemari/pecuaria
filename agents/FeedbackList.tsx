@@ -6,6 +6,14 @@ interface FeedbackListProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
+const CONTEXT_LABELS: Record<string, string> = {
+  desempenho: 'Desempenho',
+  comportamento: 'Comportamento',
+  pessoal: 'Pessoal',
+  trabalho: 'Desempenho',   // compatibilidade com dados antigos
+  lideranca: 'Comportamento',
+};
+
 const FeedbackList: React.FC<FeedbackListProps> = ({ onToast }) => {
   const [items, setItems] = useState<SavedFeedback[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +76,7 @@ const FeedbackList: React.FC<FeedbackListProps> = ({ onToast }) => {
                           <span className="font-semibold truncate">{item.recipient_name}</span>
                         </div>
                         <p className="text-xs text-ai-subtext">
-                          {new Date(item.created_at).toLocaleDateString('pt-BR')} • {item.context} • {item.feedback_type} • {item.generated_structure}
+                          {new Date(item.created_at).toLocaleDateString('pt-BR')} • {CONTEXT_LABELS[item.context] ?? item.context} • {item.feedback_type} • {item.generated_structure}
                         </p>
                         <p className="text-sm text-ai-subtext line-clamp-2">{item.generated_feedback}</p>
                       </div>

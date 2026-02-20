@@ -3,6 +3,7 @@ import { Copy, RefreshCcw, Wand2, MessageSquareText } from 'lucide-react';
 import type { FeedbackInput, FeedbackOutput } from '../api/_lib/agents/feedback/manifest';
 import { useAuth } from '../contexts/AuthContext';
 import { useFarm } from '../contexts/FarmContext';
+import { supabase } from '../lib/supabase';
 import { fetchPeople, type Person } from '../lib/people';
 import { saveFeedback } from '../lib/feedbacks';
 
@@ -11,7 +12,7 @@ interface FeedbackAgentProps {
 }
 
 const INITIAL_FORM: FeedbackInput = {
-  context: 'trabalho',
+  context: 'desempenho',
   feedbackType: 'construtivo',
   objective: '',
   recipient: '',
@@ -27,13 +28,36 @@ const INITIAL_FORM: FeedbackInput = {
 };
 
 const CONTEXT_DESCRIPTIONS: Record<FeedbackInput['context'], string> = {
-  trabalho: 'Feedback sobre execução de tarefas, qualidade de entrega, prazos e organização.',
-  lideranca: 'Feedback sobre como a pessoa conduz decisões, delega e desenvolve o time.',
+  desempenho: 'Feedback sobre execução de tarefas, qualidade de entrega, prazos e organização.',
+  comportamento: 'Feedback sobre como a pessoa conduz decisões, delega e desenvolve o time.',
   pessoal: 'Feedback sobre comportamentos individuais, atitudes e postura no dia a dia.',
 };
 
 const fieldClass =
   'w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text outline-none focus:ring-2 focus:ring-ai-accent/30';
+
+/** Sanitiza mensagem de erro do backend para exibição segura ao usuário. */
+function sanitizeApiError(raw: string): string {
+  if (!raw || typeof raw !== 'string') return 'Erro desconhecido.';
+  let msg = raw.trim();
+  // Evita expor chaves ou tokens
+  if (/api[_-]?key|secret|token|password/i.test(msg)) {
+    return 'Serviço de IA temporariamente indisponível. Verifique a configuração do ambiente e tente novamente.';
+  }
+  // Mensagens amigáveis para erros técnicos conhecidos
+  if (msg.includes('FEEDBACK_AGENT_OUTPUT_INVALID') || msg.includes('schema') || msg.includes('validation')) {
+    return 'A resposta gerada não passou na validação. Tente novamente com outros dados.';
+  }
+  if (msg.includes('AGENT_EXECUTION_FAILED') || msg.includes('is not configured')) {
+    return 'Problema temporário com o provedor de IA. Tente novamente em instantes.';
+  }
+  if (msg.includes('Failed to load') || msg.includes('plan_limits') || msg.includes('token_budget')) {
+    return 'Serviço temporariamente indisponível. Tente novamente.';
+  }
+  // Limita tamanho para evitar overflow na UI
+  if (msg.length > 200) msg = msg.slice(0, 197) + '...';
+  return msg;
+}
 
 const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
   const { user } = useAuth() as any;
@@ -107,10 +131,21 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
     abortRef.current = controller;
 
     try {
-      const res = await fetch('/api/feedback-assist', {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Sessão expirada. Faça login novamente para continuar.');
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      };
+
+      const res = await fetch('/api/agents/run', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        headers,
+        body: JSON.stringify({ agentId: 'feedback', input: form }),
         signal: controller.signal,
       });
 
@@ -130,9 +165,14 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
       }
 
       if (!res.ok) {
-        throw new Error(data?.error || `Não foi possível gerar o feedback (${res.status}).`);
+        const rawError = data?.error;
+        const msg = rawError ? sanitizeApiError(String(rawError)) : `Não foi possível gerar o feedback (${res.status}).`;
+        if (res.status === 401) {
+          throw new Error('Sessão expirada. Faça login novamente para continuar.');
+        }
+        throw new Error(msg);
       }
-      if (!data?.data) {
+      if (!data?.success || !data?.data) {
         throw new Error('Não foi possível processar sua solicitação agora. Tente novamente em instantes.');
       }
       setResult(data.data as FeedbackOutput);
@@ -224,8 +264,8 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               value={form.context}
               onChange={(e) => setForm((p) => ({ ...p, context: e.target.value as FeedbackInput['context'] }))}
             >
-              <option value="trabalho">Trabalho</option>
-              <option value="lideranca">Liderança</option>
+              <option value="desempenho">Desempenho</option>
+              <option value="comportamento">Comportamento</option>
               <option value="pessoal">Pessoal</option>
             </select>
             <p className="text-xs text-ai-subtext">{CONTEXT_DESCRIPTIONS[form.context]}</p>
