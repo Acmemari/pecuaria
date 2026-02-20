@@ -110,6 +110,12 @@ function KanbanCard({
             {task.title}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-ai-subtext">
+            <span>
+              Início: {formatDateBR(task.activity_date)}
+            </span>
+            <span>
+              Duração: {typeof task.duration_days === 'number' ? `${task.duration_days}d` : '—'}
+            </span>
             <span className="inline-flex items-center gap-1">
               <Calendar size={12} />
               {formatDateBR(task.due_date)}

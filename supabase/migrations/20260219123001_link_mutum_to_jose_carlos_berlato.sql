@@ -4,7 +4,7 @@
 DO $$
 DECLARE
   v_client_id UUID;
-  v_farm_id UUID;
+  v_farm_id TEXT;
 BEGIN
   SELECT c.id
     INTO v_client_id

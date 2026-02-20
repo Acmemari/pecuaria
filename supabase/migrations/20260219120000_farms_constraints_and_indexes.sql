@@ -1,6 +1,19 @@
 -- Migration: Melhorias de segurança e performance na tabela farms
 -- FK constraints, indexes compostos, RLS INSERT mais restritiva
 
+-- 0. Limpeza de órfãos antes de criar FKs
+DELETE FROM public.client_farms cf
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM public.farms f
+  WHERE f.id = cf.farm_id
+);
+DELETE FROM public.analyst_farms af
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM public.farms f
+  WHERE f.id = af.farm_id
+);
 -- 1. FK nas junction tables (idempotente via DO block)
 DO $$
 BEGIN
@@ -13,7 +26,6 @@ BEGIN
       FOREIGN KEY (farm_id) REFERENCES public.farms(id) ON DELETE CASCADE;
   END IF;
 END$$;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -25,11 +37,9 @@ BEGIN
       FOREIGN KEY (farm_id) REFERENCES public.farms(id) ON DELETE CASCADE;
   END IF;
 END$$;
-
 -- 2. Indexes para queries frequentes
 CREATE INDEX IF NOT EXISTS idx_farms_client_id_name ON public.farms(client_id, name);
 CREATE INDEX IF NOT EXISTS idx_farms_created_at ON public.farms(created_at DESC);
-
 -- 3. RLS INSERT mais restritiva: analista só pode inserir fazenda
 --    para cliente vinculado a ele (ou admin insere qualquer)
 DROP POLICY IF EXISTS "Analysts can insert farms" ON public.farms;

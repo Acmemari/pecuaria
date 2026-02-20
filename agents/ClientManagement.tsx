@@ -19,7 +19,10 @@ import {
 import { Client, Farm } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useHierarchy } from '../contexts/HierarchyContext';
+import { useFarmPermissions } from '../lib/permissions/useFarmPermissions';
 import { useFarmOperations } from '../lib/hooks/useFarmOperations';
+import { createPerson } from '../lib/people';
 
 interface ClientManagementProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -53,7 +56,12 @@ const DEFAULT_PHONE_COUNTRY_CODE = '+55';
 const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
   type OwnerFieldError = { email?: string; phone?: string };
   const { user: currentUser } = useAuth();
+  const { selectedFarm } = useHierarchy();
   const { getClientFarms, deleteFarm } = useFarmOperations();
+  const clientPerms = useFarmPermissions(selectedFarm?.id ?? null, currentUser?.id);
+  const clientFormReadOnly = currentUser?.role === 'admin'
+    ? false
+    : !clientPerms.canEdit('clients:form');
   const [clients, setClients] = useState<Client[]>([]);
   const [analysts, setAnalysts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -343,6 +351,12 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
         }
 
         await saveClientOwners(editingClient.id);
+        try {
+          await syncOwnersAsPeople(formData.analystId, editingClient.id);
+        } catch (syncErr: any) {
+          console.error('[ClientManagement] Error syncing owners as people:', syncErr);
+          onToast?.('Cliente atualizado, mas houve um problema ao sincronizar gestores na tela de Pessoas.', 'warning');
+        }
 
         onToast?.('Cliente atualizado com sucesso!', 'success');
       } else {
@@ -364,6 +378,12 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
 
         if (data) {
           await saveClientOwners(data.id);
+          try {
+            await syncOwnersAsPeople(formData.analystId, data.id);
+          } catch (syncErr: any) {
+            console.error('[ClientManagement] Error syncing owners as people:', syncErr);
+            onToast?.('Cliente cadastrado, mas houve um problema ao sincronizar gestores na tela de Pessoas.', 'warning');
+          }
         }
 
         onToast?.('Cliente cadastrado com sucesso!', 'success');
@@ -415,6 +435,109 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
       if (insertError) {
         throw new Error(`Erro ao salvar gestores: ${insertError.message}`);
       }
+    }
+  };
+
+  const syncOwnersAsPeople = async (analystId: string, clientId: string) => {
+    const normalizeName = (value: string) => value.trim().toLowerCase();
+    const validOwners = owners.filter(o => o.name.trim());
+    if (validOwners.length === 0) return;
+
+    const { data: clientFarms, error: farmsError } = await supabase
+      .from('farms')
+      .select('id')
+      .eq('client_id', clientId);
+
+    if (farmsError) {
+      throw new Error(`Erro ao buscar fazendas do cliente: ${farmsError.message}`);
+    }
+
+    const farmIds = (clientFarms || []).map((farm) => farm.id);
+
+    const { data: existingPeople } = await supabase
+      .from('people')
+      .select('id, full_name, farm_id')
+      .eq('created_by', analystId)
+      .eq('person_type', 'Proprietário');
+
+    const existingRows = (existingPeople || []) as Array<{ id: string; full_name: string; farm_id: string | null }>;
+    const existingPairs = new Set(
+      existingRows.map((person) => `${normalizeName(person.full_name)}::${person.farm_id || 'null'}`)
+    );
+
+    // Reaproveita registros antigos sem farm_id e vincula à primeira(s) fazenda(s) faltante(s).
+    if (farmIds.length > 0) {
+      const normalizedOwnerNames = Array.from(new Set(validOwners.map((owner) => normalizeName(owner.name))));
+      const orphanUpdates: Array<{ personId: string; farmId: string }> = [];
+
+      normalizedOwnerNames.forEach((ownerName) => {
+        const matchingPeople = existingRows.filter((person) => normalizeName(person.full_name) === ownerName);
+        const matchingFarmIds = new Set(
+          matchingPeople
+            .map((person) => person.farm_id)
+            .filter((farmId): farmId is string => Boolean(farmId))
+        );
+
+        const orphanPeople = matchingPeople.filter((person) => !person.farm_id);
+        const missingFarmIds = farmIds.filter((farmId) => !matchingFarmIds.has(farmId));
+
+        orphanPeople.forEach((person, index) => {
+          const targetFarmId = missingFarmIds[index];
+          if (!targetFarmId) return;
+          orphanUpdates.push({ personId: person.id, farmId: targetFarmId });
+          matchingFarmIds.add(targetFarmId);
+          existingPairs.add(`${ownerName}::${targetFarmId}`);
+          existingPairs.delete(`${ownerName}::null`);
+        });
+      });
+
+      if (orphanUpdates.length > 0) {
+        const updateResults = await Promise.all(
+          orphanUpdates.map(({ personId, farmId }) =>
+            supabase
+              .from('people')
+              .update({ farm_id: farmId })
+              .eq('id', personId)
+          )
+        );
+
+        const failedUpdate = updateResults.find((result) => result.error);
+        if (failedUpdate?.error) {
+          throw new Error(`Erro ao atualizar proprietários sem fazenda: ${failedUpdate.error.message}`);
+        }
+      }
+    }
+
+    const creationPayloads: Array<{
+      full_name: string;
+      person_type: 'Proprietário';
+      email?: string;
+      phone_whatsapp?: string;
+      farm_id?: string | null;
+    }> = [];
+
+    validOwners.forEach((owner) => {
+      const normalizedOwnerName = normalizeName(owner.name);
+      const targetFarmIds = farmIds.length > 0 ? farmIds : [null];
+
+      targetFarmIds.forEach((farmId) => {
+        const key = `${normalizedOwnerName}::${farmId || 'null'}`;
+        if (existingPairs.has(key)) return;
+        existingPairs.add(key);
+        creationPayloads.push({
+          full_name: owner.name.trim(),
+          person_type: 'Proprietário',
+          email: owner.email.trim().toLowerCase() || undefined,
+          phone_whatsapp: composePhoneWithCountry(owner.phoneCountryCode, owner.phone) || undefined,
+          farm_id: farmId,
+        });
+      });
+    });
+
+    if (creationPayloads.length > 0) {
+      await Promise.all(
+        creationPayloads.map((payload) => createPerson(analystId, payload))
+      );
     }
   };
 
@@ -622,6 +745,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              <fieldset disabled={clientFormReadOnly} className={clientFormReadOnly ? 'opacity-75' : ''}>
               {/* Nome do Cliente / Grupo Econômico */}
               <div data-error={formErrors.name ? 'true' : undefined}>
                 <label className="block text-sm font-medium text-ai-text mb-2">
@@ -903,6 +1027,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
                 )}
               </div>
 
+              </fieldset>
               {/* Actions */}
               <div className="flex justify-end space-x-3 pt-4 border-t border-ai-border">
                 <button
@@ -914,7 +1039,7 @@ const ClientManagement: React.FC<ClientManagementProps> = ({ onToast }) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || clientFormReadOnly}
                   className="px-4 py-2 bg-ai-accent text-white rounded-md hover:bg-ai-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                 >
                   {isSaving ? (

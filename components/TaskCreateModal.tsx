@@ -80,8 +80,8 @@ export default function TaskCreateModal({
 
   const computedDueDateIso = useMemo(() => {
     const base = activityDate || todayIso;
-    const n = Math.max(0, Number.parseInt(days || '0', 10) || 0);
-    return addDaysIso(base, n);
+    const duration = Math.max(1, Number.parseInt(days || '1', 10) || 1);
+    return addDaysIso(base, duration - 1);
   }, [activityDate, days, todayIso]);
 
   const nextKanbanOrder = useMemo(() => {
@@ -133,6 +133,8 @@ export default function TaskCreateModal({
       await createTask(effectiveMilestoneId, {
         title: title.trim(),
         description: description.trim() || undefined,
+        activity_date: activityDate || null,
+        duration_days: Math.max(1, Number.parseInt(days || '1', 10) || 1),
         due_date: computedDueDateIso || null,
         responsible_person_id: responsiblePersonId,
         kanban_status: 'A Fazer',
@@ -228,7 +230,7 @@ export default function TaskCreateModal({
               <input
                 type="number"
                 inputMode="numeric"
-                min={0}
+                min={1}
                 value={days}
                 onChange={(e) => setDays(e.target.value)}
                 className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"

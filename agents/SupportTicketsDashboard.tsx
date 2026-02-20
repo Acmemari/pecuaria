@@ -12,6 +12,7 @@ import {
   type SupportTicket,
   type SupportTicketAttachment,
   type SupportTicketDetail,
+  type SupportTicketMessage,
   type SupportTicketStatus,
 } from '../lib/supportTickets';
 
@@ -156,15 +157,38 @@ const SupportTicketsDashboard: React.FC = () => {
 
   const handleReply = async () => {
     if (!selectedTicketId || !reply.trim()) return;
+    const text = reply.trim();
     setSaving(true);
     setError(null);
+    setReply('');
+
+    const optimisticId = `temp-${Date.now()}`;
+    const optimisticMessage: SupportTicketMessage = {
+      id: optimisticId,
+      ticket_id: selectedTicketId,
+      author_id: '',
+      author_type: 'agent',
+      message: text,
+      created_at: new Date().toISOString(),
+      read_at: null,
+      author_name: 'Agente Técnico',
+    };
+
+    setDetail((prev) =>
+      prev
+        ? { ...prev, messages: [...prev.messages, optimisticMessage] }
+        : prev
+    );
+
     try {
-      await sendTicketMessage(selectedTicketId, { message: reply.trim(), authorType: 'agent' });
-      setReply('');
+      await sendTicketMessage(selectedTicketId, { message: text, authorType: 'agent' });
       await loadDetail(selectedTicketId);
       await loadTickets();
     } catch (err: any) {
       setError(err?.message || 'Erro ao responder ticket.');
+      setDetail((prev) =>
+        prev ? { ...prev, messages: prev.messages.filter((m) => m.id !== optimisticId) } : prev
+      );
     } finally {
       setSaving(false);
     }

@@ -16,6 +16,7 @@ export interface InitiativeRow {
   delivery_id: string | null;
   client_id: string | null;
   farm_id: string | null;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -28,10 +29,17 @@ export interface InitiativeTaskRow {
   completed: boolean;
   completed_at: string | null;
   due_date: string | null;
+  activity_date: string | null;
+  duration_days: number | null;
+  responsible_person_id: string | null;
+  kanban_status: KanbanStatus;
+  kanban_order: number;
   sort_order: number;
   created_at: string;
   updated_at: string;
 }
+
+export type KanbanStatus = 'A Fazer' | 'Andamento' | 'Pausado' | 'Concluído';
 
 export interface InitiativeMilestoneRow {
   id: string;
@@ -153,10 +161,10 @@ export async function fetchInitiatives(
     .order('start_date', { ascending: true, nullsFirst: false });
 
   if (filters?.clientId?.trim()) {
-    q = q.eq('client_id', filters.clientId);
+    q = q.or(`client_id.eq.${filters.clientId},client_id.is.null`);
   }
   if (filters?.farmId?.trim()) {
-    q = q.eq('farm_id', filters.farmId);
+    q = q.or(`farm_id.eq.${filters.farmId},farm_id.is.null`);
   }
 
   const { data: initiatives, error: initError } = await q;
@@ -172,9 +180,33 @@ export async function fetchInitiatives(
 
   if (milError) throw milError;
 
+  const milestoneIds = (milestones || []).map((m) => m.id);
+  let tasksByMilestone: Record<string, InitiativeTaskRow[]> = {};
+
+  if (milestoneIds.length > 0) {
+    const { data: tasks, error: taskError } = await supabase
+      .from('initiative_tasks')
+      .select(
+        'id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at'
+      )
+      .in('milestone_id', milestoneIds)
+      .order('sort_order', { ascending: true });
+
+    if (taskError) throw taskError;
+
+    tasksByMilestone = (tasks || []).reduce<Record<string, InitiativeTaskRow[]>>((acc, t) => {
+      if (!acc[t.milestone_id]) acc[t.milestone_id] = [];
+      acc[t.milestone_id].push(t as InitiativeTaskRow);
+      return acc;
+    }, {});
+  }
+
   const byInitiative = (milestones || []).reduce<Record<string, InitiativeMilestoneRow[]>>((acc, m) => {
     if (!acc[m.initiative_id]) acc[m.initiative_id] = [];
-    acc[m.initiative_id].push(m as InitiativeMilestoneRow);
+    acc[m.initiative_id].push({
+      ...(m as InitiativeMilestoneRow),
+      tasks: tasksByMilestone[m.id] || [],
+    });
     return acc;
   }, {});
 
@@ -202,6 +234,7 @@ export async function fetchInitiativesByDelivery(
     .from('initiatives')
     .select('*')
     .eq('delivery_id', deliveryId)
+    .order('sort_order', { ascending: true })
     .order('start_date', { ascending: true, nullsFirst: false });
 
   if (initError) throw initError;
@@ -579,7 +612,7 @@ export async function fetchInitiativeDetail(
   if (milestoneIds.length > 0) {
     const { data: taskRows, error: tasksError } = await supabase
       .from('initiative_tasks')
-      .select('id, milestone_id, title, description, completed, completed_at, due_date, sort_order, created_at, updated_at')
+      .select('id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
       .in('milestone_id', milestoneIds)
       .order('sort_order');
     if (tasksError) throw tasksError;
@@ -609,6 +642,11 @@ export interface CreateInitiativeTaskPayload {
   title: string;
   description?: string;
   due_date?: string | null;
+  activity_date?: string | null;
+  duration_days?: number | null;
+  responsible_person_id?: string | null;
+  kanban_status?: KanbanStatus;
+  kanban_order?: number;
   sort_order?: number;
 }
 
@@ -625,7 +663,7 @@ export async function listTasksByMilestone(milestoneId: string): Promise<Initiat
   validateUUID(milestoneId, 'Marco');
   const { data, error } = await supabase
     .from('initiative_tasks')
-    .select('id, milestone_id, title, description, completed, completed_at, due_date, sort_order, created_at, updated_at')
+    .select('id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
     .eq('milestone_id', milestoneId)
     .order('sort_order');
   if (error) throw error;
@@ -638,6 +676,9 @@ export async function createTask(
 ): Promise<InitiativeTaskRow> {
   validateUUID(milestoneId, 'Marco');
   validateTaskTitle(payload.title);
+  if (payload.responsible_person_id?.trim()) {
+    validateUUID(payload.responsible_person_id, 'Responsável');
+  }
 
   const { data, error } = await supabase
     .from('initiative_tasks')
@@ -646,9 +687,14 @@ export async function createTask(
       title: sanitizeText(payload.title),
       description: payload.description?.trim() ? sanitizeText(payload.description) : null,
       due_date: payload.due_date?.trim() || null,
+      activity_date: payload.activity_date?.trim() || null,
+      duration_days: typeof payload.duration_days === 'number' ? Math.max(0, Math.floor(payload.duration_days)) : null,
+      responsible_person_id: payload.responsible_person_id?.trim() || null,
+      kanban_status: payload.kanban_status || 'A Fazer',
+      kanban_order: Number.isFinite(payload.kanban_order) ? Number(payload.kanban_order) : 0,
       sort_order: Number.isFinite(payload.sort_order) ? Number(payload.sort_order) : 0,
     })
-    .select('id, milestone_id, title, description, completed, completed_at, due_date, sort_order, created_at, updated_at')
+    .select('id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
     .single();
   if (error || !data) throw new Error(error?.message || 'Erro ao criar tarefa.');
   return data as InitiativeTaskRow;
@@ -660,6 +706,11 @@ export async function updateTask(
     title: string;
     description: string | null;
     due_date: string | null;
+    activity_date: string | null;
+    duration_days: number | null;
+    responsible_person_id: string | null;
+    kanban_status: KanbanStatus;
+    kanban_order: number;
     completed: boolean;
     sort_order: number;
   }>
@@ -677,6 +728,25 @@ export async function updateTask(
   if (payload.due_date !== undefined) {
     updateData.due_date = payload.due_date?.trim() || null;
   }
+  if (payload.activity_date !== undefined) {
+    updateData.activity_date = payload.activity_date?.trim() || null;
+  }
+  if (payload.duration_days !== undefined) {
+    updateData.duration_days =
+      typeof payload.duration_days === 'number' ? Math.max(0, Math.floor(payload.duration_days)) : null;
+  }
+  if (payload.responsible_person_id !== undefined) {
+    if (payload.responsible_person_id?.trim()) {
+      validateUUID(payload.responsible_person_id, 'Responsável');
+    }
+    updateData.responsible_person_id = payload.responsible_person_id?.trim() || null;
+  }
+  if (payload.kanban_status !== undefined) {
+    updateData.kanban_status = payload.kanban_status;
+  }
+  if (typeof payload.kanban_order === 'number') {
+    updateData.kanban_order = payload.kanban_order;
+  }
   if (typeof payload.sort_order === 'number') {
     updateData.sort_order = payload.sort_order;
   }
@@ -693,10 +763,29 @@ export async function updateTask(
     .from('initiative_tasks')
     .update(updateData)
     .eq('id', taskId)
-    .select('id, milestone_id, title, description, completed, completed_at, due_date, sort_order, created_at, updated_at')
+    .select('id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
     .single();
   if (error || !data) throw new Error(error?.message || 'Erro ao atualizar tarefa.');
   return data as InitiativeTaskRow;
+}
+
+export async function updateTasksKanban(
+  updates: Array<{ id: string; kanban_status: KanbanStatus; kanban_order: number; completed?: boolean }>
+): Promise<void> {
+  if (!updates.length) return;
+  for (const item of updates) {
+    validateUUID(item.id, 'Tarefa');
+  }
+
+  const promises = updates.map((item) =>
+    updateTask(item.id, {
+      kanban_status: item.kanban_status,
+      kanban_order: item.kanban_order,
+      ...(typeof item.completed === 'boolean' ? { completed: item.completed } : {}),
+    })
+  );
+
+  await Promise.all(promises);
 }
 
 export async function toggleTaskCompleted(taskId: string): Promise<void> {
@@ -726,4 +815,50 @@ export async function deleteTask(taskId: string): Promise<void> {
     .delete()
     .eq('id', taskId);
   if (error) throw error;
+}
+
+/**
+ * Carrega todas as tarefas de uma iniciativa (across all milestones).
+ * Usado pelo ProgramaWorkbench quando a coluna "Macro Atividades" mostra iniciativas.
+ */
+export async function fetchTasksByInitiative(initiativeId: string): Promise<InitiativeTaskRow[]> {
+  validateUUID(initiativeId, 'Iniciativa');
+  const { data, error } = await supabase.rpc('get_tasks_by_initiative', {
+    p_initiative_id: initiativeId,
+  });
+  if (error) throw error;
+  return (data || []) as InitiativeTaskRow[];
+}
+
+/**
+ * Garante que uma iniciativa tenha pelo menos um milestone padrão.
+ * Retorna o ID do milestone existente ou criado.
+ */
+export async function ensureDefaultMilestone(initiativeId: string): Promise<string> {
+  validateUUID(initiativeId, 'Iniciativa');
+
+  const { data: existing } = await supabase
+    .from('initiative_milestones')
+    .select('id')
+    .eq('initiative_id', initiativeId)
+    .order('sort_order')
+    .limit(1)
+    .maybeSingle();
+
+  if (existing?.id) return existing.id;
+
+  const { data: created, error } = await supabase
+    .from('initiative_milestones')
+    .insert({
+      initiative_id: initiativeId,
+      title: 'Atividades',
+      percent: 100,
+      completed: false,
+      sort_order: 0,
+    })
+    .select('id')
+    .single();
+
+  if (error || !created?.id) throw new Error(error?.message || 'Erro ao criar milestone padrão.');
+  return created.id;
 }

@@ -38,6 +38,7 @@ const AnalystManagement = lazy(() => import('./agents/AnalystManagement'));
 const ClientDocuments = lazy(() => import('./agents/ClientDocuments'));
 const InitiativesOverview = lazy(() => import('./agents/InitiativesOverview'));
 const InitiativesActivities = lazy(() => import('./agents/InitiativesActivities'));
+const InitiativesKanban = lazy(() => import('./agents/InitiativesKanban'));
 const ProjectStructureReport = lazy(() => import('./agents/ProjectStructureReport'));
 const PeopleManagement = lazy(() => import('./agents/PeopleManagement'));
 const DeliveryManagement = lazy(() => import('./agents/DeliveryManagement'));
@@ -731,6 +732,12 @@ const AppContent: React.FC = () => {
         return (
           <Suspense fallback={<LoadingFallback />}>
             <InitiativesActivities onToast={handleToast} />
+          </Suspense>
+        );
+      case 'iniciativas-kanban':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <InitiativesKanban onToast={handleToast} />
           </Suspense>
         );
       case 'project-structure':

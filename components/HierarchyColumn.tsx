@@ -1,5 +1,20 @@
-import React, { useCallback } from 'react';
-import { ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ChevronDown, ChevronRight, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
 
 export interface HierarchyColumnItem {
   id: string;
@@ -21,16 +36,38 @@ interface HierarchyColumnProps {
   onSelect: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onMoveUp?: (id: string) => void;
+  onMoveDown?: (id: string) => void;
+  onReorder?: (activeId: string, overIndex: number) => void;
 }
 
-const HierarchyColumnItem: React.FC<{
+const CardContent: React.FC<{
   item: HierarchyColumnItem;
   isSelected: boolean;
   accentClassName: string;
   onSelect: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
-}> = React.memo(({ item, isSelected, accentClassName, onSelect, onEdit, onDelete }) => {
+  onMoveUp?: (id: string) => void;
+  onMoveDown?: (id: string) => void;
+  isFirst: boolean;
+  isLast: boolean;
+  isDragging?: boolean;
+  isOverlay?: boolean;
+}> = React.memo(({
+  item,
+  isSelected,
+  accentClassName,
+  onSelect,
+  onEdit,
+  onDelete,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
+  isDragging = false,
+  isOverlay = false,
+}) => {
   const handleClick = useCallback(() => onSelect(item.id), [onSelect, item.id]);
   const handleDoubleClick = useCallback(() => onEdit(item.id), [onEdit, item.id]);
   const handleEdit = useCallback(
@@ -41,13 +78,23 @@ const HierarchyColumnItem: React.FC<{
     (e: React.MouseEvent) => { e.stopPropagation(); onDelete(item.id); },
     [onDelete, item.id]
   );
+  const handleMoveUp = useCallback(
+    (e: React.MouseEvent) => { e.stopPropagation(); onMoveUp?.(item.id); },
+    [onMoveUp, item.id]
+  );
+  const handleMoveDown = useCallback(
+    (e: React.MouseEvent) => { e.stopPropagation(); onMoveDown?.(item.id); },
+    [onMoveDown, item.id]
+  );
 
   return (
     <article
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       className={[
-        'rounded-lg border p-2.5 cursor-pointer transition-all duration-150 group',
+        'rounded-lg border p-2.5 transition-all duration-150 group',
+        isOverlay ? 'shadow-lg ring-2 ring-ai-accent/40 cursor-grabbing opacity-95' : 'cursor-pointer',
+        isDragging ? 'opacity-30' : '',
         isSelected
           ? `${accentClassName} border-transparent shadow-sm`
           : 'border-ai-border bg-ai-bg hover:border-ai-accent/30 hover:shadow-sm',
@@ -63,6 +110,28 @@ const HierarchyColumnItem: React.FC<{
           )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+          {onMoveUp && (
+            <button
+              type="button"
+              onClick={handleMoveUp}
+              disabled={isFirst}
+              className="rounded p-1 text-ai-subtext hover:text-ai-accent hover:bg-ai-surface disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Mover para cima"
+            >
+              <ChevronUp size={12} />
+            </button>
+          )}
+          {onMoveDown && (
+            <button
+              type="button"
+              onClick={handleMoveDown}
+              disabled={isLast}
+              className="rounded p-1 text-ai-subtext hover:text-ai-accent hover:bg-ai-surface disabled:opacity-30 disabled:cursor-not-allowed"
+              title="Mover para baixo"
+            >
+              <ChevronDown size={12} />
+            </button>
+          )}
           <button
             type="button"
             onClick={handleEdit}
@@ -85,7 +154,59 @@ const HierarchyColumnItem: React.FC<{
     </article>
   );
 });
-HierarchyColumnItem.displayName = 'HierarchyColumnItem';
+CardContent.displayName = 'CardContent';
+
+const SortableHierarchyItem: React.FC<{
+  item: HierarchyColumnItem;
+  index: number;
+  items: HierarchyColumnItem[];
+  selectedId: string | null;
+  accentClassName: string;
+  onSelect: (id: string) => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  onMoveUp?: (id: string) => void;
+  onMoveDown?: (id: string) => void;
+}> = React.memo(({
+  item,
+  index,
+  items,
+  selectedId,
+  accentClassName,
+  onSelect,
+  onEdit,
+  onDelete,
+  onMoveUp,
+  onMoveDown,
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    cursor: isDragging ? 'grabbing' : 'grab',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-manipulation transition-transform duration-150">
+      <CardContent
+        item={item}
+        isSelected={selectedId === item.id}
+        accentClassName={accentClassName}
+        isFirst={index === 0}
+        isLast={index === items.length - 1}
+        isDragging={isDragging}
+        onSelect={onSelect}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onMoveUp={onMoveUp}
+        onMoveDown={onMoveDown}
+      />
+    </div>
+  );
+});
+SortableHierarchyItem.displayName = 'SortableHierarchyItem';
 
 const HierarchyColumn: React.FC<HierarchyColumnProps> = React.memo(({
   title,
@@ -101,7 +222,103 @@ const HierarchyColumn: React.FC<HierarchyColumnProps> = React.memo(({
   onSelect,
   onEdit,
   onDelete,
+  onMoveUp,
+  onMoveDown,
+  onReorder,
 }) => {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+  const sortableIds = items.map((i) => i.id);
+  const activeItem = activeId ? items.find((i) => i.id === activeId) : null;
+
+  const handleDragStart = useCallback((event: { active: { id: unknown } }) => {
+    setActiveId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+    if (!onReorder || !over || active.id === over.id) return;
+    const oldIndex = items.findIndex((i) => i.id === String(active.id));
+    const overIndex = items.findIndex((i) => i.id === String(over.id));
+    if (oldIndex >= 0 && overIndex >= 0 && oldIndex !== overIndex) {
+      onReorder(String(active.id), overIndex);
+    }
+  }, [items, onReorder]);
+
+  const content = loading ? (
+    <div className="flex items-center justify-center py-8">
+      <div className="h-5 w-5 animate-spin rounded-full border-2 border-ai-accent border-t-transparent" />
+    </div>
+  ) : items.length === 0 ? (
+    <p className="text-xs text-ai-subtext px-2 py-4 text-center">{emptyLabel}</p>
+  ) : onReorder && items.length > 1 ? (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+        <div className="space-y-1">
+          {items.map((item, index) => (
+            <SortableHierarchyItem
+              key={item.id}
+              item={item}
+              index={index}
+              items={items}
+              selectedId={selectedId}
+              accentClassName={accentClassName}
+              onSelect={onSelect}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onMoveUp={onMoveUp}
+              onMoveDown={onMoveDown}
+            />
+          ))}
+        </div>
+      </SortableContext>
+
+      <DragOverlay dropAnimation={null}>
+        {activeItem ? (
+          <div className="rotate-0 scale-100">
+            <CardContent
+              item={activeItem}
+              isSelected={selectedId === activeItem.id}
+              accentClassName={accentClassName}
+              isFirst={items[0]?.id === activeItem.id}
+              isLast={items[items.length - 1]?.id === activeItem.id}
+              isOverlay
+              onSelect={() => {}}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  ) : (
+    <div className="space-y-1">
+      {items.map((item, index) => (
+        <CardContent
+          key={item.id}
+          item={item}
+          isSelected={selectedId === item.id}
+          accentClassName={accentClassName}
+          isFirst={index === 0}
+          isLast={index === items.length - 1}
+          onSelect={onSelect}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+        />
+      ))}
+    </div>
+  );
+
   return (
     <section className="rounded-xl border border-ai-border bg-ai-surface flex min-h-[480px] flex-col">
       <header className="px-3 py-2.5 border-b border-ai-border flex items-center justify-between gap-2">
@@ -124,26 +341,8 @@ const HierarchyColumn: React.FC<HierarchyColumnProps> = React.memo(({
         </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-ai-accent border-t-transparent" />
-          </div>
-        ) : items.length === 0 ? (
-          <p className="text-xs text-ai-subtext px-2 py-4 text-center">{emptyLabel}</p>
-        ) : (
-          items.map((item) => (
-            <HierarchyColumnItem
-              key={item.id}
-              item={item}
-              isSelected={selectedId === item.id}
-              accentClassName={accentClassName}
-              onSelect={onSelect}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          ))
-        )}
+      <div className="flex-1 overflow-y-auto p-2">
+        {content}
       </div>
     </section>
   );

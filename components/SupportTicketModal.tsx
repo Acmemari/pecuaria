@@ -261,6 +261,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
         currentUrl: window.location.href,
         locationArea: newTicketType === 'erro_tecnico' ? locationArea : undefined,
         specificScreen: newTicketType === 'erro_tecnico' ? specificScreen : undefined,
+        initialMessage: subject.trim() || undefined,
       });
       setShowNewForm(false);
       setSubject('');
@@ -295,15 +296,42 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
   const handleSendMessage = async () => {
     if (!activeTicketId || sending) return;
     if (!messageInput.trim() && !pastedImage) return;
+    const text = messageInput.trim() || '[imagem]';
+    const imageFile = pastedImage;
     setSending(true);
     setError(null);
+    resetComposer();
+
+    const optimisticId = `temp-${Date.now()}`;
+    const optimisticMessage: SupportTicketMessage = {
+      id: optimisticId,
+      ticket_id: activeTicketId,
+      author_id: user.id,
+      author_type: 'user',
+      message: text,
+      created_at: new Date().toISOString(),
+      read_at: null,
+      author_name: (user as { name?: string })?.name || 'Você',
+    };
+
+    setDetail((prev) =>
+      prev
+        ? {
+            ...prev,
+            messages: [...prev.messages, optimisticMessage],
+          }
+        : prev
+    );
+
     try {
-      await sendTicketMessage(activeTicketId, { message: messageInput, imageFile: pastedImage });
-      resetComposer();
+      await sendTicketMessage(activeTicketId, { message: text, imageFile });
       await loadDetail(activeTicketId);
       await loadTickets();
     } catch (err: any) {
       setError(err?.message || 'Erro ao enviar mensagem.');
+      setDetail((prev) =>
+        prev ? { ...prev, messages: prev.messages.filter((m) => m.id !== optimisticId) } : prev
+      );
     } finally {
       setSending(false);
     }

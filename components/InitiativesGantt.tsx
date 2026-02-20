@@ -5,8 +5,10 @@ import 'dhtmlx-gantt/codebase/dhtmlxgantt.css';
 import './gantt-custom.css';
 import type { InitiativeWithProgress } from '../lib/initiatives';
 import type { DeliveryRow } from '../lib/deliveries';
+import type { ProjectRow } from '../lib/projects';
 
 interface InitiativesGanttProps {
+  projects: ProjectRow[];
   initiatives: InitiativeWithProgress[];
   deliveries: DeliveryRow[];
   onTaskDateChange?: (change: GanttDateChange) => void;
@@ -23,17 +25,18 @@ interface GanttTask {
   progress?: number;
   type?: string;
   readonly?: boolean;
-  taskType?: 'delivery' | 'initiative' | 'milestone';
+  taskType?: 'program' | 'delivery' | 'initiative' | 'task';
 }
 
 export interface GanttDateChange {
-  type: 'delivery' | 'initiative' | 'milestone';
+  type: 'program' | 'delivery' | 'initiative' | 'task';
   id: string;
   start_date: string;
   end_date: string;
 }
 
 const DAY_MS = 86_400_000;
+const UNLINKED_PROGRAM_ID = '__unlinked_program__';
 const UNLINKED_DELIVERY_ID = '__unlinked__';
 const DATE_BR_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit',
@@ -48,12 +51,13 @@ const PT_BR_GANTT_DATE_LOCALE = {
 };
 
 type ZoomLevel = 'day' | 'week' | 'month' | 'quarter';
-type DepthLevel = 1 | 2 | 3;
+type DepthLevel = 1 | 2 | 3 | 4;
 
 const DEPTH_BY_TYPE: Record<string, DepthLevel> = {
-  delivery: 1,
-  initiative: 2,
-  milestone: 3,
+  program: 1,
+  delivery: 2,
+  initiative: 3,
+  task: 4,
 };
 
 const ZOOM_OPTIONS: ReadonlyArray<{ key: ZoomLevel; label: string }> = [
@@ -67,6 +71,7 @@ const LEVEL_OPTIONS: ReadonlyArray<{ key: DepthLevel; label: string }> = [
   { key: 1, label: 'Nível 1' },
   { key: 2, label: 'Nível 1 e 2' },
   { key: 3, label: 'Nível 1 a 3' },
+  { key: 4, label: 'Nível 1 a 4' },
 ] as const;
 
 const ZOOM_CONFIGS: Record<ZoomLevel, { scales: Array<Record<string, unknown>>; minColumnWidth: number }> = {
@@ -179,18 +184,18 @@ LevelButtons.displayName = 'LevelButtons';
 
 /* ── Main component ────────────────────────────────────────────────── */
 
-const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ initiatives, deliveries, onTaskDateChange }) => {
+const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ projects, initiatives, deliveries, onTaskDateChange }) => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fullscreenRafRef = useRef<number | null>(null);
   const initializedRef = useRef(false);
-  const maxDepthRef = useRef<DepthLevel>(3);
+  const maxDepthRef = useRef<DepthLevel>(4);
   const onTaskDateChangeRef = useRef(onTaskDateChange);
   onTaskDateChangeRef.current = onTaskDateChange;
 
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('day');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [maxDepthLevel, setMaxDepthLevel] = useState<DepthLevel>(3);
+  const [maxDepthLevel, setMaxDepthLevel] = useState<DepthLevel>(4);
   const [isExporting, setIsExporting] = useState(false);
 
   const tasks = useMemo<GanttTask[]>(() => {
@@ -198,119 +203,208 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ initiatives, delive
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const initiativeTiming = new Map<string, { start: Date; end: Date }>();
     const initiativesByDelivery = new Map<string, InitiativeWithProgress[]>();
-
     for (const initiative of initiatives) {
       const deliveryId = initiative.delivery_id || UNLINKED_DELIVERY_ID;
-      let list = initiativesByDelivery.get(deliveryId);
-      if (!list) {
-        list = [];
-        initiativesByDelivery.set(deliveryId, list);
-      }
+      const list = initiativesByDelivery.get(deliveryId) || [];
       list.push(initiative);
+      initiativesByDelivery.set(deliveryId, list);
     }
 
-    const sortedDeliveryGroups: Array<{ id: string; name: string; initiatives: InitiativeWithProgress[] }> = [];
+    const deliveryGroups = new Map<
+      string,
+      { id: string; name: string; projectId: string; initiatives: InitiativeWithProgress[] }
+    >();
+
     for (const delivery of deliveries) {
       const list = initiativesByDelivery.get(delivery.id);
       if (!list || list.length === 0) continue;
-      sortedDeliveryGroups.push({ id: delivery.id, name: delivery.name || 'Entrega sem nome', initiatives: list });
-    }
-
-    const unlinkedInitiatives = initiativesByDelivery.get(UNLINKED_DELIVERY_ID);
-    if (unlinkedInitiatives && unlinkedInitiatives.length > 0) {
-      sortedDeliveryGroups.push({
-        id: UNLINKED_DELIVERY_ID,
-        name: 'Sem entrega vinculada',
-        initiatives: unlinkedInitiatives,
+      deliveryGroups.set(delivery.id, {
+        id: delivery.id,
+        name: delivery.name || 'Entrega sem nome',
+        projectId: delivery.project_id || UNLINKED_PROGRAM_ID,
+        initiatives: [...list].sort((a, b) => a.sort_order - b.sort_order),
       });
     }
 
-    for (const group of sortedDeliveryGroups) {
-      let deliveryStart: Date | null = null;
-      let deliveryEnd: Date | null = null;
+    for (const [deliveryId, list] of initiativesByDelivery.entries()) {
+      if (deliveryGroups.has(deliveryId)) continue;
+      if (deliveryId === UNLINKED_DELIVERY_ID) {
+        deliveryGroups.set(deliveryId, {
+          id: deliveryId,
+          name: 'Sem entrega vinculada',
+          projectId: UNLINKED_PROGRAM_ID,
+          initiatives: [...list].sort((a, b) => a.sort_order - b.sort_order),
+        });
+        continue;
+      }
+      deliveryGroups.set(deliveryId, {
+        id: deliveryId,
+        name: 'Entrega não encontrada',
+        projectId: UNLINKED_PROGRAM_ID,
+        initiatives: [...list].sort((a, b) => a.sort_order - b.sort_order),
+      });
+    }
 
-      for (const initiative of group.initiatives) {
-        let earliestMilestone: Date | null = null;
-        let latestMilestone: Date | null = null;
-        const milestones = initiative.milestones;
-        if (milestones) {
-          for (let i = 0; i < milestones.length; i++) {
-            const due = parseISODate(milestones[i].due_date);
+    const deliveriesByProgram = new Map<
+      string,
+      Array<{ id: string; name: string; initiatives: InitiativeWithProgress[] }>
+    >();
+
+    for (const group of deliveryGroups.values()) {
+      const key = group.projectId || UNLINKED_PROGRAM_ID;
+      const list = deliveriesByProgram.get(key) || [];
+      list.push({ id: group.id, name: group.name, initiatives: group.initiatives });
+      deliveriesByProgram.set(key, list);
+    }
+
+    const programs: Array<{ id: string; name: string; deliveries: Array<{ id: string; name: string; initiatives: InitiativeWithProgress[] }> }> = [];
+    const seenProgramIds = new Set<string>();
+
+    for (const project of projects) {
+      const groupedDeliveries = deliveriesByProgram.get(project.id);
+      if (!groupedDeliveries || groupedDeliveries.length === 0) continue;
+      programs.push({
+        id: project.id,
+        name: project.name || 'Programa sem nome',
+        deliveries: groupedDeliveries,
+      });
+      seenProgramIds.add(project.id);
+    }
+
+    const unlinkedDeliveries = deliveriesByProgram.get(UNLINKED_PROGRAM_ID) || [];
+    if (unlinkedDeliveries.length > 0) {
+      programs.push({
+        id: UNLINKED_PROGRAM_ID,
+        name: 'Sem programa vinculado',
+        deliveries: unlinkedDeliveries,
+      });
+      seenProgramIds.add(UNLINKED_PROGRAM_ID);
+    }
+
+    for (const [programId, groupedDeliveries] of deliveriesByProgram.entries()) {
+      if (seenProgramIds.has(programId)) continue;
+      programs.push({
+        id: programId,
+        name: 'Programa não encontrado',
+        deliveries: groupedDeliveries,
+      });
+    }
+
+    for (const program of programs) {
+      let programStart: Date | null = null;
+      let programEnd: Date | null = null;
+      const deliveryNodes: GanttTask[] = [];
+      const childNodes: GanttTask[] = [];
+
+      for (const delivery of program.deliveries) {
+        let deliveryStart: Date | null = null;
+        let deliveryEnd: Date | null = null;
+        const initiativeNodes: GanttTask[] = [];
+        const taskNodes: GanttTask[] = [];
+
+        for (const initiative of delivery.initiatives) {
+          let earliestMilestone: Date | null = null;
+          let latestMilestone: Date | null = null;
+          let earliestTaskStart: Date | null = null;
+          let latestTaskEnd: Date | null = null;
+
+          const milestoneTasks = (initiative.milestones || []).flatMap((m) => (m.tasks || []).map((t) => ({ ...t, milestoneTitle: m.title })));
+          milestoneTasks.sort((a, b) => a.sort_order - b.sort_order);
+
+          for (const milestone of initiative.milestones || []) {
+            const due = parseISODate(milestone.due_date);
             if (!due) continue;
             if (!earliestMilestone || due < earliestMilestone) earliestMilestone = due;
             if (!latestMilestone || due > latestMilestone) latestMilestone = due;
           }
+
+          for (const task of milestoneTasks) {
+            const taskStart =
+              parseISODate(task.activity_date) ||
+              parseISODate(task.due_date) ||
+              parseISODate(initiative.start_date) ||
+              today;
+            const taskDuration = Math.max(1, Number(task.duration_days) || 1);
+            const taskEnd = addDays(taskStart, taskDuration - 1);
+
+            if (!earliestTaskStart || taskStart < earliestTaskStart) earliestTaskStart = taskStart;
+            if (!latestTaskEnd || taskEnd > latestTaskEnd) latestTaskEnd = taskEnd;
+
+            taskNodes.push({
+              id: `task-${task.id}`,
+              text: task.title || 'Tarefa',
+              parent: `initiative-${initiative.id}`,
+              start_date: toGanttDate(taskStart),
+              end_date: toGanttDate(taskEnd),
+              duration: taskDuration,
+              progress: task.completed ? 1 : 0,
+              taskType: 'task',
+            });
+          }
+
+          const initiativeStart =
+            parseISODate(initiative.start_date) || earliestTaskStart || earliestMilestone || today;
+          const rawInitiativeEnd =
+            parseISODate(initiative.end_date) || latestTaskEnd || latestMilestone || initiativeStart;
+          const initiativeEnd = rawInitiativeEnd < initiativeStart ? initiativeStart : rawInitiativeEnd;
+
+          initiativeNodes.push({
+            id: `initiative-${initiative.id}`,
+            text: initiative.name || 'Macro atividade sem nome',
+            parent: `delivery-${delivery.id}`,
+            start_date: toGanttDate(initiativeStart),
+            end_date: toGanttDate(initiativeEnd),
+            duration: inclusiveDurationDays(initiativeStart, initiativeEnd),
+            open: true,
+            progress: Math.min(1, Math.max(0, (initiative.progress || 0) / 100)),
+            taskType: 'initiative',
+          });
+
+          if (!deliveryStart || initiativeStart < deliveryStart) deliveryStart = initiativeStart;
+          if (!deliveryEnd || initiativeEnd > deliveryEnd) deliveryEnd = initiativeEnd;
         }
 
-        const start = parseISODate(initiative.start_date) || earliestMilestone || today;
-        const rawEnd = parseISODate(initiative.end_date) || latestMilestone || start;
-        const end = rawEnd < start ? start : rawEnd;
+        const resolvedDeliveryStart = deliveryStart || today;
+        const resolvedDeliveryEnd = deliveryEnd || resolvedDeliveryStart;
 
-        initiativeTiming.set(initiative.id, { start, end });
+        deliveryNodes.push({
+          id: `delivery-${delivery.id}`,
+          text: delivery.name,
+          parent: `program-${program.id}`,
+          start_date: toGanttDate(resolvedDeliveryStart),
+          end_date: toGanttDate(resolvedDeliveryEnd),
+          duration: inclusiveDurationDays(resolvedDeliveryStart, resolvedDeliveryEnd),
+          open: true,
+          type: 'project',
+          readonly: delivery.id === UNLINKED_DELIVERY_ID,
+          taskType: 'delivery',
+        });
+        childNodes.push(...initiativeNodes, ...taskNodes);
 
-        if (!deliveryStart || start < deliveryStart) deliveryStart = start;
-        if (!deliveryEnd || end > deliveryEnd) deliveryEnd = end;
+        if (!programStart || resolvedDeliveryStart < programStart) programStart = resolvedDeliveryStart;
+        if (!programEnd || resolvedDeliveryEnd > programEnd) programEnd = resolvedDeliveryEnd;
       }
 
-      const resolvedStart = deliveryStart || today;
-      const resolvedEnd = deliveryEnd || resolvedStart;
+      const resolvedProgramStart = programStart || today;
+      const resolvedProgramEnd = programEnd || resolvedProgramStart;
 
       result.push({
-        id: `delivery-${group.id}`,
-        text: group.name,
-        start_date: toGanttDate(resolvedStart),
-        end_date: toGanttDate(resolvedEnd),
-        duration: inclusiveDurationDays(resolvedStart, resolvedEnd),
+        id: `program-${program.id}`,
+        text: program.name,
+        start_date: toGanttDate(resolvedProgramStart),
+        end_date: toGanttDate(resolvedProgramEnd),
+        duration: inclusiveDurationDays(resolvedProgramStart, resolvedProgramEnd),
         open: true,
         type: 'project',
-        readonly: group.id === UNLINKED_DELIVERY_ID,
-        taskType: 'delivery',
+        readonly: program.id === UNLINKED_PROGRAM_ID,
+        taskType: 'program',
       });
-    }
-
-    for (const initiative of initiatives) {
-      const timing = initiativeTiming.get(initiative.id);
-      if (!timing) continue;
-
-      const parentDeliveryId = initiative.delivery_id || UNLINKED_DELIVERY_ID;
-      const parentId = `initiative-${initiative.id}`;
-
-      result.push({
-        id: parentId,
-        text: initiative.name || 'Iniciativa sem nome',
-        parent: `delivery-${parentDeliveryId}`,
-        start_date: toGanttDate(timing.start),
-        end_date: toGanttDate(timing.end),
-        duration: inclusiveDurationDays(timing.start, timing.end),
-        open: true,
-        progress: Math.min(1, Math.max(0, (initiative.progress || 0) / 100)),
-        taskType: 'initiative',
-      });
-
-      const milestones = initiative.milestones;
-      if (milestones) {
-        for (let i = 0; i < milestones.length; i++) {
-          const milestone = milestones[i];
-          const due = parseISODate(milestone.due_date);
-          if (!due) continue;
-          result.push({
-            id: `milestone-${milestone.id}`,
-            text: milestone.title || 'Marco',
-            start_date: toGanttDate(due),
-            end_date: toGanttDate(due),
-            duration: 1,
-            parent: parentId,
-            progress: milestone.completed ? 1 : 0,
-            taskType: 'milestone',
-          });
-        }
-      }
+      result.push(...deliveryNodes, ...childNodes);
     }
 
     return result;
-  }, [initiatives, deliveries]);
+  }, [projects, initiatives, deliveries]);
 
   const initGantt = useCallback(() => {
     if (!containerRef.current || initializedRef.current) return;
@@ -340,15 +434,17 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ initiatives, delive
 
     gantt.templates.task_class = (_s: Date, _e: Date, task: Record<string, unknown>) => {
       const tt = task.taskType as string | undefined;
+      if (tt === 'program') return 'gantt-program-row';
       if (tt === 'delivery') return 'gantt-delivery-row';
-      if (tt === 'milestone') return 'gantt-milestone-row';
+      if (tt === 'task') return 'gantt-task-row';
       return '';
     };
 
     gantt.templates.grid_row_class = (_s: Date, _e: Date, task: Record<string, unknown>) => {
       const tt = task.taskType as string | undefined;
+      if (tt === 'program') return 'gantt-program-row';
       if (tt === 'delivery') return 'gantt-delivery-row';
-      if (tt === 'milestone') return 'gantt-milestone-row';
+      if (tt === 'task') return 'gantt-task-row';
       return '';
     };
 
@@ -359,9 +455,13 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ initiatives, delive
 
       let html = `<strong>${name}</strong><br/>${formatDateBR(start)} — ${formatDateBR(end)}<br/>${dur} dia${dur > 1 ? 's' : ''}`;
 
-      if (tt === 'initiative') {
+      if (tt === 'program') {
+        html += '<br/>Nível: Programa';
+      } else if (tt === 'delivery') {
+        html += '<br/>Nível: Entrega';
+      } else if (tt === 'initiative') {
         html += `<br/>Progresso: ${Math.round((Number(task.progress) || 0) * 100)}%`;
-      } else if (tt === 'milestone') {
+      } else if (tt === 'task') {
         html += `<br/>${Number(task.progress) >= 1 ? 'Concluído' : 'Pendente'}`;
       }
       return html;
@@ -381,15 +481,17 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ initiatives, delive
       const taskId = String(task?.id || '');
       if (!taskId) return true;
 
-      const cleanId = taskId.replace(/^(delivery-|initiative-|milestone-)/, '');
-      if (!cleanId || cleanId === UNLINKED_DELIVERY_ID) return true;
+      const cleanId = taskId.replace(/^(program-|delivery-|initiative-|task-)/, '');
+      if (!cleanId || cleanId === UNLINKED_DELIVERY_ID || cleanId === UNLINKED_PROGRAM_ID) return true;
 
       cb({
-        type: taskId.startsWith('delivery-')
-          ? 'delivery'
-          : taskId.startsWith('milestone-')
-            ? 'milestone'
-            : 'initiative',
+        type: taskId.startsWith('program-')
+          ? 'program'
+          : taskId.startsWith('delivery-')
+            ? 'delivery'
+            : taskId.startsWith('task-')
+              ? 'task'
+              : 'initiative',
         id: cleanId,
         start_date: toGanttDate(task.start_date),
         end_date: toGanttDate(getTaskEndDateInclusive(task)),

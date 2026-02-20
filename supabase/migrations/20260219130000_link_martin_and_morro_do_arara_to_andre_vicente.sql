@@ -5,7 +5,7 @@ DO $$
 DECLARE
   v_analyst_id UUID;
   v_client_id UUID;
-  v_farm_id UUID;
+  v_farm_id TEXT;
 BEGIN
   -- Busca analista André Vicente (com e sem acento, nome parcial e completo).
   SELECT up.id

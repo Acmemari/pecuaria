@@ -16,6 +16,7 @@ export interface ProjectRow {
   success_evidence: string[];
   start_date: string | null;
   end_date: string | null;
+  sort_order: number;
   stakeholder_matrix: ProjectStakeholderRow[];
   created_at: string;
   updated_at: string;
@@ -53,6 +54,37 @@ function normalizeStakeholderMatrix(raw: unknown): ProjectStakeholderRow[] {
   }).filter((r) => r.name !== '' || r.activity !== '');
 }
 
+function mapProjectRow(data: any): ProjectRow {
+  return {
+    ...data,
+    success_evidence: Array.isArray(data.success_evidence)
+      ? data.success_evidence.filter((s: unknown): s is string => typeof s === 'string')
+      : [],
+    stakeholder_matrix: normalizeStakeholderMatrix(data.stakeholder_matrix),
+    sort_order: Number.isFinite(data.sort_order) ? Number(data.sort_order) : 0,
+  } as ProjectRow;
+}
+
+async function getNextProjectSortOrder(createdBy: string, clientId?: string | null): Promise<number> {
+  let q = supabase
+    .from('projects')
+    .select('sort_order')
+    .eq('created_by', createdBy)
+    .order('sort_order', { ascending: false, nullsFirst: false })
+    .limit(1);
+
+  if (clientId === null) {
+    q = q.is('client_id', null);
+  } else if (typeof clientId === 'string' && clientId.trim()) {
+    q = q.eq('client_id', clientId);
+  }
+
+  const { data, error } = await q;
+  if (error) throw new Error(error.message || 'Erro ao calcular ordem do projeto.');
+  const currentMax = Number(data?.[0]?.sort_order);
+  return Number.isFinite(currentMax) ? currentMax + 1 : 0;
+}
+
 function validateUserId(userId: string): void {
   if (!userId?.trim()) throw new Error('ID do usuário é obrigatório.');
 }
@@ -77,7 +109,8 @@ export async function fetchProjects(
     .from('projects')
     .select('*')
     .eq('created_by', createdBy)
-    .order('start_date', { ascending: true, nullsFirst: false });
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
 
   if (filters?.clientId?.trim()) {
     q = q.eq('client_id', filters.clientId);
@@ -85,11 +118,7 @@ export async function fetchProjects(
 
   const { data, error } = await q;
   if (error) throw new Error(error.message || 'Erro ao carregar projetos.');
-  return (data || []).map((row) => ({
-    ...row,
-    success_evidence: Array.isArray(row.success_evidence) ? row.success_evidence.filter((s): s is string => typeof s === 'string') : [],
-    stakeholder_matrix: normalizeStakeholderMatrix(row.stakeholder_matrix),
-  })) as ProjectRow[];
+  return (data || []).map(mapProjectRow);
 }
 
 export async function createProject(
@@ -98,6 +127,7 @@ export async function createProject(
 ): Promise<ProjectRow> {
   validateUserId(createdBy);
   validatePayload(payload);
+  const nextSortOrder = await getNextProjectSortOrder(createdBy, payload.client_id ?? null);
   const stakeholder = Array.isArray(payload.stakeholder_matrix) ? payload.stakeholder_matrix.slice(0, MAX_STAKEHOLDER_ROWS) : [];
   const successEvidence = Array.isArray(payload.success_evidence) ? payload.success_evidence.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim()) : [];
   const { data, error } = await supabase
@@ -111,16 +141,13 @@ export async function createProject(
       success_evidence: successEvidence,
       start_date: payload.start_date?.trim() || null,
       end_date: payload.end_date?.trim() || null,
+      sort_order: nextSortOrder,
       stakeholder_matrix: stakeholder,
     })
     .select('*')
     .single();
   if (error || !data) throw new Error(error?.message || 'Erro ao criar projeto.');
-  return {
-    ...data,
-    success_evidence: Array.isArray(data.success_evidence) ? data.success_evidence : [],
-    stakeholder_matrix: normalizeStakeholderMatrix(data.stakeholder_matrix),
-  } as ProjectRow;
+  return mapProjectRow(data);
 }
 
 export async function updateProject(
@@ -147,11 +174,7 @@ export async function updateProject(
     .select('*')
     .single();
   if (error || !data) throw new Error(error?.message || 'Erro ao atualizar projeto.');
-  return {
-    ...data,
-    success_evidence: Array.isArray(data.success_evidence) ? data.success_evidence : [],
-    stakeholder_matrix: normalizeStakeholderMatrix(data.stakeholder_matrix),
-  } as ProjectRow;
+  return mapProjectRow(data);
 }
 
 export async function deleteProject(projectId: string): Promise<void> {

@@ -42,10 +42,15 @@ interface SidebarProps {
 
 const INICIATIVAS_OVERVIEW_ID = 'iniciativas-overview';
 const INICIATIVAS_ATIVIDADES_ID = 'iniciativas-atividades';
+const INICIATIVAS_KANBAN_ID = 'iniciativas-kanban';
 const PROJECT_STRUCTURE_ID = 'project-structure';
 const CALENDAR_ID = 'calendar';
 const isIniciativasView = (id: string) =>
-  id === INICIATIVAS_OVERVIEW_ID || id === INICIATIVAS_ATIVIDADES_ID || id === PROJECT_STRUCTURE_ID || id === CALENDAR_ID;
+  id === INICIATIVAS_OVERVIEW_ID ||
+  id === INICIATIVAS_ATIVIDADES_ID ||
+  id === INICIATIVAS_KANBAN_ID ||
+  id === PROJECT_STRUCTURE_ID ||
+  id === CALENDAR_ID;
 
 
 const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent, isOpen, toggleSidebar, user, onLogout, onSettingsClick }) => {
@@ -201,6 +206,17 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                   </button>
                   <button
                     type="button"
+                    onClick={() => onSelectAgent(INICIATIVAS_KANBAN_ID)}
+                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === INICIATIVAS_KANBAN_ID
+                      ? 'bg-ai-accent/10 text-ai-accent'
+                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                      }`}
+                  >
+                    <ListTodo size={14} className="flex-shrink-0 mr-2" />
+                    <span className="truncate">Kanban</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => onSelectAgent(PROJECT_STRUCTURE_ID)}
                     className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === PROJECT_STRUCTURE_ID
                       ? 'bg-ai-accent/10 text-ai-accent'
@@ -225,7 +241,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
               )}
             </div>
 
-            {agents.filter((a) => a.id !== 'cadastros' && a.id !== 'calendar').map((agent) => {
+            {agents.filter((a) => a.id !== 'cadastros' && a.id !== 'calendar' && a.id !== 'agent-hub').map((agent) => {
               const isActive = activeAgentId === agent.id;
               const isLocked = agent.status !== 'active';
 

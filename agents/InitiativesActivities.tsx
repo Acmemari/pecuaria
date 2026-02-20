@@ -41,6 +41,7 @@ import {
   type InitiativeMilestoneRow,
   type InitiativeTaskRow,
 } from '../lib/initiatives';
+import { fetchProjects, type ProjectRow } from '../lib/projects';
 import { fetchPeople, type Person } from '../lib/people';
 import { fetchDeliveries, type DeliveryRow } from '../lib/deliveries';
 import { EvidenciaEntregaModal } from '../components/EvidenciaEntregaModal';
@@ -60,7 +61,26 @@ interface MilestoneRow {
 interface TaskDraftRow {
   title: string;
   description: string;
+  responsiblePersonId: string;
+  activityDate: string;
+  durationDays: string;
   dueDate: string;
+}
+
+function toLocalIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function addDaysIso(iso: string, days: number): string {
+  try {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+    const dt = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(dt.getTime())) return '';
+    dt.setDate(dt.getDate() + (Number.isFinite(days) ? days : 0));
+    return toLocalIso(dt);
+  } catch {
+    return '';
+  }
 }
 
 interface InitiativesActivitiesProps {
@@ -113,12 +133,20 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     initiativeName: string;
   } | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
   const [initiativeToDelete, setInitiativeToDelete] = useState<InitiativeWithProgress | null>(null);
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
   const [taskDrafts, setTaskDrafts] = useState<Record<string, TaskDraftRow>>({});
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [taskEditDraft, setTaskEditDraft] = useState<TaskDraftRow>({ title: '', description: '', dueDate: '' });
+  const [taskEditDraft, setTaskEditDraft] = useState<TaskDraftRow>({
+    title: '',
+    description: '',
+    responsiblePersonId: '',
+    activityDate: '',
+    durationDays: '1',
+    dueDate: '',
+  });
   const [savingTaskForMilestone, setSavingTaskForMilestone] = useState<string | null>(null);
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
@@ -208,7 +236,14 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
 
   const getTaskDraft = useCallback(
     (milestoneId: string): TaskDraftRow =>
-      taskDrafts[milestoneId] || { title: '', description: '', dueDate: '' },
+      taskDrafts[milestoneId] || {
+        title: '',
+        description: '',
+        responsiblePersonId: '',
+        activityDate: toLocalIso(new Date()),
+        durationDays: '1',
+        dueDate: '',
+      },
     [taskDrafts]
   );
 
@@ -216,7 +251,14 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     setTaskDrafts((prev) => ({
       ...prev,
       [milestoneId]: {
-        ...(prev[milestoneId] || { title: '', description: '', dueDate: '' }),
+        ...(prev[milestoneId] || {
+          title: '',
+          description: '',
+          responsiblePersonId: '',
+          activityDate: toLocalIso(new Date()),
+          durationDays: '1',
+          dueDate: '',
+        }),
         [field]: value,
       },
     }));
@@ -229,16 +271,37 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       onToast?.('O título da tarefa é obrigatório.', 'warning');
       return;
     }
+    if (!draft.responsiblePersonId.trim()) {
+      onToast?.('Selecione um responsável para a tarefa.', 'warning');
+      return;
+    }
+
+    const normalizedStart = draft.activityDate || toLocalIso(new Date());
+    const normalizedDuration = Math.max(1, Number.parseInt(draft.durationDays || '1', 10) || 1);
+    const computedDueDate = addDaysIso(normalizedStart, normalizedDuration - 1);
 
     setSavingTaskForMilestone(milestone.id);
     try {
       await createTask(milestone.id, {
         title: draft.title,
         description: draft.description || undefined,
-        due_date: draft.dueDate || null,
+        responsible_person_id: draft.responsiblePersonId,
+        activity_date: normalizedStart,
+        duration_days: normalizedDuration,
+        due_date: computedDueDate || null,
         sort_order: (milestone.tasks || []).length,
       });
-      setTaskDrafts((prev) => ({ ...prev, [milestone.id]: { title: '', description: '', dueDate: '' } }));
+      setTaskDrafts((prev) => ({
+        ...prev,
+        [milestone.id]: {
+          title: '',
+          description: '',
+          responsiblePersonId: '',
+          activityDate: toLocalIso(new Date()),
+          durationDays: '1',
+          dueDate: '',
+        },
+      }));
       await refreshViewingInitiative();
       await loadInitiatives();
       onToast?.('Tarefa criada com sucesso.', 'success');
@@ -251,16 +314,27 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
 
   const startEditTask = (task: InitiativeTaskRow) => {
     setEditingTaskId(task.id);
+    const fallbackDueDate = task.due_date || toLocalIso(new Date());
     setTaskEditDraft({
       title: task.title || '',
       description: task.description || '',
-      dueDate: task.due_date || '',
+      responsiblePersonId: task.responsible_person_id || '',
+      activityDate: task.activity_date || fallbackDueDate,
+      durationDays: String(Math.max(1, task.duration_days || 1)),
+      dueDate: task.due_date || fallbackDueDate,
     });
   };
 
   const cancelEditTask = () => {
     setEditingTaskId(null);
-    setTaskEditDraft({ title: '', description: '', dueDate: '' });
+    setTaskEditDraft({
+      title: '',
+      description: '',
+      responsiblePersonId: '',
+      activityDate: '',
+      durationDays: '1',
+      dueDate: '',
+    });
   };
 
   const handleUpdateTask = async (taskId: string) => {
@@ -268,13 +342,24 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       onToast?.('O título da tarefa é obrigatório.', 'warning');
       return;
     }
+    if (!taskEditDraft.responsiblePersonId.trim()) {
+      onToast?.('Selecione um responsável para a tarefa.', 'warning');
+      return;
+    }
+
+    const normalizedStart = taskEditDraft.activityDate || toLocalIso(new Date());
+    const normalizedDuration = Math.max(1, Number.parseInt(taskEditDraft.durationDays || '1', 10) || 1);
+    const computedDueDate = addDaysIso(normalizedStart, normalizedDuration - 1);
 
     setUpdatingTaskId(taskId);
     try {
       await updateTask(taskId, {
         title: taskEditDraft.title,
         description: taskEditDraft.description || null,
-        due_date: taskEditDraft.dueDate || null,
+        responsible_person_id: taskEditDraft.responsiblePersonId,
+        activity_date: normalizedStart,
+        duration_days: normalizedDuration,
+        due_date: computedDueDate || null,
       });
       cancelEditTask();
       await refreshViewingInitiative();
@@ -317,6 +402,14 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
 
   const personDisplayName = (p: Person | null | undefined): string =>
     p?.preferred_name?.trim() || p?.full_name || '—';
+
+  const peopleById = useMemo(
+    () => people.reduce<Record<string, Person>>((acc, p) => {
+      acc[p.id] = p;
+      return acc;
+    }, {}),
+    [people]
+  );
 
   const openEditModal = async (init: InitiativeWithProgress) => {
     setEditingInitiative(init);
@@ -376,9 +469,9 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         setViewingInitiative(updated);
       }
       await loadInitiatives();
-      onToast?.('Marco atualizado.', 'success');
+      onToast?.('Atividade atualizada.', 'success');
     } catch (e) {
-      onToast?.(e instanceof Error ? e.message : 'Erro ao atualizar marco', 'error');
+      onToast?.(e instanceof Error ? e.message : 'Erro ao atualizar atividade', 'error');
     } finally {
       setTogglingMilestone(null);
     }
@@ -492,6 +585,20 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         setPeople([]);
       });
   }, [effectiveUserId, selectedFarm?.id]);
+
+  useEffect(() => {
+    if (!effectiveUserId) {
+      setProjects([]);
+      return;
+    }
+    const filters = selectedClient?.id ? { clientId: selectedClient.id } : undefined;
+    fetchProjects(effectiveUserId, filters)
+      .then(setProjects)
+      .catch((err) => {
+        console.error('[InitiativesActivities] Erro ao carregar programas:', err);
+        setProjects([]);
+      });
+  }, [effectiveUserId, selectedClient?.id]);
 
   useEffect(() => {
     if (!effectiveUserId) {
@@ -883,7 +990,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                 : 'text-ai-subtext hover:text-ai-text'
                 }`}
             >
-              Geral & Marcos
+              Geral & Atividades
             </button>
             <button
               type="button"
@@ -938,11 +1045,11 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                 </div>
               </div>
 
-              {/* Marcos e Entregáveis */}
+              {/* Atividades e Tarefas */}
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <Flag size={20} className="text-ai-subtext" />
-                  <h3 className="text-lg font-semibold text-ai-text">Marcos e Entregáveis</h3>
+                  <h3 className="text-lg font-semibold text-ai-text">Atividades e Tarefas</h3>
                   <span className="text-sm text-ai-subtext ml-2">
                     {completedCount} de {totalMilestones} concluídos
                   </span>
@@ -997,7 +1104,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
 
                       <div className="mt-4 pt-4 border-t border-ai-border/70">
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-sm font-semibold text-ai-text">Tarefas do Marco</h4>
+                          <h4 className="text-sm font-semibold text-ai-text">Tarefas da Atividade</h4>
                           <span className="text-xs text-ai-subtext">{(m.tasks || []).length} tarefa(s)</span>
                         </div>
 
@@ -1022,11 +1129,36 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                                       rows={2}
                                       placeholder="Descrição (opcional)"
                                     />
-                                    <DateInputBR
-                                      value={taskEditDraft.dueDate}
-                                      onChange={(v) => setTaskEditDraft((prev) => ({ ...prev, dueDate: v }))}
-                                      className="max-w-[180px]"
-                                    />
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                                      <select
+                                        value={taskEditDraft.responsiblePersonId}
+                                        onChange={(e) => setTaskEditDraft((prev) => ({ ...prev, responsiblePersonId: e.target.value }))}
+                                        className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
+                                      >
+                                        <option value="">Responsável...</option>
+                                        {people.map((p) => (
+                                          <option key={p.id} value={p.id}>
+                                            {personDisplayName(p)}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <DateInputBR
+                                        value={taskEditDraft.activityDate}
+                                        onChange={(v) => setTaskEditDraft((prev) => ({ ...prev, activityDate: v }))}
+                                        className="max-w-[180px]"
+                                      />
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        value={taskEditDraft.durationDays}
+                                        onChange={(e) => setTaskEditDraft((prev) => ({ ...prev, durationDays: e.target.value }))}
+                                        className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
+                                        placeholder="Duração (dias)"
+                                      />
+                                      <div className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs">
+                                        Prazo: {formatDate(addDaysIso(taskEditDraft.activityDate || toLocalIso(new Date()), Math.max(1, Number.parseInt(taskEditDraft.durationDays || '1', 10) || 1) - 1))}
+                                      </div>
+                                    </div>
                                     <div className="flex items-center justify-end gap-2">
                                       <button
                                         type="button"
@@ -1066,9 +1198,14 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                                       <p className={`text-xs font-medium ${task.completed ? 'line-through text-ai-subtext' : 'text-ai-text'}`}>
                                         {task.title}
                                       </p>
-                                      {(task.description || task.due_date) && (
+                                      {(task.description || task.due_date || task.activity_date || task.responsible_person_id || typeof task.duration_days === 'number') && (
                                         <div className="text-[11px] text-ai-subtext mt-0.5">
                                           {task.description && <p className="whitespace-pre-wrap">{task.description}</p>}
+                                          <p>
+                                            Resp.: {task.responsible_person_id ? personDisplayName(peopleById[task.responsible_person_id]) : '—'}
+                                          </p>
+                                          {task.activity_date && <p>Início: {formatDate(task.activity_date)}</p>}
+                                          {typeof task.duration_days === 'number' && <p>Duração: {task.duration_days} dia(s)</p>}
                                           {task.due_date && <p>Prazo: {formatDate(task.due_date)}</p>}
                                         </div>
                                       )}
@@ -1104,7 +1241,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                         </div>
 
                         <div className="mt-2 rounded-md border border-dashed border-ai-border p-2 bg-ai-bg/40">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
                             <input
                               type="text"
                               value={getTaskDraft(m.id).title}
@@ -1112,11 +1249,34 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                               className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
                               placeholder="Nova tarefa (obrigatório)"
                             />
+                            <select
+                              value={getTaskDraft(m.id).responsiblePersonId}
+                              onChange={(e) => updateTaskDraft(m.id, 'responsiblePersonId', e.target.value)}
+                              className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
+                            >
+                              <option value="">Responsável...</option>
+                              {people.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {personDisplayName(p)}
+                                </option>
+                              ))}
+                            </select>
                             <DateInputBR
-                              value={getTaskDraft(m.id).dueDate}
-                              onChange={(v) => updateTaskDraft(m.id, 'dueDate', v)}
+                              value={getTaskDraft(m.id).activityDate}
+                              onChange={(v) => updateTaskDraft(m.id, 'activityDate', v)}
                               className="max-w-[180px]"
                             />
+                            <input
+                              type="number"
+                              min={1}
+                              value={getTaskDraft(m.id).durationDays}
+                              onChange={(e) => updateTaskDraft(m.id, 'durationDays', e.target.value)}
+                              className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
+                              placeholder="Duração (dias)"
+                            />
+                            <div className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs">
+                              Prazo: {formatDate(addDaysIso(getTaskDraft(m.id).activityDate || toLocalIso(new Date()), Math.max(1, Number.parseInt(getTaskDraft(m.id).durationDays || '1', 10) || 1) - 1))}
+                            </div>
                             <button
                               type="button"
                               onClick={() => handleCreateTask(m)}
@@ -1352,7 +1512,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
               className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-ai-text text-white text-xs font-semibold hover:opacity-90 transition-opacity shrink-0 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Plus size={16} strokeWidth={2.5} />
-              Nova Iniciativa
+              Nova Atividade
             </button>
           </div>
         </div>
@@ -1399,7 +1559,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-ai-text text-white text-sm font-semibold hover:opacity-90"
               >
                 <Plus size={20} />
-                Nova Iniciativa
+                Nova Atividade
               </button>
             )}
           </div>
@@ -1409,7 +1569,11 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
             <p className="text-sm text-ai-subtext">Nenhuma atividade encontrada com os filtros selecionados.</p>
           </div>
         ) : viewMode === 'gantt' ? (
-          <InitiativesGantt initiatives={filteredInitiatives} />
+          <InitiativesGantt
+            projects={projects}
+            deliveries={deliveries}
+            initiatives={filteredInitiatives}
+          />
         ) : (
           <ul className="grid grid-cols-2 gap-1.5">
             {filteredInitiatives.map((init) => (
@@ -1500,7 +1664,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
           >
             <div className="sticky top-0 bg-ai-bg border-b border-ai-border px-6 py-4 flex items-center justify-between z-10">
               <h2 className="text-lg font-semibold text-ai-text">
-                {editingInitiative ? 'Editar Iniciativa' : 'Nova Iniciativa'}
+                {editingInitiative ? 'Editar Iniciativa' : 'Nova Atividade'}
               </h2>
               <button type="button" onClick={closeModal} className="p-1.5 text-ai-subtext hover:text-ai-text rounded">
                 <X size={20} />
@@ -1713,7 +1877,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Flag size={16} className="text-ai-subtext" />
-                        <span className="text-sm font-medium text-ai-text">Marcos e % Representatividade</span>
+                        <span className="text-sm font-medium text-ai-text">Atividades e % Representatividade</span>
                       </div>
                       <span
                         className={`text-xs ${totalPercent > 100 ? 'text-red-500 font-semibold' : 'text-ai-subtext'}`}
@@ -1727,7 +1891,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                           type="text"
                           value={m.title}
                           onChange={(e) => updateMilestone(m.id, 'title', e.target.value)}
-                          placeholder="Título do marco..."
+                          placeholder="Título da atividade..."
                           className="flex-1 min-w-[140px] px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                         />
                         <input
@@ -1754,7 +1918,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                             type="button"
                             onClick={() => removeMilestone(m.id)}
                             className="p-2 text-ai-subtext hover:text-red-500"
-                            title="Remover marco"
+                            title="Remover atividade"
                           >
                             <X size={16} />
                           </button>

@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
 import { useClient } from '../contexts/ClientContext';
+import { useFarm } from '../contexts/FarmContext';
 import ProgramaWorkbench from '../components/ProgramaWorkbench';
 
 interface ProjectManagementProps {
@@ -13,6 +14,7 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
   const { user } = useAuth();
   const { selectedAnalyst } = useAnalyst();
   const { selectedClient } = useClient();
+  const { selectedFarm } = useFarm();
 
   const isAdmin = user?.role === 'admin';
   const effectiveUserId = useMemo(
@@ -54,6 +56,7 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
       <ProgramaWorkbench
         effectiveUserId={effectiveUserId}
         selectedClientId={selectedClient?.id || null}
+        selectedFarmId={selectedFarm?.id || null}
         onToast={onToast}
       />
     </div>

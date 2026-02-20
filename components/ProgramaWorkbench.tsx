@@ -19,9 +19,12 @@ import {
 } from '../lib/deliveries';
 import {
   fetchInitiativesByDelivery,
-  type InitiativeMilestoneRow,
+  fetchTasksByInitiative,
+  ensureDefaultMilestone,
   type InitiativeWithProgress,
 } from '../lib/initiatives';
+import { fetchPeople, type Person } from '../lib/people';
+import { arrayMove } from '@dnd-kit/sortable';
 import { sanitizeText } from '../lib/inputSanitizer';
 import { supabase } from '../lib/supabase';
 import HierarchyColumn, { type HierarchyColumnItem } from './HierarchyColumn';
@@ -32,6 +35,7 @@ import DateInputBR from './DateInputBR';
 interface ProgramaWorkbenchProps {
   effectiveUserId: string;
   selectedClientId?: string | null;
+  selectedFarmId?: string | null;
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
@@ -49,15 +53,17 @@ interface DeliveryFormState {
   name: string;
   description: string;
   transformations_achievements: string;
-  due_date: string;
-  stakeholder_matrix: Array<{ name: string; activity: string }>;
+  start_date: string;
+  end_date: string;
 }
 
 interface ActivityFormState {
-  title: string;
-  percent: string;
-  due_date: string;
-  completed: boolean;
+  name: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  leader_id: string;
 }
 
 type KanbanStatus = 'A Fazer' | 'Andamento' | 'Pausado' | 'Concluído';
@@ -65,7 +71,9 @@ type KanbanStatus = 'A Fazer' | 'Andamento' | 'Pausado' | 'Concluído';
 interface TaskFormState {
   title: string;
   description: string;
-  due_date: string;
+  responsible_person_id: string;
+  activity_date: string;
+  duration_days: string;
   kanban_status: KanbanStatus;
   completed: boolean;
 }
@@ -76,14 +84,13 @@ interface WorkbenchTask {
   title: string;
   description: string | null;
   due_date: string | null;
+  responsible_person_id: string | null;
+  activity_date: string | null;
+  duration_days: number | null;
   completed: boolean;
   sort_order: number;
   kanban_status: KanbanStatus;
   kanban_order: number;
-}
-
-interface FlattenedActivity extends InitiativeMilestoneRow {
-  initiative_name: string;
 }
 
 type ModalEntity = 'program' | 'delivery' | 'activity' | 'task';
@@ -98,16 +105,37 @@ const INITIAL_PROGRAM_FORM: ProgramFormState = {
 };
 
 const INITIAL_DELIVERY_FORM: DeliveryFormState = {
-  name: '', description: '', transformations_achievements: '', due_date: '',
-  stakeholder_matrix: [{ name: '', activity: '' }],
+  name: '', description: '', transformations_achievements: '', start_date: '', end_date: '',
 };
 
 const INITIAL_ACTIVITY_FORM: ActivityFormState = {
-  title: '', percent: '0', due_date: '', completed: false,
+  name: '', description: '', start_date: '', end_date: '', status: 'Não Iniciado', leader_id: '',
 };
 
+function currentIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysIso(iso: string, days: number): string {
+  try {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+    const dt = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(dt.getTime())) return '';
+    dt.setDate(dt.getDate() + (Number.isFinite(days) ? days : 0));
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  } catch {
+    return '';
+  }
+}
+
 const INITIAL_TASK_FORM: TaskFormState = {
-  title: '', description: '', due_date: '', kanban_status: 'A Fazer', completed: false,
+  title: '',
+  description: '',
+  responsible_person_id: '',
+  activity_date: currentIsoDate(),
+  duration_days: '1',
+  kanban_status: 'A Fazer',
+  completed: false,
 };
 
 const DATE_FMT = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -129,6 +157,24 @@ function removeAtIndex<T>(arr: T[], idx: number, fallback: T): T[] {
 
 function updateAtIndex<T>(arr: T[], idx: number, updater: (item: T) => T): T[] {
   return arr.map((item, i) => (i === idx ? updater(item) : item));
+}
+
+function swapSortOrderLocally<T extends { id: string; sort_order: number }>(
+  rows: T[],
+  firstId: string,
+  secondId: string
+): T[] {
+  const first = rows.find((row) => row.id === firstId);
+  const second = rows.find((row) => row.id === secondId);
+  if (!first || !second) return rows;
+
+  return rows
+    .map((row) => {
+      if (row.id === first.id) return { ...row, sort_order: second.sort_order };
+      if (row.id === second.id) return { ...row, sort_order: first.sort_order };
+      return row;
+    })
+    .sort((a, b) => a.sort_order - b.sort_order);
 }
 
 // ─── ModalShell ─────────────────────────────────────────────────────────────
@@ -193,57 +239,12 @@ const SectionHeader: React.FC<{ icon: React.ReactNode; label: string }> = ({ ico
   </div>
 );
 
-// ─── StakeholderMatrixEditor ────────────────────────────────────────────────
-
-const StakeholderMatrixEditor: React.FC<{
-  rows: Array<{ name: string; activity: string }>;
-  onChange: (rows: Array<{ name: string; activity: string }>) => void;
-}> = React.memo(({ rows, onChange }) => (
-  <div className="space-y-2">
-    <div className="flex items-center justify-between">
-      <label className="block text-sm font-medium text-ai-text">Matriz de stakeholders</label>
-      <button
-        type="button"
-        onClick={() => onChange([...rows, { name: '', activity: '' }])}
-        className="rounded-md border border-ai-border px-2 py-1 text-xs text-ai-subtext hover:text-ai-text"
-      >
-        Adicionar linha
-      </button>
-    </div>
-    {rows.map((row, idx) => (
-      <div key={`sh-${idx}`} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
-        <input
-          type="text"
-          value={row.name}
-          onChange={(e) => onChange(updateAtIndex(rows, idx, (r) => ({ ...r, name: e.target.value })))}
-          className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
-          placeholder="Nome"
-        />
-        <input
-          type="text"
-          value={row.activity}
-          onChange={(e) => onChange(updateAtIndex(rows, idx, (r) => ({ ...r, activity: e.target.value })))}
-          className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
-          placeholder="Atividade"
-        />
-        <button
-          type="button"
-          onClick={() => onChange(removeAtIndex(rows, idx, { name: '', activity: '' }))}
-          className="rounded border border-ai-border px-2 py-1 text-xs text-red-500 hover:bg-red-50"
-        >
-          Remover
-        </button>
-      </div>
-    ))}
-  </div>
-));
-StakeholderMatrixEditor.displayName = 'StakeholderMatrixEditor';
-
 // ─── Workbench Principal ────────────────────────────────────────────────────
 
 const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   effectiveUserId,
   selectedClientId,
+  selectedFarmId,
   onToast,
 }) => {
   const mountedRef = useRef(true);
@@ -272,6 +273,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
   const [initiatives, setInitiatives] = useState<InitiativeWithProgress[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [tasks, setTasks] = useState<WorkbenchTask[]>([]);
 
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
@@ -357,14 +359,22 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     }
   }, [selectedDeliveryId, loadActivitiesForDelivery]);
 
-  const loadTasksForActivity = useCallback(async (activityId: string): Promise<WorkbenchTask[]> => {
-    const { data, error } = await supabase
-      .from('initiative_tasks')
-      .select('id, milestone_id, title, description, due_date, completed, sort_order, kanban_status, kanban_order')
-      .eq('milestone_id', activityId)
-      .order('sort_order', { ascending: true });
-    if (error) throw new Error(error.message || 'Erro ao carregar tarefas.');
-    return (data || []) as WorkbenchTask[];
+  useEffect(() => {
+    let active = true;
+    fetchPeople(effectiveUserId, selectedFarmId ? { farmId: selectedFarmId } : undefined)
+      .then((rows) => {
+        if (active && mountedRef.current) setPeople(rows);
+      })
+      .catch((err) => {
+        if (active && mountedRef.current) setPeople([]);
+        toast(err instanceof Error ? err.message : 'Erro ao carregar pessoas.', 'error');
+      });
+    return () => { active = false; };
+  }, [effectiveUserId, selectedFarmId, toast]);
+
+  const loadTasksForActivity = useCallback(async (initiativeId: string): Promise<WorkbenchTask[]> => {
+    const rows = await fetchTasksByInitiative(initiativeId);
+    return rows as WorkbenchTask[];
   }, []);
 
   const refreshTasks = useCallback(async () => {
@@ -381,13 +391,39 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
 
   // ── Derived state ─────────────────────────────────────────────────────
 
-  const selectedDeliveryActivities = useMemo<FlattenedActivity[]>(() => {
-    if (!selectedDeliveryId) return [];
+  const selectedDeliveryActivities = useMemo(() => {
+    if (!selectedDeliveryId) return [] as InitiativeWithProgress[];
     return initiatives
       .filter((i) => i.delivery_id === selectedDeliveryId)
-      .flatMap((i) => (i.milestones || []).map((m) => ({ ...m, initiative_name: i.name })))
-      .sort((a, b) => a.sort_order - b.sort_order);
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }, [initiatives, selectedDeliveryId]);
+
+  // ── Auto-select first items (cascade default) ──────────────────────────
+
+  useEffect(() => {
+    if (projects.length === 0) return;
+    const hasValidSelection = selectedProgramId && projects.some((p) => p.id === selectedProgramId);
+    if (!hasValidSelection) {
+      setSelectedProgramId(projects[0].id);
+    }
+  }, [projects, selectedProgramId]);
+
+  useEffect(() => {
+    if (deliveries.length === 0) return;
+    const hasValidSelection = selectedDeliveryId && deliveries.some((d) => d.id === selectedDeliveryId);
+    if (!hasValidSelection) {
+      setSelectedDeliveryId(deliveries[0].id);
+    }
+  }, [deliveries, selectedDeliveryId]);
+
+  useEffect(() => {
+    if (selectedDeliveryActivities.length === 0) return;
+    const hasValidSelection = selectedActivityId
+      && selectedDeliveryActivities.some((a) => a.id === selectedActivityId);
+    if (!hasValidSelection) {
+      setSelectedActivityId(selectedDeliveryActivities[0].id);
+    }
+  }, [selectedDeliveryActivities, selectedActivityId]);
 
   // ── Column items (memoized) ───────────────────────────────────────────
 
@@ -404,7 +440,9 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     () => deliveries.map((d) => ({
       id: d.id,
       title: d.name,
-      subtitle: d.due_date ? `Prazo: ${formatDateBR(d.due_date)}` : 'Sem prazo definido',
+      subtitle: d.start_date || d.end_date || d.due_date
+        ? `${formatDateBR(d.start_date ?? null)} — ${formatDateBR(d.end_date ?? d.due_date ?? null)}`
+        : 'Sem período definido',
     })),
     [deliveries]
   );
@@ -412,8 +450,8 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   const activityItems = useMemo<HierarchyColumnItem[]>(
     () => selectedDeliveryActivities.map((a) => ({
       id: a.id,
-      title: a.title,
-      subtitle: `${a.percent}% · ${a.completed ? 'Concluída' : 'Em aberto'}`,
+      title: a.name,
+      subtitle: `${a.progress ?? 0}% · ${a.status || 'Não Iniciado'}`,
     })),
     [selectedDeliveryActivities]
   );
@@ -426,6 +464,12 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     })),
     [tasks]
   );
+
+  const computedTaskDueDate = useMemo(() => {
+    const start = taskForm.activity_date || currentIsoDate();
+    const duration = Math.max(1, Number.parseInt(taskForm.duration_days || '1', 10) || 1);
+    return addDaysIso(start, duration - 1);
+  }, [taskForm.activity_date, taskForm.duration_days]);
 
   // ── Modal helpers ─────────────────────────────────────────────────────
 
@@ -441,7 +485,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     setProgramForm(INITIAL_PROGRAM_FORM);
     setDeliveryForm(INITIAL_DELIVERY_FORM);
     setActivityForm(INITIAL_ACTIVITY_FORM);
-    setTaskForm(INITIAL_TASK_FORM);
+    setTaskForm({ ...INITIAL_TASK_FORM, activity_date: currentIsoDate() });
   }, []);
 
   const openEditProgram = useCallback((id: string) => {
@@ -469,8 +513,8 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     setDeliveryForm({
       name: t.name || '', description: t.description || '',
       transformations_achievements: t.transformations_achievements || '',
-      due_date: t.due_date || '',
-      stakeholder_matrix: t.stakeholder_matrix.length ? [...t.stakeholder_matrix] : [{ name: '', activity: '' }],
+      start_date: t.start_date || '',
+      end_date: t.end_date || t.due_date || '',
     });
   }, [deliveries]);
 
@@ -481,62 +525,32 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     setModalMode('edit');
     setEditingId(id);
     setActivityForm({
-      title: t.title || '', percent: String(t.percent ?? 0),
-      due_date: t.due_date || '', completed: !!t.completed,
+      name: t.name || '',
+      description: t.description || '',
+      start_date: t.start_date || '',
+      end_date: t.end_date || '',
+      status: t.status || 'Não Iniciado',
+      leader_id: t.leader || '',
     });
   }, [selectedDeliveryActivities]);
 
   const openEditTask = useCallback((id: string) => {
     const t = tasks.find((tk) => tk.id === id);
     if (!t) return;
+    const activityDate = t.activity_date || t.due_date || currentIsoDate();
+    const durationDays = Math.max(1, t.duration_days || 1);
     setModalEntity('task');
     setModalMode('edit');
     setEditingId(id);
     setTaskForm({
       title: t.title || '', description: t.description || '',
-      due_date: t.due_date || '', completed: t.completed,
+      responsible_person_id: t.responsible_person_id || '',
+      activity_date: activityDate,
+      duration_days: String(durationDays),
+      completed: t.completed,
       kanban_status: t.kanban_status || 'A Fazer',
     });
   }, [tasks]);
-
-  // ── Transparent initiative ────────────────────────────────────────────
-
-  const ensureInitiativeForDelivery = useCallback(
-    async (deliveryId: string): Promise<string> => {
-      const existing = initiatives.find((i) => i.delivery_id === deliveryId);
-      if (existing) return existing.id;
-
-      const delivery = deliveries.find((d) => d.id === deliveryId);
-      if (!delivery) throw new Error('Entrega não encontrada.');
-
-      const today = new Date().toISOString().slice(0, 10);
-      const base = {
-        created_by: effectiveUserId,
-        name: sanitizeText(`Plano de Atividades - ${delivery.name}`.slice(0, 300)),
-        description: delivery.description?.trim() || null,
-        status: 'Não Iniciado',
-        delivery_id: deliveryId,
-        client_id: selectedClientId || delivery.client_id || null,
-        farm_id: null, tags: null, leader: null as string | null,
-        start_date: null as string | null, end_date: null as string | null,
-      };
-
-      const first = await supabase.from('initiatives').insert(base).select('id').single();
-      if (!first.error && first.data?.id) return first.data.id;
-
-      const fallback = await supabase
-        .from('initiatives')
-        .insert({ ...base, start_date: today, end_date: today, leader: 'Sistema' })
-        .select('id')
-        .single();
-
-      if (fallback.error || !fallback.data?.id) {
-        throw new Error(fallback.error?.message || first.error?.message || 'Erro ao criar plano de atividades.');
-      }
-      return fallback.data.id;
-    },
-    [deliveries, effectiveUserId, initiatives, selectedClientId]
-  );
 
   // ── CRUD: Program ─────────────────────────────────────────────────────
 
@@ -606,16 +620,20 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     if (!selectedProgramId) { toast('Selecione um programa.', 'warning'); return; }
     const name = deliveryForm.name.trim();
     if (!name) { toast('Nome da entrega é obrigatório.', 'warning'); return; }
+    if (deliveryForm.start_date && deliveryForm.end_date && deliveryForm.end_date < deliveryForm.start_date) {
+      toast('Data final da entrega não pode ser anterior à data inicial.', 'warning');
+      return;
+    }
 
     const payload = {
       name: sanitizeText(name),
       description: deliveryForm.description.trim() ? sanitizeText(deliveryForm.description.trim()) : null,
       transformations_achievements: deliveryForm.transformations_achievements.trim()
         ? sanitizeText(deliveryForm.transformations_achievements.trim()) : null,
-      due_date: deliveryForm.due_date || null,
-      stakeholder_matrix: deliveryForm.stakeholder_matrix
-        .map((r) => ({ name: r.name.trim(), activity: r.activity.trim() }))
-        .filter((r) => r.name || r.activity),
+      start_date: deliveryForm.start_date || null,
+      end_date: deliveryForm.end_date || null,
+      // Compatibilidade com consumidores legados que ainda leem due_date.
+      due_date: deliveryForm.end_date || null,
       client_id: selectedClientId || null,
       project_id: selectedProgramId,
     };
@@ -626,7 +644,11 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
         const { error } = await supabase.from('deliveries').update(payload).eq('id', editingId);
         if (error) throw new Error(error.message);
       } else {
-        const { error } = await supabase.from('deliveries').insert({ created_by: effectiveUserId, ...payload });
+        const { error } = await supabase.from('deliveries').insert({
+          created_by: effectiveUserId,
+          sort_order: deliveries.length,
+          ...payload,
+        });
         if (error) throw new Error(error.message);
       }
       await loadDeliveriesForProject(selectedProgramId);
@@ -659,64 +681,72 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     }
   }, [deliveries, selectedDeliveryId, selectedProgramId, loadDeliveriesForProject, toast]);
 
-  // ── CRUD: Activity ────────────────────────────────────────────────────
+  // ── CRUD: Activity (Initiative) ──────────────────────────────────────
 
   const saveActivity = useCallback(async () => {
     if (saving) return;
     if (!selectedDeliveryId) { toast('Selecione uma entrega.', 'warning'); return; }
-    const title = activityForm.title.trim();
-    if (!title) { toast('Título é obrigatório.', 'warning'); return; }
-    const percent = Math.max(0, Math.min(100, parseInt(activityForm.percent || '0', 10) || 0));
+    const name = activityForm.name.trim();
+    if (!name) { toast('Nome é obrigatório.', 'warning'); return; }
 
     setSaving(true);
     try {
+      const leaderPerson = people.find((p) => p.id === activityForm.leader_id);
+      const leaderName = leaderPerson ? (leaderPerson.preferred_name?.trim() || leaderPerson.full_name) : (activityForm.leader_id || null);
+
       if (editingId) {
         const { error } = await supabase
-          .from('initiative_milestones')
+          .from('initiatives')
           .update({
-            title: sanitizeText(title), percent,
-            due_date: activityForm.due_date || null,
-            completed: activityForm.completed,
-            completed_at: activityForm.completed ? new Date().toISOString() : null,
+            name: sanitizeText(name),
+            description: activityForm.description.trim() ? sanitizeText(activityForm.description.trim()) : null,
+            start_date: activityForm.start_date || null,
+            end_date: activityForm.end_date || null,
+            status: activityForm.status || 'Não Iniciado',
+            leader: leaderName,
           })
           .eq('id', editingId);
         if (error) throw new Error(error.message);
       } else {
-        const initiativeId = await ensureInitiativeForDelivery(selectedDeliveryId);
         const { error } = await supabase
-          .from('initiative_milestones')
+          .from('initiatives')
           .insert({
-            initiative_id: initiativeId,
-            title: sanitizeText(title), percent,
-            due_date: activityForm.due_date || null,
-            completed: activityForm.completed,
-            completed_at: activityForm.completed ? new Date().toISOString() : null,
+            created_by: effectiveUserId,
+            name: sanitizeText(name),
+            description: activityForm.description.trim() ? sanitizeText(activityForm.description.trim()) : null,
+            start_date: activityForm.start_date || null,
+            end_date: activityForm.end_date || null,
+            status: activityForm.status || 'Não Iniciado',
+            leader: leaderName,
+            delivery_id: selectedDeliveryId,
+            client_id: selectedClientId || null,
+            farm_id: selectedFarmId || null,
             sort_order: selectedDeliveryActivities.length,
           });
         if (error) throw new Error(error.message);
       }
       await loadActivitiesForDelivery(selectedDeliveryId);
-      toast(editingId ? 'Atividade atualizada.' : 'Atividade criada.', 'success');
+      toast(editingId ? 'Macro atividade atualizada.' : 'Macro atividade criada.', 'success');
       closeModal();
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao salvar atividade.', 'error');
+      toast(err instanceof Error ? err.message : 'Erro ao salvar macro atividade.', 'error');
     } finally {
       setSaving(false);
     }
-  }, [saving, selectedDeliveryId, activityForm, editingId, ensureInitiativeForDelivery, selectedDeliveryActivities.length, loadActivitiesForDelivery, toast, closeModal]);
+  }, [saving, selectedDeliveryId, activityForm, editingId, effectiveUserId, selectedClientId, selectedFarmId, people, selectedDeliveryActivities.length, loadActivitiesForDelivery, toast, closeModal]);
 
   const deleteActivityById = useCallback(async (id: string) => {
     const t = selectedDeliveryActivities.find((a) => a.id === id);
-    if (!t || !window.confirm(`Excluir "${t.title}"?`)) return;
+    if (!t || !window.confirm(`Excluir "${t.name}"?`)) return;
     setDeleting(id);
     try {
-      const { error } = await supabase.from('initiative_milestones').delete().eq('id', id);
+      const { error } = await supabase.from('initiatives').delete().eq('id', id);
       if (error) throw new Error(error.message);
       if (selectedActivityId === id) { setSelectedActivityId(null); setTasks([]); }
       if (selectedDeliveryId) await loadActivitiesForDelivery(selectedDeliveryId);
-      toast('Atividade removida.', 'success');
+      toast('Macro atividade removida.', 'success');
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao excluir atividade.', 'error');
+      toast(err instanceof Error ? err.message : 'Erro ao excluir macro atividade.', 'error');
     } finally {
       setDeleting(null);
     }
@@ -726,9 +756,14 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
 
   const saveTask = useCallback(async () => {
     if (saving) return;
-    if (!selectedActivityId) { toast('Selecione uma atividade.', 'warning'); return; }
+    if (!selectedActivityId) { toast('Selecione uma macro atividade.', 'warning'); return; }
     const title = taskForm.title.trim();
     if (!title) { toast('Título é obrigatório.', 'warning'); return; }
+    if (!taskForm.responsible_person_id.trim()) { toast('Responsável é obrigatório.', 'warning'); return; }
+
+    const activityDate = taskForm.activity_date || currentIsoDate();
+    const durationDays = Math.max(1, Number.parseInt(taskForm.duration_days || '1', 10) || 1);
+    const dueDate = addDaysIso(activityDate, durationDays - 1) || null;
 
     setSaving(true);
     try {
@@ -738,7 +773,10 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           .update({
             title: sanitizeText(title),
             description: taskForm.description.trim() ? sanitizeText(taskForm.description.trim()) : null,
-            due_date: taskForm.due_date || null,
+            responsible_person_id: taskForm.responsible_person_id,
+            activity_date: activityDate,
+            duration_days: durationDays,
+            due_date: dueDate,
             completed: taskForm.completed,
             completed_at: taskForm.completed ? new Date().toISOString() : null,
             kanban_status: taskForm.kanban_status,
@@ -746,14 +784,18 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           .eq('id', editingId);
         if (error) throw new Error(error.message);
       } else {
+        const milestoneId = await ensureDefaultMilestone(selectedActivityId);
         const order = tasks.length;
         const { error } = await supabase
           .from('initiative_tasks')
           .insert({
-            milestone_id: selectedActivityId,
+            milestone_id: milestoneId,
             title: sanitizeText(title),
             description: taskForm.description.trim() ? sanitizeText(taskForm.description.trim()) : null,
-            due_date: taskForm.due_date || null,
+            responsible_person_id: taskForm.responsible_person_id,
+            activity_date: activityDate,
+            duration_days: durationDays,
+            due_date: dueDate,
             completed: taskForm.completed,
             completed_at: taskForm.completed ? new Date().toISOString() : null,
             sort_order: order, kanban_status: taskForm.kanban_status, kanban_order: order,
@@ -807,6 +849,212 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
 
   const noopSelect = useCallback(() => {}, []);
 
+  const swapSortOrder = useCallback(
+    async (
+      table: 'projects' | 'deliveries' | 'initiatives' | 'initiative_milestones' | 'initiative_tasks',
+      first: { id: string; sort_order: number },
+      second: { id: string; sort_order: number }
+    ) => {
+      const [firstUpdate, secondUpdate] = await Promise.all([
+        supabase.from(table).update({ sort_order: second.sort_order }).eq('id', first.id),
+        supabase.from(table).update({ sort_order: first.sort_order }).eq('id', second.id),
+      ]);
+
+      const error = firstUpdate.error || secondUpdate.error;
+      if (error) throw new Error(error.message || 'Erro ao reordenar itens.');
+    },
+    []
+  );
+
+  const moveProgram = useCallback(async (id: string, direction: -1 | 1) => {
+    const currentIndex = projects.findIndex((project) => project.id === id);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= projects.length) return;
+
+    const current = projects[currentIndex];
+    const target = projects[targetIndex];
+    if (!current || !target) return;
+
+    setProjects((prev) => swapSortOrderLocally(prev, current.id, target.id));
+    try {
+      await swapSortOrder('projects', current, target);
+    } catch (err) {
+      await loadProjects();
+      toast(err instanceof Error ? err.message : 'Erro ao reordenar programas.', 'error');
+    }
+  }, [projects, swapSortOrder, loadProjects, toast]);
+
+  const moveDelivery = useCallback(async (id: string, direction: -1 | 1) => {
+    const currentIndex = deliveries.findIndex((delivery) => delivery.id === id);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= deliveries.length) return;
+
+    const current = deliveries[currentIndex];
+    const target = deliveries[targetIndex];
+    if (!current || !target) return;
+
+    setDeliveries((prev) => swapSortOrderLocally(prev, current.id, target.id));
+    try {
+      await swapSortOrder('deliveries', current, target);
+    } catch (err) {
+      if (selectedProgramId) await loadDeliveriesForProject(selectedProgramId);
+      toast(err instanceof Error ? err.message : 'Erro ao reordenar entregas.', 'error');
+    }
+  }, [deliveries, swapSortOrder, selectedProgramId, loadDeliveriesForProject, toast]);
+
+  const moveActivity = useCallback(async (id: string, direction: -1 | 1) => {
+    const currentIndex = selectedDeliveryActivities.findIndex((activity) => activity.id === id);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= selectedDeliveryActivities.length) return;
+
+    const current = selectedDeliveryActivities[currentIndex];
+    const target = selectedDeliveryActivities[targetIndex];
+    if (!current || !target) return;
+
+    const currentSortOrder = current.sort_order ?? currentIndex;
+    const targetSortOrder = target.sort_order ?? targetIndex;
+
+    setInitiatives((prev) => prev.map((init) => {
+      if (init.id === current.id) return { ...init, sort_order: targetSortOrder };
+      if (init.id === target.id) return { ...init, sort_order: currentSortOrder };
+      return init;
+    }));
+
+    try {
+      await swapSortOrder('initiatives', { id: current.id, sort_order: currentSortOrder }, { id: target.id, sort_order: targetSortOrder });
+    } catch (err) {
+      if (selectedDeliveryId) await loadActivitiesForDelivery(selectedDeliveryId);
+      toast(err instanceof Error ? err.message : 'Erro ao reordenar atividades.', 'error');
+    }
+  }, [selectedDeliveryActivities, swapSortOrder, selectedDeliveryId, loadActivitiesForDelivery, toast]);
+
+  const moveTask = useCallback(async (id: string, direction: -1 | 1) => {
+    const currentIndex = tasks.findIndex((task) => task.id === id);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= tasks.length) return;
+
+    const current = tasks[currentIndex];
+    const target = tasks[targetIndex];
+    if (!current || !target) return;
+
+    setTasks((prev) => swapSortOrderLocally(prev, current.id, target.id));
+    try {
+      await swapSortOrder('initiative_tasks', current, target);
+    } catch (err) {
+      await refreshTasks();
+      toast(err instanceof Error ? err.message : 'Erro ao reordenar tarefas.', 'error');
+    }
+  }, [tasks, swapSortOrder, refreshTasks, toast]);
+
+  const batchUpdateSortOrder = useCallback(
+    async (
+      table: 'projects' | 'deliveries' | 'initiatives' | 'initiative_milestones' | 'initiative_tasks',
+      updates: { id: string; sort_order: number }[]
+    ) => {
+      const results = await Promise.all(
+        updates.map(({ id, sort_order }) =>
+          supabase.from(table).update({ sort_order }).eq('id', id)
+        )
+      );
+      const error = results.find((r) => r.error);
+      if (error) throw new Error(error.error?.message || 'Erro ao reordenar.');
+    },
+    []
+  );
+
+  const reorderPrograms = useCallback(
+    async (activeId: string, overIndex: number) => {
+      const oldIndex = projects.findIndex((p) => p.id === activeId);
+      if (oldIndex < 0 || oldIndex === overIndex) return;
+      const reordered = arrayMove(projects, oldIndex, overIndex).map((p, i) => ({
+        ...p,
+        sort_order: i,
+      }));
+      setProjects(reordered);
+      try {
+        await batchUpdateSortOrder(
+          'projects',
+          reordered.map((p) => ({ id: p.id, sort_order: p.sort_order }))
+        );
+      } catch (err) {
+        await loadProjects();
+        toast(err instanceof Error ? err.message : 'Erro ao reordenar programas.', 'error');
+      }
+    },
+    [projects, batchUpdateSortOrder, loadProjects, toast]
+  );
+
+  const reorderDeliveries = useCallback(
+    async (activeId: string, overIndex: number) => {
+      const oldIndex = deliveries.findIndex((d) => d.id === activeId);
+      if (oldIndex < 0 || oldIndex === overIndex) return;
+      const reordered = arrayMove(deliveries, oldIndex, overIndex).map((d, i) => ({
+        ...d,
+        sort_order: i,
+      }));
+      setDeliveries(reordered);
+      try {
+        await batchUpdateSortOrder(
+          'deliveries',
+          reordered.map((d) => ({ id: d.id, sort_order: d.sort_order }))
+        );
+      } catch (err) {
+        if (selectedProgramId) await loadDeliveriesForProject(selectedProgramId);
+        toast(err instanceof Error ? err.message : 'Erro ao reordenar entregas.', 'error');
+      }
+    },
+    [deliveries, batchUpdateSortOrder, selectedProgramId, loadDeliveriesForProject, toast]
+  );
+
+  const reorderActivities = useCallback(
+    async (activeId: string, overIndex: number) => {
+      const oldIndex = selectedDeliveryActivities.findIndex((a) => a.id === activeId);
+      if (oldIndex < 0 || oldIndex === overIndex) return;
+      const reordered = arrayMove(selectedDeliveryActivities, oldIndex, overIndex).map((a, i) => ({
+        ...a,
+        sort_order: i,
+      }));
+      setInitiatives((prev) =>
+        prev.map((init) => {
+          const updated = reordered.find((r) => r.id === init.id);
+          return updated ? { ...init, sort_order: updated.sort_order } : init;
+        })
+      );
+      try {
+        await batchUpdateSortOrder(
+          'initiatives',
+          reordered.map((a) => ({ id: a.id, sort_order: a.sort_order ?? 0 }))
+        );
+      } catch (err) {
+        if (selectedDeliveryId) await loadActivitiesForDelivery(selectedDeliveryId);
+        toast(err instanceof Error ? err.message : 'Erro ao reordenar atividades.', 'error');
+      }
+    },
+    [selectedDeliveryActivities, batchUpdateSortOrder, selectedDeliveryId, loadActivitiesForDelivery, toast]
+  );
+
+  const reorderTasks = useCallback(
+    async (activeId: string, overIndex: number) => {
+      const oldIndex = tasks.findIndex((t) => t.id === activeId);
+      if (oldIndex < 0 || oldIndex === overIndex) return;
+      const reordered = arrayMove(tasks, oldIndex, overIndex).map((t, i) => ({
+        ...t,
+        sort_order: i,
+      }));
+      setTasks(reordered);
+      try {
+        await batchUpdateSortOrder(
+          'initiative_tasks',
+          reordered.map((t) => ({ id: t.id, sort_order: t.sort_order }))
+        );
+      } catch (err) {
+        await refreshTasks();
+        toast(err instanceof Error ? err.message : 'Erro ao reordenar tarefas.', 'error');
+      }
+    },
+    [tasks, batchUpdateSortOrder, refreshTasks, toast]
+  );
+
   // ── Render ────────────────────────────────────────────────────────────
 
   if (loadingProjects && projects.length === 0) {
@@ -854,6 +1102,9 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           onSelect={selectProgram}
           onEdit={openEditProgram}
           onDelete={deleteProgramById}
+          onMoveUp={(id) => moveProgram(id, -1)}
+          onMoveDown={(id) => moveProgram(id, 1)}
+          onReorder={reorderPrograms}
         />
 
         <HierarchyColumn
@@ -870,6 +1121,9 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           onSelect={selectDelivery}
           onEdit={openEditDelivery}
           onDelete={deleteDeliveryById}
+          onMoveUp={(id) => moveDelivery(id, -1)}
+          onMoveDown={(id) => moveDelivery(id, 1)}
+          onReorder={reorderDeliveries}
         />
 
         <HierarchyColumn
@@ -886,12 +1140,15 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           onSelect={selectActivity}
           onEdit={openEditActivity}
           onDelete={deleteActivityById}
+          onMoveUp={(id) => moveActivity(id, -1)}
+          onMoveDown={(id) => moveActivity(id, 1)}
+          onReorder={reorderActivities}
         />
 
         <HierarchyColumn
           title="Tarefas"
           icon={<CheckSquare size={12} className="text-amber-500" />}
-          emptyLabel={selectedActivityId ? 'Nenhuma tarefa.' : 'Selecione uma atividade.'}
+          emptyLabel={selectedActivityId ? 'Nenhuma tarefa.' : 'Selecione uma macro atividade.'}
           items={taskItems}
           selectedId={null}
           accentClassName="bg-amber-100 text-amber-900"
@@ -901,6 +1158,9 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           onSelect={noopSelect}
           onEdit={openEditTask}
           onDelete={deleteTaskById}
+          onMoveUp={(id) => moveTask(id, -1)}
+          onMoveDown={(id) => moveTask(id, 1)}
+          onReorder={reorderTasks}
         />
       </div>
 
@@ -908,7 +1168,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       {modalEntity === 'program' && (
         <ModalShell
           title={modalMode === 'create' ? 'Novo Programa' : 'Editar Programa'}
-          subtitle="Preencha os detalhes para criar uma nova iniciativa."
+          subtitle="Preencha os detalhes para criar uma nova atividade."
           onClose={saving ? () => {} : closeModal}
         >
           {/* INFORMAÇÕES BÁSICAS */}
@@ -1053,23 +1313,24 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
               onChange={(e) => setDeliveryForm((p) => ({ ...p, description: e.target.value }))}
               className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Transformações esperadas</label>
-            <textarea rows={3} value={deliveryForm.transformations_achievements}
-              onChange={(e) => setDeliveryForm((p) => ({ ...p, transformations_achievements: e.target.value }))}
-              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none" />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Data inicial</label>
+              <DateInputBR
+                value={deliveryForm.start_date}
+                onChange={(v) => setDeliveryForm((p) => ({ ...p, start_date: v }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Data final</label>
+              <DateInputBR
+                value={deliveryForm.end_date}
+                onChange={(v) => setDeliveryForm((p) => ({ ...p, end_date: v }))}
+                min={deliveryForm.start_date || undefined}
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Data prevista</label>
-            <DateInputBR
-              value={deliveryForm.due_date}
-              onChange={(v) => setDeliveryForm((p) => ({ ...p, due_date: v }))}
-            />
-          </div>
-          <StakeholderMatrixEditor
-            rows={deliveryForm.stakeholder_matrix}
-            onChange={(rows) => setDeliveryForm((p) => ({ ...p, stakeholder_matrix: rows }))}
-          />
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={closeModal} disabled={saving}
               className="rounded-md border border-ai-border px-3 py-2 text-sm text-ai-subtext hover:text-ai-text disabled:opacity-50">
@@ -1084,35 +1345,65 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
         </ModalShell>
       )}
 
-      {/* ── Activity Modal ─────────────────────────────────────────────── */}
+      {/* ── Activity (Initiative) Modal ──────────────────────────────── */}
       {modalEntity === 'activity' && (
-        <ModalShell title={modalMode === 'create' ? 'Nova Atividade' : 'Editar Atividade'} onClose={saving ? () => {} : closeModal}>
+        <ModalShell title={modalMode === 'create' ? 'Nova Macro Atividade' : 'Editar Macro Atividade'} onClose={saving ? () => {} : closeModal}>
           <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Título *</label>
-            <input type="text" value={activityForm.title}
-              onChange={(e) => setActivityForm((p) => ({ ...p, title: e.target.value }))}
+            <label className="block text-sm font-medium text-ai-text mb-1">Nome *</label>
+            <input type="text" value={activityForm.name}
+              onChange={(e) => setActivityForm((p) => ({ ...p, name: e.target.value }))}
               className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-ai-text mb-1">Descrição</label>
+            <textarea rows={3} value={activityForm.description}
+              onChange={(e) => setActivityForm((p) => ({ ...p, description: e.target.value }))}
+              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Percentual (0-100)</label>
-              <input type="number" min={0} max={100} value={activityForm.percent}
-                onChange={(e) => setActivityForm((p) => ({ ...p, percent: e.target.value }))}
-                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
+              <label className="block text-sm font-medium text-ai-text mb-1">Data inicial</label>
+              <DateInputBR
+                value={activityForm.start_date}
+                onChange={(v) => setActivityForm((p) => ({ ...p, start_date: v }))}
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Data prevista</label>
+              <label className="block text-sm font-medium text-ai-text mb-1">Data final</label>
               <DateInputBR
-                value={activityForm.due_date}
-                onChange={(v) => setActivityForm((p) => ({ ...p, due_date: v }))}
+                value={activityForm.end_date}
+                onChange={(v) => setActivityForm((p) => ({ ...p, end_date: v }))}
+                min={activityForm.start_date || undefined}
               />
             </div>
           </div>
-          <label className="inline-flex items-center gap-2 text-sm text-ai-text">
-            <input type="checkbox" checked={activityForm.completed}
-              onChange={(e) => setActivityForm((p) => ({ ...p, completed: e.target.checked }))} />
-            Atividade concluída
-          </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Responsável</label>
+              <select value={activityForm.leader_id}
+                onChange={(e) => setActivityForm((p) => ({ ...p, leader_id: e.target.value }))}
+                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text">
+                <option value="">Selecione</option>
+                {people.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.preferred_name?.trim() || person.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Status</label>
+              <select value={activityForm.status}
+                onChange={(e) => setActivityForm((p) => ({ ...p, status: e.target.value }))}
+                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text">
+                <option value="Não Iniciado">Não Iniciado</option>
+                <option value="Em Andamento">Em Andamento</option>
+                <option value="Suspenso">Suspenso</option>
+                <option value="Concluído">Concluído</option>
+                <option value="Atrasado">Atrasado</option>
+              </select>
+            </div>
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={closeModal} disabled={saving}
               className="rounded-md border border-ai-border px-3 py-2 text-sm text-ai-subtext hover:text-ai-text disabled:opacity-50">
@@ -1144,11 +1435,17 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Data prevista</label>
-              <DateInputBR
-                value={taskForm.due_date}
-                onChange={(v) => setTaskForm((p) => ({ ...p, due_date: v }))}
-              />
+              <label className="block text-sm font-medium text-ai-text mb-1">Responsável *</label>
+              <select value={taskForm.responsible_person_id}
+                onChange={(e) => setTaskForm((p) => ({ ...p, responsible_person_id: e.target.value }))}
+                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text">
+                <option value="">Selecione o responsável</option>
+                {people.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.preferred_name?.trim() || person.full_name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-ai-text mb-1">Status Kanban</label>
@@ -1160,6 +1457,32 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
                 <option value="Pausado">Pausado</option>
                 <option value="Concluído">Concluído</option>
               </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Início</label>
+              <DateInputBR
+                value={taskForm.activity_date}
+                onChange={(v) => setTaskForm((p) => ({ ...p, activity_date: v }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Duração (dias)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={taskForm.duration_days}
+                onChange={(e) => setTaskForm((p) => ({ ...p, duration_days: e.target.value }))}
+                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ai-text mb-1">Prazo final</label>
+              <div className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text">
+                {formatDateBR(computedTaskDueDate || null)}
+              </div>
             </div>
           </div>
           <label className="inline-flex items-center gap-2 text-sm text-ai-text">

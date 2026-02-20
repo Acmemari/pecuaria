@@ -15,6 +15,27 @@ function dueDateToIso(d: string | null): string {
   return match ? match[0] : toLocalIso(new Date());
 }
 
+function addDaysIso(iso: string, days: number): string {
+  try {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+    const dt = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(dt.getTime())) return '';
+    dt.setDate(dt.getDate() + (Number.isFinite(days) ? days : 0));
+    return toLocalIso(dt);
+  } catch {
+    return '';
+  }
+}
+
+function formatDateBR(d: string | null): string {
+  if (!d) return '—';
+  try {
+    return new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return d;
+  }
+}
+
 export default function TaskEditModal({
   open,
   task,
@@ -35,7 +56,8 @@ export default function TaskEditModal({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [responsiblePersonId, setResponsiblePersonId] = useState('');
-  const [dueDateIso, setDueDateIso] = useState('');
+  const [activityDate, setActivityDate] = useState('');
+  const [days, setDays] = useState('1');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -43,8 +65,16 @@ export default function TaskEditModal({
     setTitle(task.title || '');
     setDescription(task.description || '');
     setResponsiblePersonId(task.responsible_person_id || '');
-    setDueDateIso(dueDateToIso(task.due_date));
+    const fallbackDueDate = dueDateToIso(task.due_date);
+    setActivityDate(task.activity_date || fallbackDueDate);
+    setDays(String(Math.max(1, task.duration_days || 1)));
   }, [task]);
+
+  const computedDueDateIso = React.useMemo(() => {
+    const base = activityDate || dueDateToIso(task?.due_date || null);
+    const duration = Math.max(1, Number.parseInt(days || '1', 10) || 1);
+    return addDaysIso(base, duration - 1);
+  }, [activityDate, days, task?.due_date]);
 
   const handleClose = useCallback(() => {
     if (!saving) onClose();
@@ -69,7 +99,9 @@ export default function TaskEditModal({
         title: title.trim(),
         description: description.trim() || null,
         responsible_person_id: responsiblePersonId,
-        due_date: dueDateIso || null,
+        activity_date: activityDate || null,
+        duration_days: Math.max(1, Number.parseInt(days || '1', 10) || 1),
+        due_date: computedDueDateIso || null,
       });
       onToast?.('Tarefa atualizada com sucesso.', 'success');
       await onSaved();
@@ -79,7 +111,7 @@ export default function TaskEditModal({
     } finally {
       setSaving(false);
     }
-  }, [task, title, description, responsiblePersonId, dueDateIso, onToast, onSaved, onClose]);
+  }, [task, title, description, responsiblePersonId, activityDate, days, computedDueDateIso, onToast, onSaved, onClose]);
 
   if (!open || !task) return null;
 
@@ -126,7 +158,7 @@ export default function TaskEditModal({
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">
                 Responsável <span className="text-red-500">*</span>
@@ -151,8 +183,25 @@ export default function TaskEditModal({
               )}
             </div>
             <div>
+              <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">Início</label>
+              <DateInputBR value={activityDate} onChange={setActivityDate} placeholder="dd/mm/aaaa" />
+            </div>
+            <div>
+              <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">Duração</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                value={days}
+                onChange={(e) => setDays(e.target.value)}
+                className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
+              />
+            </div>
+            <div>
               <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">Prazo final</label>
-              <DateInputBR value={dueDateIso} onChange={setDueDateIso} placeholder="dd/mm/aaaa" />
+              <div className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm tabular-nums">
+                {formatDateBR(computedDueDateIso || null)}
+              </div>
             </div>
           </div>
         </div>

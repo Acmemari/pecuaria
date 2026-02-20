@@ -14,6 +14,8 @@ export interface DeliveryRow {
   name: string;
   description: string | null;
   transformations_achievements: string | null;
+  start_date: string | null;
+  end_date: string | null;
   due_date: string | null;
   stakeholder_matrix: DeliveryStakeholderRow[];
   sort_order: number;
@@ -55,6 +57,8 @@ function mapDeliveryRow(data: any): DeliveryRow {
     client_id: data.client_id ?? null,
     project_id: data.project_id ?? null,
     transformations_achievements: data.transformations_achievements ?? null,
+    start_date: data.start_date ?? null,
+    end_date: data.end_date ?? null,
     due_date: data.due_date ?? null,
     stakeholder_matrix: normalizeStakeholderMatrix(data.stakeholder_matrix),
     sort_order: Number.isFinite(data.sort_order) ? Number(data.sort_order) : 0,
