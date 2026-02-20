@@ -1,13 +1,13 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getServerEnv } from './env';
 
-let _client: ReturnType<typeof createClient> | null = null;
+let _client: SupabaseClient | null = null;
 
 /**
- * Lazily creates and caches the Supabase Admin client.
+ * Returns a lazily-created Supabase Admin client (service-role).
  * Accepts both SUPABASE_URL and VITE_SUPABASE_URL via getServerEnv().
  */
-function getClient(): ReturnType<typeof createClient> {
+export function getSupabaseAdmin(): SupabaseClient {
   if (_client) return _client;
 
   const env = getServerEnv();
@@ -28,20 +28,12 @@ function getClient(): ReturnType<typeof createClient> {
 }
 
 /**
- * Supabase Admin client (service-role).
- * Uses a lazy getter so the module can be imported without crashing if
- * env vars are missing — the error surfaces when the client is first used.
+ * @deprecated Use getSupabaseAdmin() instead.
+ * Kept for backward compatibility with existing imports.
  */
-export const supabaseAdmin: ReturnType<typeof createClient> = new Proxy(
-  {} as ReturnType<typeof createClient>,
-  {
-    get(_target, prop, receiver) {
-      const client = getClient();
-      const value = Reflect.get(client, prop, receiver);
-      if (typeof value === 'function') {
-        return value.bind(client);
-      }
-      return value;
-    },
-  },
-);
+export const supabaseAdmin = {
+  get auth() { return getSupabaseAdmin().auth; },
+  from(table: string) { return getSupabaseAdmin().from(table); },
+  rpc(fn: string, params?: any) { return getSupabaseAdmin().rpc(fn, params); },
+  storage: { from(bucket: string) { return getSupabaseAdmin().storage.from(bucket); } },
+};
