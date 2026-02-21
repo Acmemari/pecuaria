@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus,
   ChevronRight,
@@ -46,7 +46,9 @@ import { fetchPeople, type Person } from '../lib/people';
 import { fetchDeliveries, type DeliveryRow } from '../lib/deliveries';
 import { EvidenciaEntregaModal } from '../components/EvidenciaEntregaModal';
 import DateInputBR from '../components/DateInputBR';
-import InitiativesGantt from '../components/InitiativesGantt';
+import ErrorBoundary from '../components/ErrorBoundary';
+
+const InitiativesGantt = lazy(() => import('../components/InitiativesGantt'));
 
 const STATUS_OPTIONS = ['Não Iniciado', 'Em Andamento', 'Suspenso', 'Concluído', 'Atrasado'];
 
@@ -81,6 +83,18 @@ function addDaysIso(iso: string, days: number): string {
   } catch {
     return '';
   }
+}
+
+/** UUID compatível com navegadores antigos (fallback para crypto.randomUUID) */
+function safeUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return safeUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 interface InitiativesActivitiesProps {
@@ -166,7 +180,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     deliveryId: '',
     leaderId: '' as string,
     teamIds: [] as string[],
-    milestones: [{ id: crypto.randomUUID(), title: '', percent: 0, dueDate: '' }] as MilestoneRow[],
+    milestones: [{ id: safeUUID(), title: '', percent: 0, dueDate: '' }] as MilestoneRow[],
   });
 
   // ─── Helpers Modal ────────────────────────────────────────────────
@@ -181,7 +195,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       deliveryId: '',
       leaderId: '',
       teamIds: [],
-      milestones: [{ id: crypto.randomUUID(), title: '', percent: 0, dueDate: '' }],
+      milestones: [{ id: safeUUID(), title: '', percent: 0, dueDate: '' }],
     });
 
   const openNewModal = () => {
@@ -448,7 +462,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
               dueDate: m.due_date ? m.due_date.slice(0, 10) : '',
               completed: m.completed,
             }))
-            : [{ id: crypto.randomUUID(), title: '', percent: 0, dueDate: '' }],
+            : [{ id: safeUUID(), title: '', percent: 0, dueDate: '' }],
       });
     } catch (e) {
       onToast?.(e instanceof Error ? e.message : 'Erro ao carregar iniciativa', 'error');
@@ -480,7 +494,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   const addMilestone = () => {
     setFormData((prev) => ({
       ...prev,
-      milestones: [...prev.milestones, { id: crypto.randomUUID(), title: '', percent: 0, dueDate: '' }],
+      milestones: [...prev.milestones, { id: safeUUID(), title: '', percent: 0, dueDate: '' }],
     }));
   };
 
@@ -626,14 +640,14 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     const leaders = initiatives
       .map((i) => i.leader)
       .filter((l): l is string => typeof l === 'string' && l.trim().length > 0);
-    return [...new Set(leaders)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return [...new Set(leaders)].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
   }, [initiatives]);
 
   const uniqueTags = useMemo(() => {
     const tags = initiatives
       .flatMap((i) => (i.tags || '').split(/\s+/))
       .filter((t) => t.startsWith('#') && t.length > 1);
-    return [...new Set(tags)].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return [...new Set(tags)].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
   }, [initiatives]);
 
   const filteredInitiatives = useMemo(() => {
@@ -1569,11 +1583,32 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
             <p className="text-sm text-ai-subtext">Nenhuma atividade encontrada com os filtros selecionados.</p>
           </div>
         ) : viewMode === 'gantt' ? (
-          <InitiativesGantt
-            projects={projects}
-            deliveries={deliveries}
-            initiatives={filteredInitiatives}
-          />
+          <Suspense fallback={<div className="flex items-center justify-center py-16"><Loader2 size={32} className="animate-spin text-ai-accent" /></div>}>
+            <ErrorBoundary
+              fallback={
+                <div className="flex flex-col items-center justify-center py-16 px-4 rounded-lg border border-ai-border bg-ai-surface/50">
+                  <BarChart3 size={40} className="text-ai-subtext/60 mb-3" />
+                  <p className="text-sm font-medium text-ai-text mb-1">Visualização Gantt indisponível</p>
+                  <p className="text-xs text-ai-subtext text-center max-w-sm mb-4">
+                    Ocorreu um erro ao carregar o gráfico. Use a visualização em lista.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('lista')}
+                    className="px-4 py-2 rounded-md bg-ai-accent text-white text-sm font-medium hover:opacity-90"
+                  >
+                    Voltar para Lista
+                  </button>
+                </div>
+              }
+            >
+              <InitiativesGantt
+                projects={projects}
+                deliveries={deliveries}
+                initiatives={filteredInitiatives}
+              />
+            </ErrorBoundary>
+          </Suspense>
         ) : (
           <ul className="grid grid-cols-2 gap-1.5">
             {filteredInitiatives.map((init) => (

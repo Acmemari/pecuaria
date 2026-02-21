@@ -1,16 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import type { AIProvider } from '../_lib/ai/types';
-import { supabaseAdmin } from '../_lib/supabaseAdmin';
-import { getAgentManifest } from '../_lib/agents/registry';
-import { runHelloAgent } from '../_lib/agents/hello/handler';
-import { runFeedbackAgent } from '../_lib/agents/feedback/handler';
-import { getProvider } from '../_lib/ai/providers/index';
-import { getFallbackRoutes, routeAgent } from '../_lib/ai/router';
-import { checkAndIncrementRateLimit } from '../_lib/ai/rate-limit';
-import { commitUsage, releaseReservation, reserveTokens } from '../_lib/ai/usage';
-import { logAgentRun } from '../_lib/ai/logging';
-import type { AIProviderName, PlanId } from '../_lib/ai/types';
+import type { AIProvider } from './_lib/ai/types';
+import { supabaseAdmin } from './_lib/supabaseAdmin';
+import { getAgentManifest } from './_lib/agents/registry';
+import { runHelloAgent } from './_lib/agents/hello/handler';
+import { runFeedbackAgent } from './_lib/agents/feedback/handler';
+import { getProvider } from './_lib/ai/providers';
+import { getFallbackRoutes, routeAgent } from './_lib/ai/router';
+import { checkAndIncrementRateLimit } from './_lib/ai/rate-limit';
+import { commitUsage, releaseReservation, reserveTokens } from './_lib/ai/usage';
+import { logAgentRun } from './_lib/ai/logging';
+import type { AIProviderName, PlanId } from './_lib/ai/types';
 
 type AgentHandler = (args: {
   input: unknown;
@@ -54,7 +54,7 @@ function normalizePlan(plan: string | null | undefined): PlanId {
 
 type UserContext = {
   userId: string;
-  orgId: string | null;
+  orgId: string;
   plan: PlanId;
 };
 
@@ -72,20 +72,18 @@ async function authenticateAndLoadContext(req: VercelRequest): Promise<UserConte
     .eq('id', userId)
     .single();
 
-  if (profileError || !profile) {
+  if (profileError || !profile?.organization_id) {
     throw new Error('AUTH_PROFILE_NOT_FOUND');
   }
 
   return {
     userId,
-    orgId: profile.organization_id ?? null,
+    orgId: profile.organization_id,
     plan: normalizePlan(profile.plan),
   };
 }
 
 function mapErrorToStatus(errorCode: string): number {
-  if (errorCode === 'AUTH_MISSING_TOKEN' || errorCode === 'AUTH_INVALID_TOKEN') return 401;
-  if (errorCode === 'AUTH_PROFILE_NOT_FOUND') return 403;
   if (errorCode.startsWith('AUTH_')) return 401;
   if (errorCode === 'RATE_LIMIT_EXCEEDED') return 429;
   if (errorCode === 'TOKEN_BUDGET_EXCEEDED') return 402;
@@ -136,10 +134,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Rate limiting uses string keys — works with or without a real org.
-    const rateLimitOrgId = ctx.orgId ?? ctx.userId;
     const rateLimitResult = await checkAndIncrementRateLimit({
-      orgId: rateLimitOrgId,
+      orgId: ctx.orgId,
       userId: ctx.userId,
       plan: ctx.plan,
     });
@@ -152,16 +148,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Token budget requires a real org (FK constraint). Skip when org is absent.
-    if (ctx.orgId) {
-      const reservation = await reserveTokens({
-        orgId: ctx.orgId,
-        userId: ctx.userId,
-        plan: ctx.plan,
-        estimatedTokens: manifest.estimatedTokensPerCall,
-      });
-      reservationId = reservation.id;
-    }
+    const reservation = await reserveTokens({
+      orgId: ctx.orgId,
+      userId: ctx.userId,
+      plan: ctx.plan,
+      estimatedTokens: manifest.estimatedTokensPerCall,
+    });
+    reservationId = reservation.id;
 
     const routes = [routeAgent(manifest, ctx.plan), ...getFallbackRoutes(manifest)];
     let lastExecutionError: unknown = null;
@@ -196,7 +189,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } catch (err) {
         const reason = (err as Error)?.message ?? 'unknown';
         console.error(
-          `[agents/run] Provider ${route.provider}/${route.model} failed:`,
+          `[agents-run] Provider ${route.provider}/${route.model} failed:`,
           reason,
         );
         failedProviders.push(`${route.provider}(${reason.slice(0, 120)})`);
@@ -208,25 +201,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const detail = failedProviders.length > 0
         ? failedProviders.join(' | ')
         : (lastExecutionError as Error)?.message ?? 'unknown error';
-      console.error('[agents/run] All providers exhausted:', detail);
+      console.error('[agents-run] All providers exhausted:', detail);
       throw new Error(`AGENT_EXECUTION_FAILED:${detail}`);
     }
 
-    let commitCostUsd = 0;
-    if (reservationId) {
-      const commit = await commitUsage({
-        reservationId,
-        actualInputTokens: usage.inputTokens,
-        actualOutputTokens: usage.outputTokens,
-        model: modelUsed,
-      });
-      commitCostUsd = commit.costUsd;
-      reservationId = null;
-    } else {
-      // Estimate cost even without reservation for logging.
-      const { estimateCostUsd } = await import('../_lib/ai/usage');
-      commitCostUsd = estimateCostUsd(modelUsed, usage.inputTokens, usage.outputTokens);
-    }
+    const commit = await commitUsage({
+      reservationId,
+      actualInputTokens: usage.inputTokens,
+      actualOutputTokens: usage.outputTokens,
+      model: modelUsed,
+    });
 
     runMeta = {
       agentId: manifest.id,
@@ -235,31 +219,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       model: modelUsed,
     };
 
-    // agent_runs table requires a real org (FK). Log only when org exists.
-    if (ctx.orgId) {
-      await logAgentRun({
-        org_id: ctx.orgId,
-        user_id: ctx.userId,
-        agent_id: manifest.id,
-        agent_version: manifest.version,
-        provider: providerUsed,
-        model: modelUsed,
-        input_tokens: usage.inputTokens,
-        output_tokens: usage.outputTokens,
-        total_tokens: usage.totalTokens,
-        estimated_cost_usd: commitCostUsd,
-        latency_ms: latencyMs || Math.max(1, Date.now() - startedAt),
-        status: 'success',
-        error_code: null,
-        metadata: {
-          route_candidates: routes.map((r) => `${r.provider}:${r.model}`),
-        },
-      });
-    } else {
-      console.log('[agents/run] Skipping agent_runs log (no org_id)', {
-        userId: ctx.userId, agent: manifest.id, tokens: usage.totalTokens,
-      });
-    }
+    await logAgentRun({
+      org_id: ctx.orgId,
+      user_id: ctx.userId,
+      agent_id: manifest.id,
+      agent_version: manifest.version,
+      provider: providerUsed,
+      model: modelUsed,
+      input_tokens: usage.inputTokens,
+      output_tokens: usage.outputTokens,
+      total_tokens: usage.totalTokens,
+      estimated_cost_usd: commit.costUsd,
+      latency_ms: latencyMs || Math.max(1, Date.now() - startedAt),
+      status: 'success',
+      error_code: null,
+      metadata: {
+        route_candidates: routes.map((r) => `${r.provider}:${r.model}`),
+      },
+    });
+
+    reservationId = null;
 
     return res.status(200).json({
       success: true,
@@ -268,7 +247,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         input_tokens: usage.inputTokens,
         output_tokens: usage.outputTokens,
         total_tokens: usage.totalTokens,
-        estimated_cost_usd: commitCostUsd,
+        estimated_cost_usd: commit.costUsd,
         latency_ms: latencyMs || Math.max(1, Date.now() - startedAt),
       },
       agent: {
@@ -284,28 +263,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const status = mapErrorToStatus(errorCode);
 
     let clientError = rawMessage;
-    if (errorCode === 'AUTH_PROFILE_NOT_FOUND') {
-      clientError = 'Perfil de usuário incompleto. Verifique se sua conta possui uma organização associada.';
-    } else if (errorCode === 'AGENT_EXECUTION_FAILED') {
+    if (errorCode === 'AGENT_EXECUTION_FAILED') {
       const isConfigError = rawMessage.includes('not configured') || rawMessage.includes('AI_NO_PROVIDERS');
       clientError = isConfigError
         ? 'Serviço de IA não configurado no servidor. Contate o suporte.'
         : 'Problema temporário com o provedor de IA. Tente novamente em instantes.';
-      console.error('[agents/run] AGENT_EXECUTION_FAILED:', rawMessage);
+      console.error('[agents-run] AGENT_EXECUTION_FAILED:', rawMessage);
     }
 
     if (reservationId) {
       try {
         await releaseReservation(reservationId);
       } catch (releaseError) {
-        console.error('[agents/run] failed to release reservation', {
+        console.error('[agents-run] failed to release reservation', {
           reservationId,
           message: (releaseError as Error).message,
         });
       }
     }
 
-    if (ctx?.orgId && runMeta) {
+    if (ctx && runMeta) {
       await logAgentRun({
         org_id: ctx.orgId,
         user_id: ctx.userId,
@@ -331,4 +308,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 }
-

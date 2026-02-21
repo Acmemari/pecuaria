@@ -30,7 +30,7 @@ WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 | `VITE_SUPABASE_URL` | Sim | Frontend + Backend* | Supabase client (frontend), `supabaseAdmin` (backend) |
 | `SUPABASE_URL` | Alias | Backend | Alias canônico de `VITE_SUPABASE_URL` no backend |
 | `VITE_SUPABASE_ANON_KEY` | Sim | Frontend | Supabase client (autenticação do usuário) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Sim | Backend | `/api/agents/run` (auth, rate limit, token budgets) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sim | Backend | `/api/agents-run` (auth, rate limit, token budgets) |
 | `GEMINI_API_KEY` | Sim** | Backend | Todos os endpoints de IA (provider principal) |
 | `OPENAI_API_KEY` | Recomendada | Backend | Fallback quando Gemini falha |
 | `ANTHROPIC_API_KEY` | Recomendada | Backend | Fallback quando Gemini e OpenAI falham |
@@ -64,9 +64,9 @@ Todos os endpoints de IA usam o **sistema unificado de providers** (`api/_lib/ai
 
 ### Supabase (Backend)
 
-- `SUPABASE_SERVICE_ROLE_KEY` - Chave de serviço do Supabase. Obrigatória para `/api/agents/run` (autenticação, rate limit, orçamento de tokens). **Nunca exponha no frontend.**
+- `SUPABASE_SERVICE_ROLE_KEY` - Chave de serviço do Supabase. Obrigatória para `/api/agents-run` (autenticação, rate limit, orçamento de tokens). **Nunca exponha no frontend.**
 
-O pipeline de agentes (`/api/agents/run`) usa as tabelas: `plan_limits`, `rate_limits`, `token_budgets`, `token_ledger`. Consulte a migration [supabase/migrations/20260218100000_ai_agent_infrastructure.sql](../supabase/migrations/20260218100000_ai_agent_infrastructure.sql).
+O pipeline de agentes (`/api/agents-run`) usa as tabelas: `plan_limits`, `rate_limits`, `token_budgets`, `token_ledger`. Consulte a migration [supabase/migrations/20260218100000_ai_agent_infrastructure.sql](../supabase/migrations/20260218100000_ai_agent_infrastructure.sql).
 
 ### Opcional
 
@@ -98,10 +98,10 @@ Após configurar as variáveis e fazer deploy, verifique se tudo está funcionan
 
 ```bash
 # Produção
-curl https://seu-dominio.vercel.app/api/agents/health | jq .
+curl https://seu-dominio.vercel.app/api/agents-health | jq .
 
 # Desenvolvimento local
-curl http://localhost:3001/api/agents/health | jq .
+curl http://localhost:3001/api/agents-health | jq .
 ```
 
 Resposta esperada (tudo ok):

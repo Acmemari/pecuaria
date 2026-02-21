@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, RefreshCcw, Wand2, MessageSquareText } from 'lucide-react';
 import type { FeedbackInput, FeedbackOutput } from '../api/_lib/agents/feedback/manifest';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { useFarm } from '../contexts/FarmContext';
 import { fetchPeople, type Person } from '../lib/people';
 import { saveFeedback } from '../lib/feedbacks';
-import { supabase } from '../lib/supabase';
 
 interface FeedbackAgentProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -111,10 +111,10 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
       if (!token) {
-        throw new Error('Sessão expirada. Faça login novamente.');
+        throw new Error('Faça login para usar o assistente de feedback.');
       }
 
-      const res = await fetch('/api/agents/run', {
+      const res = await fetch('/api/agents-run', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,19 +140,10 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
       }
 
       if (!res.ok) {
-        if (res.status === 401) {
-          throw new Error(data?.error || 'Sessão expirada. Faça login novamente.');
-        }
-        if (res.status === 403) {
-          throw new Error(data?.error || 'Acesso negado. Verifique seu perfil de usuário.');
-        }
-        if (res.status === 429) {
-          throw new Error(data?.error || 'Limite de uso atingido. Aguarde antes de tentar novamente.');
-        }
         throw new Error(data?.error || `Não foi possível gerar o feedback (${res.status}).`);
       }
-      if (!data?.data) {
-        throw new Error('Não foi possível processar sua solicitação agora. Tente novamente em instantes.');
+      if (!data?.success || !data?.data) {
+        throw new Error(data?.error || 'Não foi possível processar sua solicitação agora. Tente novamente em instantes.');
       }
       setResult(data.data as FeedbackOutput);
       onToast?.('Feedback gerado com sucesso.', 'success');

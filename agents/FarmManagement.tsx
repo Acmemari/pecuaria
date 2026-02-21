@@ -20,7 +20,7 @@ import { useClient } from '../contexts/ClientContext';
 import { useAuth } from '../contexts/AuthContext';
 import { mapFarmsFromDatabase, buildFarmDatabasePayload, isMissingColumnError } from '../lib/utils/farmMapper';
 import FarmPermissionsModal from '../components/FarmPermissionsModal';
-import { useFarmPermissions, useBatchFarmPermissions, type FarmPermissionsResult } from '../lib/permissions/useFarmPermissions';
+import { useFarmPermissions, useBatchFarmPermissions, NO_ACCESS, type FarmPermissionsResult } from '../lib/permissions/useFarmPermissions';
 
 interface FarmCardProps {
   farm: Farm;
@@ -29,7 +29,6 @@ interface FarmCardProps {
   onOpenPermissions: (farm: Farm) => void;
   canManagePermissions: boolean;
   perms: FarmPermissionsResult;
-  userIsAdmin: boolean;
 }
 
 function FarmCard({
@@ -39,12 +38,10 @@ function FarmCard({
   onOpenPermissions,
   canManagePermissions,
   perms,
-  userIsAdmin,
 }: FarmCardProps) {
-  const bypass = userIsAdmin;
-  if (!bypass && perms.isHidden('farms:card')) return null;
-  const canEdit = bypass || perms.canEdit('farms:form');
-  const canDelete = bypass || perms.canEdit('farms:delete');
+  if (perms.isHidden('farms:card')) return null;
+  const canEdit = perms.canEdit('farms:form');
+  const canDelete = perms.canEdit('farms:delete');
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md hover:border-gray-800 transition-all duration-200 flex flex-col w-full min-h-[200px]">
       <div className="flex-1 min-w-0">
@@ -136,14 +133,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const [editingFarm, setEditingFarm] = useState<Farm | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
-  const [farmResponsibilities, setFarmResponsibilities] = useState<Record<string, boolean>>({});
   const [permissionsModalFarm, setPermissionsModalFarm] = useState<Farm | null>(null);
 
-  const formPerms = useFarmPermissions(editingFarm?.id ?? null, user?.id);
-  const batchPerms = useBatchFarmPermissions(farms.map((f) => f.id), user?.id);
-  const formReadOnly = editingFarm
-    ? (user?.role !== 'admin' && !formPerms.canEdit('farms:form'))
-    : false;
+  const formPerms = useFarmPermissions(editingFarm?.id ?? null, user?.id, user?.role);
+  const batchPerms = useBatchFarmPermissions(farms.map((f) => f.id), user?.id, user?.role);
+  const formReadOnly = editingFarm ? !formPerms.canEdit('farms:form') : false;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -526,31 +520,6 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       setView('list');
     }
   }, [farms.length, isLoading, view, editingFarm, isCreatingNew]);
-
-  // Load farm responsibilities (is_responsible) for current analyst
-  useEffect(() => {
-    if (!user || (user.qualification !== 'analista' && user.role !== 'admin') || farms.length === 0) {
-      setFarmResponsibilities({});
-      return;
-    }
-    const farmIds = farms.map(f => f.id);
-    supabase
-      .from('analyst_farms')
-      .select('farm_id, is_responsible')
-      .eq('analyst_id', user.id)
-      .in('farm_id', farmIds)
-      .then(({ data, error }) => {
-        if (error) {
-          console.error('[FarmManagement] Error loading farm responsibilities:', error);
-          return;
-        }
-        const map: Record<string, boolean> = {};
-        (data || []).forEach((row: { farm_id: string; is_responsible?: boolean }) => {
-          map[row.farm_id] = row.is_responsible ?? false;
-        });
-        setFarmResponsibilities(map);
-      });
-  }, [user?.id, user?.qualification, user?.role, farms.map((f) => f.id).join(',')]);
 
   const loadFarms = async () => {
     try {
@@ -1081,9 +1050,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               onEdit={handleEdit}
               onDelete={handleDelete}
               onOpenPermissions={setPermissionsModalFarm}
-              canManagePermissions={user?.role === 'admin' || !!farmResponsibilities[farm.id]}
-              perms={batchPerms[farm.id] ?? { permissions: {}, canView: () => false, canEdit: () => false, isHidden: () => true, isLoading: true, isResponsible: false, hasAccess: false }}
-              userIsAdmin={user?.role === 'admin'}
+              canManagePermissions={batchPerms[farm.id]?.isResponsible ?? false}
+              perms={batchPerms[farm.id] ?? NO_ACCESS}
             />
           ))}
         </div>
@@ -1094,7 +1062,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           onClose={() => setPermissionsModalFarm(null)}
           farmId={permissionsModalFarm.id}
           farmName={permissionsModalFarm.name}
-          isCurrentUserResponsible={user?.role === 'admin' || !!farmResponsibilities[permissionsModalFarm.id]}
+          isCurrentUserResponsible={batchPerms[permissionsModalFarm.id]?.isResponsible ?? false}
           onToast={onToast}
         />
       )}
