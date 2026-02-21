@@ -1,4 +1,4 @@
-import type { AgentManifest, PlanId, RoutedModel } from './types';
+import type { AgentManifest, PlanId, RoutedModel } from './types.js';
 
 const BASIC_MODEL_OVERRIDES: Partial<Record<'gemini' | 'openai' | 'anthropic', string>> = {
   gemini: 'gemini-2.5-flash',

@@ -1,6 +1,6 @@
-import type { AIProvider } from '../../ai/types';
-import { safeJsonParseWithRepair } from '../../ai/json-repair';
-import { feedbackOutputSchema, type FeedbackInput, type FeedbackOutput } from './manifest';
+import type { AIProvider } from '../../ai/types.js';
+import { safeJsonParseWithRepair } from '../../ai/json-repair.js';
+import { feedbackOutputSchema, type FeedbackInput, type FeedbackOutput } from './manifest.js';
 
 const SYSTEM_PROMPT = [
   'Você é um especialista em comunicação interpessoal, desenvolvimento profissional e gestão de desempenho.',

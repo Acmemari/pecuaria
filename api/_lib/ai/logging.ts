@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '../supabaseAdmin';
-import type { AgentRunRecord } from './types';
+import { supabaseAdmin } from '../supabaseAdmin.js';
+import type { AgentRunRecord } from './types.js';
 
 export async function logAgentRun(record: AgentRunRecord): Promise<string | null> {
   const { data, error } = await supabaseAdmin

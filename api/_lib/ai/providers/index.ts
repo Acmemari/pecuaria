@@ -1,8 +1,8 @@
-import type { AIProvider, AIProviderName, AIRequest, AIResponse } from '../types';
-import { getAvailableProviders } from '../../env';
-import { AnthropicProvider } from './anthropic';
-import { GeminiProvider } from './gemini';
-import { OpenAIProvider } from './openai';
+import type { AIProvider, AIProviderName, AIRequest, AIResponse } from '../types.js';
+import { getAvailableProviders } from '../../env.js';
+import { AnthropicProvider } from './anthropic.js';
+import { GeminiProvider } from './gemini.js';
+import { OpenAIProvider } from './openai.js';
 
 const providerCache = new Map<AIProviderName, AIProvider>();
 

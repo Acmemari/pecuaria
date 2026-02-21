@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getProvider } from './_lib/ai/providers/index';
-import { getAvailableProviders } from './_lib/env';
+import { getProvider } from './_lib/ai/providers/index.js';
+import { getAvailableProviders } from './_lib/env.js';
 import {
   feedbackManifest,
   feedbackInputSchema,
-} from './_lib/agents/feedback/manifest';
-import { runFeedbackAgent } from './_lib/agents/feedback/handler';
+} from './_lib/agents/feedback/manifest.js';
+import { runFeedbackAgent } from './_lib/agents/feedback/handler.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
