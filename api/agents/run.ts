@@ -54,7 +54,7 @@ function normalizePlan(plan: string | null | undefined): PlanId {
 
 type UserContext = {
   userId: string;
-  orgId: string;
+  orgId: string | null;
   plan: PlanId;
 };
 
@@ -72,18 +72,20 @@ async function authenticateAndLoadContext(req: VercelRequest): Promise<UserConte
     .eq('id', userId)
     .single();
 
-  if (profileError || !profile?.organization_id) {
+  if (profileError || !profile) {
     throw new Error('AUTH_PROFILE_NOT_FOUND');
   }
 
   return {
     userId,
-    orgId: profile.organization_id,
+    orgId: profile.organization_id ?? null,
     plan: normalizePlan(profile.plan),
   };
 }
 
 function mapErrorToStatus(errorCode: string): number {
+  if (errorCode === 'AUTH_MISSING_TOKEN' || errorCode === 'AUTH_INVALID_TOKEN') return 401;
+  if (errorCode === 'AUTH_PROFILE_NOT_FOUND') return 403;
   if (errorCode.startsWith('AUTH_')) return 401;
   if (errorCode === 'RATE_LIMIT_EXCEEDED') return 429;
   if (errorCode === 'TOKEN_BUDGET_EXCEEDED') return 402;
@@ -134,8 +136,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // Rate limiting uses string keys — works with or without a real org.
+    const rateLimitOrgId = ctx.orgId ?? ctx.userId;
     const rateLimitResult = await checkAndIncrementRateLimit({
-      orgId: ctx.orgId,
+      orgId: rateLimitOrgId,
       userId: ctx.userId,
       plan: ctx.plan,
     });
@@ -148,13 +152,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const reservation = await reserveTokens({
-      orgId: ctx.orgId,
-      userId: ctx.userId,
-      plan: ctx.plan,
-      estimatedTokens: manifest.estimatedTokensPerCall,
-    });
-    reservationId = reservation.id;
+    // Token budget requires a real org (FK constraint). Skip when org is absent.
+    if (ctx.orgId) {
+      const reservation = await reserveTokens({
+        orgId: ctx.orgId,
+        userId: ctx.userId,
+        plan: ctx.plan,
+        estimatedTokens: manifest.estimatedTokensPerCall,
+      });
+      reservationId = reservation.id;
+    }
 
     const routes = [routeAgent(manifest, ctx.plan), ...getFallbackRoutes(manifest)];
     let lastExecutionError: unknown = null;
@@ -205,12 +212,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error(`AGENT_EXECUTION_FAILED:${detail}`);
     }
 
-    const commit = await commitUsage({
-      reservationId,
-      actualInputTokens: usage.inputTokens,
-      actualOutputTokens: usage.outputTokens,
-      model: modelUsed,
-    });
+    let commitCostUsd = 0;
+    if (reservationId) {
+      const commit = await commitUsage({
+        reservationId,
+        actualInputTokens: usage.inputTokens,
+        actualOutputTokens: usage.outputTokens,
+        model: modelUsed,
+      });
+      commitCostUsd = commit.costUsd;
+      reservationId = null;
+    } else {
+      // Estimate cost even without reservation for logging.
+      const { estimateCostUsd } = await import('../_lib/ai/usage');
+      commitCostUsd = estimateCostUsd(modelUsed, usage.inputTokens, usage.outputTokens);
+    }
 
     runMeta = {
       agentId: manifest.id,
@@ -219,26 +235,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       model: modelUsed,
     };
 
-    await logAgentRun({
-      org_id: ctx.orgId,
-      user_id: ctx.userId,
-      agent_id: manifest.id,
-      agent_version: manifest.version,
-      provider: providerUsed,
-      model: modelUsed,
-      input_tokens: usage.inputTokens,
-      output_tokens: usage.outputTokens,
-      total_tokens: usage.totalTokens,
-      estimated_cost_usd: commit.costUsd,
-      latency_ms: latencyMs || Math.max(1, Date.now() - startedAt),
-      status: 'success',
-      error_code: null,
-      metadata: {
-        route_candidates: routes.map((r) => `${r.provider}:${r.model}`),
-      },
-    });
-
-    reservationId = null;
+    // agent_runs table requires a real org (FK). Log only when org exists.
+    if (ctx.orgId) {
+      await logAgentRun({
+        org_id: ctx.orgId,
+        user_id: ctx.userId,
+        agent_id: manifest.id,
+        agent_version: manifest.version,
+        provider: providerUsed,
+        model: modelUsed,
+        input_tokens: usage.inputTokens,
+        output_tokens: usage.outputTokens,
+        total_tokens: usage.totalTokens,
+        estimated_cost_usd: commitCostUsd,
+        latency_ms: latencyMs || Math.max(1, Date.now() - startedAt),
+        status: 'success',
+        error_code: null,
+        metadata: {
+          route_candidates: routes.map((r) => `${r.provider}:${r.model}`),
+        },
+      });
+    } else {
+      console.log('[agents/run] Skipping agent_runs log (no org_id)', {
+        userId: ctx.userId, agent: manifest.id, tokens: usage.totalTokens,
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -247,7 +268,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         input_tokens: usage.inputTokens,
         output_tokens: usage.outputTokens,
         total_tokens: usage.totalTokens,
-        estimated_cost_usd: commit.costUsd,
+        estimated_cost_usd: commitCostUsd,
         latency_ms: latencyMs || Math.max(1, Date.now() - startedAt),
       },
       agent: {
@@ -263,7 +284,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const status = mapErrorToStatus(errorCode);
 
     let clientError = rawMessage;
-    if (errorCode === 'AGENT_EXECUTION_FAILED') {
+    if (errorCode === 'AUTH_PROFILE_NOT_FOUND') {
+      clientError = 'Perfil de usuário incompleto. Verifique se sua conta possui uma organização associada.';
+    } else if (errorCode === 'AGENT_EXECUTION_FAILED') {
       const isConfigError = rawMessage.includes('not configured') || rawMessage.includes('AI_NO_PROVIDERS');
       clientError = isConfigError
         ? 'Serviço de IA não configurado no servidor. Contate o suporte.'
@@ -282,7 +305,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    if (ctx && runMeta) {
+    if (ctx?.orgId && runMeta) {
       await logAgentRun({
         org_id: ctx.orgId,
         user_id: ctx.userId,
