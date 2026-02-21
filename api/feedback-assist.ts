@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getProvider } from './_lib/ai/providers';
+import { getProvider } from './_lib/ai/providers/index';
 import { getAvailableProviders } from './_lib/env';
 import {
   feedbackManifest,
