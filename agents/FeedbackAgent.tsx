@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFarm } from '../contexts/FarmContext';
 import { fetchPeople, type Person } from '../lib/people';
 import { saveFeedback } from '../lib/feedbacks';
+import { supabase } from '../lib/supabase';
 
 interface FeedbackAgentProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -107,10 +108,19 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
     abortRef.current = controller;
 
     try {
-      const res = await fetch('/api/feedback-assist', {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+
+      const res = await fetch('/api/agents/run', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ agentId: 'feedback', input: form }),
         signal: controller.signal,
       });
 
@@ -130,6 +140,15 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
       }
 
       if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error(data?.error || 'Sessão expirada. Faça login novamente.');
+        }
+        if (res.status === 403) {
+          throw new Error(data?.error || 'Acesso negado. Verifique seu perfil de usuário.');
+        }
+        if (res.status === 429) {
+          throw new Error(data?.error || 'Limite de uso atingido. Aguarde antes de tentar novamente.');
+        }
         throw new Error(data?.error || `Não foi possível gerar o feedback (${res.status}).`);
       }
       if (!data?.data) {
