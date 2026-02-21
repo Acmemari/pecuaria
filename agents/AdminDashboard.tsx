@@ -36,7 +36,7 @@ const AdminDashboard: React.FC = () => {
     if (currentUser?.role === 'admin') {
       loadClients();
       loadOrganizations();
-    } else if (currentUser && currentUser.role !== 'admin') {
+    } else if (currentUser && (currentUser.role as string) !== 'admin') {
       setError('Acesso negado. Apenas administradores podem visualizar esta página.');
       setIsLoading(false);
     }

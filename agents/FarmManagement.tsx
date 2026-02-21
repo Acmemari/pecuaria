@@ -32,7 +32,7 @@ interface FarmCardProps {
   userIsAdmin: boolean;
 }
 
-function FarmCard({
+const FarmCard: React.FC<FarmCardProps> = ({
   farm,
   onEdit,
   onDelete,
@@ -40,7 +40,7 @@ function FarmCard({
   canManagePermissions,
   perms,
   userIsAdmin,
-}: FarmCardProps) {
+}) => {
   const bypass = userIsAdmin;
   if (!bypass && perms.isHidden('farms:card')) return null;
   const canEdit = bypass || perms.canEdit('farms:form');
@@ -103,7 +103,7 @@ function FarmCard({
       </div>
     </div>
   );
-}
+};
 
 interface FarmManagementProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;

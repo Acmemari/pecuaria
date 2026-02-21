@@ -60,6 +60,7 @@ export interface User {
   organizationId?: string;
   phone?: string;
   qualification?: 'visitante' | 'cliente' | 'analista';
+  full_name?: string;
 }
 
 export interface Plan {
@@ -110,6 +111,18 @@ export interface ComparatorResult {
   }[];
 }
 
+export interface InitiativesOverviewResult {
+  type: 'initiatives_overview_pdf';
+  pdf_base64: string;
+}
+
+export interface ProjectStructureResult {
+  type: 'project_structure_pdf';
+  pdf_base64: string;
+}
+
+export type ScenarioResult = CalculationResults | ComparatorResult | InitiativesOverviewResult | ProjectStructureResult;
+
 export interface CattleScenario {
   id: string;
   user_id: string;
@@ -118,7 +131,7 @@ export interface CattleScenario {
   farm_name?: string | null;
   name: string;
   inputs: CattleCalculatorInputs;
-  results?: CalculationResults | ComparatorResult;
+  results?: ScenarioResult;
   created_at: string;
   updated_at: string;
 }

@@ -1,13 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createClient } from '@supabase/supabase-js';
+import { describe, it, expect } from 'vitest';
 
-// Mock environment variables
-vi.mock('import.meta', () => ({
-  env: {
-    VITE_SUPABASE_URL: 'https://test.supabase.co',
-    VITE_SUPABASE_ANON_KEY: 'test-anon-key',
-  },
-}));
+// Env vars are already stubbed in src/test/setup.ts
 
 describe('Supabase Client', () => {
   it('should create a Supabase client with environment variables', () => {

@@ -107,11 +107,11 @@ export const supabaseClient = {
         query: string = '*',
         config?: RetryConfig
     ): Promise<T[]> {
-        return this.query<T[]>(
+        return this.query(
             table,
             (builder) => builder.select(query),
             config
-        );
+        ) as Promise<T[]>;
     },
 
     /**
@@ -122,11 +122,11 @@ export const supabaseClient = {
         data: any,
         config?: RetryConfig
     ): Promise<T> {
-        return this.query<T>(
+        return this.query(
             table,
             (builder) => builder.insert(data).select().single(),
             config
-        );
+        ) as Promise<T>;
     },
 
     /**
@@ -138,11 +138,11 @@ export const supabaseClient = {
         match: Record<string, any>,
         config?: RetryConfig
     ): Promise<T> {
-        return this.query<T>(
+        return this.query(
             table,
             (builder) => builder.update(data).match(match).select().single(),
             config
-        );
+        ) as Promise<T>;
     },
 
     /**

@@ -33,6 +33,7 @@ export interface SupportTicketMessage {
   created_at: string;
   read_at: string | null;
   author_name?: string;
+  reply_to_id?: string | null;
 }
 
 export interface SupportTicketAttachment {
@@ -67,6 +68,7 @@ interface SendTicketMessagePayload {
   message: string;
   imageFile?: File | null;
   authorType?: SupportMessageAuthorType;
+  replyToId?: string | null;
 }
 
 function normalizeText(value: string | null | undefined, maxLength = 600): string {

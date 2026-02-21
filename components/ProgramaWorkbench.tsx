@@ -966,7 +966,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     async (activeId: string, overIndex: number) => {
       const oldIndex = projects.findIndex((p) => p.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
-      const reordered = arrayMove(projects, oldIndex, overIndex).map((p, i) => ({
+      const reordered = arrayMove(projects, oldIndex, overIndex).map((p: ProjectRow, i) => ({
         ...p,
         sort_order: i,
       }));
@@ -988,7 +988,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     async (activeId: string, overIndex: number) => {
       const oldIndex = deliveries.findIndex((d) => d.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
-      const reordered = arrayMove(deliveries, oldIndex, overIndex).map((d, i) => ({
+      const reordered = arrayMove(deliveries, oldIndex, overIndex).map((d: DeliveryRow, i) => ({
         ...d,
         sort_order: i,
       }));
@@ -1010,7 +1010,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     async (activeId: string, overIndex: number) => {
       const oldIndex = selectedDeliveryActivities.findIndex((a) => a.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
-      const reordered = arrayMove(selectedDeliveryActivities, oldIndex, overIndex).map((a, i) => ({
+      const reordered = arrayMove(selectedDeliveryActivities, oldIndex, overIndex).map((a: InitiativeWithProgress, i) => ({
         ...a,
         sort_order: i,
       }));
@@ -1037,7 +1037,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     async (activeId: string, overIndex: number) => {
       const oldIndex = tasks.findIndex((t) => t.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
-      const reordered = arrayMove(tasks, oldIndex, overIndex).map((t, i) => ({
+      const reordered = arrayMove(tasks, oldIndex, overIndex).map((t: WorkbenchTask, i) => ({
         ...t,
         sort_order: i,
       }));
@@ -1262,13 +1262,13 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
               <div key={`sh-${idx}`} className="flex items-center gap-2">
                 <input type="text" value={row.name}
                   onChange={(e) => setProgramForm((p) => ({
-                    ...p, stakeholder_matrix: updateAtIndex(p.stakeholder_matrix, idx, (r) => ({ ...r, name: e.target.value })),
+                    ...p, stakeholder_matrix: updateAtIndex(p.stakeholder_matrix, idx, (r: ProjectStakeholderRow) => ({ ...r, name: e.target.value })),
                   }))}
                   placeholder="Nome / Cargo"
                   className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50" />
                 <input type="text" value={row.activity}
                   onChange={(e) => setProgramForm((p) => ({
-                    ...p, stakeholder_matrix: updateAtIndex(p.stakeholder_matrix, idx, (r) => ({ ...r, activity: e.target.value })),
+                    ...p, stakeholder_matrix: updateAtIndex(p.stakeholder_matrix, idx, (r: ProjectStakeholderRow) => ({ ...r, activity: e.target.value })),
                   }))}
                   placeholder="Atividade / Responsabilidade"
                   className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50" />
