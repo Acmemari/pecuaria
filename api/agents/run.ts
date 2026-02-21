@@ -5,7 +5,7 @@ import { supabaseAdmin } from '../_lib/supabaseAdmin';
 import { getAgentManifest } from '../_lib/agents/registry';
 import { runHelloAgent } from '../_lib/agents/hello/handler';
 import { runFeedbackAgent } from '../_lib/agents/feedback/handler';
-import { getProvider } from '../_lib/ai/providers';
+import { getProvider } from '../_lib/ai/providers/index';
 import { getFallbackRoutes, routeAgent } from '../_lib/ai/router';
 import { checkAndIncrementRateLimit } from '../_lib/ai/rate-limit';
 import { commitUsage, releaseReservation, reserveTokens } from '../_lib/ai/usage';
