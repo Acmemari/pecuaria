@@ -75,7 +75,7 @@ const elkOptions = {
   'elk.spacing.nodeNode': '60',
 };
 
-const nodeTypes = { wbs: WBSNodeComponent };
+const nodeTypes = { wbs: WBSNodeComponent } as const;
 
 const DATE_FMT = new Intl.DateTimeFormat('pt-BR', {
   day: '2-digit',

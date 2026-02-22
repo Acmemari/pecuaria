@@ -104,6 +104,13 @@ describe('AdminDashboard Component', () => {
       checkPermission: vi.fn(() => true),
       checkLimit: vi.fn(() => true),
       upgradePlan: vi.fn(),
+      isPasswordRecovery: false,
+      refreshProfile: vi.fn(),
+      resetPassword: vi.fn(),
+      updatePassword: vi.fn(),
+      clearPasswordRecovery: vi.fn(),
+      signInWithOAuth: vi.fn(),
+      signup: vi.fn(),
     });
   });
 
@@ -128,6 +135,13 @@ describe('AdminDashboard Component', () => {
         checkPermission: vi.fn(() => false),
         checkLimit: vi.fn(() => false),
         upgradePlan: vi.fn(),
+        isPasswordRecovery: false,
+        refreshProfile: vi.fn(),
+        resetPassword: vi.fn(),
+        updatePassword: vi.fn(),
+        clearPasswordRecovery: vi.fn(),
+        signInWithOAuth: vi.fn(),
+        signup: vi.fn(),
       });
 
       render(<AdminDashboard />);

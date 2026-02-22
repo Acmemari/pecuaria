@@ -1,11 +1,11 @@
 import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { vi } from 'vitest';
-import { AuthProvider } from '../contexts/AuthContext';
+import { AuthProvider } from '../../contexts/AuthContext';
 import { createMockSupabase } from './mocks/supabase';
 
 // Mock Supabase before importing AuthContext
-vi.mock('../lib/supabase', () => {
+vi.mock('../../lib/supabase', () => {
   const mockSupabase = createMockSupabase();
   return {
     supabase: mockSupabase,

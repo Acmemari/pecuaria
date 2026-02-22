@@ -15,8 +15,6 @@ interface State {
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
-  declare readonly props: Readonly<ErrorBoundaryProps>;
-  declare state: Readonly<State>;
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = {

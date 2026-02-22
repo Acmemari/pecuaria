@@ -197,20 +197,20 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
         stakeholder_matrix: p.stakeholder_matrix,
       };
       if (field === 'success_evidence' && Array.isArray(value)) {
-        payload.success_evidence = value;
+        payload.success_evidence = value as string[];
       } else if (field === 'stakeholder_matrix' && Array.isArray(value)) {
-        payload.stakeholder_matrix = value;
+        payload.stakeholder_matrix = value as { name: string; activity: string }[];
       } else if (typeof value === 'string') {
-        (payload as Record<string, unknown>)[field] = value || null;
+        (payload as unknown as Record<string, unknown>)[field] = value || null;
       }
-      scheduleSave(`program-${p.id}`, () => updateProject(p.id, payload));
+      scheduleSave(`program-${p.id}`, async () => { await updateProject(p.id, payload); });
       setTree((prev) =>
         prev.map((n) => {
           if (n.data.rawId !== p.id) return n;
           const proj = n.data.project!;
           const updated = { ...proj };
-          if (field === 'success_evidence' && Array.isArray(value)) updated.success_evidence = value;
-          else if (field === 'stakeholder_matrix' && Array.isArray(value)) updated.stakeholder_matrix = value;
+          if (field === 'success_evidence' && Array.isArray(value)) updated.success_evidence = value as string[];
+          else if (field === 'stakeholder_matrix' && Array.isArray(value)) updated.stakeholder_matrix = value as { name: string; activity: string }[];
           else if (typeof value === 'string') (updated as Record<string, unknown>)[field] = value || null;
           return { ...n, data: { ...n.data, project: updated } };
         })

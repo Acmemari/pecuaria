@@ -189,13 +189,13 @@ export const QuestionnaireResultsPrintView: React.FC<QuestionnaireResultsPrintVi
                                                         <text
                                                             x={x}
                                                             y={y}
-                                                            textAnchor={x > 200 ? 'start' : 'end'}
+                                                            textAnchor={Number(x) > 200 ? 'start' : 'end'}
                                                             fill="#64748b"
                                                             fontSize={9}
                                                             fontFamily="Inter"
                                                             fontWeight={500}
                                                         >
-                                                            {payload.value.length > 18 ? `${payload.value.slice(0, 18)}...` : payload.value}
+                                                            {String(payload.value).length > 18 ? `${String(payload.value).slice(0, 18)}...` : payload.value}
                                                         </text>
                                                     );
                                                 }}

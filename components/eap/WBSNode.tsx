@@ -1,5 +1,5 @@
 import React, { memo, useContext } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { FolderOpen, Package, Layers, CheckSquare, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { WBSNodeData, WBSLevel } from '../../lib/eapTree';
 
@@ -32,7 +32,9 @@ const LEVEL_STYLES: Record<string, { bg: string; border: string; icon: React.Rea
   },
 };
 
-const WBSNodeComponent: React.FC<NodeProps<WBSNodeData>> = ({ id, data, selected }) => {
+type WBSFlowNode = Node<WBSNodeData>;
+
+const WBSNodeComponent: React.FC<NodeProps<WBSFlowNode>> = ({ id, data, selected }) => {
   const level = data.level || 'program';
   const style = LEVEL_STYLES[level] ?? LEVEL_STYLES.program;
   const actions = useContext(EAPNodeActionsContext);

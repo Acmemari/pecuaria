@@ -16,7 +16,7 @@ import {
 
 export type WBSLevel = 'program' | 'delivery' | 'activity' | 'task';
 
-export interface WBSNodeData {
+export interface WBSNodeData extends Record<string, unknown> {
   level: WBSLevel;
   label: string;
   subtitle?: string;

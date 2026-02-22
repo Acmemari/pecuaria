@@ -640,14 +640,14 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     const leaders = initiatives
       .map((i) => i.leader)
       .filter((l): l is string => typeof l === 'string' && l.trim().length > 0);
-    return [...new Set(leaders)].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
+    return [...new Set(leaders)].sort((a: string, b: string) => a.localeCompare(b, 'pt-BR'));
   }, [initiatives]);
 
   const uniqueTags = useMemo(() => {
     const tags = initiatives
       .flatMap((i) => (i.tags || '').split(/\s+/))
       .filter((t) => t.startsWith('#') && t.length > 1);
-    return [...new Set(tags)].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
+    return [...new Set(tags)].sort((a: string, b: string) => a.localeCompare(b, 'pt-BR'));
   }, [initiatives]);
 
   const filteredInitiatives = useMemo(() => {

@@ -297,24 +297,24 @@ const AppContent: React.FC = () => {
           name: 'Cadastros',
           description: 'Fazendas, clientes e pessoas.',
           icon: 'folder-plus',
-          category: 'zootecnico',
-          status: 'active'
+          category: 'zootecnico' as const,
+          status: 'active' as const
         },
         {
           id: 'cattle-profit',
           name: 'Assistentes',
           description: 'Análise econômica completa.',
           icon: 'bot',
-          category: 'financeiro',
-          status: 'active'
+          category: 'financeiro' as const,
+          status: 'active' as const
         },
         {
           id: 'ask-antonio',
           name: country === 'PY' ? 'PREGUNTE /Antonio' : 'Pergunte p/ Antonio',
           description: 'Consultor virtual especialista.',
           icon: 'nutrition',
-          category: 'consultoria',
-          status: 'active'
+          category: 'consultoria' as const,
+          status: 'active' as const
         }
       ];
     }

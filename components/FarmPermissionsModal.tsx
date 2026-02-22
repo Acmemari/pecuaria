@@ -92,21 +92,21 @@ function PermissionSummary({
   );
 }
 
-function PermissionCategorySection({
-  category,
-  label,
-  items,
-  editedPermissions,
-  setPermissionFor,
-  iconMap,
-}: {
+const PermissionCategorySection: React.FC<{
   category: string;
   label: string;
   items: PermissionKeyDef[];
   editedPermissions: Record<string, PermissionLevel>;
   setPermissionFor: (key: string, level: PermissionLevel) => void;
   iconMap: Record<string, LucideIcon>;
-}) {
+}> = ({
+  category,
+  label,
+  items,
+  editedPermissions,
+  setPermissionFor,
+  iconMap,
+}) => {
   return (
     <section>
       <h4 className="text-xs font-semibold text-ai-subtext uppercase tracking-wide mb-2 pb-1 border-b border-ai-border">
@@ -175,7 +175,7 @@ function PermissionCategorySection({
       </ul>
     </section>
   );
-}
+};
 
 interface AnalystWithAccess {
   id: string;

@@ -4,11 +4,13 @@ interface SelectorErrorBoundaryState {
   hasError: boolean;
 }
 
-class SelectorErrorBoundary extends React.Component<{ children: React.ReactNode; fallbackLabel: string }, SelectorErrorBoundaryState> {
-  constructor(props: { children: React.ReactNode; fallbackLabel: string }) {
-    super(props);
-    this.state = { hasError: false };
-  }
+interface SelectorErrorBoundaryProps {
+  children: React.ReactNode;
+  fallbackLabel: string;
+}
+
+class SelectorErrorBoundary extends React.Component<SelectorErrorBoundaryProps, SelectorErrorBoundaryState> {
+  state: SelectorErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(): SelectorErrorBoundaryState {
     return { hasError: true };

@@ -3,12 +3,12 @@
  * Este arquivo demonstra como usar os novos módulos implementados
  */
 
-import { withSupabaseRetry, withApiRetry } from '../lib/retryHandler';
-import { api } from '../lib/apiClient';
-import { sanitizeText, sanitizeEmail, detectXss } from '../lib/inputSanitizer';
-import { handleQuestionnaireError, createQuestionnaireError, ERROR_CODES } from '../lib/errorHandler';
-import { logger } from '../lib/logger';
-import { supabase } from '../lib/supabase';
+import { withSupabaseRetry, withApiRetry } from '../retryHandler';
+import { api } from '../apiClient';
+import { sanitizeText, sanitizeEmail, detectXss } from '../inputSanitizer';
+import { handleQuestionnaireError, createQuestionnaireError, ERROR_CODES } from '../errorHandler';
+import { logger } from '../logger';
+import { supabase } from '../supabase';
 
 // ============================================
 // EXEMPLO 1: Operações Supabase com Retry

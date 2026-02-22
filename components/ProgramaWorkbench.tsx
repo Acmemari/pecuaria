@@ -37,6 +37,10 @@ import {
   INITIAL_TASK_FORM,
   getCurrentIsoDate,
   type KanbanStatus,
+  type ProgramFormState,
+  type DeliveryFormState,
+  type ActivityFormState,
+  type TaskFormState,
 } from './eap';
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
@@ -829,7 +833,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     async (activeId: string, overIndex: number) => {
       const oldIndex = projects.findIndex((p) => p.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
-      const reordered = arrayMove(projects, oldIndex, overIndex).map((p, i) => ({
+      const reordered = arrayMove(projects, oldIndex, overIndex).map((p: ProjectRow, i) => ({
         ...p,
         sort_order: i,
       }));
@@ -851,7 +855,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     async (activeId: string, overIndex: number) => {
       const oldIndex = deliveries.findIndex((d) => d.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
-      const reordered = arrayMove(deliveries, oldIndex, overIndex).map((d, i) => ({
+      const reordered = arrayMove(deliveries, oldIndex, overIndex).map((d: DeliveryRow, i) => ({
         ...d,
         sort_order: i,
       }));
@@ -873,7 +877,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     async (activeId: string, overIndex: number) => {
       const oldIndex = selectedDeliveryActivities.findIndex((a) => a.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
-      const reordered = arrayMove(selectedDeliveryActivities, oldIndex, overIndex).map((a, i) => ({
+      const reordered = arrayMove(selectedDeliveryActivities, oldIndex, overIndex).map((a: InitiativeWithProgress, i) => ({
         ...a,
         sort_order: i,
       }));
@@ -900,7 +904,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     async (activeId: string, overIndex: number) => {
       const oldIndex = tasks.findIndex((t) => t.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
-      const reordered = arrayMove(tasks, oldIndex, overIndex).map((t, i) => ({
+      const reordered = arrayMove(tasks, oldIndex, overIndex).map((t: WorkbenchTask, i) => ({
         ...t,
         sort_order: i,
       }));

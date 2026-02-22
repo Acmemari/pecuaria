@@ -144,7 +144,7 @@ const formatDateBR = (d: Date): string => DATE_BR_FORMATTER.format(d);
 
 const applyZoomConfig = (level: ZoomLevel) => {
   const config = ZOOM_CONFIGS[level];
-  gantt.config.scales = config.scales as typeof gantt.config.scales;
+  gantt.config.scales = config.scales as unknown as typeof gantt.config.scales;
   gantt.config.min_column_width = config.minColumnWidth;
 };
 
@@ -409,7 +409,7 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ projects, initiativ
   const initGantt = useCallback(() => {
     if (!containerRef.current || initializedRef.current) return;
 
-    gantt.locale.date = PT_BR_GANTT_DATE_LOCALE;
+    gantt.locale.date = PT_BR_GANTT_DATE_LOCALE as typeof gantt.locale.date;
 
     gantt.plugins({ marker: true, tooltip: true });
 
@@ -494,7 +494,7 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ projects, initiativ
               : 'initiative',
         id: cleanId,
         start_date: toGanttDate(task.start_date),
-        end_date: toGanttDate(getTaskEndDateInclusive(task)),
+        end_date: toGanttDate(getTaskEndDateInclusive(task as { start_date: Date; duration: number })),
       });
       return true;
     });

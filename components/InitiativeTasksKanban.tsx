@@ -176,19 +176,13 @@ function KanbanCard({
   );
 }
 
-function SortableCard({
-  id,
-  task,
-  responsibleLabel,
-  onEdit,
-  onDelete,
-}: {
+const SortableCard: React.FC<{
   id: string;
   task: FlatTask;
   responsibleLabel: (personId: string | null) => string;
   onEdit?: (task: FlatTask) => void;
   onDelete?: (task: FlatTask) => void;
-}) {
+}> = ({ id, task, responsibleLabel, onEdit, onDelete }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -214,17 +208,13 @@ function SortableCard({
       />
     </div>
   );
-}
+};
 
-function DroppableColumn({
-  status,
-  children,
-  onClick,
-}: {
+const DroppableColumn: React.FC<{
   status: KanbanStatus;
   children: React.ReactNode;
   onClick?: (e: React.MouseEvent) => void;
-}) {
+}> = ({ status, children, onClick }) => {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
     <div
@@ -235,7 +225,7 @@ function DroppableColumn({
       {children}
     </div>
   );
-}
+};
 
 export default function InitiativeTasksKanban({
   milestones,

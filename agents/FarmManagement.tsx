@@ -31,14 +31,14 @@ interface FarmCardProps {
   perms: FarmPermissionsResult;
 }
 
-function FarmCard({
+const FarmCard: React.FC<FarmCardProps> = ({
   farm,
   onEdit,
   onDelete,
   onOpenPermissions,
   canManagePermissions,
   perms,
-}: FarmCardProps) {
+}) => {
   if (perms.isHidden('farms:card')) return null;
   const canEdit = perms.canEdit('farms:form');
   const canDelete = perms.canEdit('farms:delete');
@@ -100,7 +100,7 @@ function FarmCard({
       </div>
     </div>
   );
-}
+};
 
 interface FarmManagementProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
