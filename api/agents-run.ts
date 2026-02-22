@@ -78,14 +78,14 @@ async function authenticateAndLoadContext(req: VercelRequest): Promise<UserConte
     .eq('id', userId)
     .single();
 
-  if (profileError || !profile?.organization_id) {
+  if (profileError) {
     throw new Error('AUTH_PROFILE_NOT_FOUND');
   }
 
   return {
     userId,
-    orgId: profile.organization_id,
-    plan: normalizePlan(profile.plan),
+    orgId: profile?.organization_id || userId,
+    plan: normalizePlan(profile?.plan),
   };
 }
 
