@@ -5,8 +5,8 @@
  * FUNCTION_INVOCATION_FAILED on Vercel serverless functions. Using the
  * native fetch() API avoids all bundling issues.
  */
-import type { AIProvider, AIRequest, AIResponse } from '../types';
-import { getProviderKey } from '../../env';
+import type { AIProvider, AIRequest, AIResponse } from '../types.js';
+import { getProviderKey } from '../../env.js';
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const DEFAULT_TIMEOUT_MS = 30_000;

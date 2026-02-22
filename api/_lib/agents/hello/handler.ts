@@ -1,6 +1,6 @@
-import type { AIProvider } from '../../ai/types';
-import { safeJsonParseWithRepair } from '../../ai/json-repair';
-import { helloOutputSchema, type HelloInput, type HelloOutput } from './manifest';
+import type { AIProvider } from '../../ai/types.js';
+import { safeJsonParseWithRepair } from '../../ai/json-repair.js';
+import { helloOutputSchema, type HelloInput, type HelloOutput } from './manifest.js';
 
 export async function runHelloAgent(args: {
   input: HelloInput;

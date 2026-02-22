@@ -9,7 +9,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Test 1: env
     try {
-        const { getServerEnv } = await import('./_lib/env');
+        const { getServerEnv } = await import('./_lib/env.js');
         getServerEnv();
         results.env = 'ok';
     } catch (e) {
@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Test 2: supabaseAdmin
     try {
-        const { getSupabaseAdmin } = await import('./_lib/supabaseAdmin');
+        const { getSupabaseAdmin } = await import('./_lib/supabaseAdmin.js');
         getSupabaseAdmin();
         results.supabaseAdmin = 'ok';
     } catch (e) {
@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Test 3: gemini provider
     try {
-        const { GeminiProvider } = await import('./_lib/ai/providers/gemini');
+        const { GeminiProvider } = await import('./_lib/ai/providers/gemini.js');
         const p = new GeminiProvider();
         results.gemini = p.name + ' ok';
     } catch (e) {
@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Test 4: openai provider
     try {
-        const { OpenAIProvider } = await import('./_lib/ai/providers/openai');
+        const { OpenAIProvider } = await import('./_lib/ai/providers/openai.js');
         const p = new OpenAIProvider();
         results.openai = p.name + ' ok';
     } catch (e) {
@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Test 5: anthropic provider
     try {
-        const { AnthropicProvider } = await import('./_lib/ai/providers/anthropic');
+        const { AnthropicProvider } = await import('./_lib/ai/providers/anthropic.js');
         const p = new AnthropicProvider();
         results.anthropic = p.name + ' ok';
     } catch (e) {
@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Test 6: providers/index
     try {
-        await import('./_lib/ai/providers/index');
+        await import('./_lib/ai/providers/index.js');
         results.providersIndex = 'ok';
     } catch (e) {
         results.providersIndex = String((e as Error).message);
@@ -71,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Test 8: rate-limit
     try {
-        await import('./_lib/ai/rate-limit');
+        await import('./_lib/ai/rate-limit.js');
         results.rateLimit = 'ok';
     } catch (e) {
         results.rateLimit = String((e as Error).message);

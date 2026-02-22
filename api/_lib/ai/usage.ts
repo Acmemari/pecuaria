@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '../supabaseAdmin';
-import type { PlanId, TokenReservation } from './types';
+import { supabaseAdmin } from '../supabaseAdmin.js';
+import type { PlanId, TokenReservation } from './types.js';
 
 interface PlanLimitsRow {
   monthly_token_limit: number;

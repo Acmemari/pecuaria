@@ -1,5 +1,5 @@
-import { supabaseAdmin } from '../supabaseAdmin';
-import type { PlanId } from './types';
+import { supabaseAdmin } from '../supabaseAdmin.js';
+import type { PlanId } from './types.js';
 
 export interface RateLimitCheckResult {
   allowed: boolean;

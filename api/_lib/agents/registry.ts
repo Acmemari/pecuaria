@@ -1,6 +1,6 @@
-import type { AgentManifest } from '../ai/types';
-import { helloManifest } from './hello/manifest';
-import { feedbackManifest } from './feedback/manifest';
+import type { AgentManifest } from '../ai/types.js';
+import { helloManifest } from './hello/manifest.js';
+import { feedbackManifest } from './feedback/manifest.js';
 
 const manifestMap = new Map<string, AgentManifest>([
   [`${helloManifest.id}@${helloManifest.version}`, helloManifest],

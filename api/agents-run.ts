@@ -1,16 +1,16 @@
 ﻿import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import type { AIProvider } from './_lib/ai/types';
-import { supabaseAdmin } from './_lib/supabaseAdmin';
-import { getAgentManifest } from './_lib/agents/registry';
-import { runHelloAgent } from './_lib/agents/hello/handler';
-import { runFeedbackAgent } from './_lib/agents/feedback/handler';
-import { getProvider } from './_lib/ai/providers';
-import { getFallbackRoutes, routeAgent } from './_lib/ai/router';
-import { checkAndIncrementRateLimit } from './_lib/ai/rate-limit';
-import { commitUsage, releaseReservation, reserveTokens } from './_lib/ai/usage';
-import { logAgentRun } from './_lib/ai/logging';
-import type { AIProviderName, PlanId } from './_lib/ai/types';
+import type { AIProvider } from './_lib/ai/types.js';
+import { supabaseAdmin } from './_lib/supabaseAdmin.js';
+import { getAgentManifest } from './_lib/agents/registry.js';
+import { runHelloAgent } from './_lib/agents/hello/handler.js';
+import { runFeedbackAgent } from './_lib/agents/feedback/handler.js';
+import { getProvider } from './_lib/ai/providers/index.js';
+import { getFallbackRoutes, routeAgent } from './_lib/ai/router.js';
+import { checkAndIncrementRateLimit } from './_lib/ai/rate-limit.js';
+import { commitUsage, releaseReservation, reserveTokens } from './_lib/ai/usage.js';
+import { logAgentRun } from './_lib/ai/logging.js';
+import type { AIProviderName, PlanId } from './_lib/ai/types.js';
 
 export const maxDuration = 60; // Allow long-running LLM calls on Vercel
 

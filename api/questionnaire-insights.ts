@@ -4,7 +4,7 @@
  * Body: { summary: string, farmName?: string }
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { completeWithFallback } from './_lib/ai/providers/index';
+import { completeWithFallback } from './_lib/ai/providers/index.js';
 
 /* ─── Regras do especialista ─── */
 const EXPERT_RULES = `

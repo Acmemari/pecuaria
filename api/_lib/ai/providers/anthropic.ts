@@ -1,5 +1,5 @@
-import type { AIProvider, AIRequest, AIResponse } from '../types';
-import { getProviderKey } from '../../env';
+import type { AIProvider, AIRequest, AIResponse } from '../types.js';
+import { getProviderKey } from '../../env.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);

@@ -56,9 +56,9 @@ async function test() {
             input: {
                 context: 'trabalho',
                 feedbackType: 'construtivo',
-                objective: 'Test',
+                objective: 'Testing feedback',
                 recipient: 'Test User',
-                whatHappened: 'Test scenario for debugging',
+                whatHappened: 'Test scenario for debugging the anthropic fetch replacement correctly',
                 eventDate: '2026-02-20',
                 eventMoment: 'Test meeting',
                 damages: 'None',

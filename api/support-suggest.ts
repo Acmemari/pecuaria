@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { completeWithFallback } from './_lib/ai/providers/index';
+import { completeWithFallback } from './_lib/ai/providers/index.js';
 
 const PREFERRED_MODEL = 'gemini-2.0-flash';
 

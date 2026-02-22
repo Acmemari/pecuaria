@@ -8,7 +8,7 @@
  *  - AI provider availability is always known upfront.
  */
 
-import type { AIProviderName } from './ai/types';
+import type { AIProviderName } from './ai/types.js';
 
 export interface ServerEnv {
   SUPABASE_URL: string;

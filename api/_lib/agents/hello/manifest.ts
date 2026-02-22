@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { AgentManifest } from '../../ai/types';
+import type { AgentManifest } from '../../ai/types.js';
 
 export const helloInputSchema = z.object({
   name: z.string().min(1, 'name is required'),
