@@ -28,7 +28,7 @@ function toUsd(value: number): number {
 export function estimateCostUsd(model: string, inputTokens: number, outputTokens: number): number {
   // Conservative placeholder rates per 1K tokens (USD). Adjust per real contracts.
   const ratesPer1k: Record<string, { input: number; output: number }> = {
-    'gemini-2.5-flash': { input: 0.00035, output: 0.00105 },
+    'gemini-2.0-flash': { input: 0.00035, output: 0.00105 },
     'gpt-4o-mini': { input: 0.00015, output: 0.00060 },
     'claude-3-5-haiku-latest': { input: 0.00025, output: 0.00125 },
   };

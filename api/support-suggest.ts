@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { completeWithFallback } from './_lib/ai/providers/index';
 
-const PREFERRED_MODEL = 'gemini-2.5-flash';
+const PREFERRED_MODEL = 'gemini-2.0-flash';
 
 const SYSTEM_PROMPT = `Você é um assistente de suporte técnico proativo do sistema Pecuária.AI.
 Seu papel é ajudar o usuário a detalhar melhor o problema ou sugestão antes de abrir o chamado.

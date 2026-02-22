@@ -42,7 +42,7 @@ export const feedbackManifest: AgentManifest = {
   outputSchema: feedbackOutputSchema,
   modelPolicy: {
     provider: 'gemini',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.0-flash',
     fallback: [
       { provider: 'openai', model: 'gpt-4o-mini' },
       { provider: 'anthropic', model: 'claude-3-5-haiku-latest' },

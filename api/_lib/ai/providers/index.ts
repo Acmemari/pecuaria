@@ -23,7 +23,7 @@ export function getProvider(providerName: AIProviderName): AIProvider {
  * Default fallback model per provider (used by standalone endpoints).
  */
 const DEFAULT_MODELS: Record<AIProviderName, string> = {
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-2.0-flash',
   openai: 'gpt-4o-mini',
   anthropic: 'claude-3-5-haiku-latest',
 };

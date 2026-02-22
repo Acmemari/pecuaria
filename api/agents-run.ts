@@ -243,7 +243,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     reservationId = null;
 
-    return res.status(200).json({
+    const resBody = {
       success: true,
       data: outputData,
       usage: {
@@ -259,7 +259,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         provider: providerUsed,
         model: modelUsed,
       },
-    });
+    };
+
+    console.log(`[agents-run] Success: ${manifest.id} (${modelUsed}) in ${resBody.usage.latency_ms}ms`);
+    return res.status(200).json(resBody);
   } catch (error) {
     const rawMessage = (error as Error)?.message ?? 'UNKNOWN_ERROR';
     const errorCode = rawMessage.split(':')[0] || 'UNKNOWN_ERROR';

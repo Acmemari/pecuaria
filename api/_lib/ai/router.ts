@@ -1,7 +1,7 @@
 import type { AgentManifest, PlanId, RoutedModel } from './types';
 
 const BASIC_MODEL_OVERRIDES: Partial<Record<'gemini' | 'openai' | 'anthropic', string>> = {
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-2.0-flash',
   openai: 'gpt-4o-mini',
   anthropic: 'claude-3-5-haiku-latest',
 };
