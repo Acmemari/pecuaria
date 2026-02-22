@@ -12,7 +12,7 @@ interface FeedbackAgentProps {
 }
 
 const INITIAL_FORM: FeedbackInput = {
-  context: 'trabalho',
+  context: 'desempenho',
   feedbackType: 'construtivo',
   objective: '',
   recipient: '',
@@ -29,7 +29,7 @@ const INITIAL_FORM: FeedbackInput = {
 
 const MOCK_SCENARIOS: Partial<FeedbackInput>[] = [
   {
-    context: 'trabalho',
+    context: 'desempenho',
     feedbackType: 'construtivo',
     objective: 'Melhorar a organização das tarefas semanais e o cumprimento de prazos.',
     recipient: 'Analista de Operações',
@@ -40,7 +40,7 @@ const MOCK_SCENARIOS: Partial<FeedbackInput>[] = [
     model: 'sbi',
   },
   {
-    context: 'lideranca',
+    context: 'comportamento',
     feedbackType: 'positivo',
     objective: 'Reconhecer a excelente condução do treinamento de manejo para os novos vaqueiros.',
     recipient: 'Gerente de Pecuária',
@@ -62,7 +62,7 @@ const MOCK_SCENARIOS: Partial<FeedbackInput>[] = [
     model: 'feedforward',
   },
   {
-    context: 'trabalho',
+    context: 'desempenho',
     feedbackType: 'misto',
     objective: 'Alinhar qualidade técnica com velocidade de execução nas manutenções de cerca.',
     recipient: 'Auxiliar de Manutenção',
@@ -75,8 +75,8 @@ const MOCK_SCENARIOS: Partial<FeedbackInput>[] = [
 ];
 
 const CONTEXT_DESCRIPTIONS: Record<FeedbackInput['context'], string> = {
-  trabalho: 'Feedback sobre execução de tarefas, qualidade de entrega, prazos e organização.',
-  lideranca: 'Feedback sobre como a pessoa conduz decisões, delega e desenvolve o time.',
+  desempenho: 'Feedback sobre execução de tarefas, qualidade de entrega, prazos e organização.',
+  comportamento: 'Feedback sobre como a pessoa conduz decisões, delega e desenvolve o time.',
   pessoal: 'Feedback sobre comportamentos individuais, atitudes e postura no dia a dia.',
 };
 
@@ -309,8 +309,8 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               value={form.context}
               onChange={(e) => setForm((p) => ({ ...p, context: e.target.value as FeedbackInput['context'] }))}
             >
-              <option value="trabalho">Trabalho</option>
-              <option value="lideranca">Liderança</option>
+              <option value="desempenho">Desempenho</option>
+              <option value="comportamento">Comportamento</option>
               <option value="pessoal">Pessoal</option>
             </select>
             <p className="text-xs text-ai-subtext">{CONTEXT_DESCRIPTIONS[form.context]}</p>

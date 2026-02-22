@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { AgentManifest } from '../../ai/types.js';
 
-const FEEDBACK_CONTEXTS = ['trabalho', 'lideranca', 'pessoal'] as const;
+const FEEDBACK_CONTEXTS = ['desempenho', 'comportamento', 'pessoal'] as const;
 const FEEDBACK_TYPES = ['positivo', 'construtivo', 'misto'] as const;
 const FEEDBACK_TONES = ['formal', 'direto', 'motivador', 'tecnico', 'informal'] as const;
 const FEEDBACK_FORMATS = ['escrito', 'falado'] as const;
