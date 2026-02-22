@@ -1,7 +1,7 @@
 ﻿import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
 import type { AIProvider } from './_lib/ai/types.js';
-import { supabaseAdmin } from './_lib/supabaseAdmin.js';
+import { getSupabaseAdmin, supabaseAdmin } from './_lib/supabaseAdmin.js';
 import { getAgentManifest } from './_lib/agents/registry.js';
 import { runHelloAgent } from './_lib/agents/hello/handler.js';
 import { runFeedbackAgent } from './_lib/agents/feedback/handler.js';
@@ -20,6 +20,7 @@ type AgentHandler = (args: {
   input: unknown;
   provider: AIProvider;
   model: string;
+  systemPrompt?: string;
 }) => Promise<{
   data: unknown;
   usage: { inputTokens: number; outputTokens: number; totalTokens: number };
@@ -128,7 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     ctx = await authenticateAndLoadContext(req);
 
-    const manifest = getAgentManifest(parsedBody.data.agentId, parsedBody.data.version);
+    const manifest = await getAgentManifest(parsedBody.data.agentId, parsedBody.data.version, getSupabaseAdmin());
     if (!manifest) {
       return res.status(404).json({
         error: 'Agent manifest not found.',
@@ -194,6 +195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           input: inputValidation.data,
           provider,
           model: route.model,
+          systemPrompt: manifest.systemPrompt,
         });
         outputData = result.data;
         usage = result.usage;

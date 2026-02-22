@@ -66,6 +66,7 @@ export async function runFeedbackAgent(args: {
   input: FeedbackInput;
   provider: AIProvider;
   model: string;
+  systemPrompt?: string;
 }): Promise<{
   data: FeedbackOutput;
   rawContent: string;
@@ -74,7 +75,7 @@ export async function runFeedbackAgent(args: {
 }> {
   const response = await args.provider.complete({
     model: args.model,
-    systemPrompt: SYSTEM_PROMPT,
+    systemPrompt: args.systemPrompt || SYSTEM_PROMPT,
     userPrompt: buildUserPrompt(args.input),
     responseFormat: 'json',
     temperature: 0.5,

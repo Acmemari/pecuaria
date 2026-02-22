@@ -27,6 +27,7 @@ const AdminDashboard = lazy(() => import('./agents/AdminDashboard'));
 const MarketTrends = lazy(() => import('./agents/MarketTrends'));
 const SavedScenarios = lazy(() => import('./agents/SavedScenarios'));
 const AgentTrainingAdmin = lazy(() => import('./agents/AgentTrainingAdmin'));
+const AIAgentConfigAdmin = lazy(() => import('./agents/AIAgentConfigAdmin'));
 const FarmManagement = lazy(() => import('./agents/FarmManagement'));
 const QuestionnaireFiller = lazy(() => import('./agents/QuestionnaireFiller'));
 const ClientManagement = lazy(() => import('./agents/ClientManagement'));
@@ -241,6 +242,15 @@ const AppContent: React.FC = () => {
         status: 'active'
       };
 
+      const aiAgentConfig: Agent = {
+        id: 'ai-config',
+        name: 'Especialista IA',
+        description: 'Configurar instruções dos agentes',
+        icon: 'settings',
+        category: 'admin',
+        status: 'active'
+      };
+
       const adminDashboard: Agent = {
         id: 'admin-dashboard',
         name: 'Gestão de Usuários',
@@ -282,6 +292,7 @@ const AppContent: React.FC = () => {
       if (user?.role === 'admin') {
         orderedList.push(analystManagement);
         orderedList.push(agentTraining);
+        orderedList.push(aiAgentConfig);
         orderedList.push(adminDashboard);
         orderedList.push(supportTickets);
       }
@@ -660,6 +671,14 @@ const AppContent: React.FC = () => {
               onToast={handleToast}
             />
           </Suspense>
+        );
+      case 'ai-config':
+        return user.role === 'admin' ? (
+          <Suspense fallback={<LoadingFallback />}>
+            <AIAgentConfigAdmin />
+          </Suspense>
+        ) : (
+          <div>Acesso negado.</div>
         );
       case 'agent-training':
         return user.role === 'admin' ? (

@@ -50,6 +50,7 @@ export interface AgentManifest {
   outputSchema: ZodTypeAny;
   modelPolicy: AgentModelPolicy;
   estimatedTokensPerCall: number;
+  systemPrompt?: string;
 }
 
 export interface RoutedModel {

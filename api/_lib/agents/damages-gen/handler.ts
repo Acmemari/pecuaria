@@ -22,6 +22,7 @@ export async function runDamagesGenAgent(args: {
     input: DamagesGenInput;
     provider: AIProvider;
     model: string;
+    systemPrompt?: string;
 }): Promise<{
     data: DamagesGenOutput;
     rawContent: string;
@@ -35,7 +36,7 @@ Contexto: ${args.input.context || 'Geral'}`;
 
     const response = await args.provider.complete({
         model: args.model,
-        systemPrompt: SYSTEM_PROMPT,
+        systemPrompt: args.systemPrompt || SYSTEM_PROMPT,
         userPrompt,
         responseFormat: 'json',
         temperature: 0.7,

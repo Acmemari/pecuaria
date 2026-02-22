@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AgentManifest } from '../ai/types.js';
 import { helloManifest } from './hello/manifest.js';
 import { feedbackManifest } from './feedback/manifest.js';
@@ -9,15 +10,45 @@ const manifestMap = new Map<string, AgentManifest>([
   [`${damagesGenManifest.id}@${damagesGenManifest.version}`, damagesGenManifest],
 ]);
 
-export function getAgentManifest(agentId: string, version?: string): AgentManifest | null {
+export async function getAgentManifest(
+  agentId: string,
+  version?: string,
+  db?: SupabaseClient
+): Promise<AgentManifest | null> {
+  let manifest: AgentManifest | null = null;
+
   if (version) {
-    return manifestMap.get(`${agentId}@${version}`) ?? null;
+    manifest = manifestMap.get(`${agentId}@${version}`) ?? null;
+  } else {
+    // Latest static version: choose lexicographically highest semver-like string
+    const candidates = Array.from(manifestMap.values()).filter((m) => m.id === agentId);
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => a.version.localeCompare(b.version, undefined, { numeric: true }));
+      manifest = candidates[candidates.length - 1] ?? null;
+    }
   }
 
-  // Latest static version: choose lexicographically highest semver-like string
-  const candidates = Array.from(manifestMap.values()).filter((m) => m.id === agentId);
-  if (candidates.length === 0) return null;
-  candidates.sort((a, b) => a.version.localeCompare(b.version, undefined, { numeric: true }));
-  return candidates[candidates.length - 1] ?? null;
+  // If we have a DB client, try to enrich with dynamic system_prompt
+  if (manifest && db) {
+    try {
+      const { data, error } = await db
+        .from('agent_registry')
+        .select('system_prompt')
+        .eq('id', manifest.id)
+        .eq('version', manifest.version)
+        .single();
+
+      if (!error && data?.system_prompt) {
+        return {
+          ...manifest,
+          systemPrompt: data.system_prompt
+        };
+      }
+    } catch (e) {
+      console.error('Error fetching agent config from DB:', e);
+    }
+  }
+
+  return manifest;
 }
 
