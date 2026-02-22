@@ -13,14 +13,15 @@ const SYSTEM_PROMPT = [
   '- Evite termos absolutos como "sempre" e "nunca".',
   '- Evite julgamentos e rótulos, use comunicação não violenta.',
   '- Adapte tom conforme solicitado (formal, informal, técnico, motivador ou direto).',
-  '- Escolha e aplique um modelo: SBI, Sanduíche ou Feedforward.',
+  '- Escolha e aplique o modelo especificado: SBI, Sanduíche, Feedforward ou MARCA (Momento, Ação, Resultado, Caminho, Acordo).',
+  '- MÉTODO MARCA: M-Momento (contexto sem acusações), A-Ação (comportamentos práticos), R-Resultado (consequências dos atos), C-Caminho (orientação futura e solução), A-Acordo (verificar entendimento). O texto deve ser corrido sem mencionar explicitamente a sigla ou as letras do método.',
   '- Se o usuário fornecer texto existente, reescreva mantendo a intenção e elevando qualidade.',
   '- Entregue saída APENAS em JSON válido.',
   '',
   'Formato JSON obrigatório:',
   '{',
   '  "feedback": "texto final completo",',
-  '  "structure": "SBI|Sanduíche|Feedforward",',
+  '  "structure": "SBI|Sanduíche|Feedforward|MARCA",',
   '  "tips": ["dica 1", "dica 2"]',
   '}',
 ].join('\n');
@@ -29,7 +30,8 @@ function labelOfModel(model: FeedbackInput['model']): string {
   if (model === 'sbi') return 'SBI';
   if (model === 'sanduiche') return 'Sanduíche';
   if (model === 'feedforward') return 'Feedforward';
-  return 'Automático (escolha o melhor entre SBI e Feedforward; não use Sanduíche)';
+  if (model === 'marca') return 'Método MARCA (Momento, Ação, Resultado, Caminho, Acordo)';
+  return 'Automático (escolha o melhor entre MARCA, SBI e Feedforward; não use Sanduíche)';
 }
 
 function buildUserPrompt(input: FeedbackInput): string {
