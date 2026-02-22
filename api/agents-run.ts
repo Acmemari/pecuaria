@@ -8,7 +8,7 @@ import { runFeedbackAgent } from './_lib/agents/feedback/handler.js';
 import { getProvider } from './_lib/ai/providers/index.js';
 import { getFallbackRoutes, routeAgent } from './_lib/ai/router.js';
 import { checkAndIncrementRateLimit } from './_lib/ai/rate-limit.js';
-import { commitUsage, releaseReservation, reserveTokens } from './_lib/ai/usage.js';
+import { commitUsage, releaseReservation, reserveTokens, estimateCostUsd } from './_lib/ai/usage.js';
 import { logAgentRun } from './_lib/ai/logging.js';
 import type { AIProviderName, PlanId } from './_lib/ai/types.js';
 
@@ -59,6 +59,7 @@ type UserContext = {
   userId: string;
   orgId: string;
   plan: PlanId;
+  hasOrg: boolean;
 };
 
 async function authenticateAndLoadContext(req: VercelRequest): Promise<UserContext> {
@@ -86,6 +87,7 @@ async function authenticateAndLoadContext(req: VercelRequest): Promise<UserConte
     userId,
     orgId: profile?.organization_id || userId,
     plan: normalizePlan(profile?.plan),
+    hasOrg: !!profile?.organization_id,
   };
 }
 
@@ -154,13 +156,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const reservation = await reserveTokens({
-      orgId: ctx.orgId,
-      userId: ctx.userId,
-      plan: ctx.plan,
-      estimatedTokens: manifest.estimatedTokensPerCall,
-    });
-    reservationId = reservation.id;
+    let reservationId: string | null = null;
+    if (ctx.hasOrg) {
+      const reservation = await reserveTokens({
+        orgId: ctx.orgId,
+        userId: ctx.userId,
+        plan: ctx.plan,
+        estimatedTokens: manifest.estimatedTokensPerCall,
+      });
+      reservationId = reservation.id;
+    }
 
     const routes = [routeAgent(manifest, ctx.plan), ...getFallbackRoutes(manifest)];
     let lastExecutionError: unknown = null;
@@ -211,13 +216,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       throw new Error(`AGENT_EXECUTION_FAILED:${detail}`);
     }
 
-    const commit = await commitUsage({
-      reservationId,
-      actualInputTokens: usage.inputTokens,
-      actualOutputTokens: usage.outputTokens,
-      model: modelUsed,
-    });
-
     runMeta = {
       agentId: manifest.id,
       agentVersion: manifest.version,
@@ -225,26 +223,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       model: modelUsed,
     };
 
-    await logAgentRun({
-      org_id: ctx.orgId,
-      user_id: ctx.userId,
-      agent_id: manifest.id,
-      agent_version: manifest.version,
-      provider: providerUsed,
-      model: modelUsed,
-      input_tokens: usage.inputTokens,
-      output_tokens: usage.outputTokens,
-      total_tokens: usage.totalTokens,
-      estimated_cost_usd: commit.costUsd,
-      latency_ms: latencyMs || Math.max(1, Date.now() - startedAt),
-      status: 'success',
-      error_code: null,
-      metadata: {
-        route_candidates: routes.map((r) => `${r.provider}:${r.model}`),
-      },
-    });
+    if (ctx.hasOrg && reservationId) {
+      try {
+        const commit = await commitUsage({
+          reservationId,
+          actualInputTokens: usage.inputTokens,
+          actualOutputTokens: usage.outputTokens,
+          model: modelUsed,
+        });
 
-    reservationId = null;
+        await logAgentRun({
+          org_id: ctx.orgId,
+          user_id: ctx.userId,
+          agent_id: manifest.id,
+          agent_version: manifest.version,
+          provider: providerUsed,
+          model: modelUsed,
+          input_tokens: usage.inputTokens,
+          output_tokens: usage.outputTokens,
+          total_tokens: usage.totalTokens,
+          estimated_cost_usd: commit.costUsd,
+          latency_ms: latencyMs || Math.max(1, Date.now() - startedAt),
+          status: 'success',
+          error_code: null,
+          metadata: {
+            route_candidates: routes.map((r) => `${r.provider}:${r.model}`),
+          },
+        });
+      } catch (err) {
+        console.error('[agents-run] Failed to commit usage or log agent run:', err);
+      }
+      reservationId = null;
+    }
 
     return res.status(200).json({
       success: true,
@@ -253,7 +263,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         input_tokens: usage.inputTokens,
         output_tokens: usage.outputTokens,
         total_tokens: usage.totalTokens,
-        estimated_cost_usd: commit.costUsd,
+        estimated_cost_usd: estimateCostUsd(modelUsed, usage.inputTokens, usage.outputTokens),
         latency_ms: latencyMs || Math.max(1, Date.now() - startedAt),
       },
       agent: {
