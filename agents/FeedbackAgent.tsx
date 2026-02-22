@@ -456,7 +456,20 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
           </div>
 
           <div className="space-y-3">
-            <label className="block text-sm text-ai-text">Estrutura</label>
+            <div className="flex items-center gap-2">
+              <label className="block text-sm text-ai-text">Estrutura</label>
+              <button
+                type="button"
+                className="text-ai-subtext hover:text-ai-accent transition-colors"
+                onClick={() => {
+                  const el = document.getElementById('structure-info');
+                  if (el) el.classList.toggle('hidden');
+                }}
+                title="Clique para saber mais sobre as estruturas"
+              >
+                <MessageSquareText size={16} />
+              </button>
+            </div>
             <select
               className={fieldClass}
               value={form.model}
@@ -467,6 +480,12 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               <option value="sanduiche">Sanduíche (Não Recomendado)</option>
               <option value="feedforward">Feedforward</option>
             </select>
+            <div id="structure-info" className="hidden mt-2 p-3 bg-ai-surface-hover rounded border border-ai-border text-xs text-ai-subtext space-y-2">
+              <p><strong>SBI (Situação-Comportamento-Impacto):</strong> Focado em fatos reais ocorridos no passado. Ideal para correções e realinhamentos concretos.</p>
+              <p><strong>Feedforward:</strong> Focado no futuro. Concentra-se em soluções e ações de melhoria comportamental ou técnica, ignorando o passado.</p>
+              <p><strong>Sanduíche:</strong> Elogio - Crítica - Elogio. Antigo e obsoleto para o RH moderno, pois dilui a eficácia da crítica e confunde o receptor. Não recomendado.</p>
+              <p><strong>Automático:</strong> O consultor escolherá a abordagem mais inteligente baseada no seu contexto.</p>
+            </div>
           </div>
 
           <div className="space-y-3">
