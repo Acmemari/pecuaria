@@ -63,7 +63,10 @@ async function authenticateAndLoadContext(req: VercelRequest): Promise<UserConte
   if (!token) throw new Error('AUTH_MISSING_TOKEN');
 
   const { data: userData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !userData?.user) throw new Error('AUTH_INVALID_TOKEN');
+  if (authError || !userData?.user) {
+    console.error('[agents-run] Auth failure:', authError?.message || 'No user');
+    throw new Error(`AUTH_INVALID_TOKEN:${authError?.message || 'Token is invalid or expired'}`);
+  }
 
   const userId = userData.user.id;
   const { data: profile, error: profileError } = await supabaseAdmin

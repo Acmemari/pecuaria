@@ -27,6 +27,53 @@ const INITIAL_FORM: FeedbackInput = {
   lengthPreference: 'medio',
 };
 
+const MOCK_SCENARIOS: Partial<FeedbackInput>[] = [
+  {
+    context: 'trabalho',
+    feedbackType: 'construtivo',
+    objective: 'Melhorar a organização das tarefas semanais e o cumprimento de prazos.',
+    recipient: 'Analista de Operações',
+    whatHappened: 'A entrega do relatório de pesagem atrasou 2 dias e os dados estavam desorganizados.',
+    eventMoment: 'Relatório Semanal de Pesagem',
+    damages: 'Atraso na tomada de decisão sobre suplementação do lote 12.',
+    tone: 'direto',
+    model: 'sbi',
+  },
+  {
+    context: 'lideranca',
+    feedbackType: 'positivo',
+    objective: 'Reconhecer a excelente condução do treinamento de manejo para os novos vaqueiros.',
+    recipient: 'Gerente de Pecuária',
+    whatHappened: 'O treinamento foi claro, todos entenderam os protocolos e a motivação do time aumentou.',
+    eventMoment: 'Treinamento de Integração',
+    damages: 'Redução de erros no manejo e maior segurança operacional.',
+    tone: 'motivador',
+    model: 'auto',
+  },
+  {
+    context: 'pessoal',
+    feedbackType: 'construtivo',
+    objective: 'Alinhar a forma de comunicação durante momentos de estresse no curral.',
+    recipient: 'Cabo de Turma',
+    whatHappened: 'Houve respostas ríspidas com os ajudantes durante a apartação, gerando desconforto.',
+    eventMoment: 'Manejo de Apartação no Curral',
+    damages: 'Clima tenso na equipe e queda na eficiência do trabalho em grupo.',
+    tone: 'formal',
+    model: 'feedforward',
+  },
+  {
+    context: 'trabalho',
+    feedbackType: 'misto',
+    objective: 'Alinhar qualidade técnica com velocidade de execução nas manutenções de cerca.',
+    recipient: 'Auxiliar de Manutenção',
+    whatHappened: 'As cercas ficaram ótimas, mas o processo demorou o dobro do previsto.',
+    eventMoment: 'Reforma da Cerca da Invernada Norte',
+    damages: 'Gasto excessivo de horas extras e atraso em outras manutenções.',
+    tone: 'tecnico',
+    model: 'sbi',
+  },
+];
+
 const CONTEXT_DESCRIPTIONS: Record<FeedbackInput['context'], string> = {
   trabalho: 'Feedback sobre execução de tarefas, qualidade de entrega, prazos e organização.',
   lideranca: 'Feedback sobre como a pessoa conduz decisões, delega e desenvolve o time.',
@@ -108,10 +155,19 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
     abortRef.current = controller;
 
     try {
+      // Use getUser() instead of getSession() to ensure we have a fresh/validated session
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !authUser) {
+        throw new Error('Faça login para usar o assistente de feedback.');
+      }
+
+      // getSession is still needed to get the access_token string easily if it's already refreshed
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
+
       if (!token) {
-        throw new Error('Faça login para usar o assistente de feedback.');
+        throw new Error('Não foi possível obter um token de acesso válido.');
       }
 
       const res = await fetch('/api/agents-run', {
@@ -178,6 +234,25 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
     setError(null);
     setRecipientSelection('other');
     setForm(INITIAL_FORM);
+  };
+
+  const handleTestFill = () => {
+    const scenario = MOCK_SCENARIOS[Math.floor(Math.random() * MOCK_SCENARIOS.length)];
+
+    // Generate a random date in the last 30 days
+    const date = new Date();
+    date.setDate(date.getDate() - Math.floor(Math.random() * 30));
+    const eventDate = date.toISOString().split('T')[0];
+
+    setResult(null);
+    setError(null);
+    setRecipientSelection('other');
+
+    setForm({
+      ...INITIAL_FORM,
+      ...scenario,
+      eventDate,
+    });
   };
 
   const handleSave = async () => {
@@ -434,6 +509,14 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
           >
             <Wand2 size={16} />
             {loading ? 'Gerando...' : 'Gerar feedback'}
+          </button>
+          <button
+            type="button"
+            onClick={handleTestFill}
+            className="inline-flex items-center gap-2 rounded-lg border border-ai-accent/30 bg-ai-accent/10 px-4 py-2 text-sm font-semibold text-ai-accent hover:bg-ai-accent/20"
+          >
+            <RefreshCcw size={16} />
+            Preencher para Teste
           </button>
           <button
             type="button"
