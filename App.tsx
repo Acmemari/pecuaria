@@ -162,7 +162,7 @@ const AppContent: React.FC = () => {
 
       const cattleProfit: Agent = {
         id: 'cattle-profit',
-        name: 'Assistente',
+        name: 'Assistentes',
         description: 'Análise econômica completa.',
         icon: 'bot',
         category: 'financeiro',
@@ -302,7 +302,7 @@ const AppContent: React.FC = () => {
         },
         {
           id: 'cattle-profit',
-          name: 'Assistente',
+          name: 'Assistentes',
           description: 'Análise econômica completa.',
           icon: 'bot',
           category: 'financeiro' as const,
@@ -424,7 +424,7 @@ const AppContent: React.FC = () => {
     const fallbackAgents: Agent[] = [
       {
         id: 'cattle-profit',
-        name: 'Assistente',
+        name: 'Assistentes',
         description: 'Análise econômica completa.',
         icon: 'bot',
         category: 'financeiro',
