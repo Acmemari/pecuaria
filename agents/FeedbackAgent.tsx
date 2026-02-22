@@ -63,7 +63,7 @@ const MOCK_SCENARIOS: Partial<FeedbackInput>[] = [
   },
   {
     context: 'desempenho',
-    feedbackType: 'misto',
+    feedbackType: 'construtivo',
     objective: 'Alinhar qualidade técnica com velocidade de execução nas manutenções de cerca.',
     recipient: 'Auxiliar de Manutenção',
     whatHappened: 'As cercas ficaram ótimas, mas o processo demorou o dobro do previsto.',
@@ -78,6 +78,11 @@ const CONTEXT_DESCRIPTIONS: Record<FeedbackInput['context'], string> = {
   desempenho: 'Feedback sobre execução de tarefas, qualidade de entrega, prazos e organização.',
   comportamento: 'Feedback sobre como a pessoa conduz decisões, delega e desenvolve o time.',
   pessoal: 'Feedback sobre comportamentos individuais, atitudes e postura no dia a dia.',
+};
+
+const TYPE_DESCRIPTIONS: Record<FeedbackInput['feedbackType'], string> = {
+  positivo: 'Reconhecimento para reforçar comportamentos e resultados que devem ser mantidos.',
+  construtivo: 'Correção de rota focada em fatos para melhorar desempenho ou comportamento.',
 };
 
 const fieldClass =
@@ -322,10 +327,10 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               value={form.feedbackType}
               onChange={(e) => setForm((p) => ({ ...p, feedbackType: e.target.value as FeedbackInput['feedbackType'] }))}
             >
-              <option value="positivo">Positivo</option>
               <option value="construtivo">Construtivo</option>
-              <option value="misto">Misto</option>
+              <option value="positivo">Positivo</option>
             </select>
+            <p className="text-xs text-ai-subtext">{TYPE_DESCRIPTIONS[form.feedbackType]}</p>
           </div>
 
           <div className="space-y-3 lg:col-span-2">
