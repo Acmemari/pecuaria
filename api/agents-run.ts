@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+﻿import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
 import type { AIProvider } from './_lib/ai/types';
 import { supabaseAdmin } from './_lib/supabaseAdmin';
@@ -176,7 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     for (const route of routes) {
       try {
-        const provider = await getProvider(route.provider);
+        const provider = getProvider(route.provider);
         providerUsed = route.provider;
         modelUsed = route.model;
 
@@ -243,7 +243,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     reservationId = null;
 
-    const resBody = {
+    return res.status(200).json({
       success: true,
       data: outputData,
       usage: {
@@ -259,10 +259,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         provider: providerUsed,
         model: modelUsed,
       },
-    };
-
-    console.log(`[agents-run] Success: ${manifest.id} (${modelUsed}) in ${resBody.usage.latency_ms}ms`);
-    return res.status(200).json(resBody);
+    });
   } catch (error) {
     const rawMessage = (error as Error)?.message ?? 'UNKNOWN_ERROR';
     const errorCode = rawMessage.split(':')[0] || 'UNKNOWN_ERROR';
@@ -272,8 +269,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (errorCode === 'AGENT_EXECUTION_FAILED') {
       const isConfigError = rawMessage.includes('not configured') || rawMessage.includes('AI_NO_PROVIDERS');
       clientError = isConfigError
-        ? 'Serviço de IA não configurado no servidor. Contate o suporte.'
-        : 'Problema temporário com o provedor de IA. Tente novamente em instantes.';
+        ? 'Servi├ºo de IA n├úo configurado no servidor. Contate o suporte.'
+        : 'Problema tempor├írio com o provedor de IA. Tente novamente em instantes.';
       console.error('[agents-run] AGENT_EXECUTION_FAILED:', rawMessage);
     }
 

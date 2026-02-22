@@ -1,30 +1,19 @@
-/**
- * AI Provider registry with lazy loading.
- *
- * Uses dynamic imports to avoid loading ALL provider SDKs at module load time.
- * This is required for Vercel serverless compatibility: static top-level imports
- * of heavy SDKs (openai, @anthropic-ai/sdk) might cause FUNCTION_INVOCATION_FAILED.
- */
-import type { AIProvider, AIProviderName, AIRequest, AIResponse } from '../types';
+﻿import type { AIProvider, AIProviderName, AIRequest, AIResponse } from '../types';
 import { getAvailableProviders } from '../../env';
+import { AnthropicProvider } from './anthropic';
+import { GeminiProvider } from './gemini';
+import { OpenAIProvider } from './openai';
 
 const providerCache = new Map<AIProviderName, AIProvider>();
 
-export async function getProvider(providerName: AIProviderName): Promise<AIProvider> {
+export function getProvider(providerName: AIProviderName): AIProvider {
   const cached = providerCache.get(providerName);
   if (cached) return cached;
 
   let provider: AIProvider;
-  if (providerName === 'gemini') {
-    const mod = await import('./gemini');
-    provider = new mod.GeminiProvider();
-  } else if (providerName === 'openai') {
-    const mod = await import('./openai');
-    provider = new mod.OpenAIProvider();
-  } else {
-    const mod = await import('./anthropic');
-    provider = new mod.AnthropicProvider();
-  }
+  if (providerName === 'gemini') provider = new GeminiProvider();
+  else if (providerName === 'openai') provider = new OpenAIProvider();
+  else provider = new AnthropicProvider();
 
   providerCache.set(providerName, provider);
   return provider;
@@ -34,7 +23,7 @@ export async function getProvider(providerName: AIProviderName): Promise<AIProvi
  * Default fallback model per provider (used by standalone endpoints).
  */
 const DEFAULT_MODELS: Record<AIProviderName, string> = {
-  gemini: 'gemini-2.0-flash',
+  gemini: 'gemini-2.5-flash',
   openai: 'gpt-4o-mini',
   anthropic: 'claude-3-5-haiku-latest',
 };
@@ -70,7 +59,7 @@ export async function completeWithFallback(options: FallbackCompleteOptions): Pr
   let lastError: unknown;
   for (const providerName of ordered) {
     try {
-      const provider = await getProvider(providerName);
+      const provider = getProvider(providerName);
       const model = providerName === ordered[0] && options.model
         ? options.model
         : DEFAULT_MODELS[providerName];
