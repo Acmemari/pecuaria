@@ -5,7 +5,7 @@ const FEEDBACK_CONTEXTS = ['desempenho', 'comportamento', 'pessoal'] as const;
 const FEEDBACK_TYPES = ['positivo', 'construtivo'] as const;
 const FEEDBACK_TONES = ['formal', 'direto', 'motivador', 'tecnico', 'informal'] as const;
 const FEEDBACK_FORMATS = ['escrito', 'falado'] as const;
-const FEEDBACK_STRUCTURES = ['sbi', 'sanduiche', 'feedforward', 'marca', 'auto'] as const;
+const FEEDBACK_STRUCTURES = ['sanduiche', 'feedforward', 'marca', 'auto'] as const;
 const FEEDBACK_LENGTHS = ['curto', 'medio', 'longo'] as const;
 
 export const feedbackInputSchema = z.object({
@@ -26,7 +26,7 @@ export const feedbackInputSchema = z.object({
 
 export const feedbackOutputSchema = z.object({
   feedback: z.string().min(10),
-  structure: z.enum(['SBI', 'Sanduíche', 'Feedforward', 'MARCA']),
+  structure: z.enum(['Sanduíche', 'Feedforward', 'MARCA']),
   tips: z.array(z.string()).max(6),
 });
 

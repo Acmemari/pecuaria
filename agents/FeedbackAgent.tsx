@@ -22,7 +22,7 @@ const INITIAL_FORM: FeedbackInput = {
   damages: '',
   tone: 'motivador',
   format: 'escrito',
-  model: 'auto',
+  model: 'marca',
   existingText: '',
   lengthPreference: 'medio',
 };
@@ -37,7 +37,7 @@ const MOCK_SCENARIOS: Partial<FeedbackInput>[] = [
     eventMoment: 'Relatório Semanal de Pesagem',
     damages: 'Atraso na tomada de decisão sobre suplementação do lote 12.',
     tone: 'direto',
-    model: 'sbi',
+    model: 'marca',
   },
   {
     context: 'comportamento',
@@ -70,7 +70,7 @@ const MOCK_SCENARIOS: Partial<FeedbackInput>[] = [
     eventMoment: 'Reforma da Cerca da Invernada Norte',
     damages: 'Gasto excessivo de horas extras e atraso em outras manutenções.',
     tone: 'tecnico',
-    model: 'sbi',
+    model: 'marca',
   },
 ];
 
@@ -471,8 +471,8 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               <button
                 type="button"
                 className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-all ${genDamagesLoading
-                    ? 'text-ai-subtext cursor-not-allowed'
-                    : 'text-ai-accent hover:bg-ai-accent/10 active:scale-95'
+                  ? 'text-ai-subtext cursor-not-allowed'
+                  : 'text-ai-accent hover:bg-ai-accent/10 active:scale-95'
                   }`}
                 onClick={handleGenerateDamages}
                 disabled={genDamagesLoading}
@@ -538,15 +538,13 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               value={form.model}
               onChange={(e) => setForm((p) => ({ ...p, model: e.target.value as FeedbackInput['model'] }))}
             >
-              <option value="auto">Automático</option>
               <option value="marca">Método MARCA</option>
-              <option value="sbi">SBI</option>
+              <option value="auto">Automático</option>
               <option value="sanduiche">Sanduíche (Não Recomendado)</option>
               <option value="feedforward">Feedforward</option>
             </select>
             <div id="structure-info" className="hidden mt-2 p-3 bg-ai-surface-hover rounded border border-ai-border text-xs text-ai-subtext space-y-2">
               <p><strong>MARCA:</strong> (Momento, Ação, Resultado, Caminho, Acordo). Excelente para gerar responsabilidade e aprendizado sem julgamento pessoal.</p>
-              <p><strong>SBI (Situação-Comportamento-Impacto):</strong> Focado em fatos reais ocorridos no passado. Ideal para correções e realinhamentos concretos.</p>
               <p><strong>Feedforward:</strong> Focado no futuro. Concentra-se em soluções e ações de melhoria comportamental ou técnica, ignorando o passado.</p>
               <p><strong>Sanduíche:</strong> Elogio - Crítica - Elogio. Antigo e obsoleto para o RH moderno, pois dilui a eficácia da crítica e confunde o receptor. Não recomendado.</p>
               <p><strong>Automático:</strong> O consultor escolherá a abordagem mais inteligente baseada no seu contexto.</p>
