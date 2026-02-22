@@ -2,7 +2,7 @@ import type { AIProvider } from '../../ai/types.js';
 import { safeJsonParseWithRepair } from '../../ai/json-repair.js';
 import { feedbackOutputSchema, type FeedbackInput, type FeedbackOutput } from './manifest.js';
 
-const SYSTEM_PROMPT = [
+const BASE_SYSTEM_PROMPT = [
   'Você é um especialista em comunicação interpessoal, desenvolvimento profissional e gestão de desempenho.',
   'Sua função é ajudar o usuário a criar feedbacks claros, objetivos, respeitosos e construtivos.',
   '',
@@ -17,14 +17,17 @@ const SYSTEM_PROMPT = [
   '- MÉTODO MARCA: M-Momento (contexto sem acusações), A-Ação (comportamentos práticos), R-Resultado (consequências dos atos), C-Caminho (orientação futura e solução), A-Acordo (verificar entendimento). O texto deve ser corrido sem mencionar explicitamente a sigla ou as letras do método.',
   '- Se o usuário fornecer texto existente, reescreva mantendo a intenção e elevando qualidade.',
   '- Entregue saída APENAS em JSON válido.',
-  '',
-  'Formato JSON obrigatório:',
-  '{',
-  '  "feedback": "texto final completo",',
-  '  "structure": "Sanduíche|Feedforward|MARCA",',
-  '  "tips": ["dica 1", "dica 2"]',
-  '}',
 ].join('\n');
+
+const JSON_FORMAT_INSTRUCTIONS = `
+Formato JSON obrigatório:
+{
+  "feedback": "texto final completo",
+  "structure": "Sanduíche|Feedforward|MARCA",
+  "tips": ["dica 1", "dica 2"]
+}`;
+
+const SYSTEM_PROMPT = `${BASE_SYSTEM_PROMPT}\n${JSON_FORMAT_INSTRUCTIONS}`;
 
 function labelOfModel(model: FeedbackInput['model']): string {
   if (model === 'sanduiche') return 'Sanduíche';
@@ -73,9 +76,13 @@ export async function runFeedbackAgent(args: {
   usage: { inputTokens: number; outputTokens: number; totalTokens: number };
   latencyMs: number;
 }> {
+  const finalSystemPrompt = args.systemPrompt
+    ? `${args.systemPrompt}\n\nIMPORTANTE: Você deve obrigatoriamente retornar a resposta no formato JSON abaixo:\n${JSON_FORMAT_INSTRUCTIONS}`
+    : SYSTEM_PROMPT;
+
   const response = await args.provider.complete({
     model: args.model,
-    systemPrompt: args.systemPrompt || SYSTEM_PROMPT,
+    systemPrompt: finalSystemPrompt,
     userPrompt: buildUserPrompt(args.input),
     responseFormat: 'json',
     temperature: 0.5,

@@ -2,7 +2,7 @@ import type { AIProvider } from '../../ai/types.js';
 import { safeJsonParseWithRepair } from '../../ai/json-repair.js';
 import { damagesGenOutputSchema, type DamagesGenInput, type DamagesGenOutput } from './manifest.js';
 
-const SYSTEM_PROMPT = `Você é um consultor especializado em gestão pecuária e comportamento organizacional.
+const BASE_SYSTEM_PROMPT = `Você é um consultor especializado em gestão pecuária e comportamento organizacional.
 Sua tarefa é deduzir e descrever os prejuízos (operacionais, financeiros ou de clima) decorrentes de uma situação específica.
 
 REGRAS:
@@ -11,12 +11,13 @@ REGRAS:
 - Foque em consequências reais na fazenda (ex: atraso na pesagem, perda de janela de manejo, desmotivação da equipe, retrabalho, custos extras).
 - Gere uma lista curta de 3 a 5 itens, um por linha.
 - Não use números, use apenas marcadores (como • ou -).
-- Responda apenas em formato JSON.
+- Responda apenas em formato JSON.`;
 
-FORMATO JSON:
-{
-  "damages": "• Item 1\n• Item 2\n• Item 3"
+const JSON_FORMAT_INSTRUCTIONS = `{
+  "damages": "• Item 1\\n• Item 2\\n• Item 3"
 }`;
+
+const SYSTEM_PROMPT = `${BASE_SYSTEM_PROMPT}\n\nFORMATO JSON:\n${JSON_FORMAT_INSTRUCTIONS}`;
 
 export async function runDamagesGenAgent(args: {
     input: DamagesGenInput;
@@ -34,9 +35,13 @@ Objetivo do feedback: ${args.input.objective}
 O que ocorreu: ${args.input.whatHappened}
 Contexto: ${args.input.context || 'Geral'}`;
 
+    const finalSystemPrompt = args.systemPrompt
+        ? `${args.systemPrompt}\n\nIMPORTANTE: Você deve obrigatoriamente retornar a resposta no formato JSON abaixo:\n${JSON_FORMAT_INSTRUCTIONS}`
+        : SYSTEM_PROMPT;
+
     const response = await args.provider.complete({
         model: args.model,
-        systemPrompt: args.systemPrompt || SYSTEM_PROMPT,
+        systemPrompt: finalSystemPrompt,
         userPrompt,
         responseFormat: 'json',
         temperature: 0.7,
