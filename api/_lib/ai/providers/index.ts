@@ -3,8 +3,7 @@
  *
  * Uses dynamic imports to avoid loading ALL provider SDKs at module load time.
  * This is required for Vercel serverless compatibility: static top-level imports
- * of heavy SDKs (openai, @anthropic-ai/sdk) cause FUNCTION_INVOCATION_FAILED
- * because Vercel's bundler may fail to resolve them in ESM context.
+ * of heavy SDKs (openai, @anthropic-ai/sdk) might cause FUNCTION_INVOCATION_FAILED.
  */
 import type { AIProvider, AIProviderName, AIRequest, AIResponse } from '../types';
 import { getAvailableProviders } from '../../env';
@@ -17,43 +16,14 @@ export async function getProvider(providerName: AIProviderName): Promise<AIProvi
 
   let provider: AIProvider;
   if (providerName === 'gemini') {
-    const { GeminiProvider } = await import('./gemini');
-    provider = new GeminiProvider();
+    const mod = await import('./gemini');
+    provider = new mod.GeminiProvider();
   } else if (providerName === 'openai') {
-    const { OpenAIProvider } = await import('./openai');
-    provider = new OpenAIProvider();
+    const mod = await import('./openai');
+    provider = new mod.OpenAIProvider();
   } else {
-    const { AnthropicProvider } = await import('./anthropic');
-    provider = new AnthropicProvider();
-  }
-
-  providerCache.set(providerName, provider);
-  return provider;
-}
-
-/**
- * Synchronous provider getter for backward compatibility with agents-run.ts.
- * Note: this still loads providers lazily - the class is instantiated lazily.
- */
-export function getProviderSync(providerName: AIProviderName): AIProvider {
-  const cached = providerCache.get(providerName);
-  if (cached) return cached;
-
-  // For sync access, we need to import synchronously - use require-style dynamic import trick
-  // This works because all provider implementations use CommonJS-compatible exports
-  let provider: AIProvider;
-  if (providerName === 'gemini') {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { GeminiProvider } = require('./gemini');
-    provider = new GeminiProvider();
-  } else if (providerName === 'openai') {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { OpenAIProvider } = require('./openai');
-    provider = new OpenAIProvider();
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { AnthropicProvider } = require('./anthropic');
-    provider = new AnthropicProvider();
+    const mod = await import('./anthropic');
+    provider = new mod.AnthropicProvider();
   }
 
   providerCache.set(providerName, provider);
