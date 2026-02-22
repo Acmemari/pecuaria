@@ -125,7 +125,8 @@ const AIAgentConfigAdmin: React.FC = () => {
             showToast('Instruções salvas com sucesso!', 'success');
         } catch (error: any) {
             console.error('Error saving config:', error);
-            showToast('Erro ao salvar instruções', 'error');
+            const isPermissionError = error.message?.toLowerCase().includes('permission') || error.message?.toLowerCase().includes('security');
+            showToast(isPermissionError ? 'Acesso negado. Rode a migração SQL no Supabase.' : 'Erro ao salvar instruções', 'error');
         } finally {
             setIsSaving(false);
         }
@@ -187,8 +188,8 @@ const AIAgentConfigAdmin: React.FC = () => {
                                     key={agent.id}
                                     onClick={() => handleSelectAgent(agent)}
                                     className={`w-full text-left p-4 rounded-2xl border transition-all flex items-center gap-3 group ${selectedAgentId === agent.id
-                                            ? 'bg-white border-ai-accent shadow-md'
-                                            : 'bg-white/50 border-ai-border hover:bg-white hover:border-ai-accent/30'
+                                        ? 'bg-white border-ai-accent shadow-md'
+                                        : 'bg-white/50 border-ai-border hover:bg-white hover:border-ai-accent/30'
                                         }`}
                                 >
                                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${selectedAgentId === agent.id ? 'bg-ai-accent text-white' : 'bg-ai-surface text-ai-subtext group-hover:bg-ai-accent/10 group-hover:text-ai-accent'
@@ -269,8 +270,8 @@ const AIAgentConfigAdmin: React.FC = () => {
             {toast && (
                 <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
                     <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl ${toast.type === 'success'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-rose-600 text-white'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-rose-600 text-white'
                         }`}>
                         {toast.type === 'success' ? (
                             <CheckCircle size={20} />

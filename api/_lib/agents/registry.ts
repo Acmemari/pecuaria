@@ -10,6 +10,11 @@ const manifestMap = new Map<string, AgentManifest>([
   [`${damagesGenManifest.id}@${damagesGenManifest.version}`, damagesGenManifest],
 ]);
 
+// A short-lived cache (TTL) for dynamic config to reduce DB load on concurrent executions.
+// 15 seconds is usually long enough to batch concurrent requests while feeling instant for admins.
+const CACHE_TTL_MS = 15_000;
+const dynamicConfigCache = new Map<string, { prompt: string; expiresAt: number }>();
+
 export async function getAgentManifest(
   agentId: string,
   version?: string,
@@ -30,6 +35,13 @@ export async function getAgentManifest(
 
   // If we have a DB client, try to enrich with dynamic system_prompt
   if (manifest && db) {
+    const cacheKey = `${manifest.id}@${manifest.version}`;
+    const cached = dynamicConfigCache.get(cacheKey);
+
+    if (cached && cached.expiresAt > Date.now()) {
+      return { ...manifest, systemPrompt: cached.prompt };
+    }
+
     try {
       const { data, error } = await db
         .from('agent_registry')
@@ -39,6 +51,10 @@ export async function getAgentManifest(
         .single();
 
       if (!error && data?.system_prompt) {
+        dynamicConfigCache.set(cacheKey, {
+          prompt: data.system_prompt,
+          expiresAt: Date.now() + CACHE_TTL_MS,
+        });
         return {
           ...manifest,
           systemPrompt: data.system_prompt
