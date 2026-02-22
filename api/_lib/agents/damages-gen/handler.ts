@@ -9,12 +9,13 @@ REGRAS:
 - Seja direto e profissional.
 - Use o tom pragmático do Método Antonio Chaker.
 - Foque em consequências reais na fazenda (ex: atraso na pesagem, perda de janela de manejo, desmotivação da equipe, retrabalho, custos extras).
-- Gere um parágrafo curto de 2 a 3 linhas.
+- Gere uma lista curta de 3 a 5 itens, um por linha.
+- Não use números, use apenas marcadores (como • ou -).
 - Responda apenas em formato JSON.
 
 FORMATO JSON:
 {
-  "damages": "descrição dos prejuízos aqui"
+  "damages": "• Item 1\n• Item 2\n• Item 3"
 }`;
 
 export async function runDamagesGenAgent(args: {
