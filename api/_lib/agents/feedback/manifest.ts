@@ -41,11 +41,11 @@ export const feedbackManifest: AgentManifest = {
   inputSchema: feedbackInputSchema,
   outputSchema: feedbackOutputSchema,
   modelPolicy: {
-    provider: 'gemini',
-    model: 'gemini-2.0-flash',
+    provider: 'anthropic',
+    model: 'claude-3-5-haiku-latest',
     fallback: [
+      { provider: 'gemini', model: 'gemini-2.0-flash' },
       { provider: 'openai', model: 'gpt-4o-mini' },
-      { provider: 'anthropic', model: 'claude-3-5-haiku-latest' },
     ],
   },
   estimatedTokensPerCall: 1500,
