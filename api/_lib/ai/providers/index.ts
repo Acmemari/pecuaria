@@ -1,20 +1,21 @@
 ﻿import type { AIProvider, AIProviderName, AIRequest, AIResponse } from '../types';
 import { getAvailableProviders } from '../../env';
+import { GeminiProvider } from './gemini';
+import { OpenAIProvider } from './openai';
+import { AnthropicProvider } from './anthropic';
+
 const providerCache = new Map<AIProviderName, AIProvider>();
 
-export async function getProvider(providerName: AIProviderName): Promise<AIProvider> {
+export function getProvider(providerName: AIProviderName): AIProvider {
   const cached = providerCache.get(providerName);
   if (cached) return cached;
 
   let provider: AIProvider;
   if (providerName === 'gemini') {
-    const { GeminiProvider } = await import('./gemini');
     provider = new GeminiProvider();
   } else if (providerName === 'openai') {
-    const { OpenAIProvider } = await import('./openai');
     provider = new OpenAIProvider();
   } else {
-    const { AnthropicProvider } = await import('./anthropic');
     provider = new AnthropicProvider();
   }
 
@@ -28,7 +29,7 @@ export async function getProvider(providerName: AIProviderName): Promise<AIProvi
 const DEFAULT_MODELS: Record<AIProviderName, string> = {
   gemini: 'gemini-2.5-flash',
   openai: 'gpt-4o-mini',
-  anthropic: 'claude-3-5-haiku-latest',
+  anthropic: 'claude-3-haiku-20240307',
 };
 
 export interface FallbackCompleteOptions {
@@ -62,7 +63,7 @@ export async function completeWithFallback(options: FallbackCompleteOptions): Pr
   let lastError: unknown;
   for (const providerName of ordered) {
     try {
-      const provider = await getProvider(providerName);
+      const provider = getProvider(providerName);
       const model = providerName === ordered[0] && options.model
         ? options.model
         : DEFAULT_MODELS[providerName];
@@ -70,10 +71,7 @@ export async function completeWithFallback(options: FallbackCompleteOptions): Pr
       const response = await provider.complete({ ...options.request, model });
       return response;
     } catch (err) {
-      console.error(
-        `[completeWithFallback] ${providerName} failed:`,
-        (err as Error).message,
-      );
+      console.error(`[completeWithFallback] ${providerName} failed:`, err);
       lastError = err;
     }
   }

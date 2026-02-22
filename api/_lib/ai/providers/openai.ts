@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import type { AIProvider, AIRequest, AIResponse } from '../types';
 import { getProviderKey } from '../../env';
 
@@ -18,35 +17,28 @@ function isRetryableError(err: unknown): boolean {
 
 export class OpenAIProvider implements AIProvider {
   readonly name = 'openai' as const;
-  private client: OpenAI | null = null;
-
-  private getClient(): OpenAI {
-    if (this.client) return this.client;
-    const key = getProviderKey('openai');
-    if (!key) {
-      throw new Error('OPENAI_API_KEY is not configured.');
-    }
-    this.client = new OpenAI({ apiKey: key });
-    return this.client;
-  }
 
   async complete(request: AIRequest): Promise<AIResponse> {
-    const client = this.getClient();
     const startedAt = Date.now();
     const timeoutMs = request.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    const messages: { role: 'system' | 'user'; content: string }[] = [];
+    const apiKey = getProviderKey('openai');
 
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY is not configured.');
+    }
+
+    const messages: { role: 'system' | 'user'; content: string }[] = [];
     if (request.systemPrompt?.trim()) {
       messages.push({ role: 'system', content: request.systemPrompt });
     }
     messages.push({ role: 'user', content: request.userPrompt });
 
-    const createParams = {
+    const payload = {
       model: request.model,
       messages,
       max_tokens: request.maxTokens ?? 4096,
       temperature: request.temperature ?? 0.7,
-      ...(request.responseFormat === 'json' && { response_format: { type: 'json_object' as const } }),
+      ...(request.responseFormat === 'json' && { response_format: { type: 'json_object' } }),
     };
 
     let lastError: unknown;
@@ -55,16 +47,31 @@ export class OpenAIProvider implements AIProvider {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-        const completion = await client.chat.completions.create(createParams, {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
           signal: controller.signal,
         });
 
         clearTimeout(timer);
 
-        const content = completion.choices?.[0]?.message?.content ?? '';
+        if (!response.ok) {
+          const body = await response.text();
+          const err = new Error(`OpenAI API error: ${response.status} - ${body}`) as any;
+          err.status = response.status;
+          throw err;
+        }
+
+        const data: any = await response.json();
+        const content = data.choices?.[0]?.message?.content ?? '';
+
         if (!content) throw new Error('OpenAI returned an empty response.');
 
-        const usage = completion.usage;
+        const usage = data.usage;
         const inputTokens = usage?.prompt_tokens ?? 0;
         const outputTokens = usage?.completion_tokens ?? 0;
         const totalTokens = usage?.total_tokens ?? inputTokens + outputTokens;

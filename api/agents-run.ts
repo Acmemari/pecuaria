@@ -12,6 +12,9 @@ import { commitUsage, releaseReservation, reserveTokens } from './_lib/ai/usage'
 import { logAgentRun } from './_lib/ai/logging';
 import type { AIProviderName, PlanId } from './_lib/ai/types';
 
+export const maxDuration = 60; // Allow long-running LLM calls on Vercel
+
+
 type AgentHandler = (args: {
   input: unknown;
   provider: AIProvider;
@@ -176,7 +179,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     for (const route of routes) {
       try {
-        const provider = await getProvider(route.provider);
+        const provider = getProvider(route.provider);
         providerUsed = route.provider;
         modelUsed = route.model;
 

@@ -50,7 +50,7 @@ export function getServerEnv(): ServerEnv {
 
   const gemini = trimOrNull(process.env.GEMINI_API_KEY);
   const openai = trimOrNull(process.env.OPENAI_API_KEY);
-  const anthropic = trimOrNull(process.env.ANTHROPIC_API_KEY);
+  const anthropic = trimOrNull(process.env.ANTHROPIC_API_KEY) ?? trimOrNull(process.env.CLOUD_API_KEY);
 
   if (!gemini && !openai && !anthropic) {
     console.warn(
@@ -79,7 +79,7 @@ export function getServerEnv(): ServerEnv {
 export function getAvailableProviders(): AIProviderName[] {
   const gemini = trimOrNull(process.env.GEMINI_API_KEY);
   const openai = trimOrNull(process.env.OPENAI_API_KEY);
-  const anthropic = trimOrNull(process.env.ANTHROPIC_API_KEY);
+  const anthropic = trimOrNull(process.env.ANTHROPIC_API_KEY) ?? trimOrNull(process.env.CLOUD_API_KEY);
   const providers: AIProviderName[] = [];
   if (gemini) providers.push('gemini');
   if (openai) providers.push('openai');
@@ -95,7 +95,7 @@ export function getProviderKey(provider: AIProviderName): string | null {
   switch (provider) {
     case 'gemini': return trimOrNull(process.env.GEMINI_API_KEY);
     case 'openai': return trimOrNull(process.env.OPENAI_API_KEY);
-    case 'anthropic': return trimOrNull(process.env.ANTHROPIC_API_KEY);
+    case 'anthropic': return trimOrNull(process.env.ANTHROPIC_API_KEY) ?? trimOrNull(process.env.CLOUD_API_KEY);
   }
 }
 

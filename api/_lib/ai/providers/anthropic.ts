@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import type { AIProvider, AIRequest, AIResponse } from '../types';
 import { getProviderKey } from '../../env';
 
@@ -18,29 +17,22 @@ function isRetryableError(err: unknown): boolean {
 
 export class AnthropicProvider implements AIProvider {
   readonly name = 'anthropic' as const;
-  private client: Anthropic | null = null;
-
-  private getClient(): Anthropic {
-    if (this.client) return this.client;
-    const key = getProviderKey('anthropic');
-    if (!key) {
-      throw new Error('ANTHROPIC_API_KEY is not configured.');
-    }
-    this.client = new Anthropic({ apiKey: key });
-    return this.client;
-  }
 
   async complete(request: AIRequest): Promise<AIResponse> {
-    const client = this.getClient();
     const startedAt = Date.now();
     const timeoutMs = request.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const apiKey = getProviderKey('anthropic');
 
-    const createParams = {
+    if (!apiKey) {
+      throw new Error('ANTHROPIC_API_KEY / CLOUD_API_KEY is not configured.');
+    }
+
+    const payload = {
       model: request.model,
       max_tokens: request.maxTokens ?? 4096,
       temperature: request.temperature ?? 0.7,
       system: request.systemPrompt?.trim() || undefined,
-      messages: [{ role: 'user' as const, content: request.userPrompt }],
+      messages: [{ role: 'user', content: request.userPrompt }],
     };
 
     let lastError: unknown;
@@ -49,21 +41,40 @@ export class AnthropicProvider implements AIProvider {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-        const message = await client.messages.create(createParams, {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(payload),
           signal: controller.signal,
         });
 
         clearTimeout(timer);
 
+        if (!response.ok) {
+          const body = await response.text();
+          const err = new Error(`Anthropic API error: ${response.status} - ${body}`) as any;
+          err.status = response.status;
+          throw err;
+        }
+
+        const data: any = await response.json();
+
         let content = '';
-        for (const block of message.content) {
-          if (block && typeof block === 'object' && 'type' in block && block.type === 'text' && 'text' in block) {
-            content += (block as { text: string }).text;
+        if (data.content && Array.isArray(data.content)) {
+          for (const block of data.content) {
+            if (block.type === 'text') {
+              content += block.text;
+            }
           }
         }
+
         if (!content) throw new Error('Anthropic returned an empty response.');
 
-        const usage = message.usage;
+        const usage = data.usage;
         const inputTokens = usage?.input_tokens ?? 0;
         const outputTokens = usage?.output_tokens ?? 0;
         const totalTokens = inputTokens + outputTokens;

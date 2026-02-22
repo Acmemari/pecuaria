@@ -1,7 +1,7 @@
 {
   "name": "pecuaria",
   "private": true,
-  "version": "1.4.5",
+  "version": "1.4.6",
   "type": "module",
   "engines": {
     "node": ">=20 <25"
@@ -25,7 +25,6 @@
     "db:push": "npx supabase db push"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
     "@dagrejs/graphlib": "^3.0.4",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
@@ -47,7 +46,6 @@
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.555.0",
-    "openai": "^6.22.0",
     "react": "^19.2.0",
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.0",
