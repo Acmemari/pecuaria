@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { FileCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
@@ -45,8 +45,8 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   const [internalSelectedFarm, setInternalSelectedFarm] = useState<Farm | null>(null);
 
   // Use external farm if provided, then context farm, otherwise use internal state
-  const selectedFarm = externalSelectedFarm !== undefined 
-    ? externalSelectedFarm 
+  const selectedFarm = externalSelectedFarm !== undefined
+    ? externalSelectedFarm
     : contextSelectedFarm || internalSelectedFarm;
   const isControlled = externalSelectedFarm !== undefined || contextSelectedFarm !== null;
 
@@ -66,6 +66,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingQuestionnaireId, setEditingQuestionnaireId] = useState<string | null>(null);
+  const autoAdvanceTimeout = useRef<NodeJS.Timeout>();
 
   // Load farms on mount
   useEffect(() => {
@@ -202,6 +203,9 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   const handleBackToFarms = useCallback(() => {
     if (!isControlled) {
       setInternalSelectedFarm(null);
+    }
+    if (autoAdvanceTimeout.current) {
+      clearTimeout(autoAdvanceTimeout.current);
     }
     setShowQuestionnaire(false);
     setAnswers({});
@@ -381,7 +385,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   if (selectedFarm && viewResultsQuestionnaire) {
     const isNewQuestionnaire = !viewResultsQuestionnaire.id;
     const isEditing = !!editingQuestionnaireId;
-    
+
     return (
       <div className="h-full flex flex-col overflow-hidden">
         <QuestionnaireResultsDashboard
@@ -407,12 +411,18 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
         isSubmitting={isSubmitting}
         onAnswer={(qId, ans) => {
           handleAnswerChange(qId, ans);
-          // Auto advance
-          setTimeout(() => {
-            if (currentQuestionIndex < filteredQuestions.length - 1) {
-              setCurrentQuestionIndex(prev => prev + 1);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
+          // Auto advance safely
+          if (autoAdvanceTimeout.current) {
+            clearTimeout(autoAdvanceTimeout.current);
+          }
+          autoAdvanceTimeout.current = setTimeout(() => {
+            setCurrentQuestionIndex(prev => {
+              if (prev < filteredQuestions.length - 1) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                return prev + 1;
+              }
+              return prev;
+            });
           }, 300);
         }}
         onNext={() => {

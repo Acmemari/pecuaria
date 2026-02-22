@@ -97,7 +97,7 @@ export const QuestionnaireForm: React.FC<QuestionnaireFormProps> = ({
                             />
                         </div>
                         <div className="text-right text-xs text-ai-subtext mt-1">
-                            {Math.round(progress)}% concluído
+                            {Math.floor(progress)}% concluído
                         </div>
                     </div>
                 </div>
@@ -140,8 +140,8 @@ export const QuestionnaireForm: React.FC<QuestionnaireFormProps> = ({
                             onClick={onPrevious}
                             disabled={isFirstQuestion}
                             className={`px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${isFirstQuestion
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                         >
                             <ArrowLeft size={18} />
@@ -153,8 +153,8 @@ export const QuestionnaireForm: React.FC<QuestionnaireFormProps> = ({
                                 onClick={onSubmit}
                                 disabled={!answers[currentQuestion.id] || isSubmitting}
                                 className={`px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${answers[currentQuestion.id] && !isSubmitting
-                                        ? 'bg-ai-accent text-white hover:bg-ai-accentHover'
-                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                    ? 'bg-ai-accent text-white hover:bg-ai-accentHover'
+                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                     }`}
                             >
                                 {isSubmitting ? (
@@ -174,8 +174,8 @@ export const QuestionnaireForm: React.FC<QuestionnaireFormProps> = ({
                                 onClick={onNext}
                                 disabled={!answers[currentQuestion.id]}
                                 className={`px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${answers[currentQuestion.id]
-                                        ? 'bg-ai-accent text-white hover:bg-ai-accentHover'
-                                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                    ? 'bg-ai-accent text-white hover:bg-ai-accentHover'
+                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                     }`}
                             >
                                 Próxima
