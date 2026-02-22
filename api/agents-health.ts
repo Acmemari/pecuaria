@@ -1,6 +1,6 @@
 /**
  * Health check endpoint for the agents pipeline.
- * GET /api/agents/health
+ * GET /api/agents-health
  *
  * Verifies env vars, AI providers, DB tables, and webhook.
  * Does not require authentication.

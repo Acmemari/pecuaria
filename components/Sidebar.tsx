@@ -41,13 +41,15 @@ interface SidebarProps {
   onSettingsClick?: () => void;
 }
 
+const PROJETO_ID = 'projeto';
 const INICIATIVAS_OVERVIEW_ID = 'iniciativas-overview';
 const INICIATIVAS_ATIVIDADES_ID = 'iniciativas-atividades';
 const INICIATIVAS_KANBAN_ID = 'iniciativas-kanban';
 const PROJECT_STRUCTURE_ID = 'project-structure';
 const CALENDAR_ID = 'calendar';
 const RH_FEEDBACK_ID = 'rh-feedback-list';
-const isIniciativasView = (id: string) =>
+const isGerenciamentoView = (id: string) =>
+  id === PROJETO_ID ||
   id === INICIATIVAS_OVERVIEW_ID ||
   id === INICIATIVAS_ATIVIDADES_ID ||
   id === INICIATIVAS_KANBAN_ID ||
@@ -57,13 +59,13 @@ const isIniciativasView = (id: string) =>
 
 const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent, isOpen, toggleSidebar, user, onLogout, onSettingsClick }) => {
   const { country, setCountry } = useLocation();
-  const [isIniciativasOpen, setIsIniciativasOpen] = useState(() => isIniciativasView(activeAgentId));
+  const [isIniciativasOpen, setIsIniciativasOpen] = useState(() => isGerenciamentoView(activeAgentId));
   const [isRhOpen, setIsRhOpen] = useState(() => activeAgentId === RH_FEEDBACK_ID);
   const canAccessRh = user?.role === 'admin' || user?.role === 'client' || user?.qualification === 'analista';
 
-  // Manter submenu Iniciativas aberto quando um filho estiver ativo
+  // Manter submenu Gerenciamento aberto quando um filho estiver ativo
   useEffect(() => {
-    if (isIniciativasView(activeAgentId)) setIsIniciativasOpen(true);
+    if (isGerenciamentoView(activeAgentId)) setIsIniciativasOpen(true);
   }, [activeAgentId]);
 
   useEffect(() => {
@@ -168,12 +170,12 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                 </div>
               );
             })}
-            {/* Gerenciamento (menu retrátil: Visão Geral + Atividades) */}
+            {/* Gerenciamento (menu retrátil: Projeto + Calendário) */}
             <div className="space-y-0.5 mb-1">
               <button
                 type="button"
                 onClick={() => setIsIniciativasOpen(!isIniciativasOpen)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group ${isIniciativasView(activeAgentId)
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group ${isGerenciamentoView(activeAgentId)
                   ? 'bg-ai-accent/5 text-ai-accent'
                   : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                   }`}
@@ -192,47 +194,18 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                 <div className="ml-4 space-y-0.5 border-l border-ai-border pl-2 overflow-hidden transition-all duration-200">
                   <button
                     type="button"
-                    onClick={() => onSelectAgent(INICIATIVAS_OVERVIEW_ID)}
-                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === INICIATIVAS_OVERVIEW_ID
+                    onClick={() => onSelectAgent(PROJETO_ID)}
+                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === PROJETO_ID ||
+                      activeAgentId === INICIATIVAS_OVERVIEW_ID ||
+                      activeAgentId === INICIATIVAS_ATIVIDADES_ID ||
+                      activeAgentId === INICIATIVAS_KANBAN_ID ||
+                      activeAgentId === PROJECT_STRUCTURE_ID
                       ? 'bg-ai-accent/10 text-ai-accent'
                       : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                       }`}
                   >
                     <LayoutDashboard size={14} className="flex-shrink-0 mr-2" />
-                    <span className="truncate">Visão Geral</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectAgent(INICIATIVAS_ATIVIDADES_ID)}
-                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === INICIATIVAS_ATIVIDADES_ID
-                      ? 'bg-ai-accent/10 text-ai-accent'
-                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                      }`}
-                  >
-                    <ListTodo size={14} className="flex-shrink-0 mr-2" />
-                    <span className="truncate">Atividades</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectAgent(INICIATIVAS_KANBAN_ID)}
-                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === INICIATIVAS_KANBAN_ID
-                      ? 'bg-ai-accent/10 text-ai-accent'
-                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                      }`}
-                  >
-                    <ListTodo size={14} className="flex-shrink-0 mr-2" />
-                    <span className="truncate">Kanban</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onSelectAgent(PROJECT_STRUCTURE_ID)}
-                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === PROJECT_STRUCTURE_ID
-                      ? 'bg-ai-accent/10 text-ai-accent'
-                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                      }`}
-                  >
-                    <FolderOpen size={14} className="flex-shrink-0 mr-2" />
-                    <span className="truncate">Estrutura do Projeto</span>
+                    <span className="truncate">Projeto</span>
                   </button>
                   <button
                     type="button"

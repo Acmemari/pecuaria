@@ -332,6 +332,7 @@ export async function sendTicketMessage(ticketId: string, payload: SendTicketMes
       author_id: authorId,
       author_type: payload.authorType || 'user',
       message: text || '[imagem]',
+      reply_to_id: payload.replyToId || null,
     })
     .select('*')
     .single();

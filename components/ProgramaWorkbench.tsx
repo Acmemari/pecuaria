@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Loader2, RefreshCw, X, FolderOpen, Package, Layers, CheckSquare,
-  Info, Calendar, Target, CheckCircle2, Users, Trash2, Save, Plus,
+  Loader2, RefreshCw, FolderOpen, Package, Layers, CheckSquare,
 } from 'lucide-react';
 import {
   createProject,
@@ -9,7 +8,6 @@ import {
   fetchProjects,
   type ProjectPayload,
   type ProjectRow,
-  type ProjectStakeholderRow,
   updateProject,
 } from '../lib/projects';
 import {
@@ -28,7 +26,22 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { sanitizeText } from '../lib/inputSanitizer';
 import { supabase } from '../lib/supabase';
 import HierarchyColumn, { type HierarchyColumnItem } from './HierarchyColumn';
-import DateInputBR from './DateInputBR';
+import {
+  ProgramModal,
+  DeliveryModal,
+  ActivityModal,
+  TaskModal,
+  INITIAL_PROGRAM_FORM,
+  INITIAL_DELIVERY_FORM,
+  INITIAL_ACTIVITY_FORM,
+  INITIAL_TASK_FORM,
+  getCurrentIsoDate,
+  type KanbanStatus,
+  type ProgramFormState,
+  type DeliveryFormState,
+  type ActivityFormState,
+  type TaskFormState,
+} from './eap';
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -37,45 +50,6 @@ interface ProgramaWorkbenchProps {
   selectedClientId?: string | null;
   selectedFarmId?: string | null;
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
-}
-
-interface ProgramFormState {
-  name: string;
-  description: string;
-  start_date: string;
-  end_date: string;
-  transformations_achievements: string;
-  success_evidence: string[];
-  stakeholder_matrix: ProjectStakeholderRow[];
-}
-
-interface DeliveryFormState {
-  name: string;
-  description: string;
-  transformations_achievements: string;
-  start_date: string;
-  end_date: string;
-}
-
-interface ActivityFormState {
-  name: string;
-  description: string;
-  start_date: string;
-  end_date: string;
-  status: string;
-  leader_id: string;
-}
-
-type KanbanStatus = 'A Fazer' | 'Andamento' | 'Pausado' | 'Concluído';
-
-interface TaskFormState {
-  title: string;
-  description: string;
-  responsible_person_id: string;
-  activity_date: string;
-  duration_days: string;
-  kanban_status: KanbanStatus;
-  completed: boolean;
 }
 
 interface WorkbenchTask {
@@ -96,26 +70,6 @@ interface WorkbenchTask {
 type ModalEntity = 'program' | 'delivery' | 'activity' | 'task';
 type ModalMode = 'create' | 'edit';
 
-// ─── Constantes ─────────────────────────────────────────────────────────────
-
-const INITIAL_PROGRAM_FORM: ProgramFormState = {
-  name: '', description: '', start_date: '', end_date: '',
-  transformations_achievements: '', success_evidence: [''],
-  stakeholder_matrix: [{ name: '', activity: '' }],
-};
-
-const INITIAL_DELIVERY_FORM: DeliveryFormState = {
-  name: '', description: '', transformations_achievements: '', start_date: '', end_date: '',
-};
-
-const INITIAL_ACTIVITY_FORM: ActivityFormState = {
-  name: '', description: '', start_date: '', end_date: '', status: 'Não Iniciado', leader_id: '',
-};
-
-function currentIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function addDaysIso(iso: string, days: number): string {
   try {
     if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
@@ -128,16 +82,6 @@ function addDaysIso(iso: string, days: number): string {
   }
 }
 
-const INITIAL_TASK_FORM: TaskFormState = {
-  title: '',
-  description: '',
-  responsible_person_id: '',
-  activity_date: currentIsoDate(),
-  duration_days: '1',
-  kanban_status: 'A Fazer',
-  completed: false,
-};
-
 const DATE_FMT = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 function formatDateBR(raw: string | null): string {
@@ -148,15 +92,6 @@ function formatDateBR(raw: string | null): string {
   } catch {
     return raw;
   }
-}
-
-function removeAtIndex<T>(arr: T[], idx: number, fallback: T): T[] {
-  const next = arr.filter((_, i) => i !== idx);
-  return next.length > 0 ? next : [fallback];
-}
-
-function updateAtIndex<T>(arr: T[], idx: number, updater: (item: T) => T): T[] {
-  return arr.map((item, i) => (i === idx ? updater(item) : item));
 }
 
 function swapSortOrderLocally<T extends { id: string; sort_order: number }>(
@@ -176,68 +111,6 @@ function swapSortOrderLocally<T extends { id: string; sort_order: number }>(
     })
     .sort((a, b) => a.sort_order - b.sort_order);
 }
-
-// ─── ModalShell ─────────────────────────────────────────────────────────────
-
-const ModalShell: React.FC<{
-  title: string;
-  subtitle?: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}> = ({ title, subtitle, onClose, children }) => {
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
-  const handleBackdrop = useCallback(
-    (e: React.MouseEvent) => {
-      if (contentRef.current && !contentRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    },
-    [onClose]
-  );
-
-  return (
-    <div
-      className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4"
-      onClick={handleBackdrop}
-    >
-      <div
-        ref={contentRef}
-        className="w-full max-w-2xl rounded-xl border border-ai-border bg-ai-bg shadow-xl max-h-[88vh] flex flex-col"
-      >
-        <header className="flex items-start justify-between px-6 py-4 border-b border-ai-border shrink-0">
-          <div>
-            <h3 className="text-lg font-semibold text-ai-text">{title}</h3>
-            {subtitle && <p className="text-sm text-ai-subtext mt-0.5">{subtitle}</p>}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-1 text-ai-subtext hover:text-ai-text transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </header>
-        <div className="p-6 space-y-5 overflow-y-auto">{children}</div>
-      </div>
-    </div>
-  );
-};
-
-const SectionHeader: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
-  <div className="flex items-center gap-2 pt-1">
-    {icon}
-    <span className="text-xs font-semibold tracking-wider text-ai-subtext uppercase">{label}</span>
-  </div>
-);
 
 // ─── Workbench Principal ────────────────────────────────────────────────────
 
@@ -465,12 +338,6 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     [tasks]
   );
 
-  const computedTaskDueDate = useMemo(() => {
-    const start = taskForm.activity_date || currentIsoDate();
-    const duration = Math.max(1, Number.parseInt(taskForm.duration_days || '1', 10) || 1);
-    return addDaysIso(start, duration - 1);
-  }, [taskForm.activity_date, taskForm.duration_days]);
-
   // ── Modal helpers ─────────────────────────────────────────────────────
 
   const closeModal = useCallback(() => {
@@ -485,7 +352,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     setProgramForm(INITIAL_PROGRAM_FORM);
     setDeliveryForm(INITIAL_DELIVERY_FORM);
     setActivityForm(INITIAL_ACTIVITY_FORM);
-    setTaskForm({ ...INITIAL_TASK_FORM, activity_date: currentIsoDate() });
+    setTaskForm({ ...INITIAL_TASK_FORM, activity_date: getCurrentIsoDate() });
   }, []);
 
   const openEditProgram = useCallback((id: string) => {
@@ -537,7 +404,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   const openEditTask = useCallback((id: string) => {
     const t = tasks.find((tk) => tk.id === id);
     if (!t) return;
-    const activityDate = t.activity_date || t.due_date || currentIsoDate();
+    const activityDate = t.activity_date || t.due_date || getCurrentIsoDate();
     const durationDays = Math.max(1, t.duration_days || 1);
     setModalEntity('task');
     setModalMode('edit');
@@ -761,7 +628,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     if (!title) { toast('Título é obrigatório.', 'warning'); return; }
     if (!taskForm.responsible_person_id.trim()) { toast('Responsável é obrigatório.', 'warning'); return; }
 
-    const activityDate = taskForm.activity_date || currentIsoDate();
+    const activityDate = taskForm.activity_date || getCurrentIsoDate();
     const durationDays = Math.max(1, Number.parseInt(taskForm.duration_days || '1', 10) || 1);
     const dueDate = addDaysIso(activityDate, durationDays - 1) || null;
 
@@ -1164,344 +1031,50 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
         />
       </div>
 
-      {/* ── Program Modal ──────────────────────────────────────────────── */}
       {modalEntity === 'program' && (
-        <ModalShell
-          title={modalMode === 'create' ? 'Novo Programa' : 'Editar Programa'}
-          subtitle="Preencha os detalhes para criar uma nova atividade."
-          onClose={saving ? () => {} : closeModal}
-        >
-          {/* INFORMAÇÕES BÁSICAS */}
-          <SectionHeader icon={<Info size={14} className="text-ai-accent" />} label="Informações Básicas" />
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">
-              Nome do Programa <span className="text-red-500">*</span>
-            </label>
-            <input type="text" value={programForm.name}
-              onChange={(e) => setProgramForm((p) => ({ ...p, name: e.target.value }))}
-              placeholder="Ex: Transformação Digital 2024"
-              className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Descrição</label>
-            <textarea rows={3} value={programForm.description}
-              onChange={(e) => setProgramForm((p) => ({ ...p, description: e.target.value }))}
-              placeholder="Descreva os objetivos principais e o contexto do programa..."
-              className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50 resize-none" />
-          </div>
-
-          {/* CRONOGRAMA */}
-          <SectionHeader icon={<Calendar size={14} className="text-ai-accent" />} label="Cronograma" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Data de Início</label>
-              <DateInputBR
-                value={programForm.start_date}
-                onChange={(v) => setProgramForm((p) => ({ ...p, start_date: v }))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Data Final</label>
-              <DateInputBR
-                value={programForm.end_date}
-                onChange={(v) => setProgramForm((p) => ({ ...p, end_date: v }))}
-                min={programForm.start_date || undefined}
-              />
-            </div>
-          </div>
-
-          {/* TRANSFORMAÇÕES ESPERADAS */}
-          <SectionHeader icon={<Target size={14} className="text-ai-accent" />} label="Transformações Esperadas" />
-          <textarea rows={3} value={programForm.transformations_achievements}
-            onChange={(e) => setProgramForm((p) => ({ ...p, transformations_achievements: e.target.value }))}
-            placeholder="Quais mudanças reais este programa trará para a organização?"
-            className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50 resize-none" />
-
-          {/* EVIDÊNCIAS DE SUCESSO */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <SectionHeader icon={<CheckCircle2 size={14} className="text-ai-accent" />} label="Evidências de Sucesso" />
-              <button type="button"
-                onClick={() => setProgramForm((p) => ({ ...p, success_evidence: [...p.success_evidence, ''] }))}
-                className="inline-flex items-center gap-1 text-xs font-medium text-ai-accent hover:text-ai-accent/80 transition-colors">
-                <Plus size={12} />
-                Adicionar item
-              </button>
-            </div>
-            {programForm.success_evidence.map((item, idx) => (
-              <div key={`ev-${idx}`} className="flex items-center gap-2">
-                <input type="text" value={item}
-                  onChange={(e) => setProgramForm((p) => ({
-                    ...p, success_evidence: updateAtIndex(p.success_evidence, idx, () => e.target.value),
-                  }))}
-                  placeholder={`Evidência ${idx + 1}`}
-                  className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50" />
-                <button type="button"
-                  onClick={() => setProgramForm((p) => ({
-                    ...p, success_evidence: removeAtIndex(p.success_evidence, idx, ''),
-                  }))}
-                  className="shrink-0 p-2 text-ai-subtext hover:text-red-500 transition-colors">
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* MATRIZ DE STAKEHOLDERS */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <SectionHeader icon={<Users size={14} className="text-ai-accent" />} label="Matriz de Stakeholders" />
-              <button type="button"
-                onClick={() => setProgramForm((p) => ({ ...p, stakeholder_matrix: [...p.stakeholder_matrix, { name: '', activity: '' }] }))}
-                className="inline-flex items-center gap-1 text-xs font-medium text-ai-accent hover:text-ai-accent/80 transition-colors">
-                <Plus size={12} />
-                Adicionar linha
-              </button>
-            </div>
-            {programForm.stakeholder_matrix.map((row, idx) => (
-              <div key={`sh-${idx}`} className="flex items-center gap-2">
-                <input type="text" value={row.name}
-                  onChange={(e) => setProgramForm((p) => ({
-                    ...p, stakeholder_matrix: updateAtIndex(p.stakeholder_matrix, idx, (r: ProjectStakeholderRow) => ({ ...r, name: e.target.value })),
-                  }))}
-                  placeholder="Nome / Cargo"
-                  className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50" />
-                <input type="text" value={row.activity}
-                  onChange={(e) => setProgramForm((p) => ({
-                    ...p, stakeholder_matrix: updateAtIndex(p.stakeholder_matrix, idx, (r: ProjectStakeholderRow) => ({ ...r, activity: e.target.value })),
-                  }))}
-                  placeholder="Atividade / Responsabilidade"
-                  className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50" />
-                <button type="button"
-                  onClick={() => setProgramForm((p) => ({
-                    ...p, stakeholder_matrix: removeAtIndex(p.stakeholder_matrix, idx, { name: '', activity: '' }),
-                  }))}
-                  className="shrink-0 p-2 text-ai-subtext hover:text-red-500 transition-colors">
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Footer */}
-          <div className="flex justify-end gap-3 pt-3 border-t border-ai-border">
-            <button type="button" onClick={closeModal} disabled={saving}
-              className="rounded-lg px-4 py-2.5 text-sm font-medium text-ai-subtext hover:text-ai-text disabled:opacity-50 transition-colors">
-              Cancelar
-            </button>
-            <button type="button" onClick={saveProgram} disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-ai-accent px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-ai-accent/90 disabled:opacity-60 transition-colors">
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              {modalMode === 'create' ? 'Salvar Programa' : 'Atualizar Programa'}
-            </button>
-          </div>
-        </ModalShell>
+        <ProgramModal
+          form={programForm}
+          onChange={setProgramForm}
+          onSave={saveProgram}
+          onClose={closeModal}
+          saving={saving}
+          mode={modalMode}
+        />
       )}
 
-      {/* ── Delivery Modal ─────────────────────────────────────────────── */}
       {modalEntity === 'delivery' && (
-        <ModalShell title={modalMode === 'create' ? 'Nova Entrega' : 'Editar Entrega'} onClose={saving ? () => {} : closeModal}>
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Nome *</label>
-            <input type="text" value={deliveryForm.name}
-              onChange={(e) => setDeliveryForm((p) => ({ ...p, name: e.target.value }))}
-              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Descrição</label>
-            <textarea rows={3} value={deliveryForm.description}
-              onChange={(e) => setDeliveryForm((p) => ({ ...p, description: e.target.value }))}
-              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Data inicial</label>
-              <DateInputBR
-                value={deliveryForm.start_date}
-                onChange={(v) => setDeliveryForm((p) => ({ ...p, start_date: v }))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Data final</label>
-              <DateInputBR
-                value={deliveryForm.end_date}
-                onChange={(v) => setDeliveryForm((p) => ({ ...p, end_date: v }))}
-                min={deliveryForm.start_date || undefined}
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={closeModal} disabled={saving}
-              className="rounded-md border border-ai-border px-3 py-2 text-sm text-ai-subtext hover:text-ai-text disabled:opacity-50">
-              Cancelar
-            </button>
-            <button type="button" onClick={saveDelivery} disabled={saving}
-              className="inline-flex items-center gap-2 rounded-md bg-ai-accent px-3 py-2 text-sm text-white disabled:opacity-60">
-              {saving && <Loader2 size={14} className="animate-spin" />}
-              {modalMode === 'create' ? 'Salvar' : 'Atualizar'}
-            </button>
-          </div>
-        </ModalShell>
+        <DeliveryModal
+          form={deliveryForm}
+          onChange={setDeliveryForm}
+          onSave={saveDelivery}
+          onClose={closeModal}
+          saving={saving}
+          mode={modalMode}
+        />
       )}
 
-      {/* ── Activity (Initiative) Modal ──────────────────────────────── */}
       {modalEntity === 'activity' && (
-        <ModalShell title={modalMode === 'create' ? 'Nova Macro Atividade' : 'Editar Macro Atividade'} onClose={saving ? () => {} : closeModal}>
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Nome *</label>
-            <input type="text" value={activityForm.name}
-              onChange={(e) => setActivityForm((p) => ({ ...p, name: e.target.value }))}
-              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Descrição</label>
-            <textarea rows={3} value={activityForm.description}
-              onChange={(e) => setActivityForm((p) => ({ ...p, description: e.target.value }))}
-              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Data inicial</label>
-              <DateInputBR
-                value={activityForm.start_date}
-                onChange={(v) => setActivityForm((p) => ({ ...p, start_date: v }))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Data final</label>
-              <DateInputBR
-                value={activityForm.end_date}
-                onChange={(v) => setActivityForm((p) => ({ ...p, end_date: v }))}
-                min={activityForm.start_date || undefined}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Responsável</label>
-              <select value={activityForm.leader_id}
-                onChange={(e) => setActivityForm((p) => ({ ...p, leader_id: e.target.value }))}
-                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text">
-                <option value="">Selecione</option>
-                {people.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.preferred_name?.trim() || person.full_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Status</label>
-              <select value={activityForm.status}
-                onChange={(e) => setActivityForm((p) => ({ ...p, status: e.target.value }))}
-                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text">
-                <option value="Não Iniciado">Não Iniciado</option>
-                <option value="Em Andamento">Em Andamento</option>
-                <option value="Suspenso">Suspenso</option>
-                <option value="Concluído">Concluído</option>
-                <option value="Atrasado">Atrasado</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={closeModal} disabled={saving}
-              className="rounded-md border border-ai-border px-3 py-2 text-sm text-ai-subtext hover:text-ai-text disabled:opacity-50">
-              Cancelar
-            </button>
-            <button type="button" onClick={saveActivity} disabled={saving}
-              className="inline-flex items-center gap-2 rounded-md bg-ai-accent px-3 py-2 text-sm text-white disabled:opacity-60">
-              {saving && <Loader2 size={14} className="animate-spin" />}
-              {modalMode === 'create' ? 'Salvar' : 'Atualizar'}
-            </button>
-          </div>
-        </ModalShell>
+        <ActivityModal
+          form={activityForm}
+          onChange={setActivityForm}
+          onSave={saveActivity}
+          onClose={closeModal}
+          saving={saving}
+          mode={modalMode}
+          people={people}
+        />
       )}
 
-      {/* ── Task Modal ─────────────────────────────────────────────────── */}
       {modalEntity === 'task' && (
-        <ModalShell title={modalMode === 'create' ? 'Nova Tarefa' : 'Editar Tarefa'} onClose={saving ? () => {} : closeModal}>
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Título *</label>
-            <input type="text" value={taskForm.title}
-              onChange={(e) => setTaskForm((p) => ({ ...p, title: e.target.value }))}
-              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-ai-text mb-1">Descrição</label>
-            <textarea rows={3} value={taskForm.description}
-              onChange={(e) => setTaskForm((p) => ({ ...p, description: e.target.value }))}
-              className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none" />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Responsável *</label>
-              <select value={taskForm.responsible_person_id}
-                onChange={(e) => setTaskForm((p) => ({ ...p, responsible_person_id: e.target.value }))}
-                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text">
-                <option value="">Selecione o responsável</option>
-                {people.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.preferred_name?.trim() || person.full_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Status Kanban</label>
-              <select value={taskForm.kanban_status}
-                onChange={(e) => setTaskForm((p) => ({ ...p, kanban_status: e.target.value as KanbanStatus }))}
-                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text">
-                <option value="A Fazer">A Fazer</option>
-                <option value="Andamento">Andamento</option>
-                <option value="Pausado">Pausado</option>
-                <option value="Concluído">Concluído</option>
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Início</label>
-              <DateInputBR
-                value={taskForm.activity_date}
-                onChange={(v) => setTaskForm((p) => ({ ...p, activity_date: v }))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Duração (dias)</label>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                value={taskForm.duration_days}
-                onChange={(e) => setTaskForm((p) => ({ ...p, duration_days: e.target.value }))}
-                className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Prazo final</label>
-              <div className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text">
-                {formatDateBR(computedTaskDueDate || null)}
-              </div>
-            </div>
-          </div>
-          <label className="inline-flex items-center gap-2 text-sm text-ai-text">
-            <input type="checkbox" checked={taskForm.completed}
-              onChange={(e) => setTaskForm((p) => ({ ...p, completed: e.target.checked }))} />
-            Tarefa concluída
-          </label>
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={closeModal} disabled={saving}
-              className="rounded-md border border-ai-border px-3 py-2 text-sm text-ai-subtext hover:text-ai-text disabled:opacity-50">
-              Cancelar
-            </button>
-            <button type="button" onClick={saveTask} disabled={saving}
-              className="inline-flex items-center gap-2 rounded-md bg-ai-accent px-3 py-2 text-sm text-white disabled:opacity-60">
-              {saving && <Loader2 size={14} className="animate-spin" />}
-              {modalMode === 'create' ? 'Salvar' : 'Atualizar'}
-            </button>
-          </div>
-        </ModalShell>
+        <TaskModal
+          form={taskForm}
+          onChange={setTaskForm}
+          onSave={saveTask}
+          onClose={closeModal}
+          saving={saving}
+          mode={modalMode}
+          people={people}
+        />
       )}
     </div>
   );

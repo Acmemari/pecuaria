@@ -1,16 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import type { AIProvider } from '../_lib/ai/types';
-import { supabaseAdmin } from '../_lib/supabaseAdmin';
-import { getAgentManifest } from '../_lib/agents/registry';
-import { runHelloAgent } from '../_lib/agents/hello/handler';
-import { runFeedbackAgent } from '../_lib/agents/feedback/handler';
-import { getProvider } from '../_lib/ai/providers';
-import { getFallbackRoutes, routeAgent } from '../_lib/ai/router';
-import { checkAndIncrementRateLimit } from '../_lib/ai/rate-limit';
-import { commitUsage, releaseReservation, reserveTokens } from '../_lib/ai/usage';
-import { logAgentRun } from '../_lib/ai/logging';
-import type { AIProviderName, PlanId } from '../_lib/ai/types';
+import type { AIProvider } from './_lib/ai/types';
+import { supabaseAdmin } from './_lib/supabaseAdmin';
+import { getAgentManifest } from './_lib/agents/registry';
+import { runHelloAgent } from './_lib/agents/hello/handler';
+import { runFeedbackAgent } from './_lib/agents/feedback/handler';
+import { getProvider } from './_lib/ai/providers';
+import { getFallbackRoutes, routeAgent } from './_lib/ai/router';
+import { checkAndIncrementRateLimit } from './_lib/ai/rate-limit';
+import { commitUsage, releaseReservation, reserveTokens } from './_lib/ai/usage';
+import { logAgentRun } from './_lib/ai/logging';
+import type { AIProviderName, PlanId } from './_lib/ai/types';
 
 type AgentHandler = (args: {
   input: unknown;
@@ -189,7 +189,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } catch (err) {
         const reason = (err as Error)?.message ?? 'unknown';
         console.error(
-          `[agents/run] Provider ${route.provider}/${route.model} failed:`,
+          `[agents-run] Provider ${route.provider}/${route.model} failed:`,
           reason,
         );
         failedProviders.push(`${route.provider}(${reason.slice(0, 120)})`);
@@ -201,7 +201,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const detail = failedProviders.length > 0
         ? failedProviders.join(' | ')
         : (lastExecutionError as Error)?.message ?? 'unknown error';
-      console.error('[agents/run] All providers exhausted:', detail);
+      console.error('[agents-run] All providers exhausted:', detail);
       throw new Error(`AGENT_EXECUTION_FAILED:${detail}`);
     }
 
@@ -268,14 +268,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       clientError = isConfigError
         ? 'Serviço de IA não configurado no servidor. Contate o suporte.'
         : 'Problema temporário com o provedor de IA. Tente novamente em instantes.';
-      console.error('[agents/run] AGENT_EXECUTION_FAILED:', rawMessage);
+      console.error('[agents-run] AGENT_EXECUTION_FAILED:', rawMessage);
     }
 
     if (reservationId) {
       try {
         await releaseReservation(reservationId);
       } catch (releaseError) {
-        console.error('[agents/run] failed to release reservation', {
+        console.error('[agents-run] failed to release reservation', {
           reservationId,
           message: (releaseError as Error).message,
         });
@@ -308,4 +308,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 }
-

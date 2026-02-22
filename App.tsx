@@ -38,6 +38,7 @@ const InitiativesActivities = lazy(() => import('./agents/InitiativesActivities'
 const InitiativesKanban = lazy(() => import('./agents/InitiativesKanban'));
 const FeedbackAgent = lazy(() => import('./agents/FeedbackAgent'));
 const ProjectStructureReport = lazy(() => import('./agents/ProjectStructureReport'));
+const ProjetoDesktop = lazy(() => import('./agents/ProjetoDesktop'));
 const PeopleManagement = lazy(() => import('./agents/PeopleManagement'));
 const DeliveryManagement = lazy(() => import('./agents/DeliveryManagement'));
 const ProjectManagement = lazy(() => import('./agents/ProjectManagement'));
@@ -444,28 +445,35 @@ const AppContent: React.FC = () => {
   const activeAgent = agents.find(a => a.id === activeAgentId);
   const isSubscriptionPage = activeAgentId === 'subscription';
   const isSettingsPage = activeAgentId === 'settings';
+  const isProjeto = activeAgentId === 'projeto';
   const isIniciativasOverview = activeAgentId === 'iniciativas-overview';
   const isIniciativasAtividades = activeAgentId === 'iniciativas-atividades';
+  const isIniciativasKanban = activeAgentId === 'iniciativas-kanban';
   const isProjectStructure = activeAgentId === 'project-structure';
   const isCalendar = activeAgentId === 'calendar';
+  const isProjetoSubView = isIniciativasOverview || isIniciativasAtividades || isIniciativasKanban || isProjectStructure;
   const isRhFeedbackList = activeAgentId === 'rh-feedback-list';
   const isProgramaCadastro = activeAgentId === 'cadastros' && cadastroView === 'project';
   const isAvaliacaoProtocolo = activeAgentId === 'cattle-profit' && viewMode === 'avaliacao-protocolo';
   const headerTitle = isAvaliacaoProtocolo
     ? 'Avaliação Protocolo 5-3-9'
-    : isIniciativasOverview
-      ? 'Visão Geral'
-      : isIniciativasAtividades
-        ? 'Atividades'
-        : isProjectStructure
-          ? 'Estrutura do Projeto'
-          : isCalendar
-            ? 'Calendário'
-            : isRhFeedbackList
-              ? 'RH - Feedback'
-            : isProgramaCadastro
-              ? 'Programa de Trabalho'
-            : activeAgent?.name;
+    : isProjeto
+      ? 'Projeto'
+      : isIniciativasOverview
+        ? 'Visão Geral'
+        : isIniciativasAtividades
+          ? 'Atividades'
+          : isIniciativasKanban
+            ? 'Kanban'
+            : isProjectStructure
+              ? 'Estrutura do Projeto'
+              : isCalendar
+                ? 'Calendário'
+                : isRhFeedbackList
+                  ? 'RH - Feedback'
+                  : isProgramaCadastro
+                    ? 'Programa de Trabalho'
+                    : activeAgent?.name;
 
   const renderContent = () => {
     if (activeAgentId === 'settings') {
@@ -719,6 +727,17 @@ const AppContent: React.FC = () => {
             />
           </Suspense>
         );
+      case 'projeto':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <ProjetoDesktop
+              onSelectOverview={() => setActiveAgentId('iniciativas-overview')}
+              onSelectAtividades={() => setActiveAgentId('iniciativas-atividades')}
+              onSelectKanban={() => setActiveAgentId('iniciativas-kanban')}
+              onSelectEstrutura={() => setActiveAgentId('project-structure')}
+            />
+          </Suspense>
+        );
       case 'iniciativas-overview':
         return (
           <Suspense fallback={<LoadingFallback />}>
@@ -728,7 +747,34 @@ const AppContent: React.FC = () => {
       case 'iniciativas-atividades':
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <InitiativesActivities onToast={handleToast} />
+            <ErrorBoundary
+              fallback={
+                <div className="flex flex-col items-center justify-center py-16 px-4">
+                  <p className="text-sm font-medium text-ai-text mb-2">Erro ao carregar Atividades</p>
+                  <p className="text-xs text-ai-subtext text-center max-w-sm mb-4">
+                    Ocorreu um erro inesperado. Tente recarregar a página ou voltar ao menu.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => window.location.reload()}
+                      className="px-4 py-2 rounded-md bg-ai-accent text-white text-sm font-medium hover:opacity-90"
+                    >
+                      Recarregar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveAgentId('projeto')}
+                      className="px-4 py-2 rounded-md border border-ai-border text-ai-text text-sm font-medium hover:bg-ai-surface2"
+                    >
+                      Voltar ao Projeto
+                    </button>
+                  </div>
+                </div>
+              }
+            >
+              <InitiativesActivities onToast={handleToast} />
+            </ErrorBoundary>
           </Suspense>
         );
       case 'iniciativas-kanban':
@@ -863,6 +909,15 @@ const AppContent: React.FC = () => {
             {activeAgentId === 'cadastros' && cadastroView !== 'desktop' && (
               <button
                 onClick={() => setCadastroView('desktop')}
+                className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
+              >
+                <ArrowLeft size={16} />
+                Voltar
+              </button>
+            )}
+            {isProjetoSubView && (
+              <button
+                onClick={() => setActiveAgentId('projeto')}
                 className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
               >
                 <ArrowLeft size={16} />

@@ -23,7 +23,7 @@ if (fs.existsSync('.env.local')) {
 }
 
 const app = express();
-const PORT = 3001;
+const PORT = Number(process.env.API_PORT) || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -106,8 +106,16 @@ app.post('/api/feedback-assist', (req, res) => {
   handleApiRoute('./api/feedback-assist.ts', req, res);
 });
 
-app.post('/api/agents/run', (req, res) => {
-  handleApiRoute('./api/agents/run.ts', req, res);
+app.post('/api/support-suggest', (req, res) => {
+  handleApiRoute('./api/support-suggest.ts', req, res);
+});
+
+app.get('/api/agents-health', (req, res) => {
+  handleApiRoute('./api/agents-health.ts', req, res);
+});
+
+app.post('/api/agents-run', (req, res) => {
+  handleApiRoute('./api/agents-run.ts', req, res);
 });
 
 app.listen(PORT, () => {

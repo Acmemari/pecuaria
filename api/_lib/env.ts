@@ -74,26 +74,28 @@ export function getServerEnv(): ServerEnv {
 
 /**
  * Returns the list of AI providers whose API keys are configured.
- * Useful for building fallback chains dynamically.
+ * Does NOT require Supabase variables — safe to call from any endpoint.
  */
 export function getAvailableProviders(): AIProviderName[] {
-  const env = getServerEnv();
+  const gemini = trimOrNull(process.env.GEMINI_API_KEY);
+  const openai = trimOrNull(process.env.OPENAI_API_KEY);
+  const anthropic = trimOrNull(process.env.ANTHROPIC_API_KEY);
   const providers: AIProviderName[] = [];
-  if (env.GEMINI_API_KEY) providers.push('gemini');
-  if (env.OPENAI_API_KEY) providers.push('openai');
-  if (env.ANTHROPIC_API_KEY) providers.push('anthropic');
+  if (gemini) providers.push('gemini');
+  if (openai) providers.push('openai');
+  if (anthropic) providers.push('anthropic');
   return providers;
 }
 
 /**
  * Returns the API key for a specific provider, or null if not configured.
+ * Does NOT require Supabase variables — safe to call from any endpoint.
  */
 export function getProviderKey(provider: AIProviderName): string | null {
-  const env = getServerEnv();
   switch (provider) {
-    case 'gemini': return env.GEMINI_API_KEY;
-    case 'openai': return env.OPENAI_API_KEY;
-    case 'anthropic': return env.ANTHROPIC_API_KEY;
+    case 'gemini': return trimOrNull(process.env.GEMINI_API_KEY);
+    case 'openai': return trimOrNull(process.env.OPENAI_API_KEY);
+    case 'anthropic': return trimOrNull(process.env.ANTHROPIC_API_KEY);
   }
 }
 

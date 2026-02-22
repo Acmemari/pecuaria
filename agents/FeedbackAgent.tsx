@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, RefreshCcw, Wand2, MessageSquareText } from 'lucide-react';
 import type { FeedbackInput, FeedbackOutput } from '../api/_lib/agents/feedback/manifest';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { useFarm } from '../contexts/FarmContext';
 import { fetchPeople, type Person } from '../lib/people';
 import { saveFeedback } from '../lib/feedbacks';
@@ -107,10 +108,19 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
     abortRef.current = controller;
 
     try {
-      const res = await fetch('/api/feedback-assist', {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        throw new Error('Faça login para usar o assistente de feedback.');
+      }
+
+      const res = await fetch('/api/agents-run', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ agentId: 'feedback', input: form }),
         signal: controller.signal,
       });
 
@@ -132,8 +142,8 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
       if (!res.ok) {
         throw new Error(data?.error || `Não foi possível gerar o feedback (${res.status}).`);
       }
-      if (!data?.data) {
-        throw new Error('Não foi possível processar sua solicitação agora. Tente novamente em instantes.');
+      if (!data?.success || !data?.data) {
+        throw new Error(data?.error || 'Não foi possível processar sua solicitação agora. Tente novamente em instantes.');
       }
       setResult(data.data as FeedbackOutput);
       onToast?.('Feedback gerado com sucesso.', 'success');
