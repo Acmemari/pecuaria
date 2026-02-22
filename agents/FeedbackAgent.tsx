@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, RefreshCcw, Wand2, MessageSquareText } from 'lucide-react';
+import { Copy, RefreshCcw, Wand2, MessageSquareText, Sparkles } from 'lucide-react';
 import type { FeedbackInput, FeedbackOutput } from '../api/_lib/agents/feedback/manifest';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -94,6 +94,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
   const [form, setForm] = useState<FeedbackInput>(INITIAL_FORM);
   const [result, setResult] = useState<FeedbackOutput | null>(null);
   const [loading, setLoading] = useState(false);
+  const [genDamagesLoading, setGenDamagesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
@@ -146,6 +147,48 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
   const canSubmit = useMemo(() => {
     return form.objective.trim().length >= 5 && form.recipient.trim().length >= 2 && !loading;
   }, [form.objective, form.recipient, loading]);
+
+  const handleGenerateDamages = async () => {
+    if (!form.objective.trim() || !form.whatHappened?.trim()) {
+      onToast?.('Preencha o objetivo e o que ocorreu para gerar os prejuízos.', 'warning');
+      return;
+    }
+    setGenDamagesLoading(true);
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) throw new Error('Sessão expirada.');
+
+      const res = await fetch('/api/agents-run', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          agentId: 'damages-gen',
+          input: {
+            objective: form.objective,
+            whatHappened: form.whatHappened,
+            context: form.context,
+          }
+        }),
+      });
+
+      if (!res.ok) throw new Error('Falha na API.');
+      const data = await res.json();
+      if (data.success && data.data?.damages) {
+        setForm(prev => ({ ...prev, damages: data.data.damages }));
+        onToast?.('Prejuízos sugeridos com sucesso.', 'success');
+      }
+    } catch (e: any) {
+      onToast?.(e.message || 'Erro ao gerar prejuízos.', 'error');
+    } finally {
+      setGenDamagesLoading(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!canSubmit) {
@@ -423,7 +466,22 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
           </div>
 
           <div className="space-y-3 lg:col-span-2">
-            <label className="block text-sm text-ai-text">Prejuízos para a fazenda e pessoais</label>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm text-ai-text">Prejuízos para a fazenda e pessoais</label>
+              <button
+                type="button"
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-all ${genDamagesLoading
+                    ? 'text-ai-subtext cursor-not-allowed'
+                    : 'text-ai-accent hover:bg-ai-accent/10 active:scale-95'
+                  }`}
+                onClick={handleGenerateDamages}
+                disabled={genDamagesLoading}
+                title="Gerar prejuízos com IA"
+              >
+                <Sparkles size={14} className={genDamagesLoading ? 'animate-pulse' : ''} />
+                {genDamagesLoading ? 'Gerando...' : 'Sugerir com IA'}
+              </button>
+            </div>
             <textarea
               className={fieldClass}
               rows={3}

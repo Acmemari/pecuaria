@@ -5,6 +5,7 @@ import { supabaseAdmin } from './_lib/supabaseAdmin.js';
 import { getAgentManifest } from './_lib/agents/registry.js';
 import { runHelloAgent } from './_lib/agents/hello/handler.js';
 import { runFeedbackAgent } from './_lib/agents/feedback/handler.js';
+import { runDamagesGenAgent } from './_lib/agents/damages-gen/handler.js';
 import { getProvider } from './_lib/ai/providers/index.js';
 import { getFallbackRoutes, routeAgent } from './_lib/ai/router.js';
 import { checkAndIncrementRateLimit } from './_lib/ai/rate-limit.js';
@@ -28,6 +29,7 @@ type AgentHandler = (args: {
 const agentHandlers: Record<string, AgentHandler> = {
   hello: (args) => runHelloAgent({ ...args, input: args.input as Parameters<typeof runHelloAgent>[0]['input'] }),
   feedback: (args) => runFeedbackAgent({ ...args, input: args.input as Parameters<typeof runFeedbackAgent>[0]['input'] }),
+  'damages-gen': (args) => runDamagesGenAgent({ ...args, input: args.input as Parameters<typeof runDamagesGenAgent>[0]['input'] }),
 };
 
 const runRequestSchema = z.object({

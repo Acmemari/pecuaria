@@ -1,10 +1,12 @@
 import type { AgentManifest } from '../ai/types.js';
 import { helloManifest } from './hello/manifest.js';
 import { feedbackManifest } from './feedback/manifest.js';
+import { damagesGenManifest } from './damages-gen/manifest.js';
 
 const manifestMap = new Map<string, AgentManifest>([
   [`${helloManifest.id}@${helloManifest.version}`, helloManifest],
   [`${feedbackManifest.id}@${feedbackManifest.version}`, feedbackManifest],
+  [`${damagesGenManifest.id}@${damagesGenManifest.version}`, damagesGenManifest],
 ]);
 
 export function getAgentManifest(agentId: string, version?: string): AgentManifest | null {
