@@ -1,0 +1,35 @@
+﻿diff --git a/lib/projects.ts b/lib/projects.ts
+index 06461cb..beafbd1 100644
+--- a/lib/projects.ts
++++ b/lib/projects.ts
+@@ -93,10 +93,30 @@ function validateProjectId(id: string): void {
+   if (!id?.trim()) throw new Error('ID do projeto ├⌐ obrigat├│rio.');
+ }
+ 
++function isValidISODate(dateStr: string | null | undefined): boolean {
++  if (!dateStr) return false;
++  const reg = /^\d{4}-\d{2}-\d{2}$/;
++  if (!reg.test(dateStr)) return false;
++  const d = new Date(dateStr);
++  return d instanceof Date && !isNaN(d.getTime());
++}
++
+ function validatePayload(payload: ProjectPayload): void {
+   const name = payload.name?.trim() || '';
+   if (!name) throw new Error('O nome do projeto ├⌐ obrigat├│rio.');
+   if (name.length > MAX_NAME_LENGTH) throw new Error(`O nome do projeto ├⌐ muito longo (m├íx ${MAX_NAME_LENGTH} caracteres).`);
++
++  if (payload.start_date && !isValidISODate(payload.start_date)) {
++    throw new Error('Data de in├¡cio do projeto com formato inv├ílido (esperado AAAA-MM-DD).');
++  }
++  if (payload.end_date && !isValidISODate(payload.end_date)) {
++    throw new Error('Data final do projeto com formato inv├ílido (esperado AAAA-MM-DD).');
++  }
++
++  if (payload.start_date && payload.end_date && payload.start_date > payload.end_date) {
++    throw new Error('A data de in├¡cio do projeto n├úo pode ser posterior ├á data final.');
++  }
++
+   if ((payload.transformations_achievements || '').length > MAX_TRANSFORMATIONS_LENGTH) throw new Error('A descri├º├úo das transforma├º├╡es ├⌐ muito longa.');
+ }
+ 

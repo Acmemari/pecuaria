@@ -93,10 +93,30 @@ function validateProjectId(id: string): void {
   if (!id?.trim()) throw new Error('ID do projeto é obrigatório.');
 }
 
+function isValidISODate(dateStr: string | null | undefined): boolean {
+  if (!dateStr) return false;
+  const reg = /^\d{4}-\d{2}-\d{2}$/;
+  if (!reg.test(dateStr)) return false;
+  const d = new Date(dateStr);
+  return d instanceof Date && !isNaN(d.getTime());
+}
+
 function validatePayload(payload: ProjectPayload): void {
   const name = payload.name?.trim() || '';
   if (!name) throw new Error('O nome do projeto é obrigatório.');
   if (name.length > MAX_NAME_LENGTH) throw new Error(`O nome do projeto é muito longo (máx ${MAX_NAME_LENGTH} caracteres).`);
+
+  if (payload.start_date && !isValidISODate(payload.start_date)) {
+    throw new Error('Data de início do projeto com formato inválido (esperado AAAA-MM-DD).');
+  }
+  if (payload.end_date && !isValidISODate(payload.end_date)) {
+    throw new Error('Data final do projeto com formato inválido (esperado AAAA-MM-DD).');
+  }
+
+  if (payload.start_date && payload.end_date && payload.start_date > payload.end_date) {
+    throw new Error('A data de início do projeto não pode ser posterior à data final.');
+  }
+
   if ((payload.transformations_achievements || '').length > MAX_TRANSFORMATIONS_LENGTH) throw new Error('A descrição das transformações é muito longa.');
 }
 

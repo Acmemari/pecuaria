@@ -1,0 +1,411 @@
+﻿diff --git a/lib/initiatives.ts b/lib/initiatives.ts
+index 6ebf8be..a16bed8 100644
+--- a/lib/initiatives.ts
++++ b/lib/initiatives.ts
+@@ -92,6 +92,14 @@ function validateUUID(id: string, fieldName: string): void {
+   }
+ }
+ 
++function isValidISODate(dateStr: string | null | undefined): boolean {
++  if (!dateStr) return false;
++  const reg = /^\d{4}-\d{2}-\d{2}$/;
++  if (!reg.test(dateStr)) return false;
++  const d = new Date(dateStr);
++  return d instanceof Date && !isNaN(d.getTime());
++}
++
+ function validatePayload(payload: CreateInitiativePayload): void {
+   if (!payload.name?.trim()) {
+     throw new Error('O nome da iniciativa ├⌐ obrigat├│rio.');
+@@ -99,12 +107,15 @@ function validatePayload(payload: CreateInitiativePayload): void {
+   if (payload.name.trim().length > 300) {
+     throw new Error('O nome da iniciativa ├⌐ muito longo (m├íx 300 caracteres).');
+   }
+-  if (!payload.start_date?.trim()) {
+-    throw new Error('A data de in├¡cio ├⌐ obrigat├│ria (dd/mm/aa).');
++
++  // No back-end (Supabase), as datas devem vir no formato YYYY-MM-DD
++  if (!payload.start_date || !isValidISODate(payload.start_date)) {
++    throw new Error('Data de in├¡cio inv├ílida ou faltando (esperado AAAA-MM-DD).');
+   }
+-  if (!payload.end_date?.trim()) {
+-    throw new Error('A data final ├⌐ obrigat├│ria (dd/mm/aa).');
++  if (!payload.end_date || !isValidISODate(payload.end_date)) {
++    throw new Error('Data final inv├ílida ou faltando (esperado AAAA-MM-DD).');
+   }
++
+   if (!payload.leader?.trim()) {
+     throw new Error('O respons├ível (l├¡der) ├⌐ obrigat├│rio.');
+   }
+@@ -112,29 +123,39 @@ function validatePayload(payload: CreateInitiativePayload): void {
+     throw new Error('A entrega vinculada ├⌐ obrigat├│ria.');
+   }
+   validateUUID(payload.delivery_id, 'Entrega');
++
+   if (payload.farm_id && !payload.client_id) {
+     throw new Error('N├úo ├⌐ poss├¡vel vincular uma fazenda sem informar o cliente.');
+   }
+-  if (payload.start_date && payload.end_date && payload.start_date > payload.end_date) {
++
++  if (payload.start_date > payload.end_date) {
+     throw new Error('A data de in├¡cio n├úo pode ser posterior ├á data final.');
+   }
++
+   if (payload.description && payload.description.length > 5000) {
+     throw new Error('A descri├º├úo ├⌐ muito longa (m├íx 5000 caracteres).');
+   }
++
+   if (payload.milestones.length > 50) {
+     throw new Error('M├íximo de 50 marcos por iniciativa.');
+   }
++
+   const totalPercent = payload.milestones
+     .filter((m) => m.title?.trim())
+     .reduce((s, m) => s + (m.percent || 0), 0);
++
+   if (totalPercent > 100) {
+     throw new Error(`A soma dos marcos (${totalPercent}%) excede 100%.`);
+   }
++
+   for (const m of payload.milestones.filter((mil) => mil.title?.trim() && mil.due_date)) {
+-    if (payload.start_date && m.due_date! < payload.start_date) {
++    if (!isValidISODate(m.due_date)) {
++      throw new Error(`Data do marco "${m.title}" est├í em formato inv├ílido.`);
++    }
++    if (m.due_date! < payload.start_date) {
+       throw new Error(`Data limite do marco "${m.title}" n├úo pode ser anterior ao in├¡cio da iniciativa.`);
+     }
+-    if (payload.end_date && m.due_date! > payload.end_date) {
++    if (m.due_date! > payload.end_date) {
+       throw new Error(`Data limite do marco "${m.title}" n├úo pode ser posterior ao fim da iniciativa.`);
+     }
+   }
+@@ -156,7 +177,15 @@ export async function fetchInitiatives(
+ 
+   let q = supabase
+     .from('initiatives')
+-    .select('*')
++    .select(`
++      *,
++      initiative_milestones (
++        id, initiative_id, title, percent, completed, completed_at, sort_order, due_date,
++        initiative_tasks (
++          id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at
++        )
++      )
++    `)
+     .eq('created_by', effectiveUserId)
+     .order('start_date', { ascending: true, nullsFirst: false });
+ 
+@@ -172,51 +201,25 @@ export async function fetchInitiatives(
+   if (initError) throw initError;
+   if (!initiatives?.length) return [];
+ 
+-  const ids = initiatives.map((i) => i.id);
+-  const { data: milestones, error: milError } = await supabase
+-    .from('initiative_milestones')
+-    .select('id, initiative_id, title, percent, completed, completed_at, sort_order, due_date')
+-    .in('initiative_id', ids);
++  return initiatives.map((i: any) => {
++    const list = (i.initiative_milestones || []).map((m: any) => {
++      // Remover a chave aninhada para expor 'tasks' no mesmo formato mapeado anterior
++      const { initiative_tasks, ...rest } = m;
++      return {
++        ...rest,
++        tasks: (initiative_tasks || []).sort((a: any, b: any) => a.sort_order - b.sort_order)
++      };
++    }).sort((a: any, b: any) => a.sort_order - b.sort_order);
+ 
+-  if (milError) throw milError;
+-
+-  const milestoneIds = (milestones || []).map((m) => m.id);
+-  let tasksByMilestone: Record<string, InitiativeTaskRow[]> = {};
+-
+-  if (milestoneIds.length > 0) {
+-    const { data: tasks, error: taskError } = await supabase
+-      .from('initiative_tasks')
+-      .select(
+-        'id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at'
+-      )
+-      .in('milestone_id', milestoneIds)
+-      .order('sort_order', { ascending: true });
++    const progress = Math.min(100, Math.max(0, list.filter((m: any) => m.completed === true).reduce((s: any, m: any) => s + (m.percent ?? 0), 0)));
+ 
+-    if (taskError) throw taskError;
++    // Cleanup keys that came nested
++    const { initiative_milestones, ...initData } = i;
+ 
+-    tasksByMilestone = (tasks || []).reduce<Record<string, InitiativeTaskRow[]>>((acc, t) => {
+-      if (!acc[t.milestone_id]) acc[t.milestone_id] = [];
+-      acc[t.milestone_id].push(t as InitiativeTaskRow);
+-      return acc;
+-    }, {});
+-  }
+-
+-  const byInitiative = (milestones || []).reduce<Record<string, InitiativeMilestoneRow[]>>((acc, m) => {
+-    if (!acc[m.initiative_id]) acc[m.initiative_id] = [];
+-    acc[m.initiative_id].push({
+-      ...(m as InitiativeMilestoneRow),
+-      tasks: tasksByMilestone[m.id] || [],
+-    });
+-    return acc;
+-  }, {});
+-
+-  return initiatives.map((i) => {
+-    const list = byInitiative[i.id] || [];
+-    const progress = Math.min(100, Math.max(0, list.filter((m) => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0)));
+     return {
+-      ...i,
++      ...initData,
+       progress,
+-      milestones: list.sort((a, b) => a.sort_order - b.sort_order),
++      milestones: list,
+     } as InitiativeWithProgress;
+   });
+ }
+@@ -232,7 +235,12 @@ export async function fetchInitiativesByDelivery(
+ 
+   const { data: initiatives, error: initError } = await supabase
+     .from('initiatives')
+-    .select('*')
++    .select(`
++      *,
++      initiative_milestones (
++        id, initiative_id, title, percent, completed, completed_at, sort_order, due_date
++      )
++    `)
+     .eq('delivery_id', deliveryId)
+     .order('sort_order', { ascending: true })
+     .order('start_date', { ascending: true, nullsFirst: false });
+@@ -240,27 +248,21 @@ export async function fetchInitiativesByDelivery(
+   if (initError) throw initError;
+   if (!initiatives?.length) return [];
+ 
+-  const ids = initiatives.map((i) => i.id);
+-  const { data: milestones, error: milError } = await supabase
+-    .from('initiative_milestones')
+-    .select('id, initiative_id, title, percent, completed, completed_at, sort_order, due_date')
+-    .in('initiative_id', ids);
++  return initiatives.map((i: any) => {
++    const list = (i.initiative_milestones || []).map((m: any) => {
++      const { ...rest } = m;
++      return rest;
++    }).sort((a: any, b: any) => a.sort_order - b.sort_order) as InitiativeMilestoneRow[];
+ 
+-  if (milError) throw milError;
++    const progress = Math.min(100, Math.max(0, list.filter((m) => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0)));
+ 
+-  const byInitiative = (milestones || []).reduce<Record<string, InitiativeMilestoneRow[]>>((acc, m) => {
+-    if (!acc[m.initiative_id]) acc[m.initiative_id] = [];
+-    acc[m.initiative_id].push(m as InitiativeMilestoneRow);
+-    return acc;
+-  }, {});
++    // Cleanup keys
++    const { initiative_milestones, ...initData } = i;
+ 
+-  return initiatives.map((i) => {
+-    const list = byInitiative[i.id] || [];
+-    const progress = Math.min(100, Math.max(0, list.filter((m) => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0)));
+     return {
+-      ...i,
++      ...initData,
+       progress,
+-      milestones: list.sort((a, b) => a.sort_order - b.sort_order),
++      milestones: list,
+     } as InitiativeWithProgress;
+   });
+ }
+@@ -273,28 +275,57 @@ export async function fetchInitiativesWithTeams(
+   effectiveUserId: string,
+   filters?: FetchInitiativesFilters
+ ): Promise<InitiativeWithTeam[]> {
+-  const initiatives = await fetchInitiatives(effectiveUserId, filters);
+-  if (!initiatives.length) return [];
++  if (!effectiveUserId?.trim()) return [];
+ 
+-  const initiativeIds = initiatives.map((i) => i.id);
+-  const { data: teamRows, error: teamErr } = await supabase
+-    .from('initiative_team')
+-    .select('initiative_id, name, role, sort_order')
+-    .in('initiative_id', initiativeIds)
+-    .order('sort_order', { ascending: true });
+-
+-  if (teamErr) throw teamErr;
+-
+-  const teamByInitiative = (teamRows || []).reduce<Record<string, { name: string; role: string }[]>>((acc, row) => {
+-    if (!acc[row.initiative_id]) acc[row.initiative_id] = [];
+-    acc[row.initiative_id].push({ name: row.name || '', role: row.role || '' });
+-    return acc;
+-  }, {});
+-
+-  return initiatives.map((initiative) => ({
+-    ...initiative,
+-    team: teamByInitiative[initiative.id] || [],
+-  }));
++  let q = supabase
++    .from('initiatives')
++    .select(`
++      *,
++      initiative_milestones (
++        id, initiative_id, title, percent, completed, completed_at, sort_order, due_date,
++        initiative_tasks (
++          id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at
++        )
++      ),
++      initiative_team (initiative_id, name, role, sort_order)
++    `)
++    .eq('created_by', effectiveUserId)
++    .order('start_date', { ascending: true, nullsFirst: false });
++
++  if (filters?.clientId?.trim()) {
++    q = q.or(`client_id.eq.${filters.clientId},client_id.is.null`);
++  }
++  if (filters?.farmId?.trim()) {
++    q = q.or(`farm_id.eq.${filters.farmId},farm_id.is.null`);
++  }
++
++  const { data: initiatives, error: initError } = await q;
++
++  if (initError) throw initError;
++  if (!initiatives?.length) return [];
++
++  return initiatives.map((i: any) => {
++    const list = (i.initiative_milestones || []).map((m: any) => {
++      const { initiative_tasks, ...rest } = m;
++      return {
++        ...rest,
++        tasks: (initiative_tasks || []).sort((a: any, b: any) => a.sort_order - b.sort_order)
++      };
++    }).sort((a: any, b: any) => a.sort_order - b.sort_order);
++
++    const progress = Math.min(100, Math.max(0, list.filter((m: any) => m.completed === true).reduce((s: any, m: any) => s + (m.percent ?? 0), 0)));
++
++    const team = (i.initiative_team || []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((t: any) => ({ name: t.name || '', role: t.role || '' }));
++
++    const { initiative_milestones, initiative_team, ...initData } = i;
++
++    return {
++      ...initData,
++      progress,
++      milestones: list,
++      team,
++    } as InitiativeWithTeam;
++  });
+ }
+ 
+ /**
+@@ -310,28 +341,22 @@ export async function fetchInitiativeForEdit(initiativeId: string): Promise<{
+ 
+   const { data: initiative, error: initError } = await supabase
+     .from('initiatives')
+-    .select('*')
++    .select(`
++      *,
++      initiative_team (name, sort_order),
++      initiative_milestones (id, title, percent, due_date, completed, sort_order)
++    `)
+     .eq('id', initiativeId)
+     .single();
+ 
+   if (initError || !initiative) throw new Error('Iniciativa n├úo encontrada');
+ 
+-  const { data: teamRows } = await supabase
+-    .from('initiative_team')
+-    .select('name')
+-    .eq('initiative_id', initiativeId)
+-    .order('sort_order');
+-
+-  const { data: milRows } = await supabase
+-    .from('initiative_milestones')
+-    .select('id, title, percent, due_date, completed')
+-    .eq('initiative_id', initiativeId)
+-    .order('sort_order');
++  const { initiative_team, initiative_milestones, ...initData } = initiative as any;
+ 
+   return {
+-    initiative: initiative as InitiativeRow,
+-    team: (teamRows || []).map((r) => r.name || ''),
+-    milestones: (milRows || []).map((m) => ({
++    initiative: initData as InitiativeRow,
++    team: (initiative_team || []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((r: any) => r.name || ''),
++    milestones: (initiative_milestones || []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((m: any) => ({
+       id: m.id,
+       title: m.title || '',
+       percent: m.percent ?? 0,
+@@ -587,54 +612,38 @@ export async function fetchInitiativeDetail(
+ 
+   const { data: initiative, error: initError } = await supabase
+     .from('initiatives')
+-    .select('*')
++    .select(`
++      *,
++      initiative_team (name, role, sort_order),
++      initiative_milestones (
++        id, initiative_id, title, percent, completed, completed_at, sort_order, due_date,
++        initiative_tasks (
++          id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at
++        )
++      )
++    `)
+     .eq('id', initiativeId)
+     .single();
+ 
+   if (initError || !initiative) throw new Error('Iniciativa n├úo encontrada');
+ 
+-  const { data: teamRows } = await supabase
+-    .from('initiative_team')
+-    .select('name, role')
+-    .eq('initiative_id', initiativeId)
+-    .order('sort_order');
+-
+-  const { data: milRows } = await supabase
+-    .from('initiative_milestones')
+-    .select('id, initiative_id, title, percent, completed, completed_at, sort_order, due_date')
+-    .eq('initiative_id', initiativeId)
+-    .order('sort_order');
++  const { initiative_team, initiative_milestones, ...initData } = initiative as any;
+ 
+-  const milestones = (milRows || []) as InitiativeMilestoneRow[];
+-  const milestoneIds = milestones.map((m) => m.id);
+-  let tasksByMilestone: Record<string, InitiativeTaskRow[]> = {};
++  const milestonesList = (initiative_milestones || []).map((m: any) => {
++    const { initiative_tasks, ...rest } = m;
++    return {
++      ...rest,
++      tasks: (initiative_tasks || []).sort((a: any, b: any) => a.sort_order - b.sort_order)
++    };
++  }).sort((a: any, b: any) => a.sort_order - b.sort_order);
+ 
+-  if (milestoneIds.length > 0) {
+-    const { data: taskRows, error: tasksError } = await supabase
+-      .from('initiative_tasks')
+-      .select('id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+-      .in('milestone_id', milestoneIds)
+-      .order('sort_order');
+-    if (tasksError) throw tasksError;
+-
+-    tasksByMilestone = (taskRows || []).reduce<Record<string, InitiativeTaskRow[]>>((acc, t) => {
+-      if (!acc[t.milestone_id]) acc[t.milestone_id] = [];
+-      acc[t.milestone_id].push(t as InitiativeTaskRow);
+-      return acc;
+-    }, {});
+-  }
+-
+-  const milestonesWithTasks = milestones.map((m) => ({
+-    ...m,
+-    tasks: tasksByMilestone[m.id] || [],
+-  }));
+-  const progress = Math.min(100, Math.max(0, milestones.filter((m) => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0)));
++  const progress = Math.min(100, Math.max(0, milestonesList.filter((m: any) => m.completed === true).reduce((s: any, m: any) => s + (m.percent ?? 0), 0)));
+ 
+   return {
+-    ...initiative,
++    ...initData,
+     progress,
+-    milestones: milestonesWithTasks,
+-    team: (teamRows || []).map((r) => ({ name: r.name || '', role: r.role || '' })),
++    milestones: milestonesList,
++    team: (initiative_team || []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((r: any) => ({ name: r.name || '', role: r.role || '' })),
+   } as InitiativeWithProgress & { team: { name: string; role: string }[] };
+ }
+ 
