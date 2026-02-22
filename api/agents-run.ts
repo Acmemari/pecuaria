@@ -176,7 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     for (const route of routes) {
       try {
-        const provider = getProvider(route.provider);
+        const provider = await getProvider(route.provider);
         providerUsed = route.provider;
         modelUsed = route.model;
 
