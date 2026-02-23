@@ -1,12 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from '../types';
 import { APP_VERSION } from '../src/version';
 import {
   Settings,
   LogOut,
   X,
-  Layers,
-  ArrowLeftRight,
+  Search,
+  DollarSign,
+  ChevronDown,
+  ChevronUp,
+  ArrowLeft,
+  Beef,
+  Package,
+  Tractor,
+  Sprout,
+  CloudRain,
+  ClipboardList,
+  RefreshCw,
+  Leaf,
+  Star,
+  Clock,
 } from 'lucide-react';
 
 interface InttegraSidebarProps {
@@ -18,6 +31,59 @@ interface InttegraSidebarProps {
   onSwitchToPecuaria: () => void;
 }
 
+const INTEGRA_SIDEBAR_BG = '#1A212E';
+const INTEGRA_SURFACE = '#37404E';
+const INTEGRA_TEXT = '#FFFFFF';
+const INTEGRA_PLACEHOLDER = '#A9B0BB';
+const INTEGRA_ACCENT = '#65C04A';
+const INTEGRA_BORDER = '#5E6D82';
+
+const InttegraLogo: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <rect
+      x="4"
+      y="4"
+      width="10"
+      height="10"
+      rx="2"
+      fill={INTEGRA_ACCENT}
+      stroke="#FFFFFF"
+      strokeWidth="1.5"
+    />
+    <rect
+      x="10"
+      y="10"
+      width="10"
+      height="10"
+      rx="2"
+      fill={INTEGRA_ACCENT}
+      stroke="#FFFFFF"
+      strokeWidth="1.5"
+    />
+  </svg>
+);
+
+const menuItems: { label: string; icon: React.ElementType }[] = [
+  { label: 'Pecuária', icon: Beef },
+  { label: 'Estoque', icon: Package },
+  { label: 'Máquinas', icon: Tractor },
+  { label: 'Agricultura', icon: Sprout },
+  { label: 'Clima', icon: CloudRain },
+  { label: 'Planejamento Fazenda', icon: ClipboardList },
+  { label: 'Rotinas Gerenciais', icon: RefreshCw },
+  { label: 'Sustentabilidade', icon: Leaf },
+  { label: 'Cadastros Gerais', icon: Settings },
+  { label: 'Favoritos', icon: Star },
+  { label: 'Recentes', icon: Clock },
+];
+
 const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
   isOpen,
   toggleSidebar,
@@ -26,6 +92,8 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
   onSettingsClick,
   onSwitchToPecuaria,
 }) => {
+  const [isFinanceiroOpen, setIsFinanceiroOpen] = useState(true);
+
   return (
     <>
       {isOpen && (
@@ -36,67 +104,148 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
         />
       )}
 
-      <div className={`
-        fixed top-0 left-0 h-full bg-ai-surface border-r border-ai-border z-30 transition-all duration-300 ease-in-out flex flex-col shadow-lg
-        ${isOpen
-          ? 'w-56 translate-x-0'
-          : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden'
-        }
-      `}>
+      <div
+        className={`
+          fixed top-0 left-0 h-full z-30 transition-all duration-300 ease-in-out flex flex-col shadow-lg
+          ${isOpen ? 'w-56 translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden'}
+        `}
+        style={{ backgroundColor: INTEGRA_SIDEBAR_BG }}
+      >
         {/* Header */}
-        <div className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-ai-border bg-ai-bg">
-          <div className="flex items-center space-x-2 text-ai-text">
-            <Layers size={16} className="text-emerald-500" />
-            <span className="font-bold tracking-tight text-base">Inttegra</span>
-          </div>
-          <button
-            onClick={toggleSidebar}
-            className="md:hidden p-1.5 text-ai-subtext hover:text-ai-text hover:bg-ai-surface rounded transition-colors"
-            aria-label="Fechar menu"
-            title="Fechar menu"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Navigation Area - Empty for MVP */}
-        <div className="flex-1 overflow-y-auto py-4">
-          <div className="px-4 mb-2">
-            <span className="text-[10px] font-bold text-ai-subtext uppercase tracking-widest">
-              Módulos
+        <div
+          className="h-12 shrink-0 flex items-center justify-between px-4 border-b"
+          style={{ borderColor: INTEGRA_BORDER }}
+        >
+          <div className="flex items-center gap-2">
+            <InttegraLogo />
+            <span className="font-bold tracking-tight text-base" style={{ color: INTEGRA_TEXT }}>
+              Inttegra
             </span>
           </div>
-          <div className="px-4 py-8 text-center">
-            <p className="text-xs text-ai-subtext">
-              Navegação em construção
-            </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onSwitchToPecuaria}
+              className="p-1.5 rounded transition-colors hover:opacity-90"
+              style={{ backgroundColor: INTEGRA_SURFACE, color: INTEGRA_TEXT }}
+              title="Voltar para pecuarIA"
+              aria-label="Voltar para pecuarIA"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <button
+              onClick={toggleSidebar}
+              className="md:hidden p-1.5 rounded transition-colors hover:opacity-90"
+              style={{ backgroundColor: INTEGRA_SURFACE, color: INTEGRA_TEXT }}
+              aria-label="Fechar menu"
+              title="Fechar menu"
+            >
+              <X size={18} />
+            </button>
           </div>
+        </div>
+
+        {/* Scrollable Navigation Area */}
+        <div className="flex-1 min-h-0 overflow-y-auto py-4 px-3">
+          {/* Search Bar */}
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-lg mb-4"
+            style={{ backgroundColor: INTEGRA_SURFACE }}
+          >
+            <Search size={16} style={{ color: INTEGRA_ACCENT, flexShrink: 0 }} />
+            <span className="text-sm" style={{ color: INTEGRA_PLACEHOLDER }}>
+              Procurar
+            </span>
+          </div>
+
+          {/* Painel Inicial */}
+          <div
+            className="flex items-center gap-3 px-3 py-2 rounded-md mb-1"
+            style={{ color: INTEGRA_TEXT }}
+          >
+            <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: INTEGRA_SURFACE }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+            </div>
+            <span className="text-sm font-medium">Painel Inicial</span>
+          </div>
+
+          {/* Financeiro (collapsible) */}
+          <div className="mb-2">
+            <button
+              type="button"
+              onClick={() => setIsFinanceiroOpen(!isFinanceiroOpen)}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors hover:opacity-90"
+              style={{ color: INTEGRA_TEXT, backgroundColor: 'transparent' }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: INTEGRA_SURFACE }}>
+                  <DollarSign size={16} />
+                </div>
+                <span className="text-sm font-medium">Financeiro</span>
+              </div>
+              {isFinanceiroOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            {isFinanceiroOpen && (
+              <div className="ml-4 pl-4 mt-1 space-y-0.5 border-l" style={{ borderColor: INTEGRA_BORDER }}>
+                {['Cadastros', 'Movimentações', 'Relatórios'].map((label) => (
+                  <div
+                    key={label}
+                    className="flex items-center justify-between px-2 py-1.5 rounded-md"
+                    style={{ color: INTEGRA_TEXT }}
+                  >
+                    <span className="text-sm">{label}</span>
+                    <ChevronDown size={14} style={{ color: INTEGRA_PLACEHOLDER }} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Menu items (visual only) */}
+          <nav className="space-y-0.5">
+            {menuItems.map(({ label, icon: Icon }) => (
+              <div
+                key={label}
+                className="flex items-center justify-between px-3 py-2 rounded-md"
+                style={{ color: INTEGRA_TEXT }}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon size={16} className="flex-shrink-0" style={{ color: INTEGRA_TEXT }} />
+                  <span className="text-sm">{label}</span>
+                </div>
+                <ChevronDown size={14} style={{ color: INTEGRA_PLACEHOLDER }} />
+              </div>
+            ))}
+          </nav>
         </div>
 
         {/* Footer */}
-        <div className="p-3 border-t border-ai-border bg-ai-bg shrink-0">
-          {/* Switch back to Pecuária */}
-          <button
-            type="button"
-            onClick={onSwitchToPecuaria}
-            className="w-full flex items-center gap-2 px-3 py-2 mb-3 rounded-md text-sm font-medium text-ai-subtext hover:text-ai-text hover:bg-ai-surface2 transition-colors"
-            title="Voltar para pecuarIA"
-          >
-            <ArrowLeftRight size={14} />
-            <span>pecuarIA</span>
-          </button>
-
+        <div
+          className="p-3 border-t shrink-0"
+          style={{ borderColor: INTEGRA_BORDER, backgroundColor: INTEGRA_SIDEBAR_BG }}
+        >
           {user && (
             <div className="mb-3 px-2 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                style={{ backgroundColor: INTEGRA_ACCENT, color: INTEGRA_TEXT }}
+              >
                 {user.name.charAt(0)}
               </div>
               <div className="flex-1 overflow-hidden">
-                <p className="text-xs font-bold text-ai-text truncate">{user.name}</p>
+                <p className="text-xs font-bold truncate" style={{ color: INTEGRA_TEXT }}>
+                  {user.name}
+                </p>
                 {user.role === 'admin' && (
-                  <p className="text-[10px] text-ai-subtext truncate capitalize">Administrador</p>
+                  <p className="text-[10px] truncate capitalize" style={{ color: INTEGRA_PLACEHOLDER }}>
+                    Administrador
+                  </p>
                 )}
-                <p className="text-[9px] text-ai-subtext font-bold uppercase tracking-wide mt-1">
+                <p className="text-[9px] font-bold uppercase tracking-wide mt-1" style={{ color: INTEGRA_PLACEHOLDER }}>
                   v{APP_VERSION} SaaS
                 </p>
               </div>
@@ -107,7 +256,8 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
             <button
               type="button"
               onClick={onSettingsClick}
-              className="flex items-center justify-center p-2 text-ai-subtext hover:text-ai-text hover:bg-ai-surface2 rounded-md transition-colors"
+              className="flex items-center justify-center p-2 rounded-md transition-colors hover:opacity-90"
+              style={{ color: INTEGRA_PLACEHOLDER, backgroundColor: INTEGRA_SURFACE }}
               title="Configurações"
             >
               <Settings size={16} />
@@ -115,7 +265,8 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
             <button
               type="button"
               onClick={onLogout}
-              className="flex items-center justify-center p-2 text-ai-subtext hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+              className="flex items-center justify-center p-2 rounded-md transition-colors hover:opacity-90"
+              style={{ color: INTEGRA_PLACEHOLDER, backgroundColor: INTEGRA_SURFACE }}
               title="Sair"
             >
               <LogOut size={16} />
