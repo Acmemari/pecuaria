@@ -1,6 +1,38 @@
 import { Farm } from '../../types';
 
-export function mapFarmFromDatabase(dbFarm: any): Farm {
+interface DatabaseFarm {
+  id: string;
+  name: string;
+  country: string;
+  state?: string;
+  city: string;
+  client_id?: string;
+  total_area?: number;
+  pasture_area?: number;
+  forage_production_area?: number;
+  agriculture_area_owned?: number;
+  agriculture_area_leased?: number;
+  agriculture_area?: number;
+  other_crops?: number;
+  infrastructure?: number;
+  reserve_and_app?: number;
+  other_area?: number;
+  property_value?: number;
+  operation_pecuary?: number;
+  operation_agricultural?: number;
+  other_operations?: number;
+  agriculture_variation?: number;
+  property_type?: string;
+  weight_metric?: string;
+  average_herd?: number;
+  herd_value?: number;
+  commercializes_genetics?: boolean;
+  production_system?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export function mapFarmFromDatabase(dbFarm: DatabaseFarm): Farm {
   return {
     id: dbFarm.id,
     name: dbFarm.name,
@@ -33,7 +65,7 @@ export function mapFarmFromDatabase(dbFarm: any): Farm {
   };
 }
 
-export function mapFarmsFromDatabase(dbFarms: any[]): Farm[] {
+export function mapFarmsFromDatabase(dbFarms: DatabaseFarm[]): Farm[] {
   return dbFarms.map(mapFarmFromDatabase);
 }
 
@@ -87,8 +119,8 @@ export function buildFarmDatabasePayload(
   return { base, extended };
 }
 
-export function isMissingColumnError(error: any): boolean {
-  const msg = String(error?.message || '').toLowerCase();
+export function isMissingColumnError(error: unknown): boolean {
+  const msg = String((error as { message?: string })?.message || '').toLowerCase();
   return (
     msg.includes("in the schema cache") ||
     (msg.includes("could not find the '") && msg.includes("' column"))

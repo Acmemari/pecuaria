@@ -230,17 +230,35 @@ function hierarchyReducer(state: HierarchyState, action: HierarchyAction): Hiera
   }
 }
 
-function mapAnalystRow(row: any): User {
+interface AnalystRow {
+  id: string;
+  name: string;
+  email: string;
+  role?: string;
+  qualification?: string;
+}
+
+interface ClientRow {
+  id: string;
+  name: string;
+  phone?: string;
+  email: string;
+  analyst_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapAnalystRow(row: AnalystRow): User {
   return {
     id: row.id,
     name: row.name,
     email: row.email,
-    role: row.role || 'client',
-    qualification: row.qualification || 'visitante',
+    role: (row.role as 'admin' | 'client') || 'client',
+    qualification: (row.qualification as User['qualification']) || 'visitante',
   };
 }
 
-function mapClientRow(row: any): Client {
+function mapClientRow(row: ClientRow): Client {
   return {
     id: row.id,
     name: row.name,
@@ -351,11 +369,12 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           });
         }
       }
-    } catch (error: any) {
-      if (error?.name === 'AbortError') return;
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      const message = error instanceof Error ? error.message : 'Falha ao carregar analistas.';
       dispatch({
         type: 'SET_ERROR',
-        payload: { level: 'analysts', value: error?.message || 'Falha ao carregar analistas.' },
+        payload: { level: 'analysts', value: message },
       });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: { level: 'analysts', value: false } });
@@ -421,11 +440,12 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           });
         }
       }
-    } catch (error: any) {
-      if (error?.name === 'AbortError') return;
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      const message = error instanceof Error ? error.message : 'Falha ao carregar clientes.';
       dispatch({
         type: 'SET_ERROR',
-        payload: { level: 'clients', value: error?.message || 'Falha ao carregar clientes.' },
+        payload: { level: 'clients', value: message },
       });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: { level: 'clients', value: false } });
@@ -492,11 +512,12 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           });
         }
       }
-    } catch (error: any) {
-      if (error?.name === 'AbortError') return;
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      const message = error instanceof Error ? error.message : 'Falha ao carregar fazendas.';
       dispatch({
         type: 'SET_ERROR',
-        payload: { level: 'farms', value: error?.message || 'Falha ao carregar fazendas.' },
+        payload: { level: 'farms', value: message },
       });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: { level: 'farms', value: false } });

@@ -1,6 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { User } from '../types';
+
+interface Company {
+  id: string;
+  name: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  description?: string;
+  plan?: 'basic' | 'pro' | 'enterprise';
+  status?: 'active' | 'inactive' | 'pending';
+}
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { createUserProfileIfMissing } from '../lib/auth/createProfile';
@@ -75,10 +88,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Company state
-  const [companies, setCompanies] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
   const [showCompanyForm, setShowCompanyForm] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<any>(null);
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [companyForm, setCompanyForm] = useState({
     name: '',
@@ -205,11 +218,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
 
       if (error) throw error;
       setQuestions((data || []).map(mapDbToApp));
-    } catch (err: any) {
-      console.error('Erro ao carregar perguntas:', err);
+    } catch (err: unknown) {
       setQuestions([]);
-      const msg = err?.message || String(err);
-      const code = err?.code || '';
+      const msg = err instanceof Error ? err.message : String(err);
+      const code = (err as { code?: string })?.code || '';
       const tableMissing =
         code === '42P01' ||
         /relation.*does not exist|tabela.*não existe/i.test(msg) ||
@@ -422,9 +434,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       }));
       onToast('Perfil atualizado com sucesso!', 'success');
       setHasUnsavedChanges(false);
-    } catch (error: any) {
-      console.error('Error saving profile:', error);
-      onToast(error.message || 'Erro ao salvar perfil', 'error');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Erro ao salvar perfil';
+      onToast(msg, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -455,9 +467,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         newPassword: '',
         confirmPassword: ''
       });
-    } catch (error: any) {
-      console.error('Error changing password:', error);
-      onToast(error.message || 'Erro ao alterar senha', 'error');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Erro ao alterar senha';
+      onToast(msg, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -470,7 +482,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       const { error } = await supabase.rpc('delete_my_account');
 
       if (error) {
-        console.error('Error calling delete_my_account:', error);
         throw new Error(error.message || 'Erro ao excluir conta. Por favor, entre em contato com o suporte.');
       }
 
@@ -482,9 +493,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       setTimeout(() => {
         onLogout();
       }, 1500);
-    } catch (error: any) {
-      console.error('Error deleting account:', error);
-      onToast(error.message || 'Erro ao excluir conta. Tente novamente ou entre em contato com o suporte.', 'error');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Erro ao excluir conta. Tente novamente ou entre em contato com o suporte.';
+      onToast(msg, 'error');
       setIsSaving(false);
       setShowDeleteConfirm(false);
     }
@@ -517,8 +528,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       URL.revokeObjectURL(url);
 
       onToast('Dados exportados com sucesso!', 'success');
-    } catch (error: any) {
-      console.error('Error exporting data:', error);
+    } catch (error: unknown) {
+      void error;
       onToast('Erro ao exportar dados', 'error');
     }
   };
@@ -738,13 +749,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           return index === firstIndex;
         });
         
-        console.log('[SettingsPage] Loaded companies:', uniqueCompanies.length, 'unique companies (from', data.length, 'total)');
         setCompanies(uniqueCompanies);
       } else {
         setCompanies([]);
       }
-    } catch (error: any) {
-      console.error('Error loading companies:', error);
+    } catch (error: unknown) {
+      void error;
       onToast('Erro ao carregar empresas', 'error');
     } finally {
       setIsLoadingCompanies(false);
@@ -842,15 +852,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       setEditingCompany(null);
       resetCompanyForm();
       await loadCompanies();
-    } catch (error: any) {
-      console.error('Error saving company:', error);
-      onToast(error.message || 'Erro ao salvar empresa', 'error');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Erro ao salvar empresa';
+      onToast(msg, 'error');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleEditCompany = (company: any) => {
+  const handleEditCompany = (company: Company) => {
     // Only admins can edit companies
     if (user.role !== 'admin') {
       onToast('Apenas administradores podem editar empresas', 'error');
@@ -892,9 +902,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       if (error) throw error;
       onToast('Empresa excluída com sucesso!', 'success');
       await loadCompanies();
-    } catch (error: any) {
-      console.error('Error deleting company:', error);
-      onToast(error.message || 'Erro ao excluir empresa', 'error');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Erro ao excluir empresa';
+      onToast(msg, 'error');
     } finally {
       setIsSaving(false);
     }

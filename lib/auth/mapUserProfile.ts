@@ -1,59 +1,67 @@
 import { User } from '../../types';
+import { logger } from '../logger';
 
-/**
- * Converte perfil do Supabase para o tipo User da aplicação
- * @param profile Perfil do Supabase (pode ser null, undefined ou objeto)
- * @returns User mapeado ou null se inválido
- */
-export const mapUserProfile = (profile: any): User | null => {
-  // Validação inicial: profile deve existir e ser um objeto
-  if (!profile || typeof profile !== 'object') {
-    console.warn('[mapUserProfile] Invalid profile: profile is null, undefined, or not an object', profile);
+const log = logger.withContext({ component: 'mapUserProfile' });
+
+interface SupabaseProfile {
+  id: string;
+  email: string;
+  name?: string;
+  role?: string;
+  plan?: string;
+  status?: string;
+  avatar?: string;
+  last_login?: string;
+  organization_id?: string;
+  phone?: string;
+  qualification?: string | null;
+}
+
+export const mapUserProfile = (input: unknown): User | null => {
+  if (!input || typeof input !== 'object') {
+    log.warn('Invalid profile: profile is null, undefined, or not an object');
     return null;
   }
 
-  // Validação de campos obrigatórios
+  const profile = input as SupabaseProfile;
+
   if (!profile.id) {
-    console.warn('[mapUserProfile] Invalid profile: missing id', profile);
+    log.warn('Invalid profile: missing id');
     return null;
   }
 
   if (!profile.email || typeof profile.email !== 'string') {
-    console.warn('[mapUserProfile] Invalid profile: missing or invalid email', profile);
+    log.warn('Invalid profile: missing or invalid email');
     return null;
   }
 
-  // Validação de role
-  const validRoles = ['admin', 'client'];
+  const validRoles = ['admin', 'client'] as const;
   const role = profile.role;
-  if (!role || !validRoles.includes(role)) {
-    console.warn('[mapUserProfile] Invalid profile: missing or invalid role', { role, profile });
+  if (!role || !validRoles.includes(role as typeof validRoles[number])) {
+    log.warn('Invalid profile: missing or invalid role');
     return null;
   }
 
-  // Validação de plan (opcional, mas deve ser válido se presente)
-  const validPlans = ['basic', 'pro', 'enterprise'];
+  const validPlans = ['basic', 'pro', 'enterprise'] as const;
   let plan: 'basic' | 'pro' | 'enterprise' | undefined = undefined;
   if (profile.plan) {
-    if (validPlans.includes(profile.plan)) {
+    if (validPlans.includes(profile.plan as typeof validPlans[number])) {
       plan = profile.plan as 'basic' | 'pro' | 'enterprise';
     } else {
-      console.warn('[mapUserProfile] Invalid plan value, defaulting to undefined', { plan: profile.plan });
+      log.warn('Invalid plan value, defaulting to undefined');
     }
   }
 
-  // Validação de status (opcional, mas deve ser válido se presente)
-  const validStatuses = ['active', 'inactive'];
+  const validStatuses = ['active', 'inactive'] as const;
   let status: 'active' | 'inactive' | undefined = undefined;
   if (profile.status) {
-    if (validStatuses.includes(profile.status)) {
+    if (validStatuses.includes(profile.status as typeof validStatuses[number])) {
       status = profile.status as 'active' | 'inactive';
     } else {
-      console.warn('[mapUserProfile] Invalid status value, defaulting to undefined', { status: profile.status });
+      log.warn('Invalid status value, defaulting to undefined');
     }
   }
 
-  // Processamento de last_login com validação
   let lastLogin: string | undefined = undefined;
   if (profile.last_login) {
     try {
@@ -61,54 +69,44 @@ export const mapUserProfile = (profile: any): User | null => {
       if (!isNaN(date.getTime())) {
         lastLogin = date.toISOString();
       } else {
-        console.warn('[mapUserProfile] Invalid last_login date, ignoring', { last_login: profile.last_login });
+        log.warn('Invalid last_login date, ignoring');
       }
-    } catch (error) {
-      console.warn('[mapUserProfile] Error parsing last_login', { error, last_login: profile.last_login });
+    } catch {
+      log.warn('Error parsing last_login');
     }
   }
 
-  // Processamento de name com fallback
   const name = profile.name && typeof profile.name === 'string' && profile.name.trim()
     ? profile.name.trim()
     : profile.email.split('@')[0] || 'Usuário';
 
-  // Processamento de avatar com fallback
   const avatar = profile.avatar && typeof profile.avatar === 'string'
     ? profile.avatar
     : name.charAt(0).toUpperCase();
 
-  // Validação de organization_id (opcional)
   let organizationId: string | undefined = undefined;
   if (profile.organization_id) {
-    if (typeof profile.organization_id === 'string' || typeof profile.organization_id === 'object') {
-      // Se for objeto (UUID), converter para string
-      organizationId = String(profile.organization_id);
-    }
+    organizationId = String(profile.organization_id);
   }
 
-  // Processamento de phone (opcional)
   const phone = profile.phone && typeof profile.phone === 'string' ? profile.phone : undefined;
 
-  // Processamento de qualification (opcional, default 'visitante')
-  const validQualifications = ['visitante', 'cliente', 'analista'];
+  const validQualifications = ['visitante', 'cliente', 'analista'] as const;
   let qualification: 'visitante' | 'cliente' | 'analista' | undefined = undefined;
-  
-  // Verificar explicitamente se o campo existe no objeto (não apenas se é truthy)
+
   if (profile.qualification !== null && profile.qualification !== undefined) {
     const qualValue = String(profile.qualification).trim();
-    if (validQualifications.includes(qualValue)) {
+    if (validQualifications.includes(qualValue as typeof validQualifications[number])) {
       qualification = qualValue as 'visitante' | 'cliente' | 'analista';
     } else {
-      console.warn('[mapUserProfile] Invalid qualification value, defaulting to visitante', { qualification: profile.qualification });
+      log.warn('Invalid qualification value, defaulting to visitante');
       qualification = 'visitante';
     }
   } else {
-    // Se não existe no banco, usar default apenas neste caso
     qualification = 'visitante';
   }
 
-  const mappedUser: User = {
+  return {
     id: String(profile.id),
     name,
     email: profile.email.trim().toLowerCase(),
@@ -121,6 +119,4 @@ export const mapUserProfile = (profile: any): User | null => {
     phone,
     qualification
   };
-
-  return mappedUser;
 };

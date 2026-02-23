@@ -10,9 +10,8 @@ import { getAdminUnreadCount, subscribeAdminUnread } from '../lib/supportTickets
 import SelectorErrorBoundary from './hierarchy/SelectorErrorBoundary';
 
 interface AnalystHeaderProps {
-  // Props mantidas para retrocompatibilidade, mas agora usamos o contexto
-  selectedFarm?: any;
-  onSelectFarm?: (farm: any) => void;
+  selectedFarm?: { id: string; name: string } | null;
+  onSelectFarm?: (farm: { id: string; name: string } | null) => void;
 }
 
 const AnalystHeader: React.FC<AnalystHeaderProps> = () => {

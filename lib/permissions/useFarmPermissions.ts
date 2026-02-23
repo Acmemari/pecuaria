@@ -2,6 +2,9 @@ import { useMemo, useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import type { PermissionLevel } from './permissionKeys';
 import { DEFAULT_PERMISSIONS } from './permissionKeys';
+import { logger } from '../logger';
+
+const log = logger.withContext({ component: 'useFarmPermissions' });
 
 /** Acesso total (admin). Referencia estavel, sem query. */
 export const FULL_ACCESS: FarmPermissionsResult = {
@@ -113,7 +116,7 @@ export function useFarmPermissions(
       if (cancelled) return;
 
       if (error) {
-        console.error('[useFarmPermissions] Error loading analyst_farms:', error);
+        log.error('Error loading analyst_farms', new Error(error.message));
         setAnalystFarm(null);
       } else if (data) {
         const perms = (data.permissions as Record<string, string>) || {};
@@ -177,7 +180,7 @@ export function useBatchFarmPermissions(
 
       if (cancelled) return;
       if (error) {
-        console.error('[useBatchFarmPermissions] Error:', error);
+        log.error('useBatchFarmPermissions error', new Error(error.message));
         setRows([]);
       } else {
         setRows(

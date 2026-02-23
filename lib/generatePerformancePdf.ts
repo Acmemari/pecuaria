@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { QuestionnaireResultsData } from './questionnaireResults';
 import { SavedQuestionnaire } from '../types';
+import { logger } from './logger';
 
 /** Cores por grupo (Gente, Gestão, Produção) - alinhado ao modelo do relatório */
 const GROUP_COLORS_PDF: Record<string, { bar: [number, number, number]; bg: [number, number, number]; text: [number, number, number]; border?: boolean }> = {
@@ -17,7 +18,7 @@ export const generatePerformancePdf = (
     chartImages?: { operational: string | null; categorical: string | null; cards?: string | null },
     userName?: string
 ) => {
-    console.log('📄 generatePerformancePdf: Iniciando com novo layout...');
+    logger.debug('generatePerformancePdf: Iniciando com novo layout', { component: 'generatePerformancePdf' });
 
     try {
         const doc = new jsPDF();
@@ -294,10 +295,10 @@ export const generatePerformancePdf = (
         // Save
         const filename = `Diagnostico_${farmName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
         doc.save(filename);
-        console.log('✅ PDF salvo com sucesso!');
+        logger.info('PDF salvo com sucesso', { component: 'generatePerformancePdf' });
 
-    } catch (error) {
-        console.error('❌ Erro em generatePerformancePdf:', error);
+    } catch (error: unknown) {
+        logger.error('Erro em generatePerformancePdf', error instanceof Error ? error : new Error(String(error)), { component: 'generatePerformancePdf' });
         throw error;
     }
 };

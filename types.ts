@@ -96,7 +96,7 @@ export interface AuthContextType {
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   clearPasswordRecovery: () => void;
-  signInWithOAuth: (provider: 'google') => Promise<any>;
+  signInWithOAuth: (provider: 'google') => Promise<{ provider: string; url: string } | null>;
   signup: (email: string, password: string, name: string, phone: string, organizationName?: string) => Promise<{ success: boolean; error?: string }>;
 }
 

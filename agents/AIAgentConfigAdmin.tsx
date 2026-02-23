@@ -22,7 +22,7 @@ interface AgentRegistryEntry {
 }
 
 const AIAgentConfigAdmin: React.FC = () => {
-    const { user } = useAuth() as any;
+    const { user } = useAuth();
     const [agents, setAgents] = useState<AgentRegistryEntry[]>([]);
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
     const [config, setConfig] = useState<AgentRegistryEntry | null>(null);

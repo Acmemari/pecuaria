@@ -34,11 +34,11 @@ async function withRetry<T>(
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
             return await operation();
-        } catch (error: any) {
+        } catch (error: unknown) {
             const isLastAttempt = attempt === maxRetries - 1;
 
-            // Não retry em erros de autenticação ou validação (4xx)
-            const status = error.status || error.code;
+            const errObj = error as { status?: number; code?: number };
+            const status = errObj.status || errObj.code;
             const shouldRetry = !status || retryableStatuses.includes(status);
 
             if (!shouldRetry || isLastAttempt) {
@@ -79,7 +79,7 @@ export const supabaseClient = {
      */
     async query<T>(
         table: string,
-        operation: (builder: any) => Promise<{ data: T | null; error: any }>,
+        operation: (builder: ReturnType<typeof supabase.from>) => Promise<{ data: T | null; error: { message?: string } | null }>,
         config?: RetryConfig
     ): Promise<T> {
         const result = await withRetry(
@@ -102,7 +102,7 @@ export const supabaseClient = {
     /**
      * Select com retry
      */
-    async select<T = any>(
+    async select<T = unknown>(
         table: string,
         query: string = '*',
         config?: RetryConfig
@@ -117,9 +117,9 @@ export const supabaseClient = {
     /**
      * Insert com retry
      */
-    async insert<T = any>(
+    async insert<T = unknown>(
         table: string,
-        data: any,
+        data: Record<string, unknown>,
         config?: RetryConfig
     ): Promise<T> {
         return this.query(
@@ -132,10 +132,10 @@ export const supabaseClient = {
     /**
      * Update com retry
      */
-    async update<T = any>(
+    async update<T = unknown>(
         table: string,
-        data: any,
-        match: Record<string, any>,
+        data: Record<string, unknown>,
+        match: Record<string, unknown>,
         config?: RetryConfig
     ): Promise<T> {
         return this.query(
@@ -150,7 +150,7 @@ export const supabaseClient = {
      */
     async delete(
         table: string,
-        match: Record<string, any>,
+        match: Record<string, unknown>,
         config?: RetryConfig
     ): Promise<void> {
         await this.query(
@@ -195,8 +195,8 @@ export const supabaseClient = {
 /**
  * Helper para executar múltiplas queries em paralelo com retry
  */
-export async function parallelQueries<T extends any[]>(
-    queries: (() => Promise<any>)[],
+export async function parallelQueries<T extends unknown[]>(
+    queries: (() => Promise<unknown>)[],
     config?: RetryConfig
 ): Promise<T> {
     const results = await Promise.all(
@@ -208,14 +208,11 @@ export async function parallelQueries<T extends any[]>(
     return results as T;
 }
 
-/**
- * Helper para executar queries em sequência com retry
- */
-export async function sequentialQueries<T extends any[]>(
-    queries: (() => Promise<any>)[],
+export async function sequentialQueries<T extends unknown[]>(
+    queries: (() => Promise<unknown>)[],
     config?: RetryConfig
 ): Promise<T> {
-    const results: any[] = [];
+    const results: unknown[] = [];
 
     for (let i = 0; i < queries.length; i++) {
         const result = await withRetry(queries[i], `Sequential query ${i}`, config);

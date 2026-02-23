@@ -4,6 +4,9 @@
  */
 import { supabase } from './supabase';
 import { ClientDocument, DocumentCategory, DocumentFileType, DocumentUploadParams, DocumentFilter } from '../types';
+import { logger } from './logger';
+
+const log = logger.withContext({ component: 'clientDocuments' });
 
 const BUCKET_NAME = 'client-documents';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -88,7 +91,7 @@ export async function uploadDocument(params: DocumentUploadParams): Promise<{ su
       });
 
     if (uploadError) {
-      console.error('[uploadDocument] Storage error:', uploadError);
+      log.error('uploadDocument storage error', new Error(uploadError.message));
       return { success: false, error: `Erro ao fazer upload: ${uploadError.message}` };
     }
 
@@ -112,7 +115,7 @@ export async function uploadDocument(params: DocumentUploadParams): Promise<{ su
     if (dbError) {
       // Tentar remover arquivo do storage se falhar no DB
       await supabase.storage.from(BUCKET_NAME).remove([storagePath]);
-      console.error('[uploadDocument] DB error:', dbError);
+      log.error('uploadDocument DB error', new Error(dbError.message));
       return { success: false, error: `Erro ao salvar documento: ${dbError.message}` };
     }
 
@@ -121,9 +124,10 @@ export async function uploadDocument(params: DocumentUploadParams): Promise<{ su
       document: mapDocumentFromDatabase(data)
     };
 
-  } catch (error: any) {
-    console.error('[uploadDocument] Error:', error);
-    return { success: false, error: error.message || 'Erro desconhecido ao fazer upload' };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro desconhecido ao fazer upload';
+    log.error('uploadDocument error', error instanceof Error ? error : new Error(msg));
+    return { success: false, error: msg };
   }
 }
 
@@ -159,21 +163,22 @@ export async function listDocuments(filter: DocumentFilter = {}): Promise<{ docu
     const { data, error } = await query;
 
     if (error) {
-      console.error('[listDocuments] Error:', error);
+      log.error('listDocuments query error', new Error(error.message));
       return { documents: [], error: error.message };
     }
 
-    const documents = (data || []).map((doc: any) => ({
-      ...mapDocumentFromDatabase(doc),
-      uploaderName: '—', // auth.users não acessível pelo cliente; exibir placeholder
-      clientName: doc.clients?.name || 'Cliente'
+    const documents = (data || []).map((doc) => ({
+      ...mapDocumentFromDatabase(doc as unknown as DatabaseDocument),
+      uploaderName: '—',
+      clientName: (doc as unknown as { clients?: { name?: string } }).clients?.name || 'Cliente'
     }));
 
     return { documents };
 
-  } catch (error: any) {
-    console.error('[listDocuments] Error:', error);
-    return { documents: [], error: error.message };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao listar documentos';
+    log.error('listDocuments error', error instanceof Error ? error : new Error(msg));
+    return { documents: [], error: msg };
   }
 }
 
@@ -187,15 +192,16 @@ export async function getDocumentUrl(storagePath: string): Promise<{ url?: strin
       .createSignedUrl(storagePath, 3600); // URL válida por 1 hora
 
     if (error) {
-      console.error('[getDocumentUrl] Error:', error);
+      log.error('getDocumentUrl error', new Error(error.message));
       return { error: error.message };
     }
 
     return { url: data.signedUrl };
 
-  } catch (error: any) {
-    console.error('[getDocumentUrl] Error:', error);
-    return { error: error.message };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao obter URL do documento';
+    log.error('getDocumentUrl error', error instanceof Error ? error : new Error(msg));
+    return { error: msg };
   }
 }
 
@@ -221,7 +227,7 @@ export async function deleteDocument(documentId: string): Promise<{ success: boo
       .remove([doc.storage_path]);
 
     if (storageError) {
-      console.error('[deleteDocument] Storage error:', storageError);
+      log.warn('deleteDocument storage error (file may already be removed)');
       // Continuar mesmo com erro no storage (arquivo pode já ter sido removido)
     }
 
@@ -232,21 +238,19 @@ export async function deleteDocument(documentId: string): Promise<{ success: boo
       .eq('id', documentId);
 
     if (dbError) {
-      console.error('[deleteDocument] DB error:', dbError);
+      log.error('deleteDocument DB error', new Error(dbError.message));
       return { success: false, error: dbError.message };
     }
 
     return { success: true };
 
-  } catch (error: any) {
-    console.error('[deleteDocument] Error:', error);
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao excluir documento';
+    log.error('deleteDocument error', error instanceof Error ? error : new Error(msg));
+    return { success: false, error: msg };
   }
 }
 
-/**
- * Atualiza metadados de um documento (categoria, descrição)
- */
 export async function updateDocument(
   documentId: string, 
   updates: { category?: DocumentCategory; description?: string }
@@ -258,22 +262,38 @@ export async function updateDocument(
       .eq('id', documentId);
 
     if (error) {
-      console.error('[updateDocument] Error:', error);
+      log.error('updateDocument error', new Error(error.message));
       return { success: false, error: error.message };
     }
 
     return { success: true };
 
-  } catch (error: any) {
-    console.error('[updateDocument] Error:', error);
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Erro ao atualizar documento';
+    log.error('updateDocument error', error instanceof Error ? error : new Error(msg));
+    return { success: false, error: msg };
   }
 }
 
 /**
  * Mapeia documento do formato do banco para o tipo TypeScript
  */
-function mapDocumentFromDatabase(doc: any): ClientDocument {
+interface DatabaseDocument {
+  id: string;
+  client_id: string;
+  uploaded_by: string;
+  file_name: string;
+  original_name: string;
+  file_type: DocumentFileType;
+  file_size: number;
+  storage_path: string;
+  category: DocumentCategory;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+function mapDocumentFromDatabase(doc: DatabaseDocument): ClientDocument {
   return {
     id: doc.id,
     clientId: doc.client_id,

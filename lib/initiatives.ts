@@ -201,17 +201,16 @@ export async function fetchInitiatives(
   if (initError) throw initError;
   if (!initiatives?.length) return [];
 
-  return initiatives.map((i: any) => {
-    const list = (i.initiative_milestones || []).map((m: any) => {
-      // Remover a chave aninhada para expor 'tasks' no mesmo formato mapeado anterior
+  return initiatives.map((i: InitiativeRow & { initiative_milestones?: Array<InitiativeMilestoneRow & { initiative_tasks?: InitiativeTaskRow[] }> }) => {
+    const list = (i.initiative_milestones || []).map((m) => {
       const { initiative_tasks, ...rest } = m;
       return {
         ...rest,
-        tasks: (initiative_tasks || []).sort((a: any, b: any) => a.sort_order - b.sort_order)
+        tasks: (initiative_tasks || []).sort((a, b) => a.sort_order - b.sort_order)
       };
-    }).sort((a: any, b: any) => a.sort_order - b.sort_order);
+    }).sort((a, b) => a.sort_order - b.sort_order);
 
-    const progress = Math.min(100, Math.max(0, list.filter((m: any) => m.completed === true).reduce((s: any, m: any) => s + (m.percent ?? 0), 0)));
+    const progress = Math.min(100, Math.max(0, list.filter((m) => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0)));
 
     // Cleanup keys that came nested
     const { initiative_milestones, ...initData } = i;

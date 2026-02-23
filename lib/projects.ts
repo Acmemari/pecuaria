@@ -54,7 +54,7 @@ function normalizeStakeholderMatrix(raw: unknown): ProjectStakeholderRow[] {
   }).filter((r) => r.name !== '' || r.activity !== '');
 }
 
-function mapProjectRow(data: any): ProjectRow {
+function mapProjectRow(data: Record<string, unknown>): ProjectRow {
   return {
     ...data,
     success_evidence: Array.isArray(data.success_evidence)

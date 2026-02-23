@@ -5,7 +5,14 @@
 
 export type PermissionLevel = 'hidden' | 'view' | 'edit';
 
-export type PermissionCategory = 'cadastros' | 'gerenciamento' | 'assistentes' | 'documentos';
+export type PermissionCategory =
+  | 'cadastros'
+  | 'gerenciamento'
+  | 'assistentes'
+  | 'documentos'
+  | 'consultoria'
+  | 'equipe'
+  | 'configuracoes';
 
 export interface PermissionKeyDef {
   key: string;
@@ -174,6 +181,106 @@ export const PERMISSION_KEYS: PermissionKeyDef[] = [
     icon: 'Calculator',
     category: 'assistentes',
   },
+  {
+    key: 'calculator:simulator',
+    label: 'Rentabilidade na Engorda',
+    description: 'Simulador de rentabilidade na engorda de bovinos',
+    location: 'Assistentes > Calculadora',
+    icon: 'TrendingUp',
+    category: 'assistentes',
+  },
+  {
+    key: 'calculator:comparator',
+    label: 'Comparador de cenários',
+    description: 'Comparação lado a lado de cenários',
+    location: 'Assistentes > Comparador',
+    icon: 'GitCompare',
+    category: 'assistentes',
+  },
+  {
+    key: 'calculator:agile_planning',
+    label: 'Planejamento Ágil',
+    description: 'Planejamento ágil vinculado a clientes e fazendas',
+    location: 'Assistentes > Planejamento Ágil',
+    icon: 'Target',
+    category: 'assistentes',
+  },
+  {
+    key: 'calculator:avaliacao_protocolo',
+    label: 'Avaliação Protocolo 5-3-9',
+    description: 'Questionário de avaliação protocolar',
+    location: 'Assistentes > Avaliação Protocolo',
+    icon: 'ClipboardList',
+    category: 'assistentes',
+  },
+  {
+    key: 'calculator:feedback',
+    label: 'Assistente de Feedback',
+    description: 'Geração e adaptação de feedback construtivo',
+    location: 'Assistentes > Feedback',
+    icon: 'MessageSquare',
+    category: 'assistentes',
+  },
+  // Consultoria
+  {
+    key: 'chat:antonio',
+    label: 'Pergunte p/ Antonio',
+    description: 'Chat com consultor virtual de pecuária',
+    location: 'Consultoria > Chat IA',
+    icon: 'MessageCircle',
+    category: 'consultoria',
+  },
+  // Gerenciamento — Calendário
+  {
+    key: 'calendar:main',
+    label: 'Calendário',
+    description: 'Visualização e gestão de eventos e atividades',
+    location: 'Gerenciamento > Calendário',
+    icon: 'Calendar',
+    category: 'gerenciamento',
+  },
+  // Equipe
+  {
+    key: 'equipe:feedback_rh',
+    label: 'Feedback RH',
+    description: 'Lista de feedbacks da equipe',
+    location: 'Equipe > Feedback',
+    icon: 'UsersRound',
+    category: 'equipe',
+  },
+  // Configurações
+  {
+    key: 'config:settings',
+    label: 'Configurações',
+    description: 'Configurações gerais do usuário',
+    location: 'Configurações',
+    icon: 'Settings',
+    category: 'configuracoes',
+  },
+  {
+    key: 'config:subscription',
+    label: 'Assinatura e Planos',
+    description: 'Gestão de assinatura e plano contratado',
+    location: 'Configurações > Assinatura',
+    icon: 'CreditCard',
+    category: 'configuracoes',
+  },
+  {
+    key: 'config:login',
+    label: 'Login / Autenticação',
+    description: 'Tela de login e autenticação de usuário',
+    location: 'Login',
+    icon: 'LogIn',
+    category: 'configuracoes',
+  },
+  {
+    key: 'config:password_reset',
+    label: 'Recuperação de Senha',
+    description: 'Fluxo de esqueci/redefinir senha',
+    location: 'Login > Recuperação de Senha',
+    icon: 'KeyRound',
+    category: 'configuracoes',
+  },
 ];
 
 /** Labels para categorias (espelham o sidebar) */
@@ -182,6 +289,9 @@ export const PERMISSION_CATEGORY_LABELS: Record<PermissionCategory, string> = {
   gerenciamento: 'Gerenciamento',
   assistentes: 'Assistentes',
   documentos: 'Documentos',
+  consultoria: 'Consultoria',
+  equipe: 'Equipe',
+  configuracoes: 'Configurações',
 };
 
 /** Valor padrão para novas permissões (analistas adicionados) */
@@ -205,4 +315,16 @@ export const DEFAULT_PERMISSIONS: Record<string, PermissionLevel> = {
   'initiatives:evidence': 'view',
   'documents:client': 'view',
   'calculator:scenarios': 'view',
+  'calculator:simulator': 'view',
+  'calculator:comparator': 'view',
+  'calculator:agile_planning': 'view',
+  'calculator:avaliacao_protocolo': 'view',
+  'calculator:feedback': 'view',
+  'chat:antonio': 'view',
+  'calendar:main': 'view',
+  'equipe:feedback_rh': 'view',
+  'config:settings': 'view',
+  'config:subscription': 'view',
+  'config:login': 'view',
+  'config:password_reset': 'view',
 };

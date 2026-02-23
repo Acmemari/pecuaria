@@ -3,6 +3,7 @@ import {
   Check,
   CheckCheck,
   Loader2,
+  Pencil,
   Reply,
   Send,
   X,
@@ -21,6 +22,18 @@ import {
   Paperclip,
   FolderOpen,
   Calculator,
+  TrendingUp,
+  GitCompare,
+  Target,
+  ClipboardList,
+  MessageSquare,
+  MessageCircle,
+  Calendar,
+  UsersRound,
+  Settings,
+  CreditCard,
+  LogIn,
+  KeyRound,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -31,12 +44,14 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import {
   createTicket,
+  deleteTicketMessage,
   getTicketDetail,
   listMyTickets,
   markTicketRead,
   sendAIMessage,
   sendTicketMessage,
   subscribeTicketMessages,
+  updateTicketMessage,
   updateTicketStatus,
   type SupportLocationArea,
   type SupportTicket,
@@ -102,6 +117,18 @@ const SCREEN_ICON_MAP: Record<string, LucideIcon> = {
   Paperclip,
   FolderOpen,
   Calculator,
+  TrendingUp,
+  GitCompare,
+  Target,
+  ClipboardList,
+  MessageSquare,
+  MessageCircle,
+  Calendar,
+  UsersRound,
+  Settings,
+  CreditCard,
+  LogIn,
+  KeyRound,
 };
 
 function getScreenLabelFromKey(key: string | null): string | null {
@@ -135,7 +162,7 @@ const BotAvatar = () => (
 );
 
 const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose }) => {
-  const { user } = useAuth() as any;
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -154,12 +181,16 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
   const [pastedImagePreview, setPastedImagePreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
 
   const [aiSuggestion, setAiSuggestion] = useState('');
   const [aiSuggestionLoading, setAiSuggestionLoading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const activeTicketIdRef = useRef(activeTicketId);
   activeTicketIdRef.current = activeTicketId;
 
@@ -284,8 +315,8 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     (async () => {
       try {
         await loadTickets();
-      } catch (err: any) {
-        if (!cancelled) setError(err?.message || 'Erro ao carregar tickets.');
+      } catch (err: unknown) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Erro ao carregar tickets.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -301,8 +332,8 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     (async () => {
       try {
         await loadDetail(activeTicketId);
-      } catch (err: any) {
-        if (!cancelled) setError(err?.message || 'Erro ao abrir ticket.');
+      } catch (err: unknown) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Erro ao abrir ticket.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -337,8 +368,8 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
       setAiSuggestion('');
       await loadTickets();
       setActiveTicketId(ticket.id);
-    } catch (err: any) {
-      setError(err?.message || 'Erro ao criar ticket.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar ticket.');
     } finally {
       setLoading(false);
     }
@@ -407,8 +438,8 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
       await sendTicketMessage(activeTicketId, { message: text, imageFile, replyToId });
       await loadDetail(activeTicketId);
       await loadTickets();
-    } catch (err: any) {
-      setError(err?.message || 'Erro ao enviar mensagem.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao enviar mensagem.');
       setDetail((prev) =>
         prev ? { ...prev, messages: prev.messages.filter((m) => m.id !== optimisticId) } : prev
       );
@@ -421,13 +452,14 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     if (e.key === 'Enter') {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const ta = e.target as HTMLTextAreaElement;
-        const start = ta.selectionStart;
-        const end = ta.selectionEnd;
-        const val = ta.value;
-        const newVal = val.slice(0, start) + '\n' + val.slice(end);
+        e.stopPropagation();
+        const ta = textareaRef.current;
+        if (!ta) return;
+        const start = ta.selectionStart ?? 0;
+        const end = ta.selectionEnd ?? 0;
+        const newVal = messageInput.slice(0, start) + '\n' + messageInput.slice(end);
         setMessageInput(newVal);
-        setTimeout(() => ta.setSelectionRange(start + 1, start + 1), 0);
+        requestAnimationFrame(() => ta.setSelectionRange(start + 1, start + 1));
         return;
       }
       e.preventDefault();
@@ -451,8 +483,46 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
       }
       await loadDetail(activeTicketId);
       await loadTickets();
-    } catch (err: any) {
-      setError(err?.message || 'Erro ao atualizar ticket.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar ticket.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleEditMessage = async () => {
+    if (!editingMessageId || !activeTicketId) return;
+    const text = editingText.trim();
+    if (!text) return;
+    setSending(true);
+    setError(null);
+    try {
+      await updateTicketMessage(editingMessageId, text);
+      setEditingMessageId(null);
+      setEditingText('');
+      await loadDetail(activeTicketId);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao editar mensagem.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!activeTicketId) return;
+    setSending(true);
+    setError(null);
+    setDeletingMessageId(null);
+    setDetail((prev) =>
+      prev ? { ...prev, messages: prev.messages.filter((m) => m.id !== messageId) } : prev
+    );
+    try {
+      await deleteTicketMessage(messageId);
+      await loadDetail(activeTicketId);
+      await loadTickets();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao excluir mensagem.');
+      await loadDetail(activeTicketId);
     } finally {
       setSending(false);
     }
@@ -592,7 +662,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                     Onde está o problema? Clique na tela ou funcionalidade
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                    {(['cadastros', 'gerenciamento', 'documentos', 'assistentes'] as PermissionCategory[]).map(
+                    {(Object.keys(PERMISSION_CATEGORY_LABELS) as PermissionCategory[]).map(
                       (cat) => {
                         const items = PERMISSION_KEYS.filter((pk) => pk.category === cat);
                         if (items.length === 0) return null;
@@ -790,6 +860,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                     );
                   }
 
+                  const isEditing = editingMessageId === msg.id;
+                  const isDeleting = deletingMessageId === msg.id;
+                  const isTemp = msg.id?.startsWith('temp-');
+
                   return (
                     <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'} animate-fade-in group`}>
                       <div
@@ -801,16 +875,46 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                               : 'bg-slate-100 text-slate-700'
                         }`}
                       >
-                        <button
-                          type="button"
-                          onClick={() => setReplyingTo(msg)}
-                          className={`absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${
-                            mine ? 'hover:bg-blue-500' : 'hover:bg-slate-200'
-                          }`}
-                          title="Responder"
-                        >
-                          <Reply size={14} className={mine ? 'text-white/80' : 'text-slate-500'} />
-                        </button>
+                        {mine && !isTemp && !isEditing && !isDeleting && (
+                          <div className="absolute -left-1 top-2 -translate-x-full flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => setReplyingTo(msg)}
+                              className="p-1 rounded hover:bg-slate-200"
+                              title="Responder"
+                            >
+                              <Reply size={14} className="text-slate-400" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setEditingMessageId(msg.id); setEditingText(msg.message); setDeletingMessageId(null); }}
+                              className="p-1 rounded hover:bg-slate-200"
+                              title="Editar"
+                            >
+                              <Pencil size={14} className="text-slate-400" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setDeletingMessageId(msg.id); setEditingMessageId(null); }}
+                              className="p-1 rounded hover:bg-red-100"
+                              title="Excluir"
+                            >
+                              <Trash2 size={14} className="text-slate-400" />
+                            </button>
+                          </div>
+                        )}
+                        {!mine && (
+                          <button
+                            type="button"
+                            onClick={() => setReplyingTo(msg)}
+                            className={`absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${
+                              isAgent ? 'hover:bg-amber-100' : 'hover:bg-slate-200'
+                            }`}
+                            title="Responder"
+                          >
+                            <Reply size={14} className="text-slate-500" />
+                          </button>
+                        )}
                         {msg.reply_to_id && (
                           <div
                             className={`mb-2 pl-2 border-l-2 ${
@@ -836,7 +940,65 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                             {isAgent ? 'Agente Técnico' : (msg.author_name || 'Usuário')}
                           </p>
                         )}
-                        <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                        {isEditing ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleEditMessage(); }
+                                if (e.key === 'Escape') { setEditingMessageId(null); setEditingText(''); }
+                              }}
+                              className="w-full rounded-lg border border-white/30 bg-blue-500/50 px-3 py-2 text-sm text-white placeholder:text-white/50 resize-none outline-none focus:border-white/50"
+                              rows={2}
+                              autoFocus
+                            />
+                            <div className="flex justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => { setEditingMessageId(null); setEditingText(''); }}
+                                className="p-1 rounded hover:bg-blue-500 transition-colors"
+                                title="Cancelar"
+                              >
+                                <X size={14} className="text-white/80" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void handleEditMessage()}
+                                disabled={!editingText.trim() || editingText.trim() === msg.message}
+                                className="p-1 rounded hover:bg-blue-500 transition-colors disabled:opacity-40"
+                                title="Salvar"
+                              >
+                                <Check size={14} className="text-white" />
+                              </button>
+                            </div>
+                          </div>
+                        ) : isDeleting ? (
+                          <div className="space-y-2">
+                            <p className="whitespace-pre-wrap break-words opacity-50">{msg.message}</p>
+                            <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/20">
+                              <span className="text-xs text-white/90">Excluir mensagem?</span>
+                              <div className="flex gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletingMessageId(null)}
+                                  className="px-2 py-1 rounded text-xs font-medium hover:bg-blue-500 text-white/80 transition-colors"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteMessage(msg.id)}
+                                  className="px-2 py-1 rounded text-xs font-medium bg-red-500 hover:bg-red-600 text-white transition-colors"
+                                >
+                                  Excluir
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap break-words">{msg.message}</p>
+                        )}
                         {linkedAttachments.map((att) => (
                           <a key={att.id} href={att.signed_url} target="_blank" rel="noreferrer" className="block mt-2">
                             {att.signed_url ? (
@@ -851,17 +1013,24 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                             )}
                           </a>
                         ))}
-                        {/* Message status indicators for own messages (WhatsApp-style) */}
                         {mine && (
-                          <div className="flex justify-end mt-1" title={msg.read_at ? 'Lido' : msg.id?.startsWith('temp-') ? 'Enviado' : 'Recebido'}>
-                            {msg.read_at ? (
-                              <CheckCheck size={14} className="text-cyan-300" />
-                            ) : msg.id?.startsWith('temp-') ? (
-                              <Check size={14} className="text-white/50" />
-                            ) : (
-                              <CheckCheck size={14} className="text-white/70" />
+                          <div className="flex items-center justify-end gap-1 mt-1">
+                            {msg.edited_at && (
+                              <span className="text-[10px] text-white/50 italic">editado</span>
                             )}
+                            <span title={msg.read_at ? 'Lido' : isTemp ? 'Enviado' : 'Recebido'}>
+                              {msg.read_at ? (
+                                <CheckCheck size={14} className="text-cyan-300" />
+                              ) : isTemp ? (
+                                <Check size={14} className="text-white/50" />
+                              ) : (
+                                <CheckCheck size={14} className="text-white/70" />
+                              )}
+                            </span>
                           </div>
+                        )}
+                        {!mine && msg.edited_at && (
+                          <p className={`text-[10px] italic mt-1 ${isAgent ? 'text-amber-500' : 'text-slate-400'}`}>editado</p>
                         )}
                       </div>
                     </div>

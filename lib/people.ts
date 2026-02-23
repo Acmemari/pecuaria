@@ -1,4 +1,7 @@
 import { supabase } from './supabase';
+import { logger } from './logger';
+
+const log = logger.withContext({ component: 'people' });
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -74,7 +77,7 @@ export async function fetchPeople(userId: string, filters?: FetchPeopleFilters):
 
   const { data, error } = await q;
   if (error) {
-    console.error('[fetchPeople] Erro:', error.message);
+    log.error('fetchPeople failed', new Error(error.message));
     throw error;
   }
   return (data || []) as Person[];
@@ -108,7 +111,7 @@ export async function createPerson(userId: string, payload: Partial<PersonFormDa
     .single();
 
   if (error) {
-    console.error('[createPerson] Erro:', error.message);
+    log.error('createPerson failed', new Error(error.message));
     throw new Error(error.message || 'Erro ao cadastrar pessoa.');
   }
   if (!data) throw new Error('Pessoa não retornada após criação.');
@@ -145,7 +148,7 @@ export async function updatePerson(id: string, payload: Partial<PersonFormData>)
     .single();
 
   if (error) {
-    console.error('[updatePerson] Erro:', error.message);
+    log.error('updatePerson failed', new Error(error.message));
     throw new Error(error.message || 'Erro ao atualizar pessoa.');
   }
   if (!data) throw new Error('Pessoa não retornada após atualização.');
@@ -156,7 +159,7 @@ export async function deletePerson(id: string): Promise<void> {
   validatePersonId(id);
   const { error } = await supabase.from('people').delete().eq('id', id);
   if (error) {
-    console.error('[deletePerson] Erro:', error.message);
+    log.error('deletePerson failed', new Error(error.message));
     throw new Error(error.message || 'Erro ao excluir pessoa.');
   }
 }
@@ -184,7 +187,7 @@ export async function uploadPersonPhoto(userId: string, personId: string, file: 
     contentType: file.type,
   });
   if (error) {
-    console.error('[uploadPersonPhoto] Erro:', error.message);
+    log.error('uploadPersonPhoto failed', new Error(error.message));
     throw new Error(error.message || 'Erro ao enviar foto.');
   }
 

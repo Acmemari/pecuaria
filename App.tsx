@@ -54,7 +54,7 @@ const LoadingFallback: React.FC = () => (
 );
 
 const AppContent: React.FC = () => {
-  const { user, isLoading, logout, checkPermission, upgradePlan, isPasswordRecovery, clearPasswordRecovery } = useAuth() as any;
+  const { user, isLoading, logout, checkPermission, upgradePlan, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const { country } = useLocation();
   const { selectedFarm, setSelectedFarm } = useFarm();
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
@@ -140,9 +140,9 @@ const AppContent: React.FC = () => {
     addToast({ id: Date.now().toString(), message, type });
   }, [addToast]);
 
-  const removeToast = (id: string) => {
+  const removeToast = React.useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
-  };
+  }, []);
 
   // Define available agents with SaaS permissions (memoized)
   const agents = useMemo(() => {
@@ -858,6 +858,7 @@ const AppContent: React.FC = () => {
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-1.5 text-ai-subtext hover:text-ai-text rounded hover:bg-ai-surface mr-1 md:mr-3 focus:outline-none transition-colors"
               aria-label={isSidebarOpen ? 'Fechar menu' : 'Abrir menu'}
+              aria-expanded={isSidebarOpen}
               title={isSidebarOpen ? 'Fechar menu' : 'Abrir menu'}
             >
               <Menu size={20} />

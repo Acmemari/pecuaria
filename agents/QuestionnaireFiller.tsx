@@ -66,12 +66,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingQuestionnaireId, setEditingQuestionnaireId] = useState<string | null>(null);
-  const autoAdvanceTimeout = useRef<NodeJS.Timeout>();
-
-  // Load farms on mount
-  useEffect(() => {
-    loadFarms();
-  }, []);
+  const autoAdvanceTimeout = useRef<NodeJS.Timeout>(undefined);
 
   const loadFarms = useCallback(() => {
     try {
@@ -83,11 +78,14 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
       } else {
         setFarms([]);
       }
-    } catch (error) {
-      console.error('Erro ao carregar fazendas:', error);
+    } catch {
       setFarms([]);
     }
   }, []);
+
+  useEffect(() => {
+    loadFarms();
+  }, [loadFarms]);
 
   // Filter and shuffle questions based on farm
   const filteredQuestions = useMemo(() => {

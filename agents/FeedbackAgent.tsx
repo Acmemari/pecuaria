@@ -89,7 +89,7 @@ const fieldClass =
   'w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text outline-none focus:ring-2 focus:ring-ai-accent/30';
 
 const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
-  const { user } = useAuth() as any;
+  const { user } = useAuth();
   const { selectedFarm } = useFarm();
   const [form, setForm] = useState<FeedbackInput>(INITIAL_FORM);
   const [result, setResult] = useState<FeedbackOutput | null>(null);

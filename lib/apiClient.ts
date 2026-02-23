@@ -17,7 +17,7 @@ export class ApiError extends Error {
         message: string,
         public statusCode: number,
         public code?: string,
-        public response?: any
+        public response?: unknown
     ) {
         super(message);
         this.name = 'ApiError';
@@ -57,7 +57,7 @@ function sanitizeUrlForLog(url: string): string {
 /**
  * Cliente HTTP com retry e tratamento de erros
  */
-export async function apiClient<T = any>(
+export async function apiClient<T = unknown>(
     url: string,
     options: ApiRequestOptions = {}
 ): Promise<T> {
@@ -99,7 +99,7 @@ export async function apiClient<T = any>(
 
                 // Validar status
                 if (!validateStatus(response.status)) {
-                    let errorData: any;
+                    let errorData: { error?: string; message?: string; code?: string };
                     try {
                         errorData = await response.json();
                     } catch {
@@ -195,30 +195,30 @@ export async function apiClient<T = any>(
  * Helpers para métodos HTTP comuns
  */
 export const api = {
-    get: <T = any>(url: string, options?: ApiRequestOptions) =>
+    get: <T = unknown>(url: string, options?: ApiRequestOptions) =>
         apiClient<T>(url, { ...options, method: 'GET' }),
 
-    post: <T = any>(url: string, data?: any, options?: ApiRequestOptions) =>
+    post: <T = unknown>(url: string, data?: unknown, options?: ApiRequestOptions) =>
         apiClient<T>(url, {
             ...options,
             method: 'POST',
             body: data ? JSON.stringify(data) : undefined,
         }),
 
-    put: <T = any>(url: string, data?: any, options?: ApiRequestOptions) =>
+    put: <T = unknown>(url: string, data?: unknown, options?: ApiRequestOptions) =>
         apiClient<T>(url, {
             ...options,
             method: 'PUT',
             body: data ? JSON.stringify(data) : undefined,
         }),
 
-    patch: <T = any>(url: string, data?: any, options?: ApiRequestOptions) =>
+    patch: <T = unknown>(url: string, data?: unknown, options?: ApiRequestOptions) =>
         apiClient<T>(url, {
             ...options,
             method: 'PATCH',
             body: data ? JSON.stringify(data) : undefined,
         }),
 
-    delete: <T = any>(url: string, options?: ApiRequestOptions) =>
+    delete: <T = unknown>(url: string, options?: ApiRequestOptions) =>
         apiClient<T>(url, { ...options, method: 'DELETE' }),
 };

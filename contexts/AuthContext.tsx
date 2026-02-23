@@ -5,6 +5,9 @@ import { loadUserProfile } from '../lib/auth/loadUserProfile';
 import { createUserProfileIfMissing } from '../lib/auth/createProfile';
 import { checkPermission as checkPermissionUtil, checkLimit as checkLimitUtil } from '../lib/auth/permissions';
 import { mapUserProfile } from '../lib/auth/mapUserProfile';
+import { logger } from '../lib/logger';
+
+const log = logger.withContext({ component: 'AuthContext' });
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -16,7 +19,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Timeout de segurança para garantir que isLoading sempre se torne false
     const safetyTimeout = setTimeout(() => {
-      console.warn('Auth initialization timeout - forçando isLoading = false');
+      log.warn('Auth initialization timeout - forçando isLoading = false');
       setIsLoading(false);
     }, 10000); // 10 segundos máximo
 
@@ -26,7 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (error) {
-          console.error('Error getting session:', error);
+          log.error('Error getting session', error instanceof Error ? error : new Error(String(error)));
           // Mesmo com erro, definir isLoading como false para não travar a aplicação
           setIsLoading(false);
         } else if (session?.user) {
@@ -45,64 +48,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Load full profile in background
           loadUserProfile(session.user.id).then(profile => {
             if (profile) setUser(profile);
-          }).catch(err => {
-            console.error('Error loading user profile:', err);
+          }).catch((err: unknown) => {
+            log.error('Error loading user profile', err instanceof Error ? err : new Error(String(err)));
           });
         } else {
-          // Se não houver sessão, fazer login automático com acmemari@gmail.com
-          console.log('No session found, attempting auto-login with acmemari@gmail.com');
-          try {
-            const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-              email: 'acmemari@gmail.com',
-              password: 'acmemari123' // Senha padrão - ajustar se necessário
-            });
-
-            if (loginError) {
-              console.error('Auto-login error:', loginError);
-              setIsLoading(false);
-            } else if (loginData.user) {
-              console.log('Auto-login successful, user ID:', loginData.user.id);
-              // Wait a moment for the trigger to potentially create the profile
-              await new Promise(resolve => setTimeout(resolve, 1000));
-
-              // Try to load the profile with retries
-              let userProfile = await loadUserProfile(loginData.user.id, 3, 1000);
-
-              // If profile doesn't exist, try to create it
-              if (!userProfile) {
-                console.log('Profile not found after auto-login, attempting to create...');
-                const created = await createUserProfileIfMissing(loginData.user.id);
-
-                if (created) {
-                  // Wait a bit more and try loading again
-                  await new Promise(resolve => setTimeout(resolve, 1500));
-                  userProfile = await loadUserProfile(loginData.user.id, 3, 1000);
-                }
-              }
-
-              if (userProfile) {
-                console.log('User profile loaded after auto-login, setting user state');
-                setUser(userProfile);
-              } else {
-                console.warn('Profile not found after auto-login and creation attempt');
-                // Create a temporary user object from auth data
-                setUser({
-                  id: loginData.user.id,
-                  email: loginData.user.email || '',
-                  name: loginData.user.user_metadata?.name || loginData.user.user_metadata?.full_name || 'Usuário',
-                  role: (loginData.user.user_metadata?.role as 'admin' | 'client') || 'client',
-                  plan: (loginData.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
-                  avatar: loginData.user.user_metadata?.avatar || (loginData.user.email?.[0].toUpperCase() || 'U'),
-                  status: 'active'
-                });
-              }
-            }
-          } catch (autoLoginError) {
-            console.error('Error during auto-login:', autoLoginError);
-          }
+          setUser(null);
         }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
+      } catch (error: unknown) {
+        log.error('Error initializing auth', error instanceof Error ? error : new Error(String(error)));
       } finally {
         clearTimeout(safetyTimeout);
         setIsLoading(false);
@@ -117,11 +70,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
+      log.debug(`Auth state changed: ${event}`, { userId: session?.user?.id });
 
       // Detectar evento de recovery - mostrar página de reset de senha
       if (event === 'PASSWORD_RECOVERY') {
-        console.log('Password recovery token detected, showing reset password page');
+        log.info('Password recovery token detected, showing reset password page');
         setIsPasswordRecovery(true);
         // Não definir user aqui - deixar na página de reset
         return;
@@ -136,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Se estiver na rota de reset OU tiver token de recovery, NÃO fazer login automático
         if (isResetPasswordPath || hasRecoveryToken) {
-          console.log('Recovery session detected, not setting user - user must reset password first');
+          log.info('Recovery session detected, skipping user set');
           return;
         }
 
@@ -148,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // If profile still doesn't exist, try to create it
         if (!userProfile && session.user) {
-          console.log('Profile not found, attempting to create using RPC...');
+          log.info('Profile not found, attempting to create using RPC');
           const created = await createUserProfileIfMissing(session.user.id);
 
           if (created) {
@@ -161,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (userProfile) {
           setUser(userProfile);
         } else {
-          console.warn('Profile not found after SIGNED_IN event and creation attempt');
+          log.warn('Profile not found after SIGNED_IN event and creation attempt');
           // Even without profile, we can set a basic user object to allow access
           // The profile will be created by the trigger eventually
           setUser({
@@ -199,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('Login error:', error);
+        log.error('Login error', new Error(error.message));
         // NÃO chamar setIsLoading aqui - o LoginPage permanece montado e mantém o estado de erro
 
         // Map Supabase errors to user-friendly messages
@@ -224,7 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.user) {
-        console.log('Login successful, user ID:', data.user.id);
+        log.info('Login successful', { userId: data.user.id });
         // Wait a moment for the trigger to potentially create the profile
         await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -233,7 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // If profile doesn't exist, try to create it
         if (!userProfile) {
-          console.log('Profile not found after login, attempting to create...');
+          log.info('Profile not found after login, attempting to create');
           const created = await createUserProfileIfMissing(data.user.id);
 
           if (created) {
@@ -244,12 +197,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (userProfile) {
-          console.log('User profile loaded, setting user state');
+          log.info('User profile loaded, setting user state');
           setUser(userProfile);
           setIsLoading(false);
           return { success: true };
         } else {
-          console.warn('Profile not found after login and creation attempt');
+          log.warn('Profile not found after login and creation attempt');
           // Create a temporary user object from auth data
           // The profile will be created by trigger or on next login
           setUser({
@@ -268,9 +221,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // NÃO chamar setIsLoading aqui para manter o LoginPage montado
       return { success: false, error: 'Erro inesperado ao realizar login.' };
-    } catch (error: any) {
-      console.error('Login error:', error);
-      return { success: false, error: error.message || 'Erro inesperado ao realizar login.' };
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      log.error('Login error', err);
+      return { success: false, error: err.message || 'Erro inesperado ao realizar login.' };
     }
   }, []);
 
@@ -279,8 +233,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     try {
       await supabase.auth.signOut();
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch (error: unknown) {
+      log.error('Logout error', error instanceof Error ? error : new Error(String(error)));
     }
   }, []);
 
@@ -298,13 +252,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('OAuth error:', error);
+        log.error('OAuth error', new Error(error.message));
         throw error;
       }
 
       return data;
-    } catch (error) {
-      console.error('OAuth error:', error);
+    } catch (error: unknown) {
+      log.error('OAuth error', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }, []);
@@ -339,7 +293,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('Signup error:', error);
+        log.error('Signup error', new Error(error.message));
         setIsLoading(false);
         return { success: false, error: error.message };
       }
@@ -354,11 +308,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .eq('id', data.user.id);
 
           if (updateError) {
-            console.warn('Could not update phone in profile:', updateError);
-            // Continue anyway - phone might be set later
+            log.warn('Could not update phone in profile');
           }
-        } catch (err) {
-          console.warn('Error updating phone:', err);
+        } catch (err: unknown) {
+          log.warn('Error updating phone');
         }
 
         // Wait a bit for the trigger to create the profile
@@ -372,7 +325,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return { success: true };
         } else {
           // Wait a bit more and try again
-          console.warn('Profile not found after signup, retrying...');
+          log.warn('Profile not found after signup, retrying');
           await new Promise(resolve => setTimeout(resolve, 2000));
           const retryProfile = await loadUserProfile(data.user.id, 3, 1000);
           if (retryProfile) {
@@ -388,10 +341,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setIsLoading(false);
       return { success: false, error: 'Erro ao criar conta' };
-    } catch (error: any) {
-      console.error('Signup error:', error);
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      log.error('Signup error', err);
       setIsLoading(false);
-      return { success: false, error: error.message || 'Erro ao criar conta' };
+      return { success: false, error: err.message || 'Erro ao criar conta' };
     }
   }, []);
 
@@ -405,15 +359,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', user.id);
 
       if (error) {
-        console.error('Error upgrading plan:', error);
+        log.error('Error upgrading plan', new Error(error.message));
         return;
       }
 
-      // Update local state
       const updatedUser = { ...user, plan: planId };
       setUser(updatedUser);
-    } catch (error) {
-      console.error('Error upgrading plan:', error);
+    } catch (error: unknown) {
+      log.error('Error upgrading plan', error instanceof Error ? error : new Error(String(error)));
     }
   }, [user]);
 
@@ -424,8 +377,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (userProfile) {
         setUser(userProfile);
       }
-    } catch (error) {
-      console.error('Error refreshing profile:', error);
+    } catch (error: unknown) {
+      log.error('Error refreshing profile', error instanceof Error ? error : new Error(String(error)));
     }
   }, [user]);
 
@@ -435,16 +388,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const origin = window.location.origin || (window.location.protocol + '//' + window.location.host);
       const redirectUrl = `${origin}/reset-password`;
 
-      console.log('Sending password reset email with redirect URL:', redirectUrl);
+      log.debug(`Sending password reset email with redirect URL: ${redirectUrl}`);
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl
       });
 
       if (error) {
-        console.error('Reset password error:', error);
+        log.error('Reset password error', new Error(error.message));
 
-        // Map Supabase errors to user-friendly messages
         let errorMessage = 'Erro ao enviar email de recuperação.';
         const errorMsg = error.message.toLowerCase();
 
@@ -460,9 +412,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       return { success: true };
-    } catch (error: any) {
-      console.error('Reset password error:', error);
-      return { success: false, error: error.message || 'Erro inesperado ao enviar email de recuperação.' };
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      log.error('Reset password error', err);
+      return { success: false, error: err.message || 'Erro inesperado ao enviar email de recuperação.' };
     }
   }, []);
 
@@ -473,9 +426,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('Update password error:', error);
+        log.error('Update password error', new Error(error.message));
 
-        // Map Supabase errors to user-friendly messages
         let errorMessage = 'Erro ao atualizar senha.';
         const errorMsg = error.message.toLowerCase();
 
@@ -488,12 +440,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: errorMessage };
       }
 
-      // Sucesso - resetar estado de recovery
       setIsPasswordRecovery(false);
       return { success: true };
-    } catch (error: any) {
-      console.error('Update password error:', error);
-      return { success: false, error: error.message || 'Erro inesperado ao atualizar senha.' };
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      log.error('Update password error', err);
+      return { success: false, error: err.message || 'Erro inesperado ao atualizar senha.' };
     }
   }, []);
 

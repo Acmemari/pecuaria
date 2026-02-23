@@ -9,7 +9,7 @@ interface LoginPageProps {
 }
 
 const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
-    const { login, signInWithOAuth, signup } = useAuth() as any;
+    const { login, signInWithOAuth, signup } = useAuth();
     const [isSignup, setIsSignup] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');

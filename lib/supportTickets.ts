@@ -1,4 +1,7 @@
 import { supabase } from './supabase';
+import { logger } from './logger';
+
+const log = logger.withContext({ component: 'supportTickets' });
 
 const BUCKET_NAME = 'support-ticket-attachments';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -32,6 +35,7 @@ export interface SupportTicketMessage {
   message: string;
   created_at: string;
   read_at: string | null;
+  edited_at?: string | null;
   author_name?: string;
   reply_to_id?: string | null;
 }
@@ -143,7 +147,7 @@ async function fetchUserNames(userIds: string[]): Promise<Record<string, string>
     return {};
   }
 
-  return (data || []).reduce<Record<string, string>>((acc, profile: any) => {
+  return (data || []).reduce<Record<string, string>>((acc, profile: { id: string; name?: string }) => {
     acc[profile.id] = profile.name || 'Usuário';
     return acc;
   }, {});
@@ -346,6 +350,27 @@ export async function sendTicketMessage(ticketId: string, payload: SendTicketMes
   }
 
   return data as SupportTicketMessage;
+}
+
+export async function updateTicketMessage(messageId: string, newMessage: string): Promise<void> {
+  const text = normalizeText(newMessage, 4000);
+  if (!text) throw new Error('A mensagem não pode ficar vazia.');
+
+  const { error } = await supabase
+    .from('support_ticket_messages')
+    .update({ message: text, edited_at: new Date().toISOString() })
+    .eq('id', messageId);
+
+  if (error) throw new Error(error.message || 'Erro ao editar mensagem.');
+}
+
+export async function deleteTicketMessage(messageId: string): Promise<void> {
+  const { error } = await supabase
+    .from('support_ticket_messages')
+    .delete()
+    .eq('id', messageId);
+
+  if (error) throw new Error(error.message || 'Erro ao excluir mensagem.');
 }
 
 export async function updateTicketStatus(ticketId: string, status: SupportTicketStatus): Promise<void> {

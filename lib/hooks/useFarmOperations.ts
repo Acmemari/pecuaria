@@ -1,7 +1,10 @@
 import { useCallback } from 'react';
 import { supabase } from '../supabase';
 import { Farm } from '../../types';
-import { mapFarmFromDatabase, mapFarmsFromDatabase } from '../utils/farmMapper';
+import { mapFarmsFromDatabase } from '../utils/farmMapper';
+import { logger } from '../logger';
+
+const log = logger.withContext({ component: 'useFarmOperations' });
 
 /**
  * Hook customizado para operações com fazendas
@@ -48,13 +51,13 @@ export function useFarmOperations() {
         .in('id', Array.from(farmIds));
 
       if (error) {
-        console.error('[useFarmOperations] Error loading farms:', error);
+        log.error('Error loading farms', new Error(error.message));
         return [];
       }
 
       return data ? mapFarmsFromDatabase(data) : [];
-    } catch (err) {
-      console.error('[useFarmOperations] Exception loading client farms:', err);
+    } catch (err: unknown) {
+      log.error('Exception loading client farms', err instanceof Error ? err : new Error(String(err)));
       return [];
     }
   }, []);
@@ -74,7 +77,7 @@ export function useFarmOperations() {
       const { error } = await supabase.from('farms').delete().eq('id', farmId);
 
       if (error) {
-        console.error('[useFarmOperations] Error deleting farm:', error);
+        log.error('Error deleting farm', new Error(error.message));
         return false;
       }
 
@@ -87,8 +90,8 @@ export function useFarmOperations() {
       }
 
       return true;
-    } catch (err) {
-      console.error('[useFarmOperations] Exception deleting farm:', err);
+    } catch (err: unknown) {
+      log.error('Exception deleting farm', err instanceof Error ? err : new Error(String(err)));
       return false;
     }
   }, []);
@@ -104,13 +107,13 @@ export function useFarmOperations() {
         .eq('client_id', clientId);
 
       if (error) {
-        console.error('[useFarmOperations] Error counting farms:', error);
+        log.error('Error counting farms', new Error(error.message));
         return 0;
       }
 
       return count || 0;
-    } catch (err) {
-      console.error('[useFarmOperations] Exception counting farms:', err);
+    } catch (err: unknown) {
+      log.error('Exception counting farms', err instanceof Error ? err : new Error(String(err)));
       return 0;
     }
   }, []);

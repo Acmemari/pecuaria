@@ -1,6 +1,9 @@
 import { supabase } from './supabase';
 import { CattleScenario, CattleCalculatorInputs, CalculationResults } from '../types';
 import { sanitizeText } from './inputSanitizer';
+import { logger } from './logger';
+
+const log = logger.withContext({ component: 'scenarios' });
 
 const MAX_SCENARIOS = 10;
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -46,11 +49,10 @@ export const getSavedScenarios = async (
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching scenarios:', error);
+      log.error('Error fetching scenarios', new Error(error.message));
 
-      // Check if table doesn't exist
       if (error.message?.includes('schema cache') || error.code === '42P01') {
-        console.warn('Table cattle_scenarios does not exist yet');
+        log.warn('Table cattle_scenarios does not exist yet');
         // Return empty array if table doesn't exist - feature not yet available
         return [];
       }
@@ -68,7 +70,7 @@ export const getSavedScenarios = async (
     return data.map((scenario) => {
       // Validate that required fields exist
       if (!scenario.id || !scenario.user_id || !scenario.name || !scenario.inputs) {
-        console.warn('Invalid scenario data:', scenario);
+        log.warn('Invalid scenario data found, skipping');
         return null;
       }
 
@@ -85,10 +87,10 @@ export const getSavedScenarios = async (
         updated_at: scenario.updated_at || scenario.created_at
       } as CattleScenario;
     }).filter((scenario): scenario is CattleScenario => scenario !== null);
-  } catch (err: any) {
-    console.error('Error in getSavedScenarios:', err);
-    // Re-throw with a user-friendly message
-    throw new Error(err.message || 'Erro ao carregar cenários salvos');
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    log.error('Error in getSavedScenarios', error);
+    throw new Error(error.message || 'Erro ao carregar cenários salvos');
   }
 };
 
@@ -102,7 +104,7 @@ export const checkScenarioLimit = async (userId: string): Promise<boolean> => {
     .eq('user_id', userId);
 
   if (error) {
-    console.error('Error checking scenario limit:', error);
+    log.error('Error checking scenario limit', new Error(error.message));
     return false;
   }
 
@@ -192,7 +194,7 @@ export const saveReportPdf = async (
     .single();
 
   if (error) {
-    console.error('Error saving report PDF:', error);
+    log.error('Error saving report PDF', new Error(error.message));
     throw new Error(error.message || 'Erro ao salvar relatório.');
   }
 
@@ -241,7 +243,7 @@ export const saveScenario = async (
     .single();
 
   if (error) {
-    console.error('Error saving scenario:', error);
+    log.error('Error saving scenario', new Error(error.message));
 
     // Check if table doesn't exist
     if (error.message?.includes('schema cache') || error.code === '42P01') {
@@ -296,7 +298,7 @@ export const updateScenario = async (
     .single();
 
   if (error) {
-    console.error('Error updating scenario:', error);
+    log.error('Error updating scenario', new Error(error.message));
     throw new Error('Erro ao atualizar cenário');
   }
 
@@ -321,7 +323,7 @@ export const deleteScenario = async (scenarioId: string, userId: string): Promis
     .eq('user_id', userId);
 
   if (error) {
-    console.error('Error deleting scenario:', error);
+    log.error('Error deleting scenario', new Error(error.message));
     throw new Error('Erro ao excluir cenário');
   }
 };
@@ -344,7 +346,7 @@ export const getScenario = async (scenarioId: string, userId: string): Promise<C
     if (error.code === 'PGRST116') {
       return null; // Not found
     }
-    console.error('Error fetching scenario:', error);
+    log.error('Error fetching scenario', new Error(error.message));
     throw new Error('Erro ao carregar cenário');
   }
 
