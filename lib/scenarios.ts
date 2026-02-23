@@ -111,7 +111,17 @@ export const checkScenarioLimit = async (userId: string): Promise<boolean> => {
   return (count || 0) >= MAX_SCENARIOS;
 };
 
-// Validation helper
+const FIELD_LABELS: Record<keyof CattleCalculatorInputs, string> = {
+  pesoCompra: 'Peso de Compra',
+  valorCompra: 'Valor de Compra',
+  pesoAbate: 'Peso de Abate',
+  rendimentoCarcaca: 'Rendimento de Carcaça',
+  valorVenda: 'Valor de Venda',
+  gmd: 'GMD',
+  custoMensal: 'Custo Mensal',
+  lotacao: 'Lotação',
+};
+
 const validateScenarioData = (name?: string, inputs?: CattleCalculatorInputs) => {
   if (name !== undefined) {
     if (!name || name.trim() === '') {
@@ -133,16 +143,16 @@ const validateScenarioData = (name?: string, inputs?: CattleCalculatorInputs) =>
     ];
 
     for (const field of requiredFields) {
+      const label = FIELD_LABELS[field];
       const value = inputs[field];
       if (value === undefined || value === null || isNaN(Number(value))) {
-        throw new Error(`Campo obrigatório inválido: ${field}`);
+        throw new Error(`Campo obrigatório inválido: ${label}`);
       }
-      // Validar limites razoáveis (evitar valores absurdos)
       if (Number(value) < 0) {
-        throw new Error(`O campo ${field} não pode ser negativo`);
+        throw new Error(`O campo ${label} não pode ser negativo`);
       }
       if (Number(value) > 1_000_000) {
-        throw new Error(`O valor de ${field} parece excessivo (máx 1.000.000)`);
+        throw new Error(`O valor de ${label} parece excessivo (máx 1.000.000)`);
       }
     }
   }
