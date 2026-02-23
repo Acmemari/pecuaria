@@ -28,6 +28,8 @@ import {
   Bot,
   ClipboardList,
   MessageSquareText,
+  Layers,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -39,6 +41,7 @@ interface SidebarProps {
   user: User | null;
   onLogout: () => void;
   onSettingsClick?: () => void;
+  onSwitchToInttegra?: () => void;
 }
 
 const PROJETO_ID = 'projeto';
@@ -57,7 +60,7 @@ const isGerenciamentoView = (id: string) =>
   id === CALENDAR_ID;
 
 
-const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent, isOpen, toggleSidebar, user, onLogout, onSettingsClick }) => {
+const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent, isOpen, toggleSidebar, user, onLogout, onSettingsClick, onSwitchToInttegra }) => {
   const { country, setCountry } = useLocation();
   const [isIniciativasOpen, setIsIniciativasOpen] = useState(() => isGerenciamentoView(activeAgentId));
   const [isRhOpen, setIsRhOpen] = useState(() => activeAgentId === RH_FEEDBACK_ID);
@@ -310,6 +313,20 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
 
         {/* User Profile & Footer */}
         <div className="p-3 border-t border-ai-border bg-ai-bg shrink-0">
+          {/* Switch to Inttegra */}
+          {onSwitchToInttegra && (
+            <button
+              type="button"
+              onClick={onSwitchToInttegra}
+              className="w-full flex items-center gap-2 px-3 py-2 mb-3 rounded-md text-sm font-medium text-ai-subtext hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+              title="Ir para Inttegra"
+            >
+              <Layers size={14} className="text-emerald-500" />
+              <span>Inttegra</span>
+              <ArrowLeftRight size={12} className="ml-auto opacity-50" />
+            </button>
+          )}
+
           {user && (
             <div className="mb-3 px-2 flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-ai-text text-white flex items-center justify-center text-xs font-bold">

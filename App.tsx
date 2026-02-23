@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import Sidebar from './components/Sidebar';
+import InttegraSidebar from './components/InttegraSidebar';
+import InttegraDashboard from './components/InttegraDashboard';
 import LoginPage from './components/LoginPage';
 import SubscriptionPage from './components/SubscriptionPage';
 import SettingsPage from './components/SettingsPage';
@@ -57,6 +59,7 @@ const AppContent: React.FC = () => {
   const { user, isLoading, logout, checkPermission, upgradePlan, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const { country } = useLocation();
   const { selectedFarm, setSelectedFarm } = useFarm();
+  const [activeApp, setActiveApp] = useState<'pecuaria' | 'inttegra'>('pecuaria');
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
   const [viewMode, setViewMode] = useState<'desktop' | 'simulator' | 'comparator' | 'agile-planning' | 'avaliacao-protocolo'>('desktop');
   const [cadastroView, setCadastroView] = useState<'desktop' | 'farm' | 'client' | 'people' | 'delivery' | 'project'>('desktop');
@@ -825,6 +828,55 @@ const AppContent: React.FC = () => {
     }
   };
 
+  if (activeApp === 'inttegra') {
+    return (
+      <div className="flex h-screen w-full bg-ai-bg overflow-hidden font-sans text-ai-text">
+        <InttegraSidebar
+          isOpen={isSidebarOpen}
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          user={user}
+          onLogout={logout}
+          onSettingsClick={() => {
+            setActiveApp('pecuaria');
+            setActiveAgentId('settings');
+          }}
+          onSwitchToPecuaria={() => setActiveApp('pecuaria')}
+        />
+
+        <div className={`flex-1 min-w-0 flex flex-col h-full transition-all duration-300 relative ${isSidebarOpen ? 'md:ml-56' : 'ml-0'}`}>
+          <AnalystHeader />
+
+          <header className="h-12 bg-ai-bg border-b border-ai-border flex items-center justify-between px-4 shrink-0 sticky top-12 z-40">
+            <div className="flex items-center gap-2 md:gap-0">
+              <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="p-1.5 text-ai-subtext hover:text-ai-text rounded hover:bg-ai-surface mr-1 md:mr-3 focus:outline-none transition-colors"
+                aria-label={isSidebarOpen ? 'Fechar menu' : 'Abrir menu'}
+                aria-expanded={isSidebarOpen}
+                title={isSidebarOpen ? 'Fechar menu' : 'Abrir menu'}
+              >
+                <Menu size={20} />
+              </button>
+              <h1 className="text-sm font-semibold text-ai-text flex items-center gap-2 truncate max-w-[120px] md:max-w-none">
+                Inttegra
+              </h1>
+            </div>
+          </header>
+
+          <main className="flex-1 min-h-0 bg-ai-bg overflow-hidden">
+            <div className="h-full w-full max-w-[1600px] mx-auto flex flex-col min-h-0">
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <InttegraDashboard />
+              </div>
+            </div>
+          </main>
+        </div>
+
+        <ToastContainer toasts={toasts} onClose={removeToast} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen w-full bg-ai-bg overflow-hidden font-sans text-ai-text">
 
@@ -842,6 +894,7 @@ const AppContent: React.FC = () => {
         user={user}
         onLogout={logout}
         onSettingsClick={() => setActiveAgentId('settings')}
+        onSwitchToInttegra={() => setActiveApp('inttegra')}
       />
 
       {/* Main Content Area */}
