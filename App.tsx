@@ -76,6 +76,7 @@ const AppContent: React.FC = () => {
     }
     return true; // Default to open for SSR
   });
+  const [isInttegraSidebarCollapsed, setIsInttegraSidebarCollapsed] = useState(false);
   // Timeout de segurança para evitar loading infinito quando agents não carregam
   const [agentsLoadTimeout, setAgentsLoadTimeout] = useState(false);
   // Estado para controlar se está no formulário de fazendas
@@ -834,6 +835,8 @@ const AppContent: React.FC = () => {
         <InttegraSidebar
           isOpen={isSidebarOpen}
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          isCollapsed={isInttegraSidebarCollapsed}
+          onToggleCollapse={() => setIsInttegraSidebarCollapsed(!isInttegraSidebarCollapsed)}
           user={user}
           onLogout={logout}
           onSettingsClick={() => {
@@ -843,7 +846,7 @@ const AppContent: React.FC = () => {
           onSwitchToPecuaria={() => setActiveApp('pecuaria')}
         />
 
-        <div className={`flex-1 min-w-0 flex flex-col h-full transition-all duration-300 relative ${isSidebarOpen ? 'md:ml-56' : 'ml-0'}`}>
+        <div className={`flex-1 min-w-0 flex flex-col h-full transition-all duration-300 relative ${isSidebarOpen ? (isInttegraSidebarCollapsed ? 'md:ml-16' : 'md:ml-56') : 'ml-0'}`}>
           <AnalystHeader />
 
           <header className="h-12 bg-ai-bg border-b border-ai-border flex items-center justify-between px-4 shrink-0 sticky top-12 z-40">

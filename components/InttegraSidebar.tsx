@@ -9,6 +9,8 @@ import {
   DollarSign,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   ArrowLeft,
   Beef,
   Package,
@@ -25,6 +27,8 @@ import {
 interface InttegraSidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
   user: User | null;
   onLogout: () => void;
   onSettingsClick?: () => void;
@@ -87,12 +91,17 @@ const menuItems: { label: string; icon: React.ElementType }[] = [
 const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
   isOpen,
   toggleSidebar,
+  isCollapsed,
+  onToggleCollapse,
   user,
   onLogout,
   onSettingsClick,
   onSwitchToPecuaria,
 }) => {
   const [isFinanceiroOpen, setIsFinanceiroOpen] = useState(true);
+
+  const sidebarWidth = isCollapsed ? 'w-16' : 'w-56';
+  const sidebarVisible = isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden';
 
   return (
     <>
@@ -107,62 +116,95 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
       <div
         className={`
           fixed top-0 left-0 h-full z-30 transition-all duration-300 ease-in-out flex flex-col shadow-lg
-          ${isOpen ? 'w-56 translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden'}
+          ${isOpen ? `${sidebarWidth} translate-x-0` : sidebarVisible}
         `}
         style={{ backgroundColor: INTEGRA_SIDEBAR_BG }}
       >
         {/* Header */}
         <div
-          className="h-12 shrink-0 flex items-center justify-between px-4 border-b"
+          className={`h-12 shrink-0 flex items-center border-b relative ${isCollapsed ? 'justify-center px-2' : 'justify-between px-4'}`}
           style={{ borderColor: INTEGRA_BORDER }}
         >
-          <div className="flex items-center gap-2">
-            <InttegraLogo />
-            <span className="font-bold tracking-tight text-base" style={{ color: INTEGRA_TEXT }}>
-              Inttegra
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={onSwitchToPecuaria}
-              className="p-1.5 rounded transition-colors hover:opacity-90"
-              style={{ backgroundColor: INTEGRA_SURFACE, color: INTEGRA_TEXT }}
-              title="Voltar para pecuarIA"
-              aria-label="Voltar para pecuarIA"
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <button
-              onClick={toggleSidebar}
-              className="md:hidden p-1.5 rounded transition-colors hover:opacity-90"
-              style={{ backgroundColor: INTEGRA_SURFACE, color: INTEGRA_TEXT }}
-              aria-label="Fechar menu"
-              title="Fechar menu"
-            >
-              <X size={18} />
-            </button>
-          </div>
+          {isCollapsed ? (
+            <>
+              <InttegraLogo />
+              <button
+                onClick={onSwitchToPecuaria}
+                className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded transition-colors hover:opacity-90"
+                style={{ backgroundColor: INTEGRA_SURFACE, color: INTEGRA_TEXT }}
+                title="Voltar para pecuarIA"
+                aria-label="Voltar para pecuarIA"
+              >
+                <ArrowLeft size={14} />
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <InttegraLogo />
+                <span className="font-bold tracking-tight text-base" style={{ color: INTEGRA_TEXT }}>
+                  Inttegra
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={onSwitchToPecuaria}
+                  className="p-1.5 rounded transition-colors hover:opacity-90"
+                  style={{ backgroundColor: INTEGRA_SURFACE, color: INTEGRA_TEXT }}
+                  title="Voltar para pecuarIA"
+                  aria-label="Voltar para pecuarIA"
+                >
+                  <ArrowLeft size={18} />
+                </button>
+                <button
+                  onClick={toggleSidebar}
+                  className="md:hidden p-1.5 rounded transition-colors hover:opacity-90"
+                  style={{ backgroundColor: INTEGRA_SURFACE, color: INTEGRA_TEXT }}
+                  aria-label="Fechar menu"
+                  title="Fechar menu"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Toggle collapse button */}
+        <div className={`shrink-0 flex ${isCollapsed ? 'justify-center' : 'px-3'} py-2`}>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="flex items-center justify-center rounded-lg transition-colors hover:opacity-90 w-full"
+            style={{ backgroundColor: INTEGRA_SURFACE, color: INTEGRA_TEXT, minHeight: 36 }}
+            title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            aria-label={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+          >
+            {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
         </div>
 
         {/* Scrollable Navigation Area */}
-        <div className="flex-1 min-h-0 overflow-y-auto py-4 px-3">
-          {/* Search Bar */}
+        <div className="flex-1 min-h-0 overflow-y-auto py-2 px-2">
+          {/* Search */}
           <div
-            className="flex items-center gap-2 px-3 py-2 rounded-lg mb-4"
+            className={`flex items-center rounded-lg mb-2 ${isCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2'}`}
             style={{ backgroundColor: INTEGRA_SURFACE }}
           >
             <Search size={16} style={{ color: INTEGRA_ACCENT, flexShrink: 0 }} />
-            <span className="text-sm" style={{ color: INTEGRA_PLACEHOLDER }}>
-              Procurar
-            </span>
+            {!isCollapsed && (
+              <span className="text-sm" style={{ color: INTEGRA_PLACEHOLDER }}>
+                Procurar
+              </span>
+            )}
           </div>
 
           {/* Painel Inicial */}
           <div
-            className="flex items-center gap-3 px-3 py-2 rounded-md mb-1"
+            className={`flex items-center rounded-md mb-1 ${isCollapsed ? 'justify-center p-2' : 'gap-3 px-3 py-2'}`}
             style={{ color: INTEGRA_TEXT }}
           >
-            <div className="w-8 h-8 rounded flex items-center justify-center" style={{ backgroundColor: INTEGRA_SURFACE }}>
+            <div className="w-8 h-8 rounded flex items-center justify-center shrink-0" style={{ backgroundColor: INTEGRA_SURFACE }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="7" height="7" />
                 <rect x="14" y="3" width="7" height="7" />
@@ -170,26 +212,27 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
                 <rect x="3" y="14" width="7" height="7" />
               </svg>
             </div>
-            <span className="text-sm font-medium">Painel Inicial</span>
+            {!isCollapsed && <span className="text-sm font-medium">Painel Inicial</span>}
           </div>
 
-          {/* Financeiro (collapsible) */}
+          {/* Financeiro (collapsible) - clickable to expand/collapse subitems */}
           <div className="mb-2">
             <button
               type="button"
-              onClick={() => setIsFinanceiroOpen(!isFinanceiroOpen)}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-md transition-colors hover:opacity-90"
+              onClick={() => !isCollapsed && setIsFinanceiroOpen(!isFinanceiroOpen)}
+              className={`w-full flex items-center rounded-md transition-colors hover:opacity-90 ${isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'}`}
               style={{ color: INTEGRA_TEXT, backgroundColor: 'transparent' }}
+              title="Financeiro"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: INTEGRA_SURFACE }}>
+              <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: INTEGRA_SURFACE }}>
                   <DollarSign size={16} />
                 </div>
-                <span className="text-sm font-medium">Financeiro</span>
+                {!isCollapsed && <span className="text-sm font-medium">Financeiro</span>}
               </div>
-              {isFinanceiroOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              {!isCollapsed && (isFinanceiroOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
             </button>
-            {isFinanceiroOpen && (
+            {!isCollapsed && isFinanceiroOpen && (
               <div className="ml-4 pl-4 mt-1 space-y-0.5 border-l" style={{ borderColor: INTEGRA_BORDER }}>
                 {['Cadastros', 'Movimentações', 'Relatórios'].map((label) => (
                   <div
@@ -210,14 +253,15 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
             {menuItems.map(({ label, icon: Icon }) => (
               <div
                 key={label}
-                className="flex items-center justify-between px-3 py-2 rounded-md"
+                className={`flex items-center rounded-md ${isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'}`}
                 style={{ color: INTEGRA_TEXT }}
+                title={isCollapsed ? label : undefined}
               >
                 <div className="flex items-center gap-3">
                   <Icon size={16} className="flex-shrink-0" style={{ color: INTEGRA_TEXT }} />
-                  <span className="text-sm">{label}</span>
+                  {!isCollapsed && <span className="text-sm">{label}</span>}
                 </div>
-                <ChevronDown size={14} style={{ color: INTEGRA_PLACEHOLDER }} />
+                {!isCollapsed && <ChevronDown size={14} style={{ color: INTEGRA_PLACEHOLDER }} />}
               </div>
             ))}
           </nav>
@@ -225,34 +269,36 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
 
         {/* Footer */}
         <div
-          className="p-3 border-t shrink-0"
+          className={`p-3 border-t shrink-0 ${isCollapsed ? 'flex flex-col items-center gap-2' : ''}`}
           style={{ borderColor: INTEGRA_BORDER, backgroundColor: INTEGRA_SIDEBAR_BG }}
         >
           {user && (
-            <div className="mb-3 px-2 flex items-center gap-3">
+            <div className={`flex items-center gap-3 ${isCollapsed ? 'flex-col' : 'mb-3 px-2'}`}>
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                 style={{ backgroundColor: INTEGRA_ACCENT, color: INTEGRA_TEXT }}
               >
                 {user.name.charAt(0)}
               </div>
-              <div className="flex-1 overflow-hidden">
-                <p className="text-xs font-bold truncate" style={{ color: INTEGRA_TEXT }}>
-                  {user.name}
-                </p>
-                {user.role === 'admin' && (
-                  <p className="text-[10px] truncate capitalize" style={{ color: INTEGRA_PLACEHOLDER }}>
-                    Administrador
+              {!isCollapsed && (
+                <div className="flex-1 overflow-hidden">
+                  <p className="text-xs font-bold truncate" style={{ color: INTEGRA_TEXT }}>
+                    {user.name}
                   </p>
-                )}
-                <p className="text-[9px] font-bold uppercase tracking-wide mt-1" style={{ color: INTEGRA_PLACEHOLDER }}>
-                  v{APP_VERSION} SaaS
-                </p>
-              </div>
+                  {user.role === 'admin' && (
+                    <p className="text-[10px] truncate capitalize" style={{ color: INTEGRA_PLACEHOLDER }}>
+                      Administrador
+                    </p>
+                  )}
+                  <p className="text-[9px] font-bold uppercase tracking-wide mt-1" style={{ color: INTEGRA_PLACEHOLDER }}>
+                    v{APP_VERSION} SaaS
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-1">
+          <div className={`grid gap-1 ${isCollapsed ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <button
               type="button"
               onClick={onSettingsClick}
