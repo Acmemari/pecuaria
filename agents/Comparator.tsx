@@ -9,6 +9,7 @@ import { useFarm } from '../contexts/FarmContext';
 import { Toast } from '../components/Toast';
 import { generateComparatorPDF, generateComparatorPDFAsBase64 } from '../lib/generateReportPDF';
 import { saveScenario } from '../lib/scenarios';
+import { normalizeCattleCalculatorInputs } from '../lib/cattleInputs';
 
 interface ComparatorProps {
   onToast?: (toast: Toast) => void;
@@ -180,7 +181,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
     try {
       return initialScenarios.map(s => ({
         ...s,
-        inputs: s.inputs || defaultInputs,
+        inputs: normalizeCattleCalculatorInputs({ ...defaultInputs, ...(s.inputs || {}) }),
         results: s.results || null
       }));
     } catch (error) {
@@ -395,7 +396,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       await saveScenario(
         user.id,
         saveName.trim(),
-        {} as CattleCalculatorInputs, // Inputs vazios para compatibilidade
+        normalizeCattleCalculatorInputs(scenarioA.inputs),
         comparatorData as any, // Armazenar PDF e dados dos cenários no campo results
         {
           clientId: selectedClient?.id || null,

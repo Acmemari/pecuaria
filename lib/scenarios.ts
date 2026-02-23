@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { CattleScenario, CattleCalculatorInputs, CalculationResults } from '../types';
 import { sanitizeText } from './inputSanitizer';
 import { logger } from './logger';
+import { normalizeCattleCalculatorInputs } from './cattleInputs';
 
 const log = logger.withContext({ component: 'scenarios' });
 
@@ -230,7 +231,8 @@ export const saveScenario = async (
 
   // Sanitizar e validar dados
   const sanitizedName = sanitizeText(name);
-  validateScenarioData(sanitizedName, inputs);
+  const normalizedInputs = normalizeCattleCalculatorInputs(inputs);
+  validateScenarioData(sanitizedName, normalizedInputs);
 
   // Check limit
   const atLimit = await checkScenarioLimit(userId);
@@ -246,7 +248,7 @@ export const saveScenario = async (
       farm_id: options?.farmId || null,
       farm_name: options?.farmName || null,
       name: sanitizedName,
-      inputs,
+      inputs: normalizedInputs,
       results
     })
     .select()
@@ -297,6 +299,9 @@ export const updateScenario = async (
 
   // Validate updates
   if (updates.name) updates.name = sanitizeText(updates.name);
+  if (updates.inputs) {
+    updates.inputs = normalizeCattleCalculatorInputs(updates.inputs);
+  }
   validateScenarioData(updates.name, updates.inputs);
 
   const { data, error } = await supabase
