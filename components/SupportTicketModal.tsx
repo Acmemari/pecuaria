@@ -34,6 +34,8 @@ import {
   CreditCard,
   LogIn,
   KeyRound,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -44,14 +46,8 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import {
   createTicket,
-  deleteTicketMessage,
-  getTicketDetail,
   listMyTickets,
-  markTicketRead,
   sendAIMessage,
-  sendTicketMessage,
-  subscribeTicketMessages,
-  updateTicketMessage,
   updateTicketStatus,
   type SupportLocationArea,
   type SupportTicket,
@@ -60,16 +56,15 @@ import {
   type SupportTicketStatus,
   type SupportTicketType,
 } from '../lib/supportTickets';
+import { useSupportChat } from '../hooks/useSupportChat';
 
 interface SupportTicketModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type DetailState = {
+type TicketHeader = {
   ticket: SupportTicket;
-  messages: SupportTicketMessage[];
-  attachments: SupportTicketAttachment[];
 };
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -168,7 +163,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
   const [sending, setSending] = useState(false);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [activeTicketId, setActiveTicketId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<DetailState | null>(null);
+  const [header, setHeader] = useState<TicketHeader | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
 
   const [newTicketType, setNewTicketType] = useState<SupportTicketType>('erro_tecnico');
@@ -188,6 +183,13 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
   const [aiSuggestion, setAiSuggestion] = useState('');
   const [aiSuggestionLoading, setAiSuggestionLoading] = useState(false);
 
+  const chat = useSupportChat({
+    ticketId: isOpen ? activeTicketId : null,
+    userId: user?.id ?? '',
+    userName: (user as { name?: string })?.name || 'Você',
+    authorType: 'user',
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -195,10 +197,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
   activeTicketIdRef.current = activeTicketId;
 
   useEffect(() => {
-    if (detail?.messages?.length) {
+    if (chat.messages.length) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [detail?.messages?.length]);
+  }, [chat.messages.length]);
 
   useEffect(() => {
     setReplyingTo(null);
@@ -216,7 +218,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
   useEffect(() => {
     if (!isOpen) {
       setActiveTicketId(null);
-      setDetail(null);
+      setHeader(null);
       setShowNewForm(false);
       setSubject('');
       setSelectedScreenKey(null);
@@ -264,15 +266,14 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
 
   const attachmentByMessage = useMemo(() => {
     const map = new Map<string, SupportTicketAttachment[]>();
-    if (!detail?.attachments) return map;
-    detail.attachments.forEach((att) => {
+    chat.attachments.forEach((att) => {
       if (!att.message_id) return;
       const current = map.get(att.message_id) || [];
       current.push(att);
       map.set(att.message_id, current);
     });
     return map;
-  }, [detail?.attachments]);
+  }, [chat.attachments]);
 
   const filteredTickets = useMemo(() => {
     if (!searchQuery.trim()) return tickets;
@@ -297,15 +298,9 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     }
     if (rows.length === 0 && !showNewForm) {
       setActiveTicketId(null);
-      setDetail(null);
+      setHeader(null);
     }
   }, [showNewForm]);
-
-  const loadDetail = useCallback(async (ticketId: string) => {
-    const data = await getTicketDetail(ticketId);
-    setDetail(data as DetailState);
-    await markTicketRead(ticketId);
-  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -325,24 +320,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
   }, [isOpen, loadTickets]);
 
   useEffect(() => {
-    if (!isOpen || !activeTicketId) return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    (async () => {
-      try {
-        await loadDetail(activeTicketId);
-      } catch (err: unknown) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Erro ao abrir ticket.');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    const unsubscribe = subscribeTicketMessages(activeTicketId, () => {
-      void loadDetail(activeTicketId).catch(console.error);
-    });
-    return () => { cancelled = true; unsubscribe(); };
-  }, [activeTicketId, isOpen, loadDetail]);
+    if (chat.ticketDetail) {
+      setHeader({ ticket: chat.ticketDetail.ticket });
+    }
+  }, [chat.ticketDetail]);
 
   useEffect(() => {
     return () => {
@@ -412,40 +393,19 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     setError(null);
     resetComposer();
 
-    const optimisticId = `temp-${Date.now()}`;
-    const optimisticMessage: SupportTicketMessage = {
-      id: optimisticId,
-      ticket_id: activeTicketId,
-      author_id: user.id,
-      author_type: 'user',
-      message: text,
-      created_at: new Date().toISOString(),
-      read_at: null,
-      author_name: (user as { name?: string })?.name || 'Você',
-      reply_to_id: replyToId,
-    };
-
-    setDetail((prev) =>
-      prev
-        ? {
-            ...prev,
-            messages: [...prev.messages, optimisticMessage],
-          }
-        : prev
-    );
-
     try {
-      await sendTicketMessage(activeTicketId, { message: text, imageFile, replyToId });
-      await loadDetail(activeTicketId);
-      await loadTickets();
+      await chat.sendMessage({ message: text, imageFile, replyToId });
+      void loadTickets();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao enviar mensagem.');
-      setDetail((prev) =>
-        prev ? { ...prev, messages: prev.messages.filter((m) => m.id !== optimisticId) } : prev
-      );
     } finally {
       setSending(false);
     }
+  };
+
+  const handleMessageInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessageInput(e.target.value);
+    if (e.target.value.trim()) chat.setTyping(true);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -481,7 +441,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
           'O usuário recusou a solução proposta. Por favor, forneça mais detalhes sobre o que não funcionou para que possamos ajudá-lo melhor.'
         );
       }
-      await loadDetail(activeTicketId);
+      await chat.reloadDetail();
       await loadTickets();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao atualizar ticket.');
@@ -497,10 +457,9 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     setSending(true);
     setError(null);
     try {
-      await updateTicketMessage(editingMessageId, text);
+      await chat.editMessage(editingMessageId, text);
       setEditingMessageId(null);
       setEditingText('');
-      await loadDetail(activeTicketId);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao editar mensagem.');
     } finally {
@@ -513,16 +472,11 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     setSending(true);
     setError(null);
     setDeletingMessageId(null);
-    setDetail((prev) =>
-      prev ? { ...prev, messages: prev.messages.filter((m) => m.id !== messageId) } : prev
-    );
     try {
-      await deleteTicketMessage(messageId);
-      await loadDetail(activeTicketId);
-      await loadTickets();
+      await chat.removeMessage(messageId);
+      void loadTickets();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erro ao excluir mensagem.');
-      await loadDetail(activeTicketId);
     } finally {
       setSending(false);
     }
@@ -530,7 +484,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
 
   if (!isOpen || !user) return null;
 
-  const showChat = activeTicketId && detail && !showNewForm;
+  const showChat = activeTicketId && header && !showNewForm;
   const showMobileDetail = showChat;
 
   return (
@@ -551,7 +505,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
 
           <button
             type="button"
-            onClick={() => { setShowNewForm(true); setActiveTicketId(null); setDetail(null); }}
+            onClick={() => { setShowNewForm(true); setActiveTicketId(null); setHeader(null); }}
             className="mx-3 mt-3 px-3 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all active:scale-95 duration-150"
           >
             + Novo chamado
@@ -615,7 +569,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
         {/* ===== RIGHT PANEL ===== */}
         <main className="flex-1 flex flex-col min-w-0 bg-white">
           {/* Loading */}
-          {loading && !detail && !showNewForm && (
+          {(loading || chat.loadingInitial) && !header && !showNewForm && (
             <div className="flex-1 flex items-center justify-center text-slate-400 text-sm gap-2">
               <Loader2 size={18} className="animate-spin" />
               Carregando...
@@ -765,29 +719,49 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                 <div className="min-w-0 flex-1">
                   <button
                     type="button"
-                    onClick={() => { setActiveTicketId(null); setDetail(null); }}
+                    onClick={() => { setActiveTicketId(null); setHeader(null); }}
                     className="lg:hidden text-xs text-blue-600 hover:underline mb-1"
                   >
                     ← Voltar
                   </button>
-                  <p className="text-sm font-bold text-slate-800 truncate">{detail.ticket.subject}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold text-slate-800 truncate">{header.ticket.subject}</p>
+                    <span
+                      title={
+                        chat.connectionStatus === 'connected'
+                          ? 'Conectado em tempo real'
+                          : chat.connectionStatus === 'connecting'
+                            ? 'Conectando...'
+                            : 'Desconectado'
+                      }
+                      className="shrink-0"
+                    >
+                      {chat.connectionStatus === 'connected' ? (
+                        <Wifi size={14} className="text-emerald-500" />
+                      ) : chat.connectionStatus === 'connecting' ? (
+                        <Loader2 size={14} className="text-amber-500 animate-spin" />
+                      ) : (
+                        <WifiOff size={14} className="text-red-500" />
+                      )}
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {ticketTypeLabel[detail.ticket.ticket_type]}
-                    {(detail.ticket.specific_screen || detail.ticket.location_area) && (
-                      <> · {getScreenLabelFromKey(detail.ticket.specific_screen) ||
-                        LOCATION_OPTIONS.find((o) => o.value === detail.ticket.location_area)?.label ||
-                        detail.ticket.location_area ||
-                        detail.ticket.specific_screen}</>
+                    {ticketTypeLabel[header.ticket.ticket_type]}
+                    {(header.ticket.specific_screen || header.ticket.location_area) && (
+                      <> · {getScreenLabelFromKey(header.ticket.specific_screen) ||
+                        LOCATION_OPTIONS.find((o) => o.value === header.ticket.location_area)?.label ||
+                        header.ticket.location_area ||
+                        header.ticket.specific_screen}</>
                     )}
                   </p>
                 </div>
-                <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold ${statusConfig[detail.ticket.status].className}`}>
-                  {statusConfig[detail.ticket.status].label}
+                <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold ${statusConfig[header.ticket.status].className}`}>
+                  {statusConfig[header.ticket.status].label}
                 </span>
               </div>
 
               {/* Homologation banner */}
-              {detail.ticket.status === 'testing' && (
+              {header.ticket.status === 'testing' && (
                 <div className="shrink-0 mx-4 mt-3 p-3 rounded-xl border border-amber-300 bg-amber-50 flex items-center justify-between gap-3 animate-fade-in">
                   <p className="text-sm text-amber-800 font-medium">
                     Uma correção foi aplicada. Por favor, verifique e confirme.
@@ -815,13 +789,13 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-                {detail.messages.map((msg) => {
+                {chat.messages.map((msg) => {
                   const mine = msg.author_type === 'user' && msg.author_id === user.id;
                   const isAI = msg.author_type === 'ai';
                   const isAgent = msg.author_type === 'agent';
                   const linkedAttachments = attachmentByMessage.get(msg.id) || [];
                   const repliedMsg = msg.reply_to_id
-                    ? detail.messages.find((m) => m.id === msg.reply_to_id)
+                    ? chat.messages.find((m) => m.id === msg.reply_to_id)
                     : null;
                   const quotedText = repliedMsg
                     ? (repliedMsg.message.length > 60
@@ -1044,6 +1018,18 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                     </div>
                   </div>
                 )}
+                {chat.typingUsers.length > 0 && (
+                  <div className="flex justify-start animate-fade-in">
+                    <div className="px-4 py-2 rounded-xl bg-slate-100 text-slate-500 text-xs flex items-center gap-2">
+                      <span className="flex gap-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </span>
+                      {chat.typingUsers.join(', ')} está digitando...
+                    </div>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -1097,8 +1083,9 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                     className="hidden"
                   />
                   <textarea
+                    ref={textareaRef}
                     value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
+                    onChange={handleMessageInputChange}
                     onPaste={handlePaste}
                     onKeyDown={handleKeyDown}
                     placeholder="Digite ou cole imagem (Ctrl+V)... Enter para enviar, Ctrl+Enter para nova linha"

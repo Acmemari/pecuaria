@@ -68,11 +68,16 @@ interface TicketCreatePayload {
   specificScreen?: string;
 }
 
-interface SendTicketMessagePayload {
+export interface SendTicketMessagePayload {
   message: string;
   imageFile?: File | null;
   authorType?: SupportMessageAuthorType;
   replyToId?: string | null;
+}
+
+export interface SendTicketMessageResult {
+  message: SupportTicketMessage;
+  attachment?: SupportTicketAttachment;
 }
 
 function normalizeText(value: string | null | undefined, maxLength = 600): string {
@@ -133,7 +138,7 @@ async function getCurrentUserId(): Promise<string> {
   return data.user.id;
 }
 
-async function fetchUserNames(userIds: string[]): Promise<Record<string, string>> {
+export async function fetchUserNames(userIds: string[]): Promise<Record<string, string>> {
   const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
   if (uniqueIds.length === 0) return {};
 
@@ -153,7 +158,7 @@ async function fetchUserNames(userIds: string[]): Promise<Record<string, string>
   }, {});
 }
 
-async function withSignedUrls(attachments: SupportTicketAttachment[]): Promise<SupportTicketAttachment[]> {
+export async function withSignedUrls(attachments: SupportTicketAttachment[]): Promise<SupportTicketAttachment[]> {
   const signed = await Promise.all(
     attachments.map(async (attachment) => {
       const { data, error } = await supabase.storage
@@ -321,7 +326,7 @@ export async function uploadTicketAttachment(ticketId: string, file: File, messa
   return attachment;
 }
 
-export async function sendTicketMessage(ticketId: string, payload: SendTicketMessagePayload): Promise<SupportTicketMessage> {
+export async function sendTicketMessage(ticketId: string, payload: SendTicketMessagePayload): Promise<SendTicketMessageResult> {
   const authorId = await getCurrentUserId();
   const text = normalizeText(payload.message, 4000);
 
@@ -345,11 +350,12 @@ export async function sendTicketMessage(ticketId: string, payload: SendTicketMes
     throw new Error(error?.message || 'Erro ao enviar mensagem.');
   }
 
+  let attachment: SupportTicketAttachment | undefined;
   if (payload.imageFile) {
-    await uploadTicketAttachment(ticketId, payload.imageFile, data.id);
+    attachment = await uploadTicketAttachment(ticketId, payload.imageFile, data.id);
   }
 
-  return data as SupportTicketMessage;
+  return { message: data as SupportTicketMessage, attachment };
 }
 
 export async function updateTicketMessage(messageId: string, newMessage: string): Promise<void> {
@@ -393,8 +399,57 @@ export async function getAdminUnreadCount(): Promise<number> {
   return Number(data || 0);
 }
 
-export async function sendAIMessage(ticketId: string, message: string): Promise<SupportTicketMessage> {
+export async function sendAIMessage(ticketId: string, message: string): Promise<SendTicketMessageResult> {
   return sendTicketMessage(ticketId, { message, authorType: 'ai' });
+}
+
+export async function fetchMessageWithAuthor(messageId: string): Promise<SupportTicketMessage | null> {
+  const { data, error } = await supabase
+    .from('support_ticket_messages')
+    .select('*')
+    .eq('id', messageId)
+    .single();
+
+  if (error || !data) return null;
+
+  const msg = data as SupportTicketMessage;
+  const nameMap = await fetchUserNames([msg.author_id]);
+  return { ...msg, author_name: nameMap[msg.author_id] || 'Usuário' };
+}
+
+export async function fetchMessagesSince(
+  ticketId: string,
+  since: string,
+): Promise<{ messages: SupportTicketMessage[]; attachments: SupportTicketAttachment[] }> {
+  const [{ data: msgs }, { data: atts }] = await Promise.all([
+    supabase
+      .from('support_ticket_messages')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .gte('created_at', since)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('support_ticket_attachments')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .gte('created_at', since)
+      .order('created_at', { ascending: true }),
+  ]);
+
+  const baseMessages = (msgs || []) as SupportTicketMessage[];
+  const baseAttachments = (atts || []) as SupportTicketAttachment[];
+
+  if (baseMessages.length === 0 && baseAttachments.length === 0) {
+    return { messages: [], attachments: [] };
+  }
+
+  const nameMap = await fetchUserNames(baseMessages.map((m) => m.author_id));
+  const signedAttachments = await withSignedUrls(baseAttachments);
+
+  return {
+    messages: baseMessages.map((m) => ({ ...m, author_name: nameMap[m.author_id] || 'Usuário' })),
+    attachments: signedAttachments,
+  };
 }
 
 export function subscribeTicketMessages(ticketId: string, onRefresh: () => void): () => void {

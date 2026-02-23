@@ -1,20 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CheckCheck, ExternalLink, Loader2, MapPin, MessageSquare, Paperclip, Reply, Search, Send, X } from 'lucide-react';
+import { Check, CheckCheck, ExternalLink, Loader2, MapPin, MessageSquare, Paperclip, Reply, Search, Send, Wifi, WifiOff, X } from 'lucide-react';
 import {
-  getTicketDetail,
   listAdminTickets,
-  markTicketRead,
   sendAIMessage,
-  sendTicketMessage,
   subscribeAdminUnread,
-  subscribeTicketMessages,
   updateTicketStatus,
   type SupportTicket,
   type SupportTicketAttachment,
-  type SupportTicketDetail,
   type SupportTicketMessage,
   type SupportTicketStatus,
 } from '../lib/supportTickets';
+import { useAuth } from '../contexts/AuthContext';
+import { useSupportChat } from '../hooks/useSupportChat';
 
 const LOCATION_LABELS: Record<string, string> = {
   main: 'Painel Principal',
@@ -72,17 +69,16 @@ const BotAvatar = () => (
 );
 
 const SupportTicketsDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<SupportTicketDetail | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | SupportTicketStatus>('all');
   const [search, setSearch] = useState('');
   const [reply, setReply] = useState('');
   const [replyingTo, setReplyingTo] = useState<SupportTicketMessage | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [replyImage, setReplyImage] = useState<File | null>(null);
   const [replyImagePreview, setReplyImagePreview] = useState<string | null>(null);
@@ -91,16 +87,23 @@ const SupportTicketsDashboard: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const chat = useSupportChat({
+    ticketId: selectedTicketId,
+    userId: user?.id ?? '',
+    userName: 'Agente Técnico',
+    authorType: 'agent',
+  });
+
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(timer);
   }, [search]);
 
   useEffect(() => {
-    if (detail?.messages?.length) {
+    if (chat.messages.length) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [detail?.messages?.length]);
+  }, [chat.messages.length]);
 
   useEffect(() => {
     setReplyingTo(null);
@@ -120,7 +123,6 @@ const SupportTicketsDashboard: React.FC = () => {
       }
       if (rows.length === 0) {
         setSelectedTicketId(null);
-        setDetail(null);
       }
     } catch (err: any) {
       setError(err?.message || 'Erro ao listar tickets.');
@@ -129,31 +131,7 @@ const SupportTicketsDashboard: React.FC = () => {
     }
   }, [debouncedSearch, statusFilter]);
 
-  const loadDetail = useCallback(async (ticketId: string) => {
-    setLoadingDetail(true);
-    setError(null);
-    try {
-      const data = await getTicketDetail(ticketId);
-      setDetail(data);
-      await markTicketRead(ticketId);
-    } catch (err: any) {
-      setError(err?.message || 'Erro ao carregar detalhe do ticket.');
-    } finally {
-      setLoadingDetail(false);
-    }
-  }, []);
-
   useEffect(() => { void loadTickets(); }, [loadTickets]);
-
-  useEffect(() => {
-    if (!selectedTicketId) return;
-    void loadDetail(selectedTicketId);
-    const unsubscribe = subscribeTicketMessages(selectedTicketId, () => {
-      void loadDetail(selectedTicketId);
-      void loadTickets();
-    });
-    return () => { unsubscribe(); };
-  }, [loadDetail, loadTickets, selectedTicketId]);
 
   useEffect(() => {
     const unsubscribe = subscribeAdminUnread(() => { void loadTickets(); });
@@ -202,15 +180,14 @@ const SupportTicketsDashboard: React.FC = () => {
 
   const attachmentsByMessage = useMemo(() => {
     const map = new Map<string, SupportTicketAttachment[]>();
-    if (!detail?.attachments) return map;
-    detail.attachments.forEach((att) => {
+    chat.attachments.forEach((att) => {
       if (!att.message_id) return;
       const current = map.get(att.message_id) || [];
       current.push(att);
       map.set(att.message_id, current);
     });
     return map;
-  }, [detail?.attachments]);
+  }, [chat.attachments]);
 
   const handleReply = async () => {
     if (!selectedTicketId || saving) return;
@@ -222,37 +199,19 @@ const SupportTicketsDashboard: React.FC = () => {
     setError(null);
     resetReplyComposer();
 
-    const optimisticId = `temp-${Date.now()}`;
-    const optimisticMessage: SupportTicketMessage = {
-      id: optimisticId,
-      ticket_id: selectedTicketId,
-      author_id: '',
-      author_type: 'agent',
-      message: text || '[imagem]',
-      created_at: new Date().toISOString(),
-      read_at: null,
-      author_name: 'Agente Técnico',
-      reply_to_id: replyToId,
-    };
-
-    setDetail((prev) =>
-      prev
-        ? { ...prev, messages: [...prev.messages, optimisticMessage] }
-        : prev
-    );
-
     try {
-      await sendTicketMessage(selectedTicketId, { message: text || '[imagem]', imageFile, authorType: 'agent', replyToId });
-      await loadDetail(selectedTicketId);
-      await loadTickets();
+      await chat.sendMessage({ message: text || '[imagem]', imageFile, replyToId });
+      void loadTickets();
     } catch (err: any) {
       setError(err?.message || 'Erro ao responder ticket.');
-      setDetail((prev) =>
-        prev ? { ...prev, messages: prev.messages.filter((m) => m.id !== optimisticId) } : prev
-      );
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleReplyInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setReply(e.target.value);
+    if (e.target.value.trim()) chat.setTyping(true);
   };
 
   const handleReplyKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -289,7 +248,7 @@ const SupportTicketsDashboard: React.FC = () => {
         );
       }
 
-      await loadDetail(selectedTicketId);
+      await chat.reloadDetail();
       await loadTickets();
     } catch (err: any) {
       setError(err?.message || 'Erro ao atualizar status.');
@@ -298,7 +257,9 @@ const SupportTicketsDashboard: React.FC = () => {
     }
   };
 
-  const showDetailMobile = selectedTicketId && detail;
+  const ticketHeader = chat.ticketDetail?.ticket ?? null;
+  const hasDetail = selectedTicketId && ticketHeader;
+  const showDetailMobile = hasDetail;
 
   return (
     <div className="h-full flex flex-col min-h-0 overflow-hidden">
@@ -397,10 +358,14 @@ const SupportTicketsDashboard: React.FC = () => {
           className={`border border-slate-200 rounded-xl bg-white min-h-0 min-w-0 flex-1 flex flex-col overflow-hidden
             ${showDetailMobile ? 'flex' : 'hidden lg:flex'}`}
         >
-          {!selectedTicketId || !detail ? (
+          {!hasDetail ? (
             <div className="h-full flex items-center justify-center text-slate-400 text-sm gap-2">
               <MessageSquare size={15} />
-              Selecione um ticket para ver os detalhes.
+              {chat.loadingInitial ? (
+                <><Loader2 size={14} className="animate-spin" /> Carregando...</>
+              ) : (
+                'Selecione um ticket para ver os detalhes.'
+              )}
             </div>
           ) : (
             <>
@@ -415,27 +380,47 @@ const SupportTicketsDashboard: React.FC = () => {
                     >
                       ← Voltar à lista
                     </button>
-                    <p className="text-sm font-bold text-slate-800 truncate">{detail.ticket.subject}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-slate-800 truncate">{ticketHeader.subject}</p>
+                      <span
+                        title={
+                          chat.connectionStatus === 'connected'
+                            ? 'Conectado em tempo real'
+                            : chat.connectionStatus === 'connecting'
+                              ? 'Conectando...'
+                              : 'Desconectado'
+                        }
+                        className="shrink-0"
+                      >
+                        {chat.connectionStatus === 'connected' ? (
+                          <Wifi size={14} className="text-emerald-500" />
+                        ) : chat.connectionStatus === 'connecting' ? (
+                          <Loader2 size={14} className="text-amber-500 animate-spin" />
+                        ) : (
+                          <WifiOff size={14} className="text-red-500" />
+                        )}
+                      </span>
+                    </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      {detail.ticket.user_name || 'Usuário'} · {typeLabel[detail.ticket.ticket_type]}
+                      {ticketHeader.user_name || 'Usuário'} · {typeLabel[ticketHeader.ticket_type]}
                     </p>
-                    {(detail.ticket.location_area || detail.ticket.specific_screen) && (
+                    {(ticketHeader.location_area || ticketHeader.specific_screen) && (
                       <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
                         <MapPin size={10} className="shrink-0" />
-                        {detail.ticket.location_area && LOCATION_LABELS[detail.ticket.location_area]}
-                        {detail.ticket.specific_screen && <> · {detail.ticket.specific_screen}</>}
+                        {ticketHeader.location_area && LOCATION_LABELS[ticketHeader.location_area]}
+                        {ticketHeader.specific_screen && <> · {ticketHeader.specific_screen}</>}
                       </p>
                     )}
-                    {detail.ticket.current_url && (
+                    {ticketHeader.current_url && (
                       <a
-                        href={detail.ticket.current_url}
+                        href={ticketHeader.current_url}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline mt-1 max-w-full"
-                        title={detail.ticket.current_url}
+                        title={ticketHeader.current_url}
                       >
                         <ExternalLink size={10} className="shrink-0" />
-                        <span className="truncate">{detail.ticket.current_url}</span>
+                        <span className="truncate">{ticketHeader.current_url}</span>
                       </a>
                     )}
                   </div>
@@ -444,7 +429,7 @@ const SupportTicketsDashboard: React.FC = () => {
                   <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
                     {(['open', 'in_progress', 'testing', 'done'] as SupportTicketStatus[]).map((s) => {
                       const cfg = statusConfig[s];
-                      const isActive = detail.ticket.status === s;
+                      const isActive = ticketHeader.status === s;
                       return (
                         <button
                           key={s}
@@ -465,13 +450,13 @@ const SupportTicketsDashboard: React.FC = () => {
 
               {/* Messages */}
               <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-                {detail.messages.map((msg) => {
+                {chat.messages.map((msg) => {
                   const linked = attachmentsByMessage.get(msg.id) || [];
                   const isAI = msg.author_type === 'ai';
                   const isAgent = msg.author_type === 'agent';
                   const isUser = msg.author_type === 'user';
                   const repliedMsg = msg.reply_to_id
-                    ? detail.messages.find((m) => m.id === msg.reply_to_id)
+                    ? chat.messages.find((m) => m.id === msg.reply_to_id)
                     : null;
                   const quotedText = repliedMsg
                     ? (repliedMsg.message.length > 60
@@ -597,6 +582,18 @@ const SupportTicketsDashboard: React.FC = () => {
                     </div>
                   );
                 })}
+                {chat.typingUsers.length > 0 && (
+                  <div className="flex justify-start animate-fade-in">
+                    <div className="px-4 py-2 rounded-xl bg-slate-100 text-slate-500 text-xs flex items-center gap-2">
+                      <span className="flex gap-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      </span>
+                      {chat.typingUsers.join(', ')} está digitando...
+                    </div>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
@@ -659,7 +656,7 @@ const SupportTicketsDashboard: React.FC = () => {
                   </button>
                   <textarea
                     value={reply}
-                    onChange={(e) => setReply(e.target.value)}
+                    onChange={handleReplyInputChange}
                     onPaste={handleReplyPaste}
                     onKeyDown={handleReplyKeyDown}
                     placeholder="Digite ou cole imagem (Ctrl+V)... Enter para enviar, Ctrl+Enter para nova linha"

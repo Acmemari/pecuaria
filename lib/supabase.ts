@@ -17,10 +17,9 @@ export const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_AN
       'x-client-info': 'pecuaria-web',
     },
   },
-  // Configurações de performance para realtime
   realtime: {
     params: {
-      eventsPerSecond: 10,
+      eventsPerSecond: 20,
     },
   },
 });
