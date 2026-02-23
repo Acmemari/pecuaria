@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { CattleScenario, CattleCalculatorInputs, CalculationResults } from '../types';
+import { CattleScenario, CattleCalculatorInputs, CalculationResults, ComparatorResult } from '../types';
 import { sanitizeText } from './inputSanitizer';
 import { logger } from './logger';
 import { normalizeCattleCalculatorInputs } from './cattleInputs';
@@ -96,13 +96,15 @@ export const getSavedScenarios = async (
 };
 
 /**
- * Check if user has reached the limit of saved scenarios
+ * Check if user has reached the limit of saved scenarios.
+ * Counts only calculator scenarios (excludes comparator/report types that have results.type).
  */
 export const checkScenarioLimit = async (userId: string): Promise<boolean> => {
   const { count, error } = await supabase
     .from('cattle_scenarios')
     .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .or('results.is.null,results->>type.is.null');
 
   if (error) {
     log.error('Error checking scenario limit', new Error(error.message));
@@ -212,6 +214,57 @@ export const saveReportPdf = async (
   return {
     ...data,
     inputs: data.inputs as CattleCalculatorInputs,
+    results: data.results as CalculationResults | undefined
+  };
+};
+
+/**
+ * Save a comparator report (PDF + 3 scenarios) - does NOT create individual scenario records.
+ * Inserts a single row with type 'comparator_pdf' in results.
+ */
+export const saveComparatorReport = async (
+  userId: string,
+  name: string,
+  comparatorResult: ComparatorResult,
+  options?: SaveScenarioOptions
+): Promise<CattleScenario> => {
+  validateUUID(userId, 'ID do usuário');
+
+  const sanitizedName = sanitizeText(name);
+  if (!sanitizedName) {
+    throw new Error('O nome do comparativo é obrigatório');
+  }
+
+  if (!comparatorResult.pdf_base64 || typeof comparatorResult.pdf_base64 !== 'string') {
+    throw new Error('PDF do comparativo inválido para salvamento');
+  }
+
+  if (!comparatorResult.scenarios || !Array.isArray(comparatorResult.scenarios) || comparatorResult.scenarios.length !== 3) {
+    throw new Error('O comparativo deve conter exatamente 3 cenários');
+  }
+
+  const { data, error } = await supabase
+    .from('cattle_scenarios')
+    .insert({
+      user_id: userId,
+      client_id: options?.clientId || null,
+      farm_id: options?.farmId || null,
+      farm_name: options?.farmName || null,
+      name: sanitizedName,
+      inputs: {},
+      results: comparatorResult,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    log.error('Error saving comparator report', new Error(error.message));
+    throw new Error(error.message || 'Erro ao salvar comparativo.');
+  }
+
+  return {
+    ...data,
+    inputs: (data.inputs || {}) as CattleCalculatorInputs,
     results: data.results as CalculationResults | undefined
   };
 };

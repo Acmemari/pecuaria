@@ -8,8 +8,7 @@ import { useClient } from '../contexts/ClientContext';
 import { useFarm } from '../contexts/FarmContext';
 import { Toast } from '../components/Toast';
 import { generateComparatorPDF, generateComparatorPDFAsBase64 } from '../lib/generateReportPDF';
-import { saveScenario } from '../lib/scenarios';
-import { normalizeCattleCalculatorInputs } from '../lib/cattleInputs';
+import { saveComparatorReport } from '../lib/scenarios';
 
 interface ComparatorProps {
   onToast?: (toast: Toast) => void;
@@ -392,12 +391,11 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
         ]
       };
 
-      // Salvar o comparativo completo (PDF + dados dos cenários)
-      await saveScenario(
+      // Salvar o comparativo completo (PDF + dados dos cenários) - um único registro, sem cenário adicional
+      await saveComparatorReport(
         user.id,
         saveName.trim(),
-        normalizeCattleCalculatorInputs(scenarioA.inputs),
-        comparatorData as any, // Armazenar PDF e dados dos cenários no campo results
+        comparatorData,
         {
           clientId: selectedClient?.id || null,
           farmId: selectedFarm?.id || null,

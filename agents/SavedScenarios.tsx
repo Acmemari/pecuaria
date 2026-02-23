@@ -756,26 +756,28 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                         </div>
                       );
                     } else {
+                      // Fallback para cenários legados sem results.type; usar optional chaining se inputs for {} (ex.: comparativos antigos)
+                      const inp = scenario.inputs;
                       return (
                         <div className="pt-3 border-t border-ai-border">
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
                               <span className="text-ai-subtext">Peso Compra:</span>
-                              <span className="ml-1 font-medium text-ai-text">{scenario.inputs.pesoCompra} kg</span>
+                              <span className="ml-1 font-medium text-ai-text">{inp?.pesoCompra ?? '-'} kg</span>
                             </div>
                             <div>
                               <span className="text-ai-subtext">Valor Compra:</span>
                               <span className="ml-1 font-medium text-ai-text">
-                                {currencySymbol} {scenario.inputs.valorCompra.toFixed(2)}/kg
+                                {currencySymbol} {(inp?.valorCompra != null ? Number(inp.valorCompra).toFixed(2) : '-')}/kg
                               </span>
                             </div>
                             <div>
                               <span className="text-ai-subtext">Peso Abate:</span>
-                              <span className="ml-1 font-medium text-ai-text">{scenario.inputs.pesoAbate} kg</span>
+                              <span className="ml-1 font-medium text-ai-text">{inp?.pesoAbate ?? '-'} kg</span>
                             </div>
                             <div>
                               <span className="text-ai-subtext">Valor Venda:</span>
-                              <span className="ml-1 font-medium text-ai-text">{currencySymbol} {scenario.inputs.valorVenda}{country === 'PY' ? '/kg' : '/@'}</span>
+                              <span className="ml-1 font-medium text-ai-text">{currencySymbol} {inp?.valorVenda != null ? Number(inp.valorVenda) : '-'}{country === 'PY' ? '/kg' : '/@'}</span>
                             </div>
                           </div>
                         </div>
