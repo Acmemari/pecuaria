@@ -805,7 +805,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                               </span>
                             </div>
                             <div>
-                              <span className="text-ai-subtext">Peso Abate:</span>
+                              <span className="text-ai-subtext">Peso Venda:</span>
                               <span className="ml-1 font-medium text-ai-text">{inp?.pesoAbate ?? '-'} kg</span>
                             </div>
                             <div>

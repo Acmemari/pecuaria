@@ -566,9 +566,9 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       />
                       <Slider
                         index={3}
-                        label="Peso Vivo Abate"
+                        label="Peso Venda"
                         value={scenario.inputs.pesoAbate}
-                        min={Math.max(350, scenario.inputs.pesoCompra + 10)}
+                        min={Math.max(300, scenario.inputs.pesoCompra + 10)}
                         max={630}
                         step={1}
                         unit="kg"

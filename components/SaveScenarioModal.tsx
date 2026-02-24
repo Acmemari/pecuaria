@@ -111,7 +111,7 @@ const SaveScenarioModal: React.FC<SaveScenarioModalProps> = ({
                 /kg
               </div>
               <div>
-                <span className="text-ai-subtext">Peso Abate:</span> {inputs.pesoAbate} kg
+                <span className="text-ai-subtext">Peso Venda:</span> {inputs.pesoAbate} kg
               </div>
               <div>
                 <span className="text-ai-subtext">Valor Venda:</span> {currencySymbol} {inputs.valorVenda}
