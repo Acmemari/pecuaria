@@ -42,12 +42,7 @@ const INTEGRA_PLACEHOLDER = '#A9B0BB';
 const INTEGRA_ACCENT = '#65C04A';
 const INTEGRA_BORDER = '#5E6D82';
 
-const InttegraLogo: React.FC<{ className?: string }> = ({ className }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <rect x="4" y="4" width="10" height="10" rx="2" fill={INTEGRA_ACCENT} stroke="#FFFFFF" strokeWidth="1.5" />
-    <rect x="10" y="10" width="10" height="10" rx="2" fill={INTEGRA_ACCENT} stroke="#FFFFFF" strokeWidth="1.5" />
-  </svg>
-);
+const LOGO_SRC = '/inttegra-logo.png';
 
 type SubItem = { label: string; icon?: 'chevron' | 'star' };
 type ExpandableItem = { id: string; label: string; icon: React.ElementType; subItems: SubItem[] };
@@ -158,6 +153,7 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
   onSettingsClick,
   onSwitchToPecuaria,
 }) => {
+  const [isMovimentacoesOpen, setIsMovimentacoesOpen] = useState(true);
   const [isFinanceiroOpen, setIsFinanceiroOpen] = useState(true);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     pecuaria: false,
@@ -195,14 +191,18 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
         `}
         style={{ backgroundColor: INTEGRA_SIDEBAR_BG }}
       >
-        {/* Header */}
+        {/* Logo - imagem exata no topo */}
         <div
-          className={`h-12 shrink-0 flex items-center border-b relative ${isCollapsed ? 'justify-center px-2' : 'justify-between px-4'}`}
+          className={`shrink-0 flex items-center border-b relative ${isCollapsed ? 'justify-center py-3 px-2' : 'justify-between py-4 px-4'}`}
           style={{ borderColor: INTEGRA_BORDER }}
         >
           {isCollapsed ? (
             <>
-              <InttegraLogo />
+              <img
+                src={LOGO_SRC}
+                alt="Inttegra"
+                className="h-8 w-8 object-contain"
+              />
               <button
                 onClick={onSwitchToPecuaria}
                 className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded transition-colors hover:opacity-90"
@@ -215,12 +215,11 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
             </>
           ) : (
             <>
-              <div className="flex items-center gap-2">
-                <InttegraLogo />
-                <span className="font-bold tracking-tight text-base" style={{ color: INTEGRA_TEXT }}>
-                  Inttegra
-                </span>
-              </div>
+              <img
+                src={LOGO_SRC}
+                alt="Inttegra"
+                className="h-8 object-contain max-w-[180px]"
+              />
               <div className="flex items-center gap-1">
                 <button
                   onClick={onSwitchToPecuaria}
@@ -261,6 +260,48 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
 
         {/* Scrollable Navigation Area */}
         <div className="flex-1 min-h-0 overflow-y-auto py-2 px-2">
+          {/* Movimentações - primeiro item */}
+          <div className="mb-2">
+            <button
+              type="button"
+              onClick={() => !isCollapsed && setIsMovimentacoesOpen(!isMovimentacoesOpen)}
+              className={`w-full flex items-center rounded-md transition-colors hover:opacity-90 ${isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'}`}
+              style={{ color: INTEGRA_TEXT, backgroundColor: 'transparent' }}
+              title="Movimentações"
+            >
+              <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
+                <div
+                  className="w-8 h-8 rounded flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: INTEGRA_SURFACE }}
+                >
+                  <DollarSign size={16} />
+                </div>
+                {!isCollapsed && <span className="text-sm font-medium">Movimentações</span>}
+              </div>
+              {!isCollapsed && (isMovimentacoesOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
+            </button>
+            {!isCollapsed && isMovimentacoesOpen && (
+              <div className="ml-4 pl-4 mt-1 space-y-0.5 border-l" style={{ borderColor: INTEGRA_BORDER }}>
+                {[
+                  { label: 'Receita' },
+                  { label: 'Despesa' },
+                  { label: 'Transferência entre Contas' },
+                  { label: 'Conciliação Bancária' },
+                ].map(({ label }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:opacity-90 transition-colors"
+                    style={{ color: INTEGRA_TEXT, backgroundColor: 'transparent' }}
+                  >
+                    <span className="text-sm">{label}</span>
+                    <Star size={14} className="flex-shrink-0" style={{ color: INTEGRA_PLACEHOLDER }} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Search */}
           <div
             className={`flex items-center rounded-lg mb-2 ${isCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2'}`}
