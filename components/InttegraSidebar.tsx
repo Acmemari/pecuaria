@@ -143,6 +143,13 @@ const simpleItems: { label: string; icon: React.ElementType }[] = [
   { label: 'Recentes', icon: Clock },
 ];
 
+const movimentacoesSubItems: { label: string }[] = [
+  { label: 'Receita' },
+  { label: 'Despesa' },
+  { label: 'Transferência entre Contas' },
+  { label: 'Conciliação Bancária' },
+];
+
 const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
   isOpen,
   toggleSidebar,
@@ -282,12 +289,7 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
             </button>
             {!isCollapsed && isMovimentacoesOpen && (
               <div className="ml-4 pl-4 mt-1 space-y-0.5 border-l" style={{ borderColor: INTEGRA_BORDER }}>
-                {[
-                  { label: 'Receita' },
-                  { label: 'Despesa' },
-                  { label: 'Transferência entre Contas' },
-                  { label: 'Conciliação Bancária' },
-                ].map(({ label }) => (
+                {movimentacoesSubItems.map(({ label }) => (
                   <button
                     key={label}
                     type="button"
@@ -295,7 +297,7 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
                     style={{ color: INTEGRA_TEXT, backgroundColor: 'transparent' }}
                   >
                     <span className="text-sm">{label}</span>
-                    <Star size={14} className="flex-shrink-0" style={{ color: INTEGRA_PLACEHOLDER }} />
+                    <Star size={14} className="flex-shrink-0" style={{ color: INTEGRA_PLACEHOLDER }} aria-hidden />
                   </button>
                 ))}
               </div>
@@ -407,9 +409,9 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
                       >
                         <span className="text-sm truncate">{sub.label}</span>
                         {sub.icon === 'star' ? (
-                          <Star size={14} className="flex-shrink-0" style={{ color: INTEGRA_PLACEHOLDER }} />
+                          <Star size={14} className="flex-shrink-0" style={{ color: INTEGRA_PLACEHOLDER }} aria-hidden />
                         ) : (
-                          <ChevronDown size={14} style={{ color: INTEGRA_PLACEHOLDER }} />
+                          <ChevronDown size={14} style={{ color: INTEGRA_PLACEHOLDER }} aria-hidden />
                         )}
                       </div>
                     ))}

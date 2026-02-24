@@ -97,8 +97,8 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({
         // Ajustar valor de venda
         if (prev.valorVenda < 250) {
           updated.valorVenda = 250;
-        } else if (prev.valorVenda > 350) {
-          updated.valorVenda = 350;
+        } else if (prev.valorVenda > 380) {
+          updated.valorVenda = 380;
         }
       }
 
@@ -575,7 +575,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({
               label={country === 'PY' ? 'VALOR DE VENTA (kg carcaza)' : 'Valor Venda'}
               value={inputs.valorVenda}
               min={country === 'PY' ? 20000 : 250}
-              max={country === 'PY' ? 40000 : 350}
+              max={country === 'PY' ? 40000 : 380}
               step={country === 'PY' ? 100 : 1}
               unit={country === 'PY' ? `${currencySymbol}/kg` : `${currencySymbol}/@`}
               onChange={v => handleInputChange('valorVenda', v)}

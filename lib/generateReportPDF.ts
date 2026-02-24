@@ -574,7 +574,7 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
 
   // Results rows
   const resultadosItems = [
-    { label: 'Lucro/Boi (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorBoi) },
+    { label: 'Lucro/Cabeça (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorBoi) },
     { label: 'Retorno Mensal (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.resultadoMensal) },
     { label: 'Margem Líquida (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.margemVenda) },
     {
@@ -668,7 +668,7 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
         ) * 1.1,
     },
     {
-      title: 'LUCRO POR BOI (R$)',
+      title: 'LUCRO POR CABEÇA (R$)',
       getValue: (s: ComparatorScenario) => s.results.resultadoPorBoi,
       format: (v: number) => formatCurrency(v),
       maxValue:
@@ -771,9 +771,7 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
     chartScenarios.forEach((scenario, barIndex) => {
       const barX = chartAreaX + 2 + barIndex * (barWidth + barSpacing);
 
-      const scenarioLabel = scenario.name.includes('(')
-        ? scenario.name.split('(')[1]?.replace(')', '') || scenario.id
-        : scenario.name.split(' ')[1] || scenario.id;
+      const scenarioLabel = scenario.name;
 
       // Show scenario name below x-axis line
       const labelY = chartAreaY + chartAreaHeight + 5;
@@ -1019,7 +1017,7 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
 
   // Results rows
   const resultadosItems = [
-    { label: 'Lucro/Boi (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorBoi) },
+    { label: 'Lucro/Cabeça (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorBoi) },
     { label: 'Retorno Mensal (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.resultadoMensal) },
     { label: 'Margem Líquida (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.margemVenda) },
     {
@@ -1113,7 +1111,7 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
         ) * 1.1,
     },
     {
-      title: 'LUCRO POR BOI (R$)',
+      title: 'LUCRO POR CABEÇA (R$)',
       getValue: (s: ComparatorScenario) => s.results.resultadoPorBoi,
       format: (v: number) => formatCurrency(v),
       maxValue:
@@ -1216,9 +1214,7 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
     chartScenarios.forEach((scenario, barIndex) => {
       const barX = chartAreaX + 2 + barIndex * (barWidth + barSpacing);
 
-      const scenarioLabel = scenario.name.includes('(')
-        ? scenario.name.split('(')[1]?.replace(')', '') || scenario.id
-        : scenario.name.split(' ')[1] || scenario.id;
+      const scenarioLabel = scenario.name;
 
       // Show scenario name below x-axis line
       const labelY = chartAreaY + chartAreaHeight + 5;
