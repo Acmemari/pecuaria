@@ -15,6 +15,7 @@ import {
   Save,
   Brain,
   Building2,
+  Briefcase,
   FileCheck,
   ChevronDown,
   Target,
@@ -374,7 +375,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <div
                 className={`flex-shrink-0 ${activeAgentId === 'area-certificados' ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}
               >
-                <FileCheck size={16} />
+                <Briefcase size={16} />
               </div>
               <span className="ml-3 text-sm font-medium block text-left truncate">Área Certificados</span>
             </button>

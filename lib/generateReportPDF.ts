@@ -100,7 +100,7 @@ export function generateReportPDF(data: PDFReportData): void {
   const premissasData = [
     ['Peso de Compra:', `${inputs.pesoCompra} kg`],
     ['Valor de Compra:', `R$ ${inputs.valorCompra.toFixed(2)}/kg`],
-    ['Peso Vivo Abate:', `${inputs.pesoAbate} kg`],
+    ['Peso Venda:', `${inputs.pesoAbate} kg`],
     ['Rend. Carcaça:', `${inputs.rendimentoCarcaca}%`],
     ['Valor Venda:', `R$ ${inputs.valorVenda}/@`],
     ['GMD (Ganho Médio Diário):', `${inputs.gmd} kg/dia`],
@@ -564,7 +564,7 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
   const premissasItems = [
     { label: 'Peso Compra (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoCompra}` },
     { label: 'Valor Compra (R$/kg)', getValue: (s: ComparatorScenario) => s.inputs.valorCompra.toFixed(2) },
-    { label: 'Peso Vivo Abate (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoAbate}` },
+    { label: 'Peso Venda (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoAbate}` },
     { label: 'Rend. Carcaça (%)', getValue: (s: ComparatorScenario) => s.inputs.rendimentoCarcaca.toFixed(2) },
     { label: 'Valor Venda (R$/@)', getValue: (s: ComparatorScenario) => `${s.inputs.valorVenda}` },
     { label: 'GMD (kg/dia)', getValue: (s: ComparatorScenario) => s.inputs.gmd.toFixed(2) },
@@ -1009,7 +1009,7 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
   const premissasItems = [
     { label: 'Peso Compra (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoCompra}` },
     { label: 'Valor Compra (R$/kg)', getValue: (s: ComparatorScenario) => s.inputs.valorCompra.toFixed(2) },
-    { label: 'Peso Vivo Abate (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoAbate}` },
+    { label: 'Peso Venda (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoAbate}` },
     { label: 'Rend. Carcaça (%)', getValue: (s: ComparatorScenario) => s.inputs.rendimentoCarcaca.toFixed(2) },
     { label: 'Valor Venda (R$/@)', getValue: (s: ComparatorScenario) => `${s.inputs.valorVenda}` },
     { label: 'GMD (kg/dia)', getValue: (s: ComparatorScenario) => s.inputs.gmd.toFixed(2) },
