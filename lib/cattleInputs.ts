@@ -41,11 +41,11 @@ const FIELDS: (keyof CattleCalculatorInputs)[] = [
   'valorVenda',
   'gmd',
   'custoMensal',
-  'lotacao'
+  'lotacao',
 ];
 
 export function normalizeCattleCalculatorInputs(
-  inputs: Partial<Record<keyof CattleCalculatorInputs, unknown>> | null | undefined
+  inputs: Partial<Record<keyof CattleCalculatorInputs, unknown>> | null | undefined,
 ): CattleCalculatorInputs {
   const raw = (inputs ?? {}) as Record<string, unknown>;
   const out: Record<string, number> = {};
@@ -56,4 +56,3 @@ export function normalizeCattleCalculatorInputs(
 
   return out as unknown as CattleCalculatorInputs;
 }
-

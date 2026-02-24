@@ -23,7 +23,7 @@ import {
   User,
   Tag,
   MoreVertical,
-  Eye
+  Eye,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useClient } from '../contexts/ClientContext';
@@ -38,7 +38,7 @@ import {
   formatFileSize,
   getFileTypeColor,
   CATEGORY_LABELS,
-  validateFile
+  validateFile,
 } from '../lib/clientDocuments';
 
 interface ClientDocumentsProps {
@@ -48,7 +48,7 @@ interface ClientDocumentsProps {
 const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
   const { user } = useAuth();
   const { selectedClient } = useClient();
-  
+
   // States
   const [documents, setDocuments] = useState<ClientDocument[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -56,22 +56,22 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<DocumentCategory | ''>('');
   const [filterClient, setFilterClient] = useState<string>('');
-  
+
   // Upload modal
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadCategory, setUploadCategory] = useState<DocumentCategory>('geral');
   const [uploadDescription, setUploadDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  
+
   // Menu de ações
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Verificar se é analista ou admin
@@ -81,29 +81,30 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
   // Carregar clientes (para filtro e seleção)
   const loadClients = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       let query = supabase.from('clients').select('*');
-      
+
       // Se for analista, mostrar apenas seus clientes
       if (user.qualification === 'analista' && user.role !== 'admin') {
         query = query.eq('analyst_id', user.id);
       }
-      
+
       const { data, error } = await query.order('name');
-      
+
       if (error) throw error;
-      
-      setClients(data?.map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        phone: c.phone,
-        email: c.email,
-        analystId: c.analyst_id,
-        createdAt: c.created_at,
-        updatedAt: c.updated_at
-      })) || []);
-      
+
+      setClients(
+        data?.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          email: c.email,
+          analystId: c.analyst_id,
+          createdAt: c.created_at,
+          updatedAt: c.updated_at,
+        })) || [],
+      );
     } catch (err: any) {
       console.error('[loadClients]', err);
     }
@@ -112,24 +113,23 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
   // Carregar documentos
   const loadDocuments = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const { documents: docs, error: loadError } = await listDocuments({
         clientId: filterClient || selectedClient?.id || undefined,
         category: filterCategory || undefined,
-        searchTerm: searchTerm || undefined
+        searchTerm: searchTerm || undefined,
       });
-      
+
       if (loadError) {
         setError(loadError);
         return;
       }
-      
+
       setDocuments(docs);
-      
     } catch (err: any) {
       console.error('[loadDocuments]', err);
       setError(err.message);
@@ -168,7 +168,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFileSelect(e.dataTransfer.files[0]);
     }
@@ -195,33 +195,32 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
       onToast?.('Selecione um arquivo', 'error');
       return;
     }
-    
+
     const clientId = filterClient || selectedClient?.id;
     if (!clientId) {
       onToast?.('Selecione um cliente', 'error');
       return;
     }
-    
+
     setIsUploading(true);
-    
+
     try {
       const { success, document, error } = await uploadDocument({
         clientId,
         file: selectedFile,
         category: uploadCategory,
-        description: uploadDescription || undefined
+        description: uploadDescription || undefined,
       });
-      
+
       if (!success) {
         onToast?.(error || 'Erro ao fazer upload', 'error');
         return;
       }
-      
+
       onToast?.('Documento enviado com sucesso!', 'success');
       setShowUploadModal(false);
       resetUploadForm();
       loadDocuments();
-      
     } catch (err: any) {
       console.error('[handleUpload]', err);
       onToast?.(err.message || 'Erro ao fazer upload', 'error');
@@ -243,15 +242,14 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
   const handleDownload = async (doc: ClientDocument) => {
     try {
       const { url, error } = await getDocumentUrl(doc.storagePath);
-      
+
       if (error || !url) {
         onToast?.(error || 'Erro ao gerar link', 'error');
         return;
       }
-      
+
       // Abrir em nova aba para download
       window.open(url, '_blank');
-      
     } catch (err: any) {
       console.error('[handleDownload]', err);
       onToast?.('Erro ao baixar documento', 'error');
@@ -264,24 +262,23 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
       onToast?.('Apenas analistas podem excluir documentos', 'error');
       return;
     }
-    
+
     if (!confirm(`Excluir "${doc.originalName}"? Esta ação não pode ser desfeita.`)) {
       return;
     }
-    
+
     setDeletingId(doc.id);
-    
+
     try {
       const { success, error } = await deleteDocument(doc.id);
-      
+
       if (!success) {
         onToast?.(error || 'Erro ao excluir', 'error');
         return;
       }
-      
+
       onToast?.('Documento excluído', 'success');
       loadDocuments();
-      
     } catch (err: any) {
       console.error('[handleDelete]', err);
       onToast?.('Erro ao excluir documento', 'error');
@@ -323,9 +320,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-xl font-bold text-ai-text mb-2">Documentos da Mentoria</h1>
-        <p className="text-sm text-ai-subtext">
-          Gerencie os documentos do cliente. PDF, Word e Excel são aceitos.
-        </p>
+        <p className="text-sm text-ai-subtext">Gerencie os documentos do cliente. PDF, Word e Excel são aceitos.</p>
       </div>
 
       {/* Filtros e Ações */}
@@ -334,12 +329,14 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
         <div className="flex-1 md:max-w-xs">
           <select
             value={filterClient}
-            onChange={(e) => setFilterClient(e.target.value)}
+            onChange={e => setFilterClient(e.target.value)}
             className="w-full px-3 py-2 bg-white border border-ai-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent"
           >
             <option value="">Todos os clientes</option>
             {clients.map(client => (
-              <option key={client.id} value={client.id}>{client.name}</option>
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
             ))}
           </select>
         </div>
@@ -351,7 +348,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
             type="text"
             placeholder="Buscar documentos..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2 bg-white border border-ai-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent"
           />
         </div>
@@ -360,12 +357,14 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
         <div className="md:w-40">
           <select
             value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value as DocumentCategory | '')}
+            onChange={e => setFilterCategory(e.target.value as DocumentCategory | '')}
             className="w-full px-3 py-2 bg-white border border-ai-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent"
           >
             <option value="">Todas categorias</option>
             {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
+              <option key={key} value={key}>
+                {label}
+              </option>
             ))}
           </select>
         </div>
@@ -410,7 +409,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
             <FolderOpen size={48} className="mb-4 opacity-30" />
             <p className="text-lg font-medium mb-2">Nenhum documento encontrado</p>
             <p className="text-sm">
-              {currentClientId 
+              {currentClientId
                 ? 'Envie o primeiro documento clicando no botão acima.'
                 : 'Selecione um cliente para ver seus documentos.'}
             </p>
@@ -449,9 +448,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
                       </span>
                     )}
                   </div>
-                  {doc.description && (
-                    <p className="text-xs text-ai-subtext mt-1 truncate">{doc.description}</p>
-                  )}
+                  {doc.description && <p className="text-xs text-ai-subtext mt-1 truncate">{doc.description}</p>}
                 </div>
 
                 {/* Ações */}
@@ -463,7 +460,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
                   >
                     <Download size={18} />
                   </button>
-                  
+
                   {canDelete && (
                     <button
                       onClick={() => handleDelete(doc)}
@@ -471,11 +468,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
                       className="p-2 text-ai-subtext hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                       title="Excluir"
                     >
-                      {deletingId === doc.id ? (
-                        <Loader2 className="animate-spin" size={18} />
-                      ) : (
-                        <Trash2 size={18} />
-                      )}
+                      {deletingId === doc.id ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
                     </button>
                   )}
                 </div>
@@ -520,10 +513,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
                 onClick={() => fileInputRef.current?.click()}
                 className={`
                   border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-                  ${dragActive 
-                    ? 'border-ai-accent bg-ai-accent/5' 
-                    : 'border-ai-border hover:border-ai-accent/50'
-                  }
+                  ${dragActive ? 'border-ai-accent bg-ai-accent/5' : 'border-ai-border hover:border-ai-accent/50'}
                   ${selectedFile ? 'bg-green-50 border-green-300' : ''}
                 `}
               >
@@ -534,7 +524,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
                   onChange={handleFileInputChange}
                   className="hidden"
                 />
-                
+
                 {selectedFile ? (
                   <div className="flex items-center justify-center gap-3">
                     <CheckCircle2 className="text-green-500" size={24} />
@@ -543,7 +533,7 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
                       <p className="text-sm text-ai-subtext">{formatFileSize(selectedFile.size)}</p>
                     </div>
                     <button
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
                         setSelectedFile(null);
                         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -556,40 +546,34 @@ const ClientDocuments: React.FC<ClientDocumentsProps> = ({ onToast }) => {
                 ) : (
                   <>
                     <Upload className="mx-auto mb-3 text-ai-subtext" size={32} />
-                    <p className="text-ai-text font-medium mb-1">
-                      Arraste um arquivo ou clique para selecionar
-                    </p>
-                    <p className="text-sm text-ai-subtext">
-                      PDF, DOCX, DOC, XLSX, XLS (máx. 10MB)
-                    </p>
+                    <p className="text-ai-text font-medium mb-1">Arraste um arquivo ou clique para selecionar</p>
+                    <p className="text-sm text-ai-subtext">PDF, DOCX, DOC, XLSX, XLS (máx. 10MB)</p>
                   </>
                 )}
               </div>
 
               {/* Categoria */}
               <div>
-                <label className="block text-sm font-medium text-ai-text mb-1">
-                  Categoria
-                </label>
+                <label className="block text-sm font-medium text-ai-text mb-1">Categoria</label>
                 <select
                   value={uploadCategory}
-                  onChange={(e) => setUploadCategory(e.target.value as DocumentCategory)}
+                  onChange={e => setUploadCategory(e.target.value as DocumentCategory)}
                   className="w-full px-3 py-2 border border-ai-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent"
                 >
                   {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                    <option key={key} value={key}>{label}</option>
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
                   ))}
                 </select>
               </div>
 
               {/* Descrição */}
               <div>
-                <label className="block text-sm font-medium text-ai-text mb-1">
-                  Descrição (opcional)
-                </label>
+                <label className="block text-sm font-medium text-ai-text mb-1">Descrição (opcional)</label>
                 <textarea
                   value={uploadDescription}
-                  onChange={(e) => setUploadDescription(e.target.value)}
+                  onChange={e => setUploadDescription(e.target.value)}
                   placeholder="Adicione uma descrição para o documento..."
                   rows={2}
                   className="w-full px-3 py-2 border border-ai-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent resize-none"

@@ -38,7 +38,10 @@ test.describe('Cadastro de Clientes', () => {
     await page.getByRole('button', { name: /cadastros/i }).click();
     await page.waitForTimeout(500);
 
-    const clientesCard = page.locator('button').filter({ hasText: /clientes/i }).first();
+    const clientesCard = page
+      .locator('button')
+      .filter({ hasText: /clientes/i })
+      .first();
     await clientesCard.click();
     await page.waitForTimeout(500);
 
@@ -69,7 +72,10 @@ test.describe('Cadastro de Clientes', () => {
     await page.getByRole('button', { name: /cadastros/i }).click();
     await page.waitForTimeout(500);
 
-    const clientesCard = page.locator('button').filter({ hasText: /clientes/i }).first();
+    const clientesCard = page
+      .locator('button')
+      .filter({ hasText: /clientes/i })
+      .first();
     await clientesCard.click();
     await page.waitForTimeout(1500);
 
@@ -95,12 +101,15 @@ test.describe('Cadastro de Clientes', () => {
   test('Exclusão: deve excluir um cliente com confirmação', async ({ page }) => {
     test.skip(!E2E_EMAIL || !E2E_PASSWORD, 'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste');
 
-    page.on('dialog', (d) => d.accept());
+    page.on('dialog', d => d.accept());
 
     await page.getByRole('button', { name: /cadastros/i }).click();
     await page.waitForTimeout(500);
 
-    const clientesCard = page.locator('button').filter({ hasText: /clientes/i }).first();
+    const clientesCard = page
+      .locator('button')
+      .filter({ hasText: /clientes/i })
+      .first();
     await clientesCard.click();
     await page.waitForTimeout(1500);
 
@@ -120,7 +129,7 @@ test.describe('Cadastro de Clientes', () => {
   test('Inclusão + Alteração + Exclusão: fluxo completo', async ({ page }) => {
     test.skip(!E2E_EMAIL || !E2E_PASSWORD, 'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste');
 
-    page.on('dialog', (d) => d.accept());
+    page.on('dialog', d => d.accept());
 
     const sufixo = Date.now();
     const nomeCriado = `Cliente Fluxo E2E ${sufixo}`;
@@ -129,7 +138,10 @@ test.describe('Cadastro de Clientes', () => {
     await page.getByRole('button', { name: /cadastros/i }).click();
     await page.waitForTimeout(500);
 
-    const clientesCard = page.locator('button').filter({ hasText: /clientes/i }).first();
+    const clientesCard = page
+      .locator('button')
+      .filter({ hasText: /clientes/i })
+      .first();
     await clientesCard.click();
     await page.waitForTimeout(800);
 
@@ -146,7 +158,10 @@ test.describe('Cadastro de Clientes', () => {
     await expect(page.getByText(nomeCriado)).toBeVisible({ timeout: 5000 });
 
     // 2. Alteração
-    await page.getByTitle(/editar/i).first().click();
+    await page
+      .getByTitle(/editar/i)
+      .first()
+      .click();
     await page.waitForTimeout(500);
 
     const nomeInput = page.getByPlaceholder(/digite o nome do cliente/i);
@@ -158,7 +173,10 @@ test.describe('Cadastro de Clientes', () => {
     await expect(page.getByText(nomeEditado)).toBeVisible({ timeout: 5000 });
 
     // 3. Exclusão
-    await page.getByTitle(/excluir cliente/i).first().click();
+    await page
+      .getByTitle(/excluir cliente/i)
+      .first()
+      .click();
 
     await expect(page.getByText(/exclu[ií]d[oa]s? com sucesso|removid/i)).toBeVisible({ timeout: 8000 });
     await expect(page.getByText(nomeEditado)).not.toBeVisible({ timeout: 3000 });
@@ -167,7 +185,7 @@ test.describe('Cadastro de Clientes', () => {
   test('Gestores: deve cadastrar, editar e excluir no formulário de cliente', async ({ page }) => {
     test.skip(!E2E_EMAIL || !E2E_PASSWORD, 'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste');
 
-    page.on('dialog', (d) => d.accept());
+    page.on('dialog', d => d.accept());
 
     const sufixo = Date.now();
     const gestorNomeInicial = `Gestor Inicial ${sufixo}`;
@@ -175,14 +193,21 @@ test.describe('Cadastro de Clientes', () => {
 
     await page.getByRole('button', { name: /cadastros/i }).click();
     await page.waitForTimeout(500);
-    await page.locator('button').filter({ hasText: /clientes/i }).first().click();
+    await page
+      .locator('button')
+      .filter({ hasText: /clientes/i })
+      .first()
+      .click();
     await page.waitForTimeout(800);
 
     // Garantir que exista ao menos 1 cliente para editar
     const firstEditButton = page.getByTitle(/editar/i).first();
     if (!(await firstEditButton.isVisible({ timeout: 3000 }))) {
       const sufixoCliente = Date.now();
-      await page.getByRole('button', { name: /novo cliente|cadastrar primeiro cliente/i }).first().click({ timeout: 8000 });
+      await page
+        .getByRole('button', { name: /novo cliente|cadastrar primeiro cliente/i })
+        .first()
+        .click({ timeout: 8000 });
       await page.getByPlaceholder(/digite o nome do cliente/i).fill(`Cliente Base Gestor ${sufixoCliente}`);
       await page.getByPlaceholder(/cliente@exemplo\.com/i).fill(`cliente-base-${sufixoCliente}@teste.com`);
       await page.locator('input[type="tel"]').first().fill('44999641122');
@@ -193,10 +218,18 @@ test.describe('Cadastro de Clientes', () => {
     const targetClientName = (await page.locator('tbody tr').first().locator('td').first().innerText()).trim();
 
     // 1) Cadastro de gestor (na tela)
-    await page.locator('tbody tr').filter({ hasText: targetClientName }).first().getByTitle(/editar/i).click();
+    await page
+      .locator('tbody tr')
+      .filter({ hasText: targetClientName })
+      .first()
+      .getByTitle(/editar/i)
+      .click();
 
     while ((await page.getByTitle(/remover proprietário/i).count()) > 0) {
-      await page.getByTitle(/remover proprietário/i).first().click();
+      await page
+        .getByTitle(/remover proprietário/i)
+        .first()
+        .click();
     }
 
     if (await page.getByText(/Nenhum proprietário gestor cadastrado\./i).isVisible()) {

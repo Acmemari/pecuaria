@@ -25,29 +25,31 @@ WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 
 ## Tabela de variáveis
 
-| Variável | Obrigatória | Lado | Usado por |
-|---|---|---|---|
-| `VITE_SUPABASE_URL` | Sim | Frontend + Backend* | Supabase client (frontend), `supabaseAdmin` (backend) |
-| `SUPABASE_URL` | Alias | Backend | Alias canônico de `VITE_SUPABASE_URL` no backend |
-| `VITE_SUPABASE_ANON_KEY` | Sim | Frontend | Supabase client (autenticação do usuário) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Sim | Backend | `/api/agents-run` (auth, rate limit, token budgets) |
-| `GEMINI_API_KEY` | Sim** | Backend | Todos os endpoints de IA (provider principal) |
-| `OPENAI_API_KEY` | Recomendada | Backend | Fallback quando Gemini falha |
-| `ANTHROPIC_API_KEY` | Recomendada | Backend | Fallback quando Gemini e OpenAI falham |
-| `N8N_WEBHOOK_URL` | Sim | Backend | `/api/ask-assistant` (chat) |
-| `WEBHOOK_URL` | Opcional | Backend | Alias local para `N8N_WEBHOOK_URL` |
+| Variável                    | Obrigatória | Lado                 | Usado por                                             |
+| --------------------------- | ----------- | -------------------- | ----------------------------------------------------- |
+| `VITE_SUPABASE_URL`         | Sim         | Frontend + Backend\* | Supabase client (frontend), `supabaseAdmin` (backend) |
+| `SUPABASE_URL`              | Alias       | Backend              | Alias canônico de `VITE_SUPABASE_URL` no backend      |
+| `VITE_SUPABASE_ANON_KEY`    | Sim         | Frontend             | Supabase client (autenticação do usuário)             |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sim         | Backend              | `/api/agents-run` (auth, rate limit, token budgets)   |
+| `GEMINI_API_KEY`            | Sim\*\*     | Backend              | Todos os endpoints de IA (provider principal)         |
+| `OPENAI_API_KEY`            | Recomendada | Backend              | Fallback quando Gemini falha                          |
+| `ANTHROPIC_API_KEY`         | Recomendada | Backend              | Fallback quando Gemini e OpenAI falham                |
+| `N8N_WEBHOOK_URL`           | Sim         | Backend              | `/api/ask-assistant` (chat)                           |
+| `WEBHOOK_URL`               | Opcional    | Backend              | Alias local para `N8N_WEBHOOK_URL`                    |
 
 > \* O backend aceita tanto `SUPABASE_URL` quanto `VITE_SUPABASE_URL` (prioridade para `SUPABASE_URL`). Isso permite configurar sem o prefixo `VITE_` no Vercel.
 
-> \** Pelo menos uma chave de IA (`GEMINI`, `OPENAI` ou `ANTHROPIC`) é obrigatória para que os endpoints de IA funcionem.
+> \*\* Pelo menos uma chave de IA (`GEMINI`, `OPENAI` ou `ANTHROPIC`) é obrigatória para que os endpoints de IA funcionem.
 
 ## Descrição das Variáveis
 
 ### Frontend (prefixo `VITE_`)
+
 - `VITE_SUPABASE_URL` - URL do projeto Supabase (obrigatória)
 - `VITE_SUPABASE_ANON_KEY` - Chave anônima do Supabase (obrigatória)
 
 ### Backend (Vercel)
+
 - `N8N_WEBHOOK_URL` - URL do webhook n8n para processamento do chat (obrigatória)
   - **Produção:** https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
   - Esta URL aponta para a automação n8n que processa as mensagens do chat

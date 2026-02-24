@@ -76,4 +76,3 @@ describe('Constants - PLANS', () => {
     expect(enterprise.limits.users).toBeGreaterThan(pro.limits.users);
   });
 });
-

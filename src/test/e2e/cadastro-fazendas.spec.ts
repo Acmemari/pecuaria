@@ -14,11 +14,7 @@ const E2E_EMAIL = process.env.E2E_USER_EMAIL || process.env.E2E_USER_MAIL;
 const E2E_PASSWORD = process.env.E2E_USER_PASSWORD || process.env.E2E_USER_PASS;
 
 function inputByLabel(page: Page, labelText: RegExp) {
-  return page
-    .locator('label', { hasText: labelText })
-    .locator('..')
-    .locator('input, select')
-    .first();
+  return page.locator('label', { hasText: labelText }).locator('..').locator('input, select').first();
 }
 
 test.describe('Cadastro de Fazendas', () => {
@@ -29,9 +25,7 @@ test.describe('Cadastro de Fazendas', () => {
     await page.waitForLoadState('networkidle');
 
     if (E2E_EMAIL && E2E_PASSWORD) {
-      const loginForm = page
-        .locator('form')
-        .filter({ has: page.locator('input[type="email"]') });
+      const loginForm = page.locator('form').filter({ has: page.locator('input[type="email"]') });
       if (await loginForm.isVisible()) {
         await page.fill('input[type="email"]', E2E_EMAIL);
         await page.fill('input[type="password"]', E2E_PASSWORD);
@@ -55,20 +49,12 @@ test.describe('Cadastro de Fazendas', () => {
         .click();
       await page.waitForTimeout(500);
 
-      await page
-        .getByRole('button', { name: /novo cliente|cadastrar primeiro cliente/i })
-        .click({ timeout: 8000 });
-      await page
-        .getByPlaceholder(/digite o nome do cliente/i)
-        .fill(`Cliente Base Fazenda ${Date.now()}`);
-      await page
-        .getByPlaceholder(/cliente@exemplo\.com/i)
-        .fill(`fazenda-e2e-${Date.now()}@teste.com`);
+      await page.getByRole('button', { name: /novo cliente|cadastrar primeiro cliente/i }).click({ timeout: 8000 });
+      await page.getByPlaceholder(/digite o nome do cliente/i).fill(`Cliente Base Fazenda ${Date.now()}`);
+      await page.getByPlaceholder(/cliente@exemplo\.com/i).fill(`fazenda-e2e-${Date.now()}@teste.com`);
       await page.locator('input[type="tel"]').first().fill('44999641122');
       await page.getByRole('button', { name: /cadastrar/i }).click();
-      await expect(
-        page.getByText(/cliente cadastrado com sucesso/i)
-      ).toBeVisible({ timeout: 8000 });
+      await expect(page.getByText(/cliente cadastrado com sucesso/i)).toBeVisible({ timeout: 8000 });
       await page.waitForTimeout(2000);
     }
   }
@@ -111,7 +97,7 @@ test.describe('Cadastro de Fazendas', () => {
       averageHerd?: string;
       herdValue?: string;
       commercializesGenetics?: boolean;
-    }
+    },
   ) {
     const nameInput = page.getByPlaceholder('Ex: Fazenda Santa Maria');
     await nameInput.clear();
@@ -197,10 +183,7 @@ test.describe('Cadastro de Fazendas', () => {
   // 1. Inclusão
   // ---------------------------------------------------------------------------
   test('Inclusão: deve criar uma nova fazenda com sucesso', async ({ page }) => {
-    test.skip(
-      !E2E_EMAIL || !E2E_PASSWORD,
-      'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste'
-    );
+    test.skip(!E2E_EMAIL || !E2E_PASSWORD, 'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste');
 
     await ensureClientSelected(page);
     await navigateToFazendas(page);
@@ -225,22 +208,15 @@ test.describe('Cadastro de Fazendas', () => {
 
     await page.getByRole('button', { name: /cadastrar fazenda/i }).click();
 
-    await expect(
-      page.getByText(/fazenda cadastrada com sucesso/i)
-    ).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/fazenda cadastrada com sucesso/i)).toBeVisible({ timeout: 8000 });
     await expect(page.getByText(nomeFazenda)).toBeVisible({ timeout: 5000 });
   });
 
   // ---------------------------------------------------------------------------
   // 2. Alteração
   // ---------------------------------------------------------------------------
-  test('Alteração: deve editar uma fazenda existente com sucesso', async ({
-    page,
-  }) => {
-    test.skip(
-      !E2E_EMAIL || !E2E_PASSWORD,
-      'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste'
-    );
+  test('Alteração: deve editar uma fazenda existente com sucesso', async ({ page }) => {
+    test.skip(!E2E_EMAIL || !E2E_PASSWORD, 'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste');
 
     await ensureClientSelected(page);
     await navigateToFazendas(page);
@@ -261,24 +237,17 @@ test.describe('Cadastro de Fazendas', () => {
 
     await page.getByRole('button', { name: /atualizar fazenda/i }).click();
 
-    await expect(
-      page.getByText(/fazenda atualizada com sucesso/i)
-    ).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/fazenda atualizada com sucesso/i)).toBeVisible({ timeout: 8000 });
     await expect(page.getByText(nomeAtualizado)).toBeVisible({ timeout: 5000 });
   });
 
   // ---------------------------------------------------------------------------
   // 3. Exclusão
   // ---------------------------------------------------------------------------
-  test('Exclusão: deve excluir uma fazenda com confirmação', async ({
-    page,
-  }) => {
-    test.skip(
-      !E2E_EMAIL || !E2E_PASSWORD,
-      'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste'
-    );
+  test('Exclusão: deve excluir uma fazenda com confirmação', async ({ page }) => {
+    test.skip(!E2E_EMAIL || !E2E_PASSWORD, 'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste');
 
-    page.on('dialog', (d) => d.accept());
+    page.on('dialog', d => d.accept());
 
     await ensureClientSelected(page);
     await navigateToFazendas(page);
@@ -295,14 +264,10 @@ test.describe('Cadastro de Fazendas', () => {
     const deleteBtn = editBtn.locator('..').locator('button').last();
     await deleteBtn.click();
 
-    await expect(
-      page.getByText(/fazenda excluída com sucesso/i)
-    ).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/fazenda excluída com sucesso/i)).toBeVisible({ timeout: 8000 });
 
     if (firstFarmName) {
-      await expect(
-        page.getByText(firstFarmName, { exact: true })
-      ).not.toBeVisible({ timeout: 5000 });
+      await expect(page.getByText(firstFarmName, { exact: true })).not.toBeVisible({ timeout: 5000 });
     }
   });
 
@@ -310,12 +275,9 @@ test.describe('Cadastro de Fazendas', () => {
   // 4. Fluxo completo: Inclusão + Alteração + Exclusão
   // ---------------------------------------------------------------------------
   test('Inclusão + Alteração + Exclusão: fluxo completo', async ({ page }) => {
-    test.skip(
-      !E2E_EMAIL || !E2E_PASSWORD,
-      'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste'
-    );
+    test.skip(!E2E_EMAIL || !E2E_PASSWORD, 'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste');
 
-    page.on('dialog', (d) => d.accept());
+    page.on('dialog', d => d.accept());
 
     const sufixo = Date.now();
     const nomeCriado = `Fazenda Fluxo E2E ${sufixo}`;
@@ -343,16 +305,11 @@ test.describe('Cadastro de Fazendas', () => {
 
     await page.getByRole('button', { name: /cadastrar fazenda/i }).click();
 
-    await expect(
-      page.getByText(/fazenda cadastrada com sucesso/i)
-    ).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/fazenda cadastrada com sucesso/i)).toBeVisible({ timeout: 8000 });
     await expect(page.getByText(nomeCriado)).toBeVisible({ timeout: 5000 });
 
     // ---- 2. Alteração ----
-    const farmCard = page
-      .locator('div.rounded-lg')
-      .filter({ hasText: nomeCriado })
-      .first();
+    const farmCard = page.locator('div.rounded-lg').filter({ hasText: nomeCriado }).first();
     await farmCard.getByRole('button', { name: /editar/i }).click();
     await page.waitForTimeout(500);
 
@@ -366,23 +323,16 @@ test.describe('Cadastro de Fazendas', () => {
 
     await page.getByRole('button', { name: /atualizar fazenda/i }).click();
 
-    await expect(
-      page.getByText(/fazenda atualizada com sucesso/i)
-    ).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/fazenda atualizada com sucesso/i)).toBeVisible({ timeout: 8000 });
     await expect(page.getByText(nomeEditado)).toBeVisible({ timeout: 5000 });
 
     // ---- 3. Exclusão ----
-    const updatedCard = page
-      .locator('div.rounded-lg')
-      .filter({ hasText: nomeEditado })
-      .first();
+    const updatedCard = page.locator('div.rounded-lg').filter({ hasText: nomeEditado }).first();
     const editBtnInCard = updatedCard.getByRole('button', { name: /editar/i });
     const deleteBtn = editBtnInCard.locator('..').locator('button').last();
     await deleteBtn.click();
 
-    await expect(
-      page.getByText(/fazenda excluída com sucesso/i)
-    ).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(/fazenda excluída com sucesso/i)).toBeVisible({ timeout: 8000 });
     await expect(page.getByText(nomeEditado)).not.toBeVisible({
       timeout: 3000,
     });
@@ -391,28 +341,19 @@ test.describe('Cadastro de Fazendas', () => {
   // ---------------------------------------------------------------------------
   // 5. Validação de campos obrigatórios
   // ---------------------------------------------------------------------------
-  test('Validação: não deve cadastrar sem campos obrigatórios', async ({
-    page,
-  }) => {
-    test.skip(
-      !E2E_EMAIL || !E2E_PASSWORD,
-      'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste'
-    );
+  test('Validação: não deve cadastrar sem campos obrigatórios', async ({ page }) => {
+    test.skip(!E2E_EMAIL || !E2E_PASSWORD, 'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste');
 
     await ensureClientSelected(page);
     await navigateToFazendas(page);
 
     await page.getByRole('button', { name: /cadastrar fazenda/i }).click();
 
-    await expect(
-      page.getByText(/nome da fazenda é obrigatório/i)
-    ).toBeVisible({ timeout: 3000 });
+    await expect(page.getByText(/nome da fazenda é obrigatório/i)).toBeVisible({ timeout: 3000 });
     await expect(page.getByText(/cidade é obrigatória/i)).toBeVisible({
       timeout: 3000,
     });
-    await expect(
-      page.getByText(/sistema de produção é obrigatório/i)
-    ).toBeVisible({ timeout: 3000 });
+    await expect(page.getByText(/sistema de produção é obrigatório/i)).toBeVisible({ timeout: 3000 });
     await expect(page.getByText(/estado é obrigatório/i)).toBeVisible({
       timeout: 3000,
     });
@@ -421,13 +362,8 @@ test.describe('Cadastro de Fazendas', () => {
   // ---------------------------------------------------------------------------
   // 6. Validação de soma de áreas
   // ---------------------------------------------------------------------------
-  test('Validação: área total deve corresponder à soma das parciais', async ({
-    page,
-  }) => {
-    test.skip(
-      !E2E_EMAIL || !E2E_PASSWORD,
-      'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste'
-    );
+  test('Validação: área total deve corresponder à soma das parciais', async ({ page }) => {
+    test.skip(!E2E_EMAIL || !E2E_PASSWORD, 'Configure E2E_USER_EMAIL e E2E_USER_PASSWORD para rodar este teste');
 
     await ensureClientSelected(page);
     await navigateToFazendas(page);
@@ -448,8 +384,6 @@ test.describe('Cadastro de Fazendas', () => {
 
     await page.getByRole('button', { name: /cadastrar fazenda/i }).click();
 
-    await expect(
-      page.getByText(/área total.*não corresponde/i)
-    ).toBeVisible({ timeout: 3000 });
+    await expect(page.getByText(/área total.*não corresponde/i)).toBeVisible({ timeout: 3000 });
   });
 });

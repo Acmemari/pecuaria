@@ -75,7 +75,7 @@ const AgentUsageDashboard: React.FC = () => {
             tokens_input: acc.tokens_input + (item.tokens_input || 0),
             tokens_output: acc.tokens_output + (item.tokens_output || 0),
           }),
-          { total_tokens: 0, tokens_input: 0, tokens_output: 0 }
+          { total_tokens: 0, tokens_input: 0, tokens_output: 0 },
         );
       };
 
@@ -281,9 +281,8 @@ const AgentUsageDashboard: React.FC = () => {
             <div className="flex-1">
               <h4 className="text-sm font-semibold text-blue-900 mb-1">Sobre os Custos</h4>
               <p className="text-xs text-blue-700">
-                Os custos são estimados com base nos preços médios do GPT-4 Turbo 
-                (Input: $0.01/1K tokens, Output: $0.03/1K tokens). 
-                Os valores reais podem variar dependendo do modelo configurado no OpenAI.
+                Os custos são estimados com base nos preços médios do GPT-4 Turbo (Input: $0.01/1K tokens, Output:
+                $0.03/1K tokens). Os valores reais podem variar dependendo do modelo configurado no OpenAI.
               </p>
             </div>
           </div>
@@ -294,12 +293,3 @@ const AgentUsageDashboard: React.FC = () => {
 };
 
 export default AgentUsageDashboard;
-
-
-
-
-
-
-
-
-

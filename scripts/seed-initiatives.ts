@@ -5,10 +5,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
 const CREATED_BY = 'fd9b980b-fbb6-4970-8dc1-fa21c22dfb69'; // Neto Analista
 const CLIENT_ID = '3b554c3c-3f8f-440b-b257-43ee5d8d967c'; // Fundo Hecttare

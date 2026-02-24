@@ -56,14 +56,16 @@ function generateStoragePath(clientId: string, originalName: string): string {
     .replace(/\.[^/.]+$/, '') // remove extensão
     .replace(/[^a-zA-Z0-9-_]/g, '_') // caracteres especiais
     .substring(0, 50); // limita tamanho
-  
+
   return `${clientId}/${timestamp}_${randomId}_${safeName}.${ext}`;
 }
 
 /**
  * Faz upload de um documento para o cliente
  */
-export async function uploadDocument(params: DocumentUploadParams): Promise<{ success: boolean; document?: ClientDocument; error?: string }> {
+export async function uploadDocument(
+  params: DocumentUploadParams,
+): Promise<{ success: boolean; document?: ClientDocument; error?: string }> {
   const { clientId, file, category = 'geral', description } = params;
 
   try {
@@ -74,7 +76,9 @@ export async function uploadDocument(params: DocumentUploadParams): Promise<{ su
     }
 
     // Obter usuário atual
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return { success: false, error: 'Usuário não autenticado' };
     }
@@ -83,12 +87,10 @@ export async function uploadDocument(params: DocumentUploadParams): Promise<{ su
     const storagePath = generateStoragePath(clientId, file.name);
 
     // Upload para o storage
-    const { error: uploadError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(storagePath, file, {
-        contentType: file.type,
-        upsert: false
-      });
+    const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(storagePath, file, {
+      contentType: file.type,
+      upsert: false,
+    });
 
     if (uploadError) {
       log.error('uploadDocument storage error', new Error(uploadError.message));
@@ -107,7 +109,7 @@ export async function uploadDocument(params: DocumentUploadParams): Promise<{ su
         file_size: file.size,
         storage_path: storagePath,
         category,
-        description
+        description,
       })
       .select()
       .single();
@@ -119,11 +121,10 @@ export async function uploadDocument(params: DocumentUploadParams): Promise<{ su
       return { success: false, error: `Erro ao salvar documento: ${dbError.message}` };
     }
 
-    return { 
-      success: true, 
-      document: mapDocumentFromDatabase(data)
+    return {
+      success: true,
+      document: mapDocumentFromDatabase(data),
     };
-
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Erro desconhecido ao fazer upload';
     log.error('uploadDocument error', error instanceof Error ? error : new Error(msg));
@@ -134,16 +135,20 @@ export async function uploadDocument(params: DocumentUploadParams): Promise<{ su
 /**
  * Lista documentos de um cliente com filtros opcionais
  */
-export async function listDocuments(filter: DocumentFilter = {}): Promise<{ documents: ClientDocument[]; error?: string }> {
+export async function listDocuments(
+  filter: DocumentFilter = {},
+): Promise<{ documents: ClientDocument[]; error?: string }> {
   try {
     // Não fazer join com auth.users (uploaded_by) - anon/authenticated não têm permissão.
     // Apenas client_documents + clients.
     let query = supabase
       .from('client_documents')
-      .select(`
+      .select(
+        `
         *,
         clients(name)
-      `)
+      `,
+      )
       .order('created_at', { ascending: false });
 
     // Aplicar filtros
@@ -167,14 +172,13 @@ export async function listDocuments(filter: DocumentFilter = {}): Promise<{ docu
       return { documents: [], error: error.message };
     }
 
-    const documents = (data || []).map((doc) => ({
+    const documents = (data || []).map(doc => ({
       ...mapDocumentFromDatabase(doc as unknown as DatabaseDocument),
       uploaderName: '—',
-      clientName: (doc as unknown as { clients?: { name?: string } }).clients?.name || 'Cliente'
+      clientName: (doc as unknown as { clients?: { name?: string } }).clients?.name || 'Cliente',
     }));
 
     return { documents };
-
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Erro ao listar documentos';
     log.error('listDocuments error', error instanceof Error ? error : new Error(msg));
@@ -187,9 +191,7 @@ export async function listDocuments(filter: DocumentFilter = {}): Promise<{ docu
  */
 export async function getDocumentUrl(storagePath: string): Promise<{ url?: string; error?: string }> {
   try {
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .createSignedUrl(storagePath, 3600); // URL válida por 1 hora
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(storagePath, 3600); // URL válida por 1 hora
 
     if (error) {
       log.error('getDocumentUrl error', new Error(error.message));
@@ -197,7 +199,6 @@ export async function getDocumentUrl(storagePath: string): Promise<{ url?: strin
     }
 
     return { url: data.signedUrl };
-
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Erro ao obter URL do documento';
     log.error('getDocumentUrl error', error instanceof Error ? error : new Error(msg));
@@ -222,9 +223,7 @@ export async function deleteDocument(documentId: string): Promise<{ success: boo
     }
 
     // Excluir do storage
-    const { error: storageError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .remove([doc.storage_path]);
+    const { error: storageError } = await supabase.storage.from(BUCKET_NAME).remove([doc.storage_path]);
 
     if (storageError) {
       log.warn('deleteDocument storage error (file may already be removed)');
@@ -232,10 +231,7 @@ export async function deleteDocument(documentId: string): Promise<{ success: boo
     }
 
     // Excluir do banco
-    const { error: dbError } = await supabase
-      .from('client_documents')
-      .delete()
-      .eq('id', documentId);
+    const { error: dbError } = await supabase.from('client_documents').delete().eq('id', documentId);
 
     if (dbError) {
       log.error('deleteDocument DB error', new Error(dbError.message));
@@ -243,7 +239,6 @@ export async function deleteDocument(documentId: string): Promise<{ success: boo
     }
 
     return { success: true };
-
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Erro ao excluir documento';
     log.error('deleteDocument error', error instanceof Error ? error : new Error(msg));
@@ -252,14 +247,11 @@ export async function deleteDocument(documentId: string): Promise<{ success: boo
 }
 
 export async function updateDocument(
-  documentId: string, 
-  updates: { category?: DocumentCategory; description?: string }
+  documentId: string,
+  updates: { category?: DocumentCategory; description?: string },
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase
-      .from('client_documents')
-      .update(updates)
-      .eq('id', documentId);
+    const { error } = await supabase.from('client_documents').update(updates).eq('id', documentId);
 
     if (error) {
       log.error('updateDocument error', new Error(error.message));
@@ -267,7 +259,6 @@ export async function updateDocument(
     }
 
     return { success: true };
-
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Erro ao atualizar documento';
     log.error('updateDocument error', error instanceof Error ? error : new Error(msg));
@@ -306,7 +297,7 @@ function mapDocumentFromDatabase(doc: DatabaseDocument): ClientDocument {
     category: doc.category,
     description: doc.description,
     createdAt: doc.created_at,
-    updatedAt: doc.updated_at
+    updatedAt: doc.updated_at,
   };
 }
 
@@ -366,5 +357,5 @@ export const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   relatorio: 'Relatório',
   financeiro: 'Financeiro',
   tecnico: 'Técnico',
-  outro: 'Outro'
+  outro: 'Outro',
 };

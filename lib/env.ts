@@ -32,8 +32,8 @@ export function validateEnv(): EnvConfig {
   if (missing.length > 0) {
     throw new Error(
       `Variáveis de ambiente obrigatórias não encontradas: ${missing.join(', ')}\n` +
-      'Por favor, crie um arquivo .env.local com as variáveis necessárias.\n' +
-      'Veja .env.example para referência.',
+        'Por favor, crie um arquivo .env.local com as variáveis necessárias.\n' +
+        'Veja .env.example para referência.',
     );
   }
 
@@ -77,4 +77,3 @@ export function getEnvVar(key: string, defaultValue?: string): string {
   }
   return value || defaultValue || '';
 }
-

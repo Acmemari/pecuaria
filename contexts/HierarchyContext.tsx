@@ -1,12 +1,4 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-} from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { Client, Farm, User } from '../types';
 import { supabase } from '../lib/supabase';
@@ -202,7 +194,7 @@ function hierarchyReducer(state: HierarchyState, action: HierarchyAction): Hiera
       return {
         ...state,
         analystId: action.payload,
-        selectedAnalyst: state.analysts.find((a) => a.id === action.payload) || null,
+        selectedAnalyst: state.analysts.find(a => a.id === action.payload) || null,
         clientId: null,
         farmId: null,
         selectedClient: null,
@@ -214,7 +206,7 @@ function hierarchyReducer(state: HierarchyState, action: HierarchyAction): Hiera
       return {
         ...state,
         clientId: action.payload,
-        selectedClient: state.clients.find((c) => c.id === action.payload) || null,
+        selectedClient: state.clients.find(c => c.id === action.payload) || null,
         farmId: null,
         selectedFarm: null,
         farms: [],
@@ -223,7 +215,7 @@ function hierarchyReducer(state: HierarchyState, action: HierarchyAction): Hiera
       return {
         ...state,
         farmId: action.payload,
-        selectedFarm: state.farms.find((f) => f.id === action.payload) || null,
+        selectedFarm: state.farms.find(f => f.id === action.payload) || null,
       };
     default:
       return state;
@@ -323,206 +315,215 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return controller;
   }, []);
 
-  const loadAnalysts = useCallback(async (options?: { append?: boolean; search?: string }) => {
-    if (!user || user.role !== 'admin') return;
-    const append = options?.append ?? false;
-    const search = options?.search ?? paginationRef.current.analystsSearch;
-    paginationRef.current.analystsSearch = search;
-    if (!append) paginationRef.current.analystsOffset = 0;
+  const loadAnalysts = useCallback(
+    async (options?: { append?: boolean; search?: string }) => {
+      if (!user || user.role !== 'admin') return;
+      const append = options?.append ?? false;
+      const search = options?.search ?? paginationRef.current.analystsSearch;
+      paginationRef.current.analystsSearch = search;
+      if (!append) paginationRef.current.analystsOffset = 0;
 
-    const offset = paginationRef.current.analystsOffset;
-    const controller = nextController('analysts');
-    dispatch({ type: 'SET_LOADING', payload: { level: 'analysts', value: true } });
-    dispatch({ type: 'SET_ERROR', payload: { level: 'analysts', value: null } });
+      const offset = paginationRef.current.analystsOffset;
+      const controller = nextController('analysts');
+      dispatch({ type: 'SET_LOADING', payload: { level: 'analysts', value: true } });
+      dispatch({ type: 'SET_ERROR', payload: { level: 'analysts', value: null } });
 
-    try {
-      const { data, error } = await supabase.rpc('get_analysts_for_admin', {
-        p_offset: offset,
-        p_limit: PAGE_SIZE,
-        p_search: search || null,
-      });
-      if (error) throw error;
+      try {
+        const { data, error } = await supabase.rpc('get_analysts_for_admin', {
+          p_offset: offset,
+          p_limit: PAGE_SIZE,
+          p_search: search || null,
+        });
+        if (error) throw error;
 
-      const mapped = (data || []).map(mapAnalystRow);
-      dispatch({
-        type: 'SET_ANALYSTS',
-        payload: {
-          data: mapped,
-          append,
-          hasMore: mapped.length === PAGE_SIZE,
-        },
-      });
-      paginationRef.current.analystsOffset = append ? offset + mapped.length : mapped.length;
+        const mapped = (data || []).map(mapAnalystRow);
+        dispatch({
+          type: 'SET_ANALYSTS',
+          payload: {
+            data: mapped,
+            append,
+            hasMore: mapped.length === PAGE_SIZE,
+          },
+        });
+        paginationRef.current.analystsOffset = append ? offset + mapped.length : mapped.length;
 
-      const current = stateRef.current;
-      const selectedId = current.analystId;
-      if (!selectedId && mapped.length > 0 && !search) {
-        dispatch({ type: 'SELECT_ANALYST_ID', payload: mapped[0].id });
-      } else if (selectedId && !append) {
-        const exists = mapped.some((analyst) => analyst.id === selectedId);
-        if (!exists) {
-          dispatch({ type: 'SELECT_ANALYST_ID', payload: mapped.length > 0 ? mapped[0].id : null });
-        } else {
-          dispatch({
-            type: 'SET_SELECTED_ANALYST',
-            payload: mapped.find((analyst) => analyst.id === selectedId) || null,
-          });
+        const current = stateRef.current;
+        const selectedId = current.analystId;
+        if (!selectedId && mapped.length > 0 && !search) {
+          dispatch({ type: 'SELECT_ANALYST_ID', payload: mapped[0].id });
+        } else if (selectedId && !append) {
+          const exists = mapped.some(analyst => analyst.id === selectedId);
+          if (!exists) {
+            dispatch({ type: 'SELECT_ANALYST_ID', payload: mapped.length > 0 ? mapped[0].id : null });
+          } else {
+            dispatch({
+              type: 'SET_SELECTED_ANALYST',
+              payload: mapped.find(analyst => analyst.id === selectedId) || null,
+            });
+          }
         }
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        const message = error instanceof Error ? error.message : 'Falha ao carregar analistas.';
+        dispatch({
+          type: 'SET_ERROR',
+          payload: { level: 'analysts', value: message },
+        });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: { level: 'analysts', value: false } });
       }
-    } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      const message = error instanceof Error ? error.message : 'Falha ao carregar analistas.';
-      dispatch({
-        type: 'SET_ERROR',
-        payload: { level: 'analysts', value: message },
-      });
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: { level: 'analysts', value: false } });
-    }
-  }, [nextController, user]);
+    },
+    [nextController, user],
+  );
 
-  const loadClients = useCallback(async (options?: { append?: boolean; search?: string }) => {
-    if (!user || !effectiveAnalystId) {
-      dispatch({ type: 'SET_CLIENTS', payload: { data: [], append: false, hasMore: false } });
-      dispatch({ type: 'SELECT_CLIENT_ID', payload: null });
-      return;
-    }
-
-    const append = options?.append ?? false;
-    const search = options?.search ?? paginationRef.current.clientsSearch;
-    paginationRef.current.clientsSearch = search;
-    if (!append) paginationRef.current.clientsOffset = 0;
-
-    const offset = paginationRef.current.clientsOffset;
-    const controller = nextController('clients');
-    dispatch({ type: 'SET_LOADING', payload: { level: 'clients', value: true } });
-    dispatch({ type: 'SET_ERROR', payload: { level: 'clients', value: null } });
-
-    try {
-      let query = supabase
-        .from('clients')
-        .select('*')
-        .eq('analyst_id', effectiveAnalystId)
-        .order('name', { ascending: true })
-        .range(offset, offset + PAGE_SIZE - 1)
-        .abortSignal(controller.signal);
-
-      if (search) {
-        query = query.ilike('name', `%${search}%`);
+  const loadClients = useCallback(
+    async (options?: { append?: boolean; search?: string }) => {
+      if (!user || !effectiveAnalystId) {
+        dispatch({ type: 'SET_CLIENTS', payload: { data: [], append: false, hasMore: false } });
+        dispatch({ type: 'SELECT_CLIENT_ID', payload: null });
+        return;
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const append = options?.append ?? false;
+      const search = options?.search ?? paginationRef.current.clientsSearch;
+      paginationRef.current.clientsSearch = search;
+      if (!append) paginationRef.current.clientsOffset = 0;
 
-      const mapped = (data || []).map(mapClientRow);
-      dispatch({
-        type: 'SET_CLIENTS',
-        payload: {
-          data: mapped,
-          append,
-          hasMore: mapped.length === PAGE_SIZE,
-        },
-      });
-      paginationRef.current.clientsOffset = append ? offset + mapped.length : mapped.length;
+      const offset = paginationRef.current.clientsOffset;
+      const controller = nextController('clients');
+      dispatch({ type: 'SET_LOADING', payload: { level: 'clients', value: true } });
+      dispatch({ type: 'SET_ERROR', payload: { level: 'clients', value: null } });
 
-      const current = stateRef.current;
-      const selectedId = current.clientId;
-      if (!selectedId && mapped.length > 0 && !search) {
-        dispatch({ type: 'SELECT_CLIENT_ID', payload: mapped[0].id });
-      } else if (selectedId && !append) {
-        const exists = mapped.some((client) => client.id === selectedId);
-        if (!exists) {
-          dispatch({ type: 'SELECT_CLIENT_ID', payload: mapped.length > 0 ? mapped[0].id : null });
-        } else {
-          dispatch({
-            type: 'SET_SELECTED_CLIENT',
-            payload: mapped.find((client) => client.id === selectedId) || null,
-          });
+      try {
+        let query = supabase
+          .from('clients')
+          .select('*')
+          .eq('analyst_id', effectiveAnalystId)
+          .order('name', { ascending: true })
+          .range(offset, offset + PAGE_SIZE - 1)
+          .abortSignal(controller.signal);
+
+        if (search) {
+          query = query.ilike('name', `%${search}%`);
         }
-      }
-    } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      const message = error instanceof Error ? error.message : 'Falha ao carregar clientes.';
-      dispatch({
-        type: 'SET_ERROR',
-        payload: { level: 'clients', value: message },
-      });
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: { level: 'clients', value: false } });
-    }
-  }, [effectiveAnalystId, nextController, user]);
 
-  const loadFarms = useCallback(async (options?: { append?: boolean; search?: string }) => {
-    const selectedClientId = stateRef.current.clientId;
-    if (!selectedClientId) {
-      dispatch({ type: 'SET_FARMS', payload: { data: [], append: false, hasMore: false } });
-      dispatch({ type: 'SELECT_FARM_ID', payload: null });
-      return;
-    }
+        const { data, error } = await query;
+        if (error) throw error;
 
-    const append = options?.append ?? false;
-    const search = options?.search ?? paginationRef.current.farmsSearch;
-    paginationRef.current.farmsSearch = search;
-    if (!append) paginationRef.current.farmsOffset = 0;
+        const mapped = (data || []).map(mapClientRow);
+        dispatch({
+          type: 'SET_CLIENTS',
+          payload: {
+            data: mapped,
+            append,
+            hasMore: mapped.length === PAGE_SIZE,
+          },
+        });
+        paginationRef.current.clientsOffset = append ? offset + mapped.length : mapped.length;
 
-    const offset = paginationRef.current.farmsOffset;
-    const controller = nextController('farms');
-    dispatch({ type: 'SET_LOADING', payload: { level: 'farms', value: true } });
-    dispatch({ type: 'SET_ERROR', payload: { level: 'farms', value: null } });
-
-    try {
-      let query = supabase
-        .from('farms')
-        .select('*')
-        .eq('client_id', selectedClientId)
-        .order('name', { ascending: true })
-        .range(offset, offset + PAGE_SIZE - 1)
-        .abortSignal(controller.signal);
-
-      if (search) {
-        query = query.ilike('name', `%${search}%`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      const mapped = mapFarmsFromDatabase(data || []);
-      dispatch({
-        type: 'SET_FARMS',
-        payload: {
-          data: mapped,
-          append,
-          hasMore: mapped.length === PAGE_SIZE,
-        },
-      });
-      paginationRef.current.farmsOffset = append ? offset + mapped.length : mapped.length;
-
-      const current = stateRef.current;
-      const selectedId = current.farmId;
-      if (!selectedId && mapped.length > 0 && !search) {
-        dispatch({ type: 'SELECT_FARM_ID', payload: mapped[0].id });
-      } else if (selectedId && !append) {
-        const exists = mapped.some((farm) => farm.id === selectedId);
-        if (!exists) {
-          dispatch({ type: 'SELECT_FARM_ID', payload: mapped.length > 0 ? mapped[0].id : null });
-        } else {
-          dispatch({
-            type: 'SET_SELECTED_FARM',
-            payload: mapped.find((farm) => farm.id === selectedId) || null,
-          });
+        const current = stateRef.current;
+        const selectedId = current.clientId;
+        if (!selectedId && mapped.length > 0 && !search) {
+          dispatch({ type: 'SELECT_CLIENT_ID', payload: mapped[0].id });
+        } else if (selectedId && !append) {
+          const exists = mapped.some(client => client.id === selectedId);
+          if (!exists) {
+            dispatch({ type: 'SELECT_CLIENT_ID', payload: mapped.length > 0 ? mapped[0].id : null });
+          } else {
+            dispatch({
+              type: 'SET_SELECTED_CLIENT',
+              payload: mapped.find(client => client.id === selectedId) || null,
+            });
+          }
         }
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        const message = error instanceof Error ? error.message : 'Falha ao carregar clientes.';
+        dispatch({
+          type: 'SET_ERROR',
+          payload: { level: 'clients', value: message },
+        });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: { level: 'clients', value: false } });
       }
-    } catch (error: unknown) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      const message = error instanceof Error ? error.message : 'Falha ao carregar fazendas.';
-      dispatch({
-        type: 'SET_ERROR',
-        payload: { level: 'farms', value: message },
-      });
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: { level: 'farms', value: false } });
-    }
-  }, [nextController]);
+    },
+    [effectiveAnalystId, nextController, user],
+  );
+
+  const loadFarms = useCallback(
+    async (options?: { append?: boolean; search?: string }) => {
+      const selectedClientId = stateRef.current.clientId;
+      if (!selectedClientId) {
+        dispatch({ type: 'SET_FARMS', payload: { data: [], append: false, hasMore: false } });
+        dispatch({ type: 'SELECT_FARM_ID', payload: null });
+        return;
+      }
+
+      const append = options?.append ?? false;
+      const search = options?.search ?? paginationRef.current.farmsSearch;
+      paginationRef.current.farmsSearch = search;
+      if (!append) paginationRef.current.farmsOffset = 0;
+
+      const offset = paginationRef.current.farmsOffset;
+      const controller = nextController('farms');
+      dispatch({ type: 'SET_LOADING', payload: { level: 'farms', value: true } });
+      dispatch({ type: 'SET_ERROR', payload: { level: 'farms', value: null } });
+
+      try {
+        let query = supabase
+          .from('farms')
+          .select('*')
+          .eq('client_id', selectedClientId)
+          .order('name', { ascending: true })
+          .range(offset, offset + PAGE_SIZE - 1)
+          .abortSignal(controller.signal);
+
+        if (search) {
+          query = query.ilike('name', `%${search}%`);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const mapped = mapFarmsFromDatabase(data || []);
+        dispatch({
+          type: 'SET_FARMS',
+          payload: {
+            data: mapped,
+            append,
+            hasMore: mapped.length === PAGE_SIZE,
+          },
+        });
+        paginationRef.current.farmsOffset = append ? offset + mapped.length : mapped.length;
+
+        const current = stateRef.current;
+        const selectedId = current.farmId;
+        if (!selectedId && mapped.length > 0 && !search) {
+          dispatch({ type: 'SELECT_FARM_ID', payload: mapped[0].id });
+        } else if (selectedId && !append) {
+          const exists = mapped.some(farm => farm.id === selectedId);
+          if (!exists) {
+            dispatch({ type: 'SELECT_FARM_ID', payload: mapped.length > 0 ? mapped[0].id : null });
+          } else {
+            dispatch({
+              type: 'SET_SELECTED_FARM',
+              payload: mapped.find(farm => farm.id === selectedId) || null,
+            });
+          }
+        }
+      } catch (error: unknown) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        const message = error instanceof Error ? error.message : 'Falha ao carregar fazendas.';
+        dispatch({
+          type: 'SET_ERROR',
+          payload: { level: 'farms', value: message },
+        });
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: { level: 'farms', value: false } });
+      }
+    },
+    [nextController],
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -602,7 +603,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         },
         () => {
           void loadClients({ append: false, search: paginationRef.current.clientsSearch });
-        }
+        },
       )
       .on(
         'postgres_changes',
@@ -614,7 +615,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         },
         () => {
           void loadFarms({ append: false, search: paginationRef.current.farmsSearch });
-        }
+        },
       )
       .subscribe();
 
@@ -655,17 +656,26 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     dispatch({ type: 'SET_SELECTED_FARM', payload: null });
   }, []);
 
-  const searchAnalysts = useCallback(async (term: string) => {
-    await loadAnalysts({ append: false, search: term });
-  }, [loadAnalysts]);
+  const searchAnalysts = useCallback(
+    async (term: string) => {
+      await loadAnalysts({ append: false, search: term });
+    },
+    [loadAnalysts],
+  );
 
-  const searchClients = useCallback(async (term: string) => {
-    await loadClients({ append: false, search: term });
-  }, [loadClients]);
+  const searchClients = useCallback(
+    async (term: string) => {
+      await loadClients({ append: false, search: term });
+    },
+    [loadClients],
+  );
 
-  const searchFarms = useCallback(async (term: string) => {
-    await loadFarms({ append: false, search: term });
-  }, [loadFarms]);
+  const searchFarms = useCallback(
+    async (term: string) => {
+      await loadFarms({ append: false, search: term });
+    },
+    [loadFarms],
+  );
 
   const loadMoreAnalysts = useCallback(async () => {
     if (!stateRef.current.hasMore.analysts || stateRef.current.loading.analysts) return;
@@ -682,53 +692,59 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     await loadFarms({ append: true });
   }, [loadFarms]);
 
-  const refreshCurrentLevel = useCallback(async (level: 'analysts' | 'clients' | 'farms') => {
-    if (level === 'analysts') {
-      await loadAnalysts({ append: false, search: paginationRef.current.analystsSearch });
-      return;
-    }
-    if (level === 'clients') {
-      await loadClients({ append: false, search: paginationRef.current.clientsSearch });
-      return;
-    }
-    await loadFarms({ append: false, search: paginationRef.current.farmsSearch });
-  }, [loadAnalysts, loadClients, loadFarms]);
+  const refreshCurrentLevel = useCallback(
+    async (level: 'analysts' | 'clients' | 'farms') => {
+      if (level === 'analysts') {
+        await loadAnalysts({ append: false, search: paginationRef.current.analystsSearch });
+        return;
+      }
+      if (level === 'clients') {
+        await loadClients({ append: false, search: paginationRef.current.clientsSearch });
+        return;
+      }
+      await loadFarms({ append: false, search: paginationRef.current.farmsSearch });
+    },
+    [loadAnalysts, loadClients, loadFarms],
+  );
 
-  const value = useMemo<HierarchyContextType>(() => ({
-    ...state,
-    effectiveAnalystId,
-    setSelectedAnalyst,
-    setSelectedClient,
-    setSelectedFarm,
-    selectAnalystById,
-    selectClientById,
-    selectFarmById,
-    clearFarm,
-    searchAnalysts,
-    searchClients,
-    searchFarms,
-    loadMoreAnalysts,
-    loadMoreClients,
-    loadMoreFarms,
-    refreshCurrentLevel,
-  }), [
-    state,
-    effectiveAnalystId,
-    setSelectedAnalyst,
-    setSelectedClient,
-    setSelectedFarm,
-    selectAnalystById,
-    selectClientById,
-    selectFarmById,
-    clearFarm,
-    searchAnalysts,
-    searchClients,
-    searchFarms,
-    loadMoreAnalysts,
-    loadMoreClients,
-    loadMoreFarms,
-    refreshCurrentLevel,
-  ]);
+  const value = useMemo<HierarchyContextType>(
+    () => ({
+      ...state,
+      effectiveAnalystId,
+      setSelectedAnalyst,
+      setSelectedClient,
+      setSelectedFarm,
+      selectAnalystById,
+      selectClientById,
+      selectFarmById,
+      clearFarm,
+      searchAnalysts,
+      searchClients,
+      searchFarms,
+      loadMoreAnalysts,
+      loadMoreClients,
+      loadMoreFarms,
+      refreshCurrentLevel,
+    }),
+    [
+      state,
+      effectiveAnalystId,
+      setSelectedAnalyst,
+      setSelectedClient,
+      setSelectedFarm,
+      selectAnalystById,
+      selectClientById,
+      selectFarmById,
+      clearFarm,
+      searchAnalysts,
+      searchClients,
+      searchFarms,
+      loadMoreAnalysts,
+      loadMoreClients,
+      loadMoreFarms,
+      refreshCurrentLevel,
+    ],
+  );
 
   return <HierarchyContext.Provider value={value}>{children}</HierarchyContext.Provider>;
 };

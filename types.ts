@@ -1,12 +1,12 @@
 export interface CattleCalculatorInputs {
-  pesoCompra: number;      // kg
-  valorCompra: number;     // R$/kg
-  pesoAbate: number;       // kg
+  pesoCompra: number; // kg
+  valorCompra: number; // R$/kg
+  pesoAbate: number; // kg
   rendimentoCarcaca: number; // %
-  valorVenda: number;      // R$/@
-  gmd: number;             // kg/dia
-  custoMensal: number;     // R$/cab/mês
-  lotacao: number;         // UA/HA
+  valorVenda: number; // R$/@
+  gmd: number; // kg/dia
+  custoMensal: number; // R$/cab/mês
+  lotacao: number; // UA/HA
 }
 
 export interface CalculationResults {
@@ -16,17 +16,17 @@ export interface CalculationResults {
   arrobasProduzidas: number;
   diasPermanencia: number;
   mesesPermanencia: number;
-  valorBoi: number;         // Revenue
-  custoCompra: number;      // Initial cost
+  valorBoi: number; // Revenue
+  custoCompra: number; // Initial cost
   custoOperacional: number; // Operational cost
   custoTotal: number;
-  resultadoPorBoi: number;  // Profit
-  margemVenda: number;      // %
-  resultadoMensal: number;  // %
-  resultadoAnual: number;   // %
+  resultadoPorBoi: number; // Profit
+  margemVenda: number; // %
+  resultadoMensal: number; // %
+  resultadoAnual: number; // %
   custoPorArrobaProduzida: number;
   custoPorArrobaFinal: number;
-  giroEstoque: number;      // % - Indicador 13
+  giroEstoque: number; // % - Indicador 13
   producaoArrobaPorHa: number; // @/ha - Indicador 14
   resultadoPorArrobaFinal: number; // R$ - Indicador 15
   resultadoPorHectareAno: number; // R$ - Indicador 16
@@ -97,7 +97,13 @@ export interface AuthContextType {
   updatePassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   clearPasswordRecovery: () => void;
   signInWithOAuth: (provider: 'google') => Promise<{ provider: string; url: string } | null>;
-  signup: (email: string, password: string, name: string, phone: string, organizationName?: string) => Promise<{ success: boolean; error?: string }>;
+  signup: (
+    email: string,
+    password: string,
+    name: string,
+    phone: string,
+    organizationName?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface ComparatorResult {

@@ -5,6 +5,7 @@
 ### 1. ✅ Verificar se a chave está no Vercel (PRODUÇÃO)
 
 **Passo a passo:**
+
 1. Acesse https://vercel.com/dashboard
 2. Selecione seu projeto
 3. Vá em **Settings** → **Environment Variables**
@@ -13,6 +14,7 @@
 6. Verifique se está marcado para **Production**
 
 **Se não existir ou estiver errado:**
+
 - Adicione/edite a variável
 - Cole sua chave real da OpenAI
 - Marque **Production**
@@ -23,12 +25,14 @@
 **IMPORTANTE:** Após adicionar/modificar variáveis, você DEVE fazer redeploy:
 
 **Opção A - Via Dashboard:**
+
 1. Vercel Dashboard → **Deployments**
 2. Clique nos três pontos (⋯) do último deployment
 3. Selecione **Redeploy**
 4. Aguarde completar
 
 **Opção B - Via Git:**
+
 ```bash
 git commit --allow-empty -m "Trigger redeploy"
 git push
@@ -45,6 +49,7 @@ Para ver o erro exato:
 5. Procure por mensagens de erro
 
 **Mensagens comuns:**
+
 - `OPENAI_API_KEY não configurada` → Chave não está no Vercel
 - `Erro ao criar run (401)` → Chave inválida ou expirada
 - `Cannot find module` → Problema de deploy (já corrigido)
@@ -52,6 +57,7 @@ Para ver o erro exato:
 ### 4. ✅ Verificar se a Chave está Correta
 
 **Teste rápido:**
+
 1. Acesse https://platform.openai.com/api-keys
 2. Verifique se sua chave está ativa
 3. Verifique se há créditos na conta
@@ -62,20 +68,23 @@ Para ver o erro exato:
 Se estiver testando localmente:
 
 1. Verifique o arquivo `.env`:
+
    ```
    OPENAI_API_KEY=sk-sua-chave-real-aqui
    ```
 
 2. Execute o servidor de desenvolvimento:
+
    ```bash
    npm run dev:all
    ```
 
 3. Ou separadamente:
+
    ```bash
    # Terminal 1
    npm run dev
-   
+
    # Terminal 2
    npm run dev:api
    ```
@@ -106,11 +115,13 @@ Se estiver testando localmente:
 ### Se você está em DESENVOLVIMENTO LOCAL:
 
 1. **Adicionar no `.env`:**
+
    ```
    OPENAI_API_KEY=sk-sua-chave-real-aqui
    ```
 
 2. **Executar:**
+
    ```bash
    npm run dev:all
    ```
@@ -122,19 +133,25 @@ Se estiver testando localmente:
 ## Erros Comuns e Soluções
 
 ### Erro: "OPENAI_API_KEY não configurada"
+
 **Solução:** Adicione a variável no Vercel e faça redeploy
 
 ### Erro: "Erro de autenticação com OpenAI (401)"
-**Solução:** 
+
+**Solução:**
+
 - Verifique se a chave está correta
 - Verifique se a chave não expirou
 - Crie uma nova chave se necessário
 
 ### Erro: "Cannot find module"
+
 **Solução:** Já foi corrigido! Faça um novo deploy
 
 ### Erro: "Timeout"
-**Solução:** 
+
+**Solução:**
+
 - Verifique se há créditos na conta OpenAI
 - Tente novamente após alguns segundos
 
@@ -166,4 +183,3 @@ Se após seguir todos os passos ainda houver erro:
    curl https://api.openai.com/v1/models \
      -H "Authorization: Bearer sk-sua-chave-aqui"
    ```
-

@@ -37,7 +37,7 @@ export const mapUserProfile = (input: unknown): User | null => {
 
   const validRoles = ['admin', 'client'] as const;
   const role = profile.role;
-  if (!role || !validRoles.includes(role as typeof validRoles[number])) {
+  if (!role || !validRoles.includes(role as (typeof validRoles)[number])) {
     log.warn('Invalid profile: missing or invalid role');
     return null;
   }
@@ -45,7 +45,7 @@ export const mapUserProfile = (input: unknown): User | null => {
   const validPlans = ['basic', 'pro', 'enterprise'] as const;
   let plan: 'basic' | 'pro' | 'enterprise' | undefined = undefined;
   if (profile.plan) {
-    if (validPlans.includes(profile.plan as typeof validPlans[number])) {
+    if (validPlans.includes(profile.plan as (typeof validPlans)[number])) {
       plan = profile.plan as 'basic' | 'pro' | 'enterprise';
     } else {
       log.warn('Invalid plan value, defaulting to undefined');
@@ -55,7 +55,7 @@ export const mapUserProfile = (input: unknown): User | null => {
   const validStatuses = ['active', 'inactive'] as const;
   let status: 'active' | 'inactive' | undefined = undefined;
   if (profile.status) {
-    if (validStatuses.includes(profile.status as typeof validStatuses[number])) {
+    if (validStatuses.includes(profile.status as (typeof validStatuses)[number])) {
       status = profile.status as 'active' | 'inactive';
     } else {
       log.warn('Invalid status value, defaulting to undefined');
@@ -76,13 +76,12 @@ export const mapUserProfile = (input: unknown): User | null => {
     }
   }
 
-  const name = profile.name && typeof profile.name === 'string' && profile.name.trim()
-    ? profile.name.trim()
-    : profile.email.split('@')[0] || 'Usuário';
+  const name =
+    profile.name && typeof profile.name === 'string' && profile.name.trim()
+      ? profile.name.trim()
+      : profile.email.split('@')[0] || 'Usuário';
 
-  const avatar = profile.avatar && typeof profile.avatar === 'string'
-    ? profile.avatar
-    : name.charAt(0).toUpperCase();
+  const avatar = profile.avatar && typeof profile.avatar === 'string' ? profile.avatar : name.charAt(0).toUpperCase();
 
   let organizationId: string | undefined = undefined;
   if (profile.organization_id) {
@@ -96,7 +95,7 @@ export const mapUserProfile = (input: unknown): User | null => {
 
   if (profile.qualification !== null && profile.qualification !== undefined) {
     const qualValue = String(profile.qualification).trim();
-    if (validQualifications.includes(qualValue as typeof validQualifications[number])) {
+    if (validQualifications.includes(qualValue as (typeof validQualifications)[number])) {
       qualification = qualValue as 'visitante' | 'cliente' | 'analista';
     } else {
       log.warn('Invalid qualification value, defaulting to visitante');
@@ -117,6 +116,6 @@ export const mapUserProfile = (input: unknown): User | null => {
     lastLogin,
     organizationId,
     phone,
-    qualification
+    qualification,
   };
 };

@@ -58,11 +58,11 @@ O botão **"Gerar Insights com IA"** no relatório do questionário (Diagnóstic
 
 ## Erros comuns
 
-| Mensagem | Causa | O que fazer |
-|----------|--------|-------------|
-| `GEMINI_API_KEY não definida` | Chave ausente no ambiente do servidor | Adicionar `GEMINI_API_KEY` no `.env` (local) ou no Vercel (produção). |
+| Mensagem                              | Causa                                                   | O que fazer                                                                                        |
+| ------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY não definida`         | Chave ausente no ambiente do servidor                   | Adicionar `GEMINI_API_KEY` no `.env` (local) ou no Vercel (produção).                              |
 | `Erro ao gerar insights com IA` / 500 | Erro na chamada ao Gemini (rede, quota, chave inválida) | Ver logs do servidor (terminal local ou Vercel Logs). Confirmar chave e quota no Google AI Studio. |
-| Requisição não chega na API | Em local, só o Vite está rodando | Rodar `npm run dev:all` para subir também o servidor da API na porta 3001. |
+| Requisição não chega na API           | Em local, só o Vite está rodando                        | Rodar `npm run dev:all` para subir também o servidor da API na porta 3001.                         |
 
 ## Resumo
 

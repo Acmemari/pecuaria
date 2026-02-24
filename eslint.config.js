@@ -14,22 +14,18 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', {
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-      }],
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+        },
+      ],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'prefer-const': 'warn',
     },
   },
   {
-    ignores: [
-      'dist/**',
-      'node_modules/**',
-      'playwright-report/**',
-      'test-results/**',
-      '.claude/**',
-      'api/**/*.js',
-    ],
+    ignores: ['dist/**', 'node_modules/**', 'playwright-report/**', 'test-results/**', '.claude/**', 'api/**/*.js'],
   },
 );

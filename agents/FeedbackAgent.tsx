@@ -104,8 +104,8 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
   const isVisitorClient = user?.role === 'client' && user?.qualification === 'visitante';
 
   const selectedPerson = useMemo(
-    () => people.find((person) => person.id === recipientSelection) ?? null,
-    [people, recipientSelection]
+    () => people.find(person => person.id === recipientSelection) ?? null,
+    [people, recipientSelection],
   );
 
   useEffect(() => {
@@ -138,9 +138,9 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
       setRecipientSelection('other');
       return;
     }
-    if (recipientSelection !== 'other' && !people.some((person) => person.id === recipientSelection)) {
+    if (recipientSelection !== 'other' && !people.some(person => person.id === recipientSelection)) {
       setRecipientSelection('other');
-      setForm((prev) => ({ ...prev, recipient: '' }));
+      setForm(prev => ({ ...prev, recipient: '' }));
     }
   }, [isVisitorClient, people, recipientSelection]);
 
@@ -155,7 +155,9 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
     }
     setGenDamagesLoading(true);
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
 
@@ -173,7 +175,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
             objective: form.objective,
             whatHappened: form.whatHappened,
             context: form.context,
-          }
+          },
         }),
       });
 
@@ -204,7 +206,10 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
 
     try {
       // Use getUser() instead of getSession() to ensure we have a fresh/validated session
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
 
       if (authError || !authUser) {
         throw new Error('Faça login para usar o assistente de feedback.');
@@ -247,7 +252,9 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
         throw new Error(data?.error || `Não foi possível gerar o feedback (${res.status}).`);
       }
       if (!data?.success || !data?.data) {
-        throw new Error(data?.error || 'Não foi possível processar sua solicitação agora. Tente novamente em instantes.');
+        throw new Error(
+          data?.error || 'Não foi possível processar sua solicitação agora. Tente novamente em instantes.',
+        );
       }
       setResult(data.data as FeedbackOutput);
       onToast?.('Feedback gerado com sucesso.', 'success');
@@ -344,8 +351,8 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
           <div className="text-xs uppercase tracking-widest text-ai-subtext mb-1">Assistentes &gt; Feedback</div>
           <h1 className="text-2xl font-bold text-ai-text">Assistente de Feedback</h1>
           <p className="text-sm text-ai-subtext mt-2 max-w-3xl">
-            Estruture feedbacks construtivos com tom adequado, linguagem respeitosa e modelos profissionais
-            (SBI, Sanduíche e Feedforward).
+            Estruture feedbacks construtivos com tom adequado, linguagem respeitosa e modelos profissionais (SBI,
+            Sanduíche e Feedforward).
           </p>
         </div>
 
@@ -355,7 +362,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
             <select
               className={fieldClass}
               value={form.context}
-              onChange={(e) => setForm((p) => ({ ...p, context: e.target.value as FeedbackInput['context'] }))}
+              onChange={e => setForm(p => ({ ...p, context: e.target.value as FeedbackInput['context'] }))}
             >
               <option value="desempenho">Desempenho</option>
               <option value="comportamento">Comportamento</option>
@@ -368,7 +375,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
             <select
               className={fieldClass}
               value={form.feedbackType}
-              onChange={(e) => setForm((p) => ({ ...p, feedbackType: e.target.value as FeedbackInput['feedbackType'] }))}
+              onChange={e => setForm(p => ({ ...p, feedbackType: e.target.value as FeedbackInput['feedbackType'] }))}
             >
               <option value="construtivo">Construtivo</option>
               <option value="positivo">Positivo</option>
@@ -382,7 +389,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               className={fieldClass}
               rows={3}
               value={form.objective}
-              onChange={(e) => setForm((p) => ({ ...p, objective: e.target.value }))}
+              onChange={e => setForm(p => ({ ...p, objective: e.target.value }))}
               placeholder="Ex: reforçar pontos fortes e alinhar melhoria na comunicação com o time."
             />
           </div>
@@ -393,7 +400,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               <input
                 className={fieldClass}
                 value={form.recipient}
-                onChange={(e) => setForm((p) => ({ ...p, recipient: e.target.value }))}
+                onChange={e => setForm(p => ({ ...p, recipient: e.target.value }))}
                 placeholder="Ex: Coordenador júnior, analista pleno, estagiário..."
               />
             ) : (
@@ -401,22 +408,22 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
                 <select
                   className={fieldClass}
                   value={recipientSelection}
-                  onChange={(e) => {
+                  onChange={e => {
                     const value = e.target.value;
                     setRecipientSelection(value);
                     if (value === 'other') {
-                      setForm((p) => ({ ...p, recipient: '' }));
+                      setForm(p => ({ ...p, recipient: '' }));
                       return;
                     }
-                    const person = people.find((item) => item.id === value);
+                    const person = people.find(item => item.id === value);
                     if (person) {
                       const recipientName = person.preferred_name?.trim() || person.full_name;
-                      setForm((p) => ({ ...p, recipient: recipientName }));
+                      setForm(p => ({ ...p, recipient: recipientName }));
                     }
                   }}
                 >
                   <option value="other">{loadingPeople ? 'Carregando pessoas...' : 'Outro'}</option>
-                  {people.map((person) => (
+                  {people.map(person => (
                     <option key={person.id} value={person.id}>
                       {person.preferred_name?.trim() || person.full_name}
                     </option>
@@ -426,7 +433,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
                   <input
                     className={fieldClass}
                     value={form.recipient}
-                    onChange={(e) => setForm((p) => ({ ...p, recipient: e.target.value }))}
+                    onChange={e => setForm(p => ({ ...p, recipient: e.target.value }))}
                     placeholder="Digite o nome de quem receberá o feedback"
                   />
                 )}
@@ -440,7 +447,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               className={fieldClass}
               rows={3}
               value={form.whatHappened || ''}
-              onChange={(e) => setForm((p) => ({ ...p, whatHappened: e.target.value }))}
+              onChange={e => setForm(p => ({ ...p, whatHappened: e.target.value }))}
               placeholder="Descreva o fato ou comportamento observado."
             />
           </div>
@@ -451,7 +458,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               type="date"
               className={fieldClass}
               value={form.eventDate || ''}
-              onChange={(e) => setForm((p) => ({ ...p, eventDate: e.target.value }))}
+              onChange={e => setForm(p => ({ ...p, eventDate: e.target.value }))}
             />
           </div>
 
@@ -460,7 +467,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
             <input
               className={fieldClass}
               value={form.eventMoment || ''}
-              onChange={(e) => setForm((p) => ({ ...p, eventMoment: e.target.value }))}
+              onChange={e => setForm(p => ({ ...p, eventMoment: e.target.value }))}
               placeholder="Ex: Durante a reunião de planejamento"
             />
           </div>
@@ -470,10 +477,11 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               <label className="block text-sm text-ai-text">Prejuízos para a fazenda e pessoais</label>
               <button
                 type="button"
-                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-all ${genDamagesLoading
-                  ? 'text-ai-subtext cursor-not-allowed'
-                  : 'text-ai-accent hover:bg-ai-accent/10 active:scale-95'
-                  }`}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-all ${
+                  genDamagesLoading
+                    ? 'text-ai-subtext cursor-not-allowed'
+                    : 'text-ai-accent hover:bg-ai-accent/10 active:scale-95'
+                }`}
                 onClick={handleGenerateDamages}
                 disabled={genDamagesLoading}
                 title="Gerar prejuízos com IA"
@@ -486,7 +494,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               className={fieldClass}
               rows={3}
               value={form.damages || ''}
-              onChange={(e) => setForm((p) => ({ ...p, damages: e.target.value }))}
+              onChange={e => setForm(p => ({ ...p, damages: e.target.value }))}
               placeholder="Descreva os impactos desse comportamento."
             />
           </div>
@@ -496,7 +504,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
             <select
               className={fieldClass}
               value={form.tone}
-              onChange={(e) => setForm((p) => ({ ...p, tone: e.target.value as FeedbackInput['tone'] }))}
+              onChange={e => setForm(p => ({ ...p, tone: e.target.value as FeedbackInput['tone'] }))}
             >
               <option value="formal">Formal</option>
               <option value="direto">Direto</option>
@@ -511,7 +519,7 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
             <select
               className={fieldClass}
               value={form.format}
-              onChange={(e) => setForm((p) => ({ ...p, format: e.target.value as FeedbackInput['format'] }))}
+              onChange={e => setForm(p => ({ ...p, format: e.target.value as FeedbackInput['format'] }))}
             >
               <option value="escrito">Escrito</option>
               <option value="falado">Falado</option>
@@ -536,18 +544,32 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
             <select
               className={fieldClass}
               value={form.model}
-              onChange={(e) => setForm((p) => ({ ...p, model: e.target.value as FeedbackInput['model'] }))}
+              onChange={e => setForm(p => ({ ...p, model: e.target.value as FeedbackInput['model'] }))}
             >
               <option value="marca">Método MARCA</option>
               <option value="auto">Automático</option>
               <option value="sanduiche">Sanduíche (Não Recomendado)</option>
               <option value="feedforward">Feedforward</option>
             </select>
-            <div id="structure-info" className="hidden mt-2 p-3 bg-ai-surface-hover rounded border border-ai-border text-xs text-ai-subtext space-y-2">
-              <p><strong>MARCA:</strong> (Momento, Ação, Resultado, Caminho, Acordo). Excelente para gerar responsabilidade e aprendizado sem julgamento pessoal.</p>
-              <p><strong>Feedforward:</strong> Focado no futuro. Concentra-se em soluções e ações de melhoria comportamental ou técnica, ignorando o passado.</p>
-              <p><strong>Sanduíche:</strong> Elogio - Crítica - Elogio. Antigo e obsoleto para o RH moderno, pois dilui a eficácia da crítica e confunde o receptor. Não recomendado.</p>
-              <p><strong>Automático:</strong> O consultor escolherá a abordagem mais inteligente baseada no seu contexto.</p>
+            <div
+              id="structure-info"
+              className="hidden mt-2 p-3 bg-ai-surface-hover rounded border border-ai-border text-xs text-ai-subtext space-y-2"
+            >
+              <p>
+                <strong>MARCA:</strong> (Momento, Ação, Resultado, Caminho, Acordo). Excelente para gerar
+                responsabilidade e aprendizado sem julgamento pessoal.
+              </p>
+              <p>
+                <strong>Feedforward:</strong> Focado no futuro. Concentra-se em soluções e ações de melhoria
+                comportamental ou técnica, ignorando o passado.
+              </p>
+              <p>
+                <strong>Sanduíche:</strong> Elogio - Crítica - Elogio. Antigo e obsoleto para o RH moderno, pois dilui a
+                eficácia da crítica e confunde o receptor. Não recomendado.
+              </p>
+              <p>
+                <strong>Automático:</strong> O consultor escolherá a abordagem mais inteligente baseada no seu contexto.
+              </p>
             </div>
           </div>
 
@@ -556,7 +578,9 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
             <select
               className={fieldClass}
               value={form.lengthPreference}
-              onChange={(e) => setForm((p) => ({ ...p, lengthPreference: e.target.value as FeedbackInput['lengthPreference'] }))}
+              onChange={e =>
+                setForm(p => ({ ...p, lengthPreference: e.target.value as FeedbackInput['lengthPreference'] }))
+              }
             >
               <option value="curto">Curto</option>
               <option value="medio">Médio</option>
@@ -570,16 +594,14 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               className={fieldClass}
               rows={4}
               value={form.existingText}
-              onChange={(e) => setForm((p) => ({ ...p, existingText: e.target.value }))}
+              onChange={e => setForm(p => ({ ...p, existingText: e.target.value }))}
               placeholder="Cole aqui um feedback já escrito para melhorar o tom, estrutura e clareza."
             />
           </div>
         </div>
 
         {error && (
-          <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
+          <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
 
         <div className="flex flex-wrap gap-2">
@@ -671,4 +693,3 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
 };
 
 export default FeedbackAgent;
-

@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-      }
+      },
     },
     build: {
       sourcemap: false,
@@ -39,14 +39,14 @@ export default defineConfig(({ mode }) => {
         output: {
           entryFileNames: 'assets/[name].[hash].js',
           chunkFileNames: 'assets/[name].[hash].js',
-          assetFileNames: 'assets/[name].[hash].[ext]'
-        }
-      }
+          assetFileNames: 'assets/[name].[hash].[ext]',
+        },
+      },
     },
     test: {
       dir: 'src/test',
       include: ['src/test/**/*.{test,spec}.{ts,tsx}'],
       exclude: ['src/test/e2e/**', '.claude/**', '**/.claude/**', '**/node_modules/**', '**/dist/**'],
-    }
+    },
   };
 });

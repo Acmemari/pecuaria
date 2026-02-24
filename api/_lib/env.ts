@@ -33,8 +33,7 @@ function trimOrNull(value: string | undefined): string | null {
 export function getServerEnv(): ServerEnv {
   if (_cached) return _cached;
 
-  const supabaseUrl = trimOrNull(process.env.SUPABASE_URL)
-    ?? trimOrNull(process.env.VITE_SUPABASE_URL);
+  const supabaseUrl = trimOrNull(process.env.SUPABASE_URL) ?? trimOrNull(process.env.VITE_SUPABASE_URL);
   const serviceRoleKey = trimOrNull(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
   const missing: string[] = [];
@@ -42,7 +41,8 @@ export function getServerEnv(): ServerEnv {
   if (!serviceRoleKey) missing.push('SUPABASE_SERVICE_ROLE_KEY');
 
   if (missing.length > 0) {
-    const msg = `[ENV] Variáveis obrigatórias ausentes: ${missing.join(', ')}. ` +
+    const msg =
+      `[ENV] Variáveis obrigatórias ausentes: ${missing.join(', ')}. ` +
       'Configure no painel do Vercel (Settings > Environment Variables) ou no .env.local.';
     console.error(msg);
     throw new Error(msg);
@@ -55,7 +55,7 @@ export function getServerEnv(): ServerEnv {
   if (!gemini && !openai && !anthropic) {
     console.warn(
       '[ENV] Nenhuma chave de IA configurada (GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY). ' +
-      'Endpoints de IA retornarão erro.',
+        'Endpoints de IA retornarão erro.',
     );
   }
 
@@ -65,8 +65,7 @@ export function getServerEnv(): ServerEnv {
     GEMINI_API_KEY: gemini,
     OPENAI_API_KEY: openai,
     ANTHROPIC_API_KEY: anthropic,
-    N8N_WEBHOOK_URL: trimOrNull(process.env.N8N_WEBHOOK_URL)
-      ?? trimOrNull(process.env.WEBHOOK_URL),
+    N8N_WEBHOOK_URL: trimOrNull(process.env.N8N_WEBHOOK_URL) ?? trimOrNull(process.env.WEBHOOK_URL),
   };
 
   return _cached;
@@ -93,9 +92,12 @@ export function getAvailableProviders(): AIProviderName[] {
  */
 export function getProviderKey(provider: AIProviderName): string | null {
   switch (provider) {
-    case 'gemini': return trimOrNull(process.env.GEMINI_API_KEY);
-    case 'openai': return trimOrNull(process.env.OPENAI_API_KEY);
-    case 'anthropic': return trimOrNull(process.env.ANTHROPIC_API_KEY) ?? trimOrNull(process.env.CLOUD_API_KEY);
+    case 'gemini':
+      return trimOrNull(process.env.GEMINI_API_KEY);
+    case 'openai':
+      return trimOrNull(process.env.OPENAI_API_KEY);
+    case 'anthropic':
+      return trimOrNull(process.env.ANTHROPIC_API_KEY) ?? trimOrNull(process.env.CLOUD_API_KEY);
   }
 }
 

@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  User, 
-  Building2, 
-  ChevronDown, 
+import {
+  Users,
+  User,
+  Building2,
+  ChevronDown,
   ChevronRight,
   Loader2,
   AlertCircle,
   Mail,
   Phone,
   MapPin,
-  Search
+  Search,
 } from 'lucide-react';
 import { Client, Farm } from '../types';
 import { supabase } from '../lib/supabase';
@@ -75,7 +75,7 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
 
       // 2. Para cada analista, buscar seus clientes
       const analystsWithClients = await Promise.all(
-        analystsData.map(async (analyst) => {
+        analystsData.map(async analyst => {
           const { data: clientsData, error: clientsError } = await supabase
             .from('clients')
             .select('*')
@@ -86,13 +86,13 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
             console.error(`[AnalystManagement] Error loading clients for analyst ${analyst.id}:`, clientsError);
             return {
               ...analyst,
-              clients: []
+              clients: [],
             };
           }
 
           // 3. Para cada cliente, buscar suas fazendas
           const clientsWithFarms = await Promise.all(
-            (clientsData || []).map(async (client) => {
+            (clientsData || []).map(async client => {
               // Buscar fazendas vinculadas ao cliente na tabela client_farms
               const { data: clientFarmsData, error: farmsError } = await supabase
                 .from('client_farms')
@@ -103,7 +103,7 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
                 console.error(`[AnalystManagement] Error loading farms for client ${client.id}:`, farmsError);
                 return {
                   ...client,
-                  farms: []
+                  farms: [],
                 };
               }
 
@@ -125,18 +125,18 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
 
               return {
                 ...client,
-                farms: farms
+                farms: farms,
               } as ClientData;
-            })
+            }),
           );
 
           return {
             id: analyst.id,
             name: analyst.name,
             email: analyst.email,
-            clients: clientsWithFarms
+            clients: clientsWithFarms,
           } as AnalystData;
-        })
+        }),
       );
 
       setAnalysts(analystsWithClients);
@@ -175,10 +175,11 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
     return (
       analyst.name.toLowerCase().includes(searchLower) ||
       analyst.email.toLowerCase().includes(searchLower) ||
-      analyst.clients.some(client => 
-        client.name.toLowerCase().includes(searchLower) ||
-        client.email.toLowerCase().includes(searchLower) ||
-        client.farms.some(farm => farm.name.toLowerCase().includes(searchLower))
+      analyst.clients.some(
+        client =>
+          client.name.toLowerCase().includes(searchLower) ||
+          client.email.toLowerCase().includes(searchLower) ||
+          client.farms.some(farm => farm.name.toLowerCase().includes(searchLower)),
       )
     );
   });
@@ -221,7 +222,7 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
             placeholder="Buscar por analista, cliente ou fazenda..."
             className="w-full pl-10 pr-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
           />
@@ -239,16 +240,13 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
           </div>
         ) : (
           <div className="space-y-2">
-            {filteredAnalysts.map((analyst) => {
+            {filteredAnalysts.map(analyst => {
               const isAnalystExpanded = expandedAnalysts.has(analyst.id);
               const clientsCount = analyst.clients.length;
               const totalFarms = analyst.clients.reduce((sum, client) => sum + client.farms.length, 0);
 
               return (
-                <div
-                  key={analyst.id}
-                  className="bg-white rounded-lg border border-ai-border overflow-hidden"
-                >
+                <div key={analyst.id} className="bg-white rounded-lg border border-ai-border overflow-hidden">
                   {/* Cabeçalho do Analista */}
                   <button
                     onClick={() => toggleAnalyst(analyst.id)}
@@ -268,9 +266,7 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <h3 className="text-sm font-semibold text-ai-text truncate">{analyst.name}</h3>
-                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">
-                            Analista
-                          </span>
+                          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded">Analista</span>
                         </div>
                         <div className="flex items-center gap-4 mt-1">
                           <div className="flex items-center gap-1 text-xs text-ai-subtext">
@@ -279,11 +275,15 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
                           </div>
                           <div className="flex items-center gap-1 text-xs text-ai-subtext">
                             <Users size={12} />
-                            <span>{clientsCount} {clientsCount === 1 ? 'cliente' : 'clientes'}</span>
+                            <span>
+                              {clientsCount} {clientsCount === 1 ? 'cliente' : 'clientes'}
+                            </span>
                           </div>
                           <div className="flex items-center gap-1 text-xs text-ai-subtext">
                             <Building2 size={12} />
-                            <span>{totalFarms} {totalFarms === 1 ? 'fazenda' : 'fazendas'}</span>
+                            <span>
+                              {totalFarms} {totalFarms === 1 ? 'fazenda' : 'fazendas'}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -294,12 +294,10 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
                   {isAnalystExpanded && (
                     <div className="border-t border-ai-border bg-gray-50">
                       {analyst.clients.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-ai-subtext">
-                          Nenhum cliente vinculado
-                        </div>
+                        <div className="p-4 text-center text-sm text-ai-subtext">Nenhum cliente vinculado</div>
                       ) : (
                         <div className="divide-y divide-ai-border">
-                          {analyst.clients.map((client) => {
+                          {analyst.clients.map(client => {
                             const isClientExpanded = expandedClients.has(client.id);
 
                             return (
@@ -340,7 +338,9 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
                                         )}
                                         <div className="flex items-center gap-1 text-xs text-ai-subtext">
                                           <Building2 size={10} />
-                                          <span>{client.farms.length} {client.farms.length === 1 ? 'fazenda' : 'fazendas'}</span>
+                                          <span>
+                                            {client.farms.length} {client.farms.length === 1 ? 'fazenda' : 'fazendas'}
+                                          </span>
                                         </div>
                                       </div>
                                     </div>
@@ -356,7 +356,7 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
                                       </div>
                                     ) : (
                                       <div className="divide-y divide-ai-border">
-                                        {client.farms.map((farm) => (
+                                        {client.farms.map(farm => (
                                           <div
                                             key={farm.id}
                                             className="p-3 ml-8 bg-white hover:bg-ai-surface/20 transition-colors"
@@ -370,11 +370,11 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
                                                 <div className="flex items-center gap-3 text-[10px] text-ai-subtext">
                                                   <div className="flex items-center gap-1">
                                                     <MapPin size={8} />
-                                                    <span>{farm.city}, {farm.state}</span>
+                                                    <span>
+                                                      {farm.city}, {farm.state}
+                                                    </span>
                                                   </div>
-                                                  {farm.totalArea && (
-                                                    <span>{farm.totalArea} ha</span>
-                                                  )}
+                                                  {farm.totalArea && <span>{farm.totalArea} ha</span>}
                                                   {farm.productionSystem && (
                                                     <span className="px-1.5 py-0.5 bg-gray-200 rounded text-[9px]">
                                                       {farm.productionSystem}

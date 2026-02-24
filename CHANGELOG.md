@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Adicionado
+
 - **Integração n8n Webhook:**
   - Substituída integração direta OpenAI/Gemini por webhook n8n
   - Atualizado `api/ask-assistant.ts` - Serverless function que chama webhook n8n
@@ -36,6 +37,7 @@
   - Integrado registro automático do SW em produção no `index.tsx`
 
 ### Corrigido
+
 - Erro 404 ao carregar `/index.css` - arquivo criado na raiz do projeto
 - Validação de estrutura HTML e recursos críticos através de testes
 - **Aviso do console sobre Tailwind CDN** - Migrado para build local
@@ -74,6 +76,7 @@
   - Mensagens de erro mais descritivas quando API key não está configurada no Vercel
 
 ### Modificado
+
 - `package.json` - Faixa de engines ajustada para `>=20 <25`, evitando aviso EBADENGINE em ambientes com Node 24.
 - **Documentação atualizada:**
   - `README.md` - Atualizado com informações sobre integração n8n webhook
@@ -101,6 +104,7 @@
   - Gestão de Usuários (AdminDashboard) permanece disponível para usuários admin
 
 ### Documentação
+
 - Atualizado README.md com:
   - Instruções de build e preview
   - Informações sobre testes E2E
@@ -113,25 +117,28 @@
 ## Notas Técnicas
 
 ### Migração Tailwind CSS
+
 - Tailwind CSS agora é processado via PostCSS durante o build
 - CSS gerado é otimizado e minificado automaticamente
-- Configuração mantém todas as cores e fontes customizadas (ai.*)
+- Configuração mantém todas as cores e fontes customizadas (ai.\*)
 - Build de produção gera CSS de ~11KB (gzip: ~2.5KB)
 
 ### Testes E2E
+
 - Playwright configurado para rodar servidor de dev automaticamente
 - Testes verificam carregamento completo, ausência de erros 404, e renderização do React
 - Suporte para execução em modo UI e headed para debugging
 
 ### Service Worker
+
 - Estratégia cache-first para recursos estáticos
 - Versionamento de cache para atualizações
 - Registro automático apenas em produção
 - Melhora performance e permite funcionamento offline básico
 
 ### Próximos Passos Sugeridos
+
 - Expandir testes E2E para cobrir mais funcionalidades
 - Adicionar suporte para mais navegadores nos testes E2E (Firefox, WebKit)
 - Implementar estratégias de cache mais sofisticadas no Service Worker
 - Adicionar notificações push (se necessário)
-

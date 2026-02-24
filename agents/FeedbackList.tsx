@@ -28,11 +28,7 @@ const FeedbackList: React.FC<FeedbackListProps> = ({ onToast }) => {
   }, [onToast]);
 
   if (loading) {
-    return (
-      <div className="h-full flex items-center justify-center text-ai-subtext">
-        Carregando feedbacks...
-      </div>
-    );
+    return <div className="h-full flex items-center justify-center text-ai-subtext">Carregando feedbacks...</div>;
   }
 
   return (
@@ -52,13 +48,13 @@ const FeedbackList: React.FC<FeedbackListProps> = ({ onToast }) => {
           </div>
         ) : (
           <div className="space-y-3">
-            {items.map((item) => {
+            {items.map(item => {
               const isOpen = selectedId === item.id;
               return (
                 <article key={item.id} className="rounded-xl border border-ai-border bg-ai-surface p-4">
                   <button
                     type="button"
-                    onClick={() => setSelectedId((prev) => (prev === item.id ? null : item.id))}
+                    onClick={() => setSelectedId(prev => (prev === item.id ? null : item.id))}
                     className="w-full text-left"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -68,7 +64,8 @@ const FeedbackList: React.FC<FeedbackListProps> = ({ onToast }) => {
                           <span className="font-semibold truncate">{item.recipient_name}</span>
                         </div>
                         <p className="text-xs text-ai-subtext">
-                          {new Date(item.created_at).toLocaleDateString('pt-BR')} • {item.context} • {item.feedback_type} • {item.generated_structure}
+                          {new Date(item.created_at).toLocaleDateString('pt-BR')} • {item.context} •{' '}
+                          {item.feedback_type} • {item.generated_structure}
                         </p>
                         <p className="text-sm text-ai-subtext line-clamp-2">{item.generated_feedback}</p>
                       </div>
@@ -78,8 +75,12 @@ const FeedbackList: React.FC<FeedbackListProps> = ({ onToast }) => {
                   {isOpen && (
                     <div className="mt-3 pt-3 border-t border-ai-border space-y-3">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                        <p className="text-ai-subtext"><span className="text-ai-text font-semibold">Objetivo:</span> {item.objective}</p>
-                        <p className="text-ai-subtext"><span className="text-ai-text font-semibold">Estrutura:</span> {item.generated_structure}</p>
+                        <p className="text-ai-subtext">
+                          <span className="text-ai-text font-semibold">Objetivo:</span> {item.objective}
+                        </p>
+                        <p className="text-ai-subtext">
+                          <span className="text-ai-text font-semibold">Estrutura:</span> {item.generated_structure}
+                        </p>
                       </div>
                       <div className="rounded-lg border border-ai-border bg-white px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap">
                         {item.generated_feedback}

@@ -31,9 +31,9 @@ const ClientSelector: React.FC = () => {
       icon={<User className="w-4 h-4 text-ai-accent flex-shrink-0" />}
       items={clients}
       selectedItem={selectedClient}
-      getItemId={(item) => item.id}
-      getItemLabel={(item) => item.name}
-      getItemDescription={(item) => item.email || null}
+      getItemId={item => item.id}
+      getItemLabel={item => item.name}
+      getItemDescription={item => item.email || null}
       onSelect={setSelectedClient}
       onSearch={searchClients}
       onLoadMore={loadMoreClients}

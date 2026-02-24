@@ -62,4 +62,3 @@ async function testAssistant() {
 }
 
 testAssistant().catch(console.error);
-

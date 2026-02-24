@@ -40,15 +40,18 @@ const MAX_STAKEHOLDER_ROWS = 50;
 
 function normalizeStakeholderMatrix(raw: unknown): DeliveryStakeholderRow[] {
   if (!Array.isArray(raw)) return [];
-  return raw.slice(0, MAX_STAKEHOLDER_ROWS).map((row) => {
-    if (row && typeof row === 'object' && 'name' in row && 'activity' in row) {
-      return {
-        name: String((row as { name: unknown }).name ?? '').trim(),
-        activity: String((row as { activity: unknown }).activity ?? '').trim(),
-      };
-    }
-    return { name: '', activity: '' };
-  }).filter((r) => r.name !== '' || r.activity !== '');
+  return raw
+    .slice(0, MAX_STAKEHOLDER_ROWS)
+    .map(row => {
+      if (row && typeof row === 'object' && 'name' in row && 'activity' in row) {
+        return {
+          name: String((row as { name: unknown }).name ?? '').trim(),
+          activity: String((row as { activity: unknown }).activity ?? '').trim(),
+        };
+      }
+      return { name: '', activity: '' };
+    })
+    .filter(r => r.name !== '' || r.activity !== '');
 }
 
 function mapDeliveryRow(data: any): DeliveryRow {
@@ -78,7 +81,7 @@ function mapDeliveryError(error: unknown, fallbackMessage: string): Error {
   const normalized = `${code} ${message}`.toLowerCase();
   if (
     normalized.includes('42p01') ||
-    normalized.includes('relation') && normalized.includes('deliveries') && normalized.includes('does not exist')
+    (normalized.includes('relation') && normalized.includes('deliveries') && normalized.includes('does not exist'))
   ) {
     return new Error('Tabela de entregas não encontrada. Aplique as migrations do banco (db push) e tente novamente.');
   }
@@ -115,10 +118,7 @@ function validatePayload(payload: DeliveryPayload): void {
   }
 }
 
-export async function fetchDeliveries(
-  createdBy: string,
-  filters?: FetchDeliveriesFilters
-): Promise<DeliveryRow[]> {
+export async function fetchDeliveries(createdBy: string, filters?: FetchDeliveriesFilters): Promise<DeliveryRow[]> {
   validateUserId(createdBy);
   let q = supabase
     .from('deliveries')
@@ -148,10 +148,7 @@ export async function fetchDeliveriesByProject(projectId: string): Promise<Deliv
   return (data || []).map(mapDeliveryRow);
 }
 
-export async function createDelivery(
-  createdBy: string,
-  payload: DeliveryPayload
-): Promise<DeliveryRow> {
+export async function createDelivery(createdBy: string, payload: DeliveryPayload): Promise<DeliveryRow> {
   validateUserId(createdBy);
   validatePayload(payload);
 
@@ -170,10 +167,7 @@ export async function createDelivery(
   return mapDeliveryRow(data);
 }
 
-export async function updateDelivery(
-  deliveryId: string,
-  payload: DeliveryPayload
-): Promise<DeliveryRow> {
+export async function updateDelivery(deliveryId: string, payload: DeliveryPayload): Promise<DeliveryRow> {
   validateDeliveryId(deliveryId);
   validatePayload(payload);
 
@@ -194,9 +188,6 @@ export async function updateDelivery(
 
 export async function deleteDelivery(deliveryId: string): Promise<void> {
   validateDeliveryId(deliveryId);
-  const { error } = await supabase
-    .from('deliveries')
-    .delete()
-    .eq('id', deliveryId);
+  const { error } = await supabase.from('deliveries').delete().eq('id', deliveryId);
   if (error) throw mapDeliveryError(error, 'Erro ao excluir entrega.');
 }

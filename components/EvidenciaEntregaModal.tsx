@@ -60,7 +60,9 @@ export const EvidenciaEntregaModal: React.FC<EvidenciaEntregaModalProps> = ({
   });
 
   const statusLabel = milestone.completed ? 'Concluído' : 'Não concluído';
-  const statusColor = milestone.completed ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' : 'bg-ai-surface2 text-ai-subtext';
+  const statusColor = milestone.completed
+    ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'
+    : 'bg-ai-surface2 text-ai-subtext';
 
   const loadEvidence = async () => {
     setLoading(true);
@@ -68,9 +70,10 @@ export const EvidenciaEntregaModal: React.FC<EvidenciaEntregaModalProps> = ({
       const data = await fetchOrCreateEvidence(milestone.id);
       setEvidence(data);
     } catch (e: unknown) {
-      const msg = e && typeof e === 'object' && 'message' in e
-        ? String((e as { message: string }).message)
-        : 'Erro ao carregar evidências';
+      const msg =
+        e && typeof e === 'object' && 'message' in e
+          ? String((e as { message: string }).message)
+          : 'Erro ao carregar evidências';
       onToast?.(msg, 'error');
       console.error('[EvidenciaEntrega] loadEvidence:', e);
     } finally {
@@ -114,7 +117,7 @@ export const EvidenciaEntregaModal: React.FC<EvidenciaEntregaModalProps> = ({
     setUploadingType(type);
     try {
       const row = await uploadEvidenceFile(evidence.id, milestone.id, file);
-      setEvidence((prev) => (prev ? { ...prev, files: [row, ...(prev.files || [])] } : prev));
+      setEvidence(prev => (prev ? { ...prev, files: [row, ...(prev.files || [])] } : prev));
       onToast?.(`Arquivo "${file.name}" anexado.`, 'success');
     } catch (err) {
       onToast?.(err instanceof Error ? err.message : 'Erro ao anexar arquivo', 'error');
@@ -187,7 +190,7 @@ export const EvidenciaEntregaModal: React.FC<EvidenciaEntregaModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
       <div
         className="bg-ai-bg border border-ai-border rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="shrink-0 border-b border-ai-border px-6 py-4 flex items-start justify-between gap-4">
@@ -242,7 +245,7 @@ export const EvidenciaEntregaModal: React.FC<EvidenciaEntregaModalProps> = ({
                   <div className="flex-1 min-w-0">
                     <textarea
                       value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
+                      onChange={e => setCommentText(e.target.value)}
                       placeholder="Escreva uma nota ou comentário..."
                       rows={4}
                       className="w-full px-4 py-3 border border-ai-border rounded-lg bg-ai-surface text-ai-text text-sm resize-none placeholder:text-ai-subtext"
@@ -261,11 +264,13 @@ export const EvidenciaEntregaModal: React.FC<EvidenciaEntregaModalProps> = ({
                     {FILE_TYPE_CONFIG.map(({ type, label, icon: Icon, accept }) => (
                       <React.Fragment key={type}>
                         <input
-                          ref={(el) => { fileInputRefs.current[type] = el; }}
+                          ref={el => {
+                            fileInputRefs.current[type] = el;
+                          }}
                           type="file"
                           accept={accept}
                           className="hidden"
-                          onChange={(e) => handleFileSelect(type, e)}
+                          onChange={e => handleFileSelect(type, e)}
                         />
                         <button
                           type="button"
@@ -288,7 +293,9 @@ export const EvidenciaEntregaModal: React.FC<EvidenciaEntregaModalProps> = ({
 
               {/* Histórico de Evidências */}
               <div>
-                <p className="text-sm font-semibold text-ai-text mb-3 uppercase tracking-wide">Histórico de Evidências</p>
+                <p className="text-sm font-semibold text-ai-text mb-3 uppercase tracking-wide">
+                  Histórico de Evidências
+                </p>
                 {!hasEvidence ? (
                   <div className="py-10 rounded-lg border-2 border-dashed border-ai-border bg-ai-surface/20 flex flex-col items-center justify-center text-center">
                     <p className="text-sm text-ai-subtext">Nenhuma evidência anexada ainda.</p>
@@ -301,7 +308,7 @@ export const EvidenciaEntregaModal: React.FC<EvidenciaEntregaModalProps> = ({
                         <p className="text-sm text-ai-text whitespace-pre-wrap">{evidence!.notes}</p>
                       </div>
                     )}
-                    {(evidence?.files || []).map((f) => (
+                    {(evidence?.files || []).map(f => (
                       <div
                         key={f.id}
                         className="flex items-center justify-between gap-4 p-4 rounded-lg bg-ai-surface border border-ai-border"

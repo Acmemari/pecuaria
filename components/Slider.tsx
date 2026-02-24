@@ -22,13 +22,13 @@ interface SliderProps {
   labelBadgeTitle?: string;
 }
 
-const Slider: React.FC<SliderProps> = ({ 
-  label, 
-  value, 
-  min, 
-  max, 
-  step, 
-  unit, 
+const Slider: React.FC<SliderProps> = ({
+  label,
+  value,
+  min,
+  max,
+  step,
+  unit,
   onChange,
   description,
   index,
@@ -36,7 +36,7 @@ const Slider: React.FC<SliderProps> = ({
   highlightColor = '#F5DEB3', // amarelo palha padrão
   labelBadge,
   labelBadgeStyle,
-  labelBadgeTitle
+  labelBadgeTitle,
 }) => {
   const { currencySymbol } = useLocation();
   const [showInfo, setShowInfo] = useState(false);
@@ -65,24 +65,28 @@ const Slider: React.FC<SliderProps> = ({
   // Formatar valor e unidade
   const isCurrency = unit.includes('R$') || unit.includes('G$');
   const cleanUnit = unit.replace('R$ ', '').replace('R$', '').replace('G$ ', '').replace('G$', '').trim();
-  
-  const formattedValue = value.toLocaleString('pt-BR', { 
-    minimumFractionDigits: Number.isInteger(step) ? 0 : 2, 
-    maximumFractionDigits: 2 
+
+  const formattedValue = value.toLocaleString('pt-BR', {
+    minimumFractionDigits: Number.isInteger(step) ? 0 : 2,
+    maximumFractionDigits: 2,
   });
 
   return (
-    <div className={`bg-gray-50 p-[0.45rem] rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative overflow-visible ${sliderClass}`}>
-      
+    <div
+      className={`bg-gray-50 p-[0.45rem] rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative overflow-visible ${sliderClass}`}
+    >
       {/* Cabeçalho: Label + Valor */}
       <div className="flex justify-between items-start mb-[0.45rem] overflow-visible w-full min-w-0">
-        
         {/* Lado Esquerdo: Label */}
         <label className="text-[0.675rem] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1 flex-shrink-1 min-w-0 overflow-visible max-w-[60%] md:max-w-none">
           {index && <span className="opacity-70 flex-shrink-0">{index}.</span>}
           <span className="truncate">{label}</span>
           {labelBadge != null && labelBadge !== '' && (
-            <span className="text-[0.6rem] font-bold rounded px-1.5 py-0.5 flex-shrink-0" style={labelBadgeStyle} title={labelBadgeTitle}>
+            <span
+              className="text-[0.6rem] font-bold rounded px-1.5 py-0.5 flex-shrink-0"
+              style={labelBadgeStyle}
+              title={labelBadgeTitle}
+            >
               {labelBadge}
             </span>
           )}
@@ -90,11 +94,15 @@ const Slider: React.FC<SliderProps> = ({
 
         {/* Lado Direito: Valor e Unidade */}
         <div className="text-right flex items-baseline justify-end gap-1 flex-shrink-0 min-w-fit overflow-visible">
-          {isCurrency && <span className="text-[0.675rem] text-gray-400 font-medium flex-shrink-0">{currencySymbol}</span>}
+          {isCurrency && (
+            <span className="text-[0.675rem] text-gray-400 font-medium flex-shrink-0">{currencySymbol}</span>
+          )}
           <span className="text-[0.9rem] font-bold text-blue-600 tabular-nums leading-none whitespace-nowrap flex-shrink-0">
             {formattedValue}
           </span>
-          {cleanUnit && <span className="text-[0.675rem] text-gray-400 font-medium self-end mb-0.5 flex-shrink-0">{cleanUnit}</span>}
+          {cleanUnit && (
+            <span className="text-[0.675rem] text-gray-400 font-medium self-end mb-0.5 flex-shrink-0">{cleanUnit}</span>
+          )}
         </div>
       </div>
 
@@ -108,33 +116,33 @@ const Slider: React.FC<SliderProps> = ({
             max={max}
             step={step}
             value={value}
-            onChange={(e) => onChange(parseFloat(e.target.value))}
+            onChange={e => onChange(parseFloat(e.target.value))}
             className="w-full absolute z-20 opacity-0 cursor-pointer h-full custom-range-input"
           />
-          
+
           {/* Visual Track */}
           <div className="w-full h-[0.45rem] bg-gray-200 rounded-full overflow-hidden relative z-10 pointer-events-none">
             {/* Progress Bar (Opcional, mas melhora UX) */}
-            <div 
+            <div
               className="h-full bg-blue-200/50 absolute left-0 top-0 transition-all duration-75"
               style={{ width: `${percentage}%` }}
             />
           </div>
 
           {/* Visual Thumb - Segue o input real via CSS calc ou JS */}
-          <div 
+          <div
             className="absolute h-[0.9rem] w-[0.9rem] bg-white border-[2px] rounded-full shadow-md z-10 pointer-events-none transition-all duration-75 ease-out"
-            style={{ 
+            style={{
               left: `calc(${percentage}% + (${8 - percentage * 0.15}px))`, // Ajuste fino para centralizar
               transform: 'translateX(-50%)',
-              borderColor: highlightBorder ? highlightColor : '#2563eb'
+              borderColor: highlightBorder ? highlightColor : '#2563eb',
             }}
           />
         </div>
 
         {/* Info Button - No final do slider */}
         <div className="relative shrink-0" ref={infoRef}>
-          <button 
+          <button
             type="button"
             onClick={() => setShowInfo(!showInfo)}
             className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
@@ -148,9 +156,9 @@ const Slider: React.FC<SliderProps> = ({
             <div className="absolute right-0 bottom-5 z-50 w-64 p-3 bg-white rounded-lg shadow-2xl border border-gray-100 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200">
               {/* Seta do Popover */}
               <div className="absolute -bottom-1.5 right-2 w-3 h-3 bg-white border-b border-r border-gray-100 transform rotate-45"></div>
-              
+
               <p className="font-medium text-gray-800 mb-1">{label}</p>
-              <p>{description || "Ajuste este valor conforme as premissas do seu cenário."}</p>
+              <p>{description || 'Ajuste este valor conforme as premissas do seu cenário.'}</p>
             </div>
           )}
         </div>

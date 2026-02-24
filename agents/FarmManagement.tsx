@@ -1,26 +1,31 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Farm } from '../types';
-import { 
-  Plus, 
-  ArrowLeft, 
-  MapPin, 
-  Building2, 
-  Scale, 
-  Dna, 
+import {
+  Plus,
+  ArrowLeft,
+  MapPin,
+  Building2,
+  Scale,
+  Dna,
   Factory,
   Trash2,
   Edit2,
   CheckCircle2,
   XCircle,
   Info,
-  Users
+  Users,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useClient } from '../contexts/ClientContext';
 import { useAuth } from '../contexts/AuthContext';
 import { mapFarmsFromDatabase, buildFarmDatabasePayload, isMissingColumnError } from '../lib/utils/farmMapper';
 import FarmPermissionsModal from '../components/FarmPermissionsModal';
-import { useFarmPermissions, useBatchFarmPermissions, NO_ACCESS, type FarmPermissionsResult } from '../lib/permissions/useFarmPermissions';
+import {
+  useFarmPermissions,
+  useBatchFarmPermissions,
+  NO_ACCESS,
+  type FarmPermissionsResult,
+} from '../lib/permissions/useFarmPermissions';
 
 interface FarmCardProps {
   farm: Farm;
@@ -49,7 +54,9 @@ const FarmCard: React.FC<FarmCardProps> = ({
         <div className="space-y-1.5 text-xs text-gray-500">
           <div className="flex items-center gap-1.5">
             <MapPin size={12} className="flex-shrink-0" />
-            <span className="truncate">{farm.city}, {farm.state}</span>
+            <span className="truncate">
+              {farm.city}, {farm.state}
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <Building2 size={12} className="flex-shrink-0" />
@@ -110,12 +117,33 @@ const STORAGE_KEY = 'agro-farms';
 
 // Estados brasileiros
 const BRAZILIAN_STATES = [
-  'Acre', 'Alagoas', 'Amapá', 'Amazonas', 'Bahia', 'Ceará',
-  'Distrito Federal', 'Espírito Santo', 'Goiás', 'Maranhão',
-  'Mato Grosso', 'Mato Grosso do Sul', 'Minas Gerais', 'Pará',
-  'Paraíba', 'Paraná', 'Pernambuco', 'Piauí', 'Rio de Janeiro',
-  'Rio Grande do Norte', 'Rio Grande do Sul', 'Rondônia', 'Roraima',
-  'Santa Catarina', 'São Paulo', 'Sergipe', 'Tocantins'
+  'Acre',
+  'Alagoas',
+  'Amapá',
+  'Amazonas',
+  'Bahia',
+  'Ceará',
+  'Distrito Federal',
+  'Espírito Santo',
+  'Goiás',
+  'Maranhão',
+  'Mato Grosso',
+  'Mato Grosso do Sul',
+  'Minas Gerais',
+  'Pará',
+  'Paraíba',
+  'Paraná',
+  'Pernambuco',
+  'Piauí',
+  'Rio de Janeiro',
+  'Rio Grande do Norte',
+  'Rio Grande do Sul',
+  'Rondônia',
+  'Roraima',
+  'Santa Catarina',
+  'São Paulo',
+  'Sergipe',
+  'Tocantins',
 ];
 
 const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
@@ -136,7 +164,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const [permissionsModalFarm, setPermissionsModalFarm] = useState<Farm | null>(null);
 
   const formPerms = useFarmPermissions(editingFarm?.id ?? null, user?.id, user?.role);
-  const batchPerms = useBatchFarmPermissions(farms.map((f) => f.id), user?.id, user?.role);
+  const batchPerms = useBatchFarmPermissions(
+    farms.map(f => f.id),
+    user?.id,
+    user?.role,
+  );
   const formReadOnly = editingFarm ? !formPerms.canEdit('farms:form') : false;
 
   // Form state
@@ -167,7 +199,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     averageHerd: '',
     herdValue: '',
     commercializesGenetics: false,
-    productionSystem: '' as Farm['productionSystem'] | ''
+    productionSystem: '' as Farm['productionSystem'] | '',
   });
 
   // Países disponíveis
@@ -181,13 +213,13 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   // Helper function to format number with thousands separator (.) and 2 decimals (,)
   const formatNumberWithDecimals = (value: string): string => {
     if (!value) return '';
-    
+
     // Remove all non-numeric characters except comma and dot
     let cleaned = value.replace(/[^\d,.]/g, '');
-    
+
     // Check if value originally had a comma (user is typing decimal separator)
     const hasComma = cleaned.includes(',');
-    
+
     // If there's both comma and dot, determine which is decimal separator
     if (cleaned.includes(',') && cleaned.includes('.')) {
       const lastComma = cleaned.lastIndexOf(',');
@@ -210,15 +242,15 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         cleaned = cleaned.replace(/\./g, '');
       }
     }
-    
+
     // Split by comma to separate integer and decimal parts
     const parts = cleaned.split(',');
     let integerPart = parts[0] || '';
     let decimalPart = parts[1] || '';
-    
+
     // Limit decimal part to 2 digits
     decimalPart = decimalPart.slice(0, 2);
-    
+
     // Add thousands separator (.) to integer part (from right to left, every 3 digits)
     if (integerPart) {
       // Remove existing dots first
@@ -226,7 +258,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       // Add thousands separator
       integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
-    
+
     // Combine parts - preserve comma if user typed it (hasComma) or if decimal part exists
     if (hasComma || decimalPart) {
       return `${integerPart},${decimalPart}`;
@@ -243,14 +275,24 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     return isNaN(num) ? undefined : num;
   };
 
-
   // Handle numeric input change (for hectare fields)
   const handleNumericChange = (field: string, value: string) => {
     const formatted = formatNumberWithDecimals(value);
     setFormData({ ...formData, [field]: formatted });
-    
+
     // Limpar erro de área total quando qualquer área for modificada
-    if (errors.totalArea && (field === 'totalArea' || field === 'pastureArea' || field === 'forageProductionArea' || field === 'agricultureAreaOwned' || field === 'agricultureAreaLeased' || field === 'otherCrops' || field === 'infrastructure' || field === 'reserveAndAPP' || field === 'otherArea')) {
+    if (
+      errors.totalArea &&
+      (field === 'totalArea' ||
+        field === 'pastureArea' ||
+        field === 'forageProductionArea' ||
+        field === 'agricultureAreaOwned' ||
+        field === 'agricultureAreaLeased' ||
+        field === 'otherCrops' ||
+        field === 'infrastructure' ||
+        field === 'reserveAndAPP' ||
+        field === 'otherArea')
+    ) {
       setErrors({ ...errors, totalArea: '' });
     }
   };
@@ -259,7 +301,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const handleNumericBlur = (field: string) => {
     const currentValue = formData[field as keyof typeof formData] as string;
     if (!currentValue) return;
-    
+
     const numValue = parseNumber(currentValue);
     if (numValue !== undefined) {
       const formatted = formatNumberForDisplay(numValue);
@@ -277,16 +319,18 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     const infrastructure = parseNumber(formData.infrastructure) || 0;
     const reserve = parseNumber(formData.reserveAndAPP) || 0;
     const other = parseNumber(formData.otherArea) || 0;
-    return pasture + forageProduction + agricultureOwned + agricultureLeased + otherCrops + infrastructure + reserve + other;
+    return (
+      pasture + forageProduction + agricultureOwned + agricultureLeased + otherCrops + infrastructure + reserve + other
+    );
   };
 
   // Check if total area matches the sum of partial areas
   const isTotalAreaValid = (): boolean => {
     const totalAreaValue = parseNumber(formData.totalArea);
     const calculatedSum = calculateTotalAreaSum();
-    
+
     if (totalAreaValue === undefined) return false;
-    
+
     // Compare with tolerance for rounding (0.01 ha)
     const difference = Math.abs(totalAreaValue - calculatedSum);
     return difference < 0.01;
@@ -296,7 +340,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const handleCurrencyChange = (field: string, value: string) => {
     // Remove all non-numeric characters and remove "R$"
     const cleaned = value.replace(/[^\d]/g, '').replace('R$', '').trim();
-    
+
     // Format with thousands separator (.) only, no decimals
     if (cleaned) {
       const formatted = cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -343,7 +387,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       return {
         pastureValue: 0,
         agricultureValue: 0,
-        otherCropsValue: 0
+        otherCropsValue: 0,
       };
     }
 
@@ -354,7 +398,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       return {
         pastureValue: 0,
         agricultureValue: 0,
-        otherCropsValue: 0
+        otherCropsValue: 0,
       };
     }
 
@@ -377,7 +421,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     return {
       pastureValue: Math.max(0, pastureValue), // Garantir que não seja negativo
       agricultureValue,
-      otherCropsValue
+      otherCropsValue,
     };
   };
 
@@ -393,10 +437,14 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     const otherCropsAreaNum = parseNumber(formData.otherCrops) || 0;
 
     // Só preencher automaticamente se houver valor da propriedade e áreas produtivas
-    if (propertyValueNum && propertyValueNum > 0 && (pastureAreaNum > 0 || agricultureAreaNum > 0 || otherCropsAreaNum > 0)) {
+    if (
+      propertyValueNum &&
+      propertyValueNum > 0 &&
+      (pastureAreaNum > 0 || agricultureAreaNum > 0 || otherCropsAreaNum > 0)
+    ) {
       // Recalcular valores baseado nos dados atuais (incluindo agricultureVariation)
       const calculatedValues = calculateAreaValues();
-      
+
       // Arredondar valores calculados para inteiros
       let calculatedPecuary = Math.round(calculatedValues.pastureValue);
       let calculatedAgricultural = Math.round(calculatedValues.agricultureValue);
@@ -406,22 +454,22 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       // Ajustar o valor pecuário para compensar diferenças de arredondamento
       const sumCalculated = calculatedPecuary + calculatedAgricultural + calculatedOther;
       const difference = propertyValueNum - sumCalculated;
-      
+
       // Ajustar o valor pecuário para garantir que a soma seja exata
       calculatedPecuary = calculatedPecuary + difference;
-      
+
       // Garantir que nenhum valor seja negativo
       if (calculatedPecuary < 0) {
         // Se o valor pecuário ficar negativo, redistribuir a diferença
         const excess = Math.abs(calculatedPecuary);
         calculatedPecuary = 0;
-        
+
         // Redistribuir o excesso proporcionalmente entre agricultura e outras culturas
         const totalOther = calculatedAgricultural + calculatedOther;
         if (totalOther > 0) {
           const agriculturalRatio = calculatedAgricultural / totalOther;
-          calculatedAgricultural = Math.max(0, calculatedAgricultural - (excess * agriculturalRatio));
-          calculatedOther = Math.max(0, calculatedOther - (excess * (1 - agriculturalRatio)));
+          calculatedAgricultural = Math.max(0, calculatedAgricultural - excess * agriculturalRatio);
+          calculatedOther = Math.max(0, calculatedOther - excess * (1 - agriculturalRatio));
         }
       }
 
@@ -435,23 +483,31 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       // 2. A soma atual não bater com o valor total (para recalcular quando necessário), OU
       // 3. Os valores calculados são diferentes dos atuais (isso captura mudanças na variação)
       const sumCurrent = (currentPecuary || 0) + (currentAgricultural || 0) + (currentOther || 0);
-      const shouldUpdate = !currentPecuary && !currentAgricultural && !currentOther || 
-                          Math.abs(sumCurrent - propertyValueNum) > 0 || // Qualquer diferença
-                          calculatedPecuary !== (currentPecuary || 0) || 
-                          calculatedAgricultural !== (currentAgricultural || 0) || 
-                          calculatedOther !== (currentOther || 0);
+      const shouldUpdate =
+        (!currentPecuary && !currentAgricultural && !currentOther) ||
+        Math.abs(sumCurrent - propertyValueNum) > 0 || // Qualquer diferença
+        calculatedPecuary !== (currentPecuary || 0) ||
+        calculatedAgricultural !== (currentAgricultural || 0) ||
+        calculatedOther !== (currentOther || 0);
 
       if (shouldUpdate) {
         setFormData(prev => ({
           ...prev,
           operationPecuary: formatIntegerForDisplay(calculatedPecuary),
           operationAgricultural: formatIntegerForDisplay(calculatedAgricultural),
-          otherOperations: formatIntegerForDisplay(calculatedOther)
+          otherOperations: formatIntegerForDisplay(calculatedOther),
         }));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.propertyValue, formData.pastureArea, formData.agricultureAreaOwned, formData.agricultureAreaLeased, formData.otherCrops, formData.agricultureVariation]);
+  }, [
+    formData.propertyValue,
+    formData.pastureArea,
+    formData.agricultureAreaOwned,
+    formData.agricultureAreaLeased,
+    formData.otherCrops,
+    formData.agricultureVariation,
+  ]);
 
   // Load farms from localStorage
   useEffect(() => {
@@ -472,9 +528,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
       setLoadingClientsAvailability(true);
       try {
-        let query = supabase
-          .from('clients')
-          .select('*', { count: 'exact', head: true });
+        let query = supabase.from('clients').select('*', { count: 'exact', head: true });
 
         if (user.qualification === 'analista' && user.role !== 'admin') {
           query = query.eq('analyst_id', user.id);
@@ -621,7 +675,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     // Validar se a área total bate com a soma das áreas parciais
     const totalAreaValue = parseNumber(formData.totalArea);
     const calculatedSum = calculateTotalAreaSum();
-    
+
     // Se a área total foi preenchida, deve bater com a soma das áreas parciais
     if (totalAreaValue !== undefined && totalAreaValue > 0) {
       const difference = Math.abs(totalAreaValue - calculatedSum);
@@ -642,9 +696,9 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     setFormData({
       ...formData,
       country,
-      state: country !== 'Brasil' ? '' : formData.state // Limpa estado se não for Brasil
+      state: country !== 'Brasil' ? '' : formData.state, // Limpa estado se não for Brasil
     });
-    
+
     // Limpar erro de estado se o país não for Brasil (estado não é obrigatório)
     if (country !== 'Brasil' && errors.state) {
       setErrors({ ...errors, state: '' });
@@ -663,12 +717,10 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
       if (!existing) {
         // Criar vínculo se não existir
-        const { error } = await supabase
-          .from('client_farms')
-          .insert({
-            client_id: clientId,
-            farm_id: farmId
-          });
+        const { error } = await supabase.from('client_farms').insert({
+          client_id: clientId,
+          farm_id: farmId,
+        });
 
         if (error) {
           console.error('[FarmManagement] Error linking farm to client:', error);
@@ -693,14 +745,12 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
       if (!existing) {
         // Criar vínculo se não existir
-        const { error } = await supabase
-          .from('analyst_farms')
-          .insert({
-            analyst_id: analystId,
-            farm_id: farmId,
-            is_responsible: isResponsible,
-            permissions: {}
-          });
+        const { error } = await supabase.from('analyst_farms').insert({
+          analyst_id: analystId,
+          farm_id: farmId,
+          is_responsible: isResponsible,
+          permissions: {},
+        });
 
         if (error) {
           console.error('[FarmManagement] Error linking farm to analyst:', error);
@@ -722,12 +772,12 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       const waitingMessage = 'Aguardando cadastro de clientes para liberar o cadastro de fazendas';
       onToast?.(
         isAwaitingClients ? waitingMessage : 'Por favor, selecione um cliente antes de cadastrar uma fazenda',
-        'error'
+        'error',
       );
       setErrors({
         client: isAwaitingClients
           ? `${waitingMessage}.`
-          : 'É necessário selecionar um cliente antes de cadastrar uma fazenda'
+          : 'É necessário selecionar um cliente antes de cadastrar uma fazenda',
       });
       return;
     }
@@ -773,19 +823,19 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       averageHerd: formData.averageHerd ? parseInt(formData.averageHerd.replace(/\./g, ''), 10) : undefined,
       herdValue: parseInteger(formData.herdValue),
       commercializesGenetics: formData.commercializesGenetics,
-      productionSystem: formData.productionSystem as Farm['productionSystem']
+      productionSystem: formData.productionSystem as Farm['productionSystem'],
     };
 
     if (editingFarm) {
       // Update existing farm
       updatedFarms = farms.map(farm =>
         farm.id === editingFarm.id
-          ? {
+          ? ({
               ...farm,
               ...farmData,
-              updatedAt: now
-            } as Farm
-          : farm
+              updatedAt: now,
+            } as Farm)
+          : farm,
       );
     } else {
       // Create new farm
@@ -793,13 +843,13 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         id: `farm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         ...farmData,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       } as Farm;
       updatedFarms = [...farms, newFarm];
     }
 
     saveFarms(updatedFarms);
-    
+
     // Para novas fazendas, sempre deve haver cliente selecionado (já validado acima)
     if (!editingFarm) {
       if (!selectedClient) {
@@ -808,7 +858,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       }
 
       const newFarm = updatedFarms[updatedFarms.length - 1];
-      
+
       try {
         const { base, extended } = buildFarmDatabasePayload(newFarm, selectedClient.id);
 
@@ -832,26 +882,22 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         onToast?.('Erro ao salvar fazenda no banco de dados', 'error');
         return;
       }
-      
+
       // Disparar evento para atualizar o FarmSelector
       window.dispatchEvent(new CustomEvent('farmAdded'));
     } else if (editingFarm) {
       try {
         const updatedFarm: Partial<Farm> = {
           ...farmData,
-          id: editingFarm.id
+          id: editingFarm.id,
         };
         const clientIdForDb = selectedClient?.id || editingFarm.clientId || null;
         const { base, extended } = buildFarmDatabasePayload(updatedFarm, clientIdForDb);
 
-        let { error: dbError } = await supabase
-          .from('farms')
-          .upsert(extended, { onConflict: 'id' });
+        let { error: dbError } = await supabase.from('farms').upsert(extended, { onConflict: 'id' });
 
         if (dbError && isMissingColumnError(dbError)) {
-          ({ error: dbError } = await supabase
-            .from('farms')
-            .upsert(base, { onConflict: 'id' }));
+          ({ error: dbError } = await supabase.from('farms').upsert(base, { onConflict: 'id' }));
         }
 
         if (dbError) {
@@ -867,17 +913,14 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
       window.dispatchEvent(new CustomEvent('farmUpdated'));
     }
-    
+
     // Show success toast with animation
-    onToast?.(
-      editingFarm ? 'Fazenda atualizada com sucesso!' : 'Fazenda cadastrada com sucesso!',
-      'success'
-    );
+    onToast?.(editingFarm ? 'Fazenda atualizada com sucesso!' : 'Fazenda cadastrada com sucesso!', 'success');
 
     // Reset form
     resetForm();
     setIsCreatingNew(false); // Marcar que não está mais criando
-    
+
     // Switch to list view if there are farms (saveFarms already updates the state)
     if (updatedFarms.length > 0) {
       setView('list');
@@ -890,20 +933,20 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         // Primeiro, remover vínculos client_farms e analyst_farms
         await supabase.from('client_farms').delete().eq('farm_id', farmId);
         await supabase.from('analyst_farms').delete().eq('farm_id', farmId);
-        
+
         // Depois, excluir do banco de dados
         const { error: dbError } = await supabase.from('farms').delete().eq('id', farmId);
-        
+
         if (dbError) {
           console.error('[FarmManagement] Error deleting farm from database:', dbError);
         }
-        
+
         // Atualizar localStorage
-      const updatedFarms = farms.filter(farm => farm.id !== farmId);
-      saveFarms(updatedFarms);
-        
-      onToast?.('Fazenda excluída com sucesso!', 'success');
-        
+        const updatedFarms = farms.filter(farm => farm.id !== farmId);
+        saveFarms(updatedFarms);
+
+        onToast?.('Fazenda excluída com sucesso!', 'success');
+
         // Disparar evento para atualizar FarmSelector
         window.dispatchEvent(new CustomEvent('farmUpdated'));
       } catch (err) {
@@ -921,10 +964,10 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     const parts = formatted.split('.');
     const integerPart = parts[0];
     const decimalPart = parts[1] || '00';
-    
+
     // Add thousands separator to integer part
     const integerWithSeparator = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    
+
     return `${integerWithSeparator},${decimalPart}`;
   };
 
@@ -955,7 +998,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       averageHerd: farm.averageHerd ? farm.averageHerd.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '',
       herdValue: formatIntegerForDisplay(farm.herdValue),
       commercializesGenetics: farm.commercializesGenetics,
-      productionSystem: farm.productionSystem
+      productionSystem: farm.productionSystem,
     });
     setView('form');
   };
@@ -985,7 +1028,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       averageHerd: '',
       herdValue: '',
       commercializesGenetics: false,
-      productionSystem: '' as Farm['productionSystem'] | ''
+      productionSystem: '' as Farm['productionSystem'] | '',
     });
     setEditingFarm(null);
     setErrors({});
@@ -1011,7 +1054,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     window.addEventListener('farmCancelForm', handleCancelForm);
     return () => {
       window.removeEventListener('farmCancelForm', handleCancelForm);
-  };
+    };
   }, [view]);
 
   if (isLoading) {
@@ -1026,46 +1069,46 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   if (view === 'list') {
     return (
       <>
-      <div className="h-full flex flex-col p-4 md:p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-ai-text">Cadastro de Fazendas</h1>
-          <button
-            onClick={() => {
-              resetForm();
-              setIsCreatingNew(true);
-              setView('form');
-            }}
-            className="px-4 py-2 bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors flex items-center gap-2"
-          >
-            <Plus size={18} />
-            Nova Fazenda
-          </button>
-        </div>
+        <div className="h-full flex flex-col p-4 md:p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-ai-text">Cadastro de Fazendas</h1>
+            <button
+              onClick={() => {
+                resetForm();
+                setIsCreatingNew(true);
+                setView('form');
+              }}
+              className="px-4 py-2 bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors flex items-center gap-2"
+            >
+              <Plus size={18} />
+              Nova Fazenda
+            </button>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 overflow-y-auto content-start">
-          {farms.map((farm) => (
-            <FarmCard
-              key={farm.id}
-              farm={farm}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onOpenPermissions={setPermissionsModalFarm}
-              canManagePermissions={batchPerms[farm.id]?.isResponsible ?? false}
-              perms={batchPerms[farm.id] ?? NO_ACCESS}
-            />
-          ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 overflow-y-auto content-start">
+            {farms.map(farm => (
+              <FarmCard
+                key={farm.id}
+                farm={farm}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onOpenPermissions={setPermissionsModalFarm}
+                canManagePermissions={batchPerms[farm.id]?.isResponsible ?? false}
+                perms={batchPerms[farm.id] ?? NO_ACCESS}
+              />
+            ))}
+          </div>
         </div>
-      </div>
-      {permissionsModalFarm && (
-        <FarmPermissionsModal
-          open={!!permissionsModalFarm}
-          onClose={() => setPermissionsModalFarm(null)}
-          farmId={permissionsModalFarm.id}
-          farmName={permissionsModalFarm.name}
-          isCurrentUserResponsible={batchPerms[permissionsModalFarm.id]?.isResponsible ?? false}
-          onToast={onToast}
-        />
-      )}
+        {permissionsModalFarm && (
+          <FarmPermissionsModal
+            open={!!permissionsModalFarm}
+            onClose={() => setPermissionsModalFarm(null)}
+            farmId={permissionsModalFarm.id}
+            farmName={permissionsModalFarm.name}
+            isCurrentUserResponsible={batchPerms[permissionsModalFarm.id]?.isResponsible ?? false}
+            onToast={onToast}
+          />
+        )}
       </>
     );
   }
@@ -1097,488 +1140,538 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         }
       `}</style>
 
-      <form onSubmit={handleSubmit} className="max-w-7xl w-full bg-white rounded-lg border border-ai-border p-4 flex flex-col">
+      <form
+        onSubmit={handleSubmit}
+        className="max-w-7xl w-full bg-white rounded-lg border border-ai-border p-4 flex flex-col"
+      >
         <fieldset disabled={formReadOnly} className={formReadOnly ? 'opacity-75' : ''}>
-        <div className="flex flex-col min-h-0">
-        {/* Alerta se não houver cliente selecionado */}
-        {!editingFarm && !selectedClient && (
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-start gap-2">
-              <span className="text-yellow-600 font-semibold">⚠️ Atenção:</span>
-              <div className="flex-1">
-                {loadingClientsAvailability ? (
-                  <p className="text-sm text-yellow-800">
-                    Verificando clientes cadastrados...
-                  </p>
-                ) : (availableClientsCount ?? 0) === 0 ? (
-                  <p className="text-sm text-yellow-800">
-                    Aguardando cadastro de clientes. Cadastre um cliente em Cadastro de Clientes para liberar o cadastro de fazendas.
-                  </p>
-                ) : (
-                  <p className="text-sm text-yellow-800">
-                    É necessário selecionar um cliente antes de cadastrar uma fazenda.
-                    Por favor, selecione um cliente no cabeçalho da aplicação.
-                  </p>
-                )}
-                {errors.client && (
-                  <p className="text-red-600 text-sm mt-1 font-medium">{errors.client}</p>
-                )}
+          <div className="flex flex-col min-h-0">
+            {/* Alerta se não houver cliente selecionado */}
+            {!editingFarm && !selectedClient && (
+              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <span className="text-yellow-600 font-semibold">⚠️ Atenção:</span>
+                  <div className="flex-1">
+                    {loadingClientsAvailability ? (
+                      <p className="text-sm text-yellow-800">Verificando clientes cadastrados...</p>
+                    ) : (availableClientsCount ?? 0) === 0 ? (
+                      <p className="text-sm text-yellow-800">
+                        Aguardando cadastro de clientes. Cadastre um cliente em Cadastro de Clientes para liberar o
+                        cadastro de fazendas.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-yellow-800">
+                        É necessário selecionar um cliente antes de cadastrar uma fazenda. Por favor, selecione um
+                        cliente no cabeçalho da aplicação.
+                      </p>
+                    )}
+                    {errors.client && <p className="text-red-600 text-sm mt-1 font-medium">{errors.client}</p>}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
-        {/* Nome da Fazenda, Tipo, Sistema de Produção, País, Estado e Cidade - Todos na mesma linha */}
-        <div className="mb-4 grid grid-cols-6 gap-2">
-          <div>
-            <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
-              Nome da fazenda <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => {
-                setFormData({ ...formData, name: e.target.value });
-                // Limpar erro quando o usuário começar a digitar
-                if (errors.name && e.target.value.trim()) {
-                  setErrors({ ...errors, name: '' });
-                }
-              }}
-              placeholder="Ex: Fazenda Santa Maria"
-              className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
-                errors.name ? 'border-red-500' : 'border-ai-border'
-              }`}
-            />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Tipo de propriedade</label>
-            <select
-              value={formData.propertyType}
-              onChange={(e) => setFormData({ ...formData, propertyType: e.target.value as Farm['propertyType'] })}
-              className="w-full px-2 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-            >
-              <option value="Própria">Própria</option>
-              <option value="Arrendada">Arrendada</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
-              Sistema de produção <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={formData.productionSystem}
-              onChange={(e) => {
-                setFormData({ ...formData, productionSystem: e.target.value as Farm['productionSystem'] | '' });
-                // Limpar erro quando o usuário selecionar um sistema
-                if (errors.productionSystem && e.target.value) {
-                  setErrors({ ...errors, productionSystem: '' });
-                }
-              }}
-              className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
-                errors.productionSystem ? 'border-red-500' : 'border-ai-border'
-              } bg-white`}
-            >
-              <option value="">Selecione um sistema</option>
-              <option value="Cria">Cria</option>
-              <option value="Recria-Engorda">Recria-Engorda</option>
-              <option value="Ciclo Completo">Ciclo Completo</option>
-            </select>
-            {errors.productionSystem && (
-              <p className="text-red-500 text-xs mt-1">{errors.productionSystem}</p>
             )}
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">País</label>
-            <select
-              value={formData.country}
-              onChange={(e) => handleCountryChange(e.target.value)}
-              className="w-full px-2 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-            >
-              {COUNTRIES.map((country) => (
-                <option key={country} value={country}>
-                  {country}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
-              Estado {isStateRequired && <span className="text-red-500">*</span>}
-            </label>
-            <select
-              value={formData.state}
-              onChange={(e) => {
-                setFormData({ ...formData, state: e.target.value });
-                // Limpar erro quando o usuário selecionar um estado
-                if (errors.state && e.target.value) {
-                  setErrors({ ...errors, state: '' });
-                }
-              }}
-              disabled={!isStateRequired}
-              className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
-                errors.state ? 'border-red-500' : 'border-ai-border'
-              } ${!isStateRequired ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
-            >
-              <option value="">{isStateRequired ? 'Selecione o estado' : 'N/A'}</option>
-              {isStateRequired && BRAZILIAN_STATES.map((state) => (
-                <option key={state} value={state}>
-                  {state}
-                </option>
-              ))}
-            </select>
-            {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
-              Cidade <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.city}
-              onChange={(e) => {
-                setFormData({ ...formData, city: e.target.value });
-                // Limpar erro quando o usuário começar a digitar
-                if (errors.city && e.target.value.trim()) {
-                  setErrors({ ...errors, city: '' });
-                }
-              }}
-              placeholder="Digite a cidade"
-              className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
-                errors.city ? 'border-red-500' : 'border-ai-border'
-              }`}
-            />
-            {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
-          </div>
-        </div>
+            {/* Nome da Fazenda, Tipo, Sistema de Produção, País, Estado e Cidade - Todos na mesma linha */}
+            <div className="mb-4 grid grid-cols-6 gap-2">
+              <div>
+                <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                  Nome da fazenda <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={e => {
+                    setFormData({ ...formData, name: e.target.value });
+                    // Limpar erro quando o usuário começar a digitar
+                    if (errors.name && e.target.value.trim()) {
+                      setErrors({ ...errors, name: '' });
+                    }
+                  }}
+                  placeholder="Ex: Fazenda Santa Maria"
+                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
+                    errors.name ? 'border-red-500' : 'border-ai-border'
+                  }`}
+                />
+                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                  Tipo de propriedade
+                </label>
+                <select
+                  value={formData.propertyType}
+                  onChange={e => setFormData({ ...formData, propertyType: e.target.value as Farm['propertyType'] })}
+                  className="w-full px-2 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                >
+                  <option value="Própria">Própria</option>
+                  <option value="Arrendada">Arrendada</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                  Sistema de produção <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.productionSystem}
+                  onChange={e => {
+                    setFormData({ ...formData, productionSystem: e.target.value as Farm['productionSystem'] | '' });
+                    // Limpar erro quando o usuário selecionar um sistema
+                    if (errors.productionSystem && e.target.value) {
+                      setErrors({ ...errors, productionSystem: '' });
+                    }
+                  }}
+                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
+                    errors.productionSystem ? 'border-red-500' : 'border-ai-border'
+                  } bg-white`}
+                >
+                  <option value="">Selecione um sistema</option>
+                  <option value="Cria">Cria</option>
+                  <option value="Recria-Engorda">Recria-Engorda</option>
+                  <option value="Ciclo Completo">Ciclo Completo</option>
+                </select>
+                {errors.productionSystem && <p className="text-red-500 text-xs mt-1">{errors.productionSystem}</p>}
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                  País
+                </label>
+                <select
+                  value={formData.country}
+                  onChange={e => handleCountryChange(e.target.value)}
+                  className="w-full px-2 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                >
+                  {COUNTRIES.map(country => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                  Estado {isStateRequired && <span className="text-red-500">*</span>}
+                </label>
+                <select
+                  value={formData.state}
+                  onChange={e => {
+                    setFormData({ ...formData, state: e.target.value });
+                    // Limpar erro quando o usuário selecionar um estado
+                    if (errors.state && e.target.value) {
+                      setErrors({ ...errors, state: '' });
+                    }
+                  }}
+                  disabled={!isStateRequired}
+                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
+                    errors.state ? 'border-red-500' : 'border-ai-border'
+                  } ${!isStateRequired ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+                >
+                  <option value="">{isStateRequired ? 'Selecione o estado' : 'N/A'}</option>
+                  {isStateRequired &&
+                    BRAZILIAN_STATES.map(state => (
+                      <option key={state} value={state}>
+                        {state}
+                      </option>
+                    ))}
+                </select>
+                {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
+              </div>
+              <div>
+                <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                  Cidade <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.city}
+                  onChange={e => {
+                    setFormData({ ...formData, city: e.target.value });
+                    // Limpar erro quando o usuário começar a digitar
+                    if (errors.city && e.target.value.trim()) {
+                      setErrors({ ...errors, city: '' });
+                    }
+                  }}
+                  placeholder="Digite a cidade"
+                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
+                    errors.city ? 'border-red-500' : 'border-ai-border'
+                  }`}
+                />
+                {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
+              </div>
+            </div>
 
-        {/* Dimensões da Fazenda - Seção com fundo cinza claro */}
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-ai-text uppercase tracking-wide">Dimensões da Fazenda (Hectares)</h3>
-            <p className={`text-xs font-semibold ${
-              isTotalAreaValid() && formData.totalArea ? 'text-green-600' : 'text-ai-subtext'
-            }`}>
-              SOMA TOTAL: {formatNumberForDisplay(calculateTotalAreaSum())} ha
-            </p>
-          </div>
-          <div className="grid grid-cols-5 gap-2 mb-2">
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Área Total</label>
-              <input
-                type="text"
-                value={formData.totalArea}
-                onChange={(e) => handleNumericChange('totalArea', e.target.value)}
-                onBlur={() => handleNumericBlur('totalArea')}
-                placeholder="0,00"
-                inputMode="decimal"
-                className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
-                  errors.totalArea ? 'border-red-500' : 
-                  isTotalAreaValid() && formData.totalArea ? 'border-green-500' : 'border-ai-border'
-                }`}
-              />
-              {errors.totalArea && <p className="text-red-500 text-xs mt-1">{errors.totalArea}</p>}
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Área Pastagem</label>
-              <input
-                type="text"
-                value={formData.pastureArea}
-                onChange={(e) => handleNumericChange('pastureArea', e.target.value)}
-                onBlur={() => handleNumericBlur('pastureArea')}
-                placeholder="0,00"
-                inputMode="decimal"
-                className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide flex items-center gap-1">
-                Prod. Volumoso
-                <span title="Área perene de produção de volumoso">
-                  <Info size={12} className="text-ai-subtext cursor-help" />
-                </span>
-              </label>
-              <input
-                type="text"
-                value={formData.forageProductionArea}
-                onChange={(e) => handleNumericChange('forageProductionArea', e.target.value)}
-                onBlur={() => handleNumericBlur('forageProductionArea')}
-                placeholder="0,00"
-                inputMode="decimal"
-                className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Agric. Própria</label>
-              <input
-                type="text"
-                value={formData.agricultureAreaOwned}
-                onChange={(e) => handleNumericChange('agricultureAreaOwned', e.target.value)}
-                onBlur={() => handleNumericBlur('agricultureAreaOwned')}
-                placeholder="0,00"
-                inputMode="decimal"
-                className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Agric. Arrendada</label>
-              <input
-                type="text"
-                value={formData.agricultureAreaLeased}
-                onChange={(e) => handleNumericChange('agricultureAreaLeased', e.target.value)}
-                onBlur={() => handleNumericBlur('agricultureAreaLeased')}
-                placeholder="0,00"
-                inputMode="decimal"
-                className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-5 gap-2">
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Outras Culturas</label>
-              <input
-                type="text"
-                value={formData.otherCrops}
-                onChange={(e) => handleNumericChange('otherCrops', e.target.value)}
-                onBlur={() => handleNumericBlur('otherCrops')}
-                placeholder="0,00"
-                inputMode="decimal"
-                className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Infraestrutura</label>
-              <input
-                type="text"
-                value={formData.infrastructure}
-                onChange={(e) => handleNumericChange('infrastructure', e.target.value)}
-                onBlur={() => handleNumericBlur('infrastructure')}
-                placeholder="0,00"
-                inputMode="decimal"
-                className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Reserva e APP</label>
-              <input
-                type="text"
-                value={formData.reserveAndAPP}
-                onChange={(e) => handleNumericChange('reserveAndAPP', e.target.value)}
-                onBlur={() => handleNumericBlur('reserveAndAPP')}
-                placeholder="0,00"
-                inputMode="decimal"
-                className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Outros</label>
-              <input
-                type="text"
-                value={formData.otherArea}
-                onChange={(e) => handleNumericChange('otherArea', e.target.value)}
-                onBlur={() => handleNumericBlur('otherArea')}
-                placeholder="0,00"
-                inputMode="decimal"
-                className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Dados da Propriedade e Rebanho - Seção com fundo cinza claro */}
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
-          <h3 className="text-xs font-bold text-ai-text mb-3 uppercase tracking-wide">Dados da Propriedade e Rebanho</h3>
-          
-          {/* Valor da propriedade, Variação e Valores de Operação na mesma linha */}
-          <div className="grid grid-cols-5 gap-2 mb-3">
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Valor da propriedade</label>
-              <div className="relative">
-                <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">R$</span>
-                <input
-                  type="text"
-                  value={formData.propertyValue}
-                  onChange={(e) => handleCurrencyChange('propertyValue', e.target.value)}
-                  placeholder="0"
-                  inputMode="numeric"
-                  className="w-full pl-8 pr-2 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
-                Variação Valor Agricultura
-                <span className="ml-1 text-[10px] font-normal text-ai-subtext">
-                  {formData.agricultureVariation > 0 ? '+' : ''}{formData.agricultureVariation}%
-                </span>
-              </label>
-              <div className="space-y-0.5">
-                <input
-                  type="range"
-                  min="-50"
-                  max="50"
-                  step="1"
-                  value={formData.agricultureVariation}
-                  onChange={(e) => setFormData({ ...formData, agricultureVariation: parseInt(e.target.value) })}
-                  className="w-full h-2 bg-ai-surface2 rounded-lg appearance-none cursor-pointer accent-ai-accent"
-                  style={{
-                    background: `linear-gradient(to right, #e2e8f0 0%, #e2e8f0 ${(formData.agricultureVariation + 50) / 100 * 100}%, #cbd5e1 ${(formData.agricultureVariation + 50) / 100 * 100}%, #cbd5e1 100%)`
-                  }}
-                />
-                <div className="flex justify-between text-[10px] text-ai-subtext">
-                  <span>-50%</span>
-                  <span>0%</span>
-                  <span>+50%</span>
-                </div>
-              </div>
-            </div>
-            <div>
-                <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Op. Pecuária</label>
-              <div className="relative">
-                <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">R$</span>
-                <input
-                  type="text"
-                  value={formData.operationPecuary}
-                  onChange={(e) => {
-                    handleCurrencyChange('operationPecuary', e.target.value);
-                    // Limpar erro quando o usuário começar a digitar
-                    if (errors.operationSum) {
-                      setErrors({ ...errors, operationSum: '' });
-                    }
-                  }}
-                  placeholder="0"
-                  inputMode="numeric"
-                  className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
-                    errors.operationSum ? 'border-red-500' : 'border-ai-border'
+            {/* Dimensões da Fazenda - Seção com fundo cinza claro */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-bold text-ai-text uppercase tracking-wide">
+                  Dimensões da Fazenda (Hectares)
+                </h3>
+                <p
+                  className={`text-xs font-semibold ${
+                    isTotalAreaValid() && formData.totalArea ? 'text-green-600' : 'text-ai-subtext'
                   }`}
-                />
+                >
+                  SOMA TOTAL: {formatNumberForDisplay(calculateTotalAreaSum())} ha
+                </p>
               </div>
-            </div>
-            <div>
-                <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Op. Agrícola</label>
-              <div className="relative">
-                <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">R$</span>
-                <input
-                  type="text"
-                  value={formData.operationAgricultural}
-                  onChange={(e) => {
-                    handleCurrencyChange('operationAgricultural', e.target.value);
-                    // Limpar erro quando o usuário começar a digitar
-                    if (errors.operationSum) {
-                      setErrors({ ...errors, operationSum: '' });
-                    }
-                  }}
-                  placeholder="0"
-                  inputMode="numeric"
-                  className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
-                    errors.operationSum ? 'border-red-500' : 'border-ai-border'
-                  }`}
-                />
-              </div>
-            </div>
-            <div>
-                <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Outras Operações</label>
-              <div className="relative">
-                <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">R$</span>
-                <input
-                  type="text"
-                  value={formData.otherOperations}
-                  onChange={(e) => {
-                    handleCurrencyChange('otherOperations', e.target.value);
-                    // Limpar erro quando o usuário começar a digitar
-                    if (errors.operationSum) {
-                      setErrors({ ...errors, operationSum: '' });
-                    }
-                  }}
-                  placeholder="0"
-                  inputMode="numeric"
-                  className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
-                    errors.operationSum ? 'border-red-500' : 'border-ai-border'
-                  }`}
-                />
-              </div>
-            </div>
-          </div>
-          {/* Mensagem de erro da soma (se houver) */}
-          {errors.operationSum && (
-            <div className="mb-3">
-              <p className="text-red-500 text-xs mt-1">{errors.operationSum}</p>
-            </div>
-          )}
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Métrica de peso</label>
-              <select
-                value={formData.weightMetric}
-                onChange={(e) => setFormData({ ...formData, weightMetric: e.target.value as Farm['weightMetric'] })}
-                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-              >
-                <option value="Arroba (@)">Arroba (@)</option>
-                <option value="Quilograma (Kg)">Quilograma (Kg)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Rebanho médio (12M)</label>
-              <input
-                type="text"
-                value={formData.averageHerd}
-                onChange={(e) => {
-                  // Remove all non-numeric characters
-                  const cleaned = e.target.value.replace(/[^\d]/g, '');
-                  // Format with thousands separator
-                  const formatted = cleaned ? cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
-                  setFormData({ ...formData, averageHerd: formatted });
-                }}
-                onBlur={() => {
-                  // Ensure it's formatted on blur
-                  if (formData.averageHerd) {
-                    const cleaned = formData.averageHerd.replace(/\./g, '');
-                    const formatted = cleaned ? cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
-                    setFormData({ ...formData, averageHerd: formatted });
-                  }
-                }}
-                placeholder="0"
-                inputMode="numeric"
-                className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Valor do Rebanho</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-ai-subtext">R$</span>
-                <input
-                  type="text"
-                  value={formData.herdValue}
-                  onChange={(e) => handleCurrencyChange('herdValue', e.target.value)}
-                  placeholder="0"
-                  inputMode="numeric"
-                  className="w-full pl-10 pr-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">Comercializa genética animal</label>
-              <label className="flex items-start gap-2 cursor-pointer mt-1.5">
-                <input
-                  type="checkbox"
-                  checked={formData.commercializesGenetics}
-                  onChange={(e) => setFormData({ ...formData, commercializesGenetics: e.target.checked })}
-                  className="mt-0.5 w-4 h-4 text-ai-accent border-ai-border rounded focus:ring-ai-accent"
-                />
+              <div className="grid grid-cols-5 gap-2 mb-2">
                 <div>
-                  <span className="block text-xs font-medium text-ai-text">
-                    Sim
-                  </span>
-                  <span className="block text-[10px] text-ai-subtext mt-0.5">
-                    Vende touros, matrizes ou sêmen
-                  </span>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Área Total
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.totalArea}
+                    onChange={e => handleNumericChange('totalArea', e.target.value)}
+                    onBlur={() => handleNumericBlur('totalArea')}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
+                      errors.totalArea
+                        ? 'border-red-500'
+                        : isTotalAreaValid() && formData.totalArea
+                          ? 'border-green-500'
+                          : 'border-ai-border'
+                    }`}
+                  />
+                  {errors.totalArea && <p className="text-red-500 text-xs mt-1">{errors.totalArea}</p>}
                 </div>
-              </label>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Área Pastagem
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.pastureArea}
+                    onChange={e => handleNumericChange('pastureArea', e.target.value)}
+                    onBlur={() => handleNumericBlur('pastureArea')}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide flex items-center gap-1">
+                    Prod. Volumoso
+                    <span title="Área perene de produção de volumoso">
+                      <Info size={12} className="text-ai-subtext cursor-help" />
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.forageProductionArea}
+                    onChange={e => handleNumericChange('forageProductionArea', e.target.value)}
+                    onBlur={() => handleNumericBlur('forageProductionArea')}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Agric. Própria
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.agricultureAreaOwned}
+                    onChange={e => handleNumericChange('agricultureAreaOwned', e.target.value)}
+                    onBlur={() => handleNumericBlur('agricultureAreaOwned')}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Agric. Arrendada
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.agricultureAreaLeased}
+                    onChange={e => handleNumericChange('agricultureAreaLeased', e.target.value)}
+                    onBlur={() => handleNumericBlur('agricultureAreaLeased')}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Outras Culturas
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.otherCrops}
+                    onChange={e => handleNumericChange('otherCrops', e.target.value)}
+                    onBlur={() => handleNumericBlur('otherCrops')}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Infraestrutura
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.infrastructure}
+                    onChange={e => handleNumericChange('infrastructure', e.target.value)}
+                    onBlur={() => handleNumericBlur('infrastructure')}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Reserva e APP
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.reserveAndAPP}
+                    onChange={e => handleNumericChange('reserveAndAPP', e.target.value)}
+                    onBlur={() => handleNumericBlur('reserveAndAPP')}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Outros
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.otherArea}
+                    onChange={e => handleNumericChange('otherArea', e.target.value)}
+                    onBlur={() => handleNumericBlur('otherArea')}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dados da Propriedade e Rebanho - Seção com fundo cinza claro */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+              <h3 className="text-xs font-bold text-ai-text mb-3 uppercase tracking-wide">
+                Dados da Propriedade e Rebanho
+              </h3>
+
+              {/* Valor da propriedade, Variação e Valores de Operação na mesma linha */}
+              <div className="grid grid-cols-5 gap-2 mb-3">
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Valor da propriedade
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      value={formData.propertyValue}
+                      onChange={e => handleCurrencyChange('propertyValue', e.target.value)}
+                      placeholder="0"
+                      inputMode="numeric"
+                      className="w-full pl-8 pr-2 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Variação Valor Agricultura
+                    <span className="ml-1 text-[10px] font-normal text-ai-subtext">
+                      {formData.agricultureVariation > 0 ? '+' : ''}
+                      {formData.agricultureVariation}%
+                    </span>
+                  </label>
+                  <div className="space-y-0.5">
+                    <input
+                      type="range"
+                      min="-50"
+                      max="50"
+                      step="1"
+                      value={formData.agricultureVariation}
+                      onChange={e => setFormData({ ...formData, agricultureVariation: parseInt(e.target.value) })}
+                      className="w-full h-2 bg-ai-surface2 rounded-lg appearance-none cursor-pointer accent-ai-accent"
+                      style={{
+                        background: `linear-gradient(to right, #e2e8f0 0%, #e2e8f0 ${((formData.agricultureVariation + 50) / 100) * 100}%, #cbd5e1 ${((formData.agricultureVariation + 50) / 100) * 100}%, #cbd5e1 100%)`,
+                      }}
+                    />
+                    <div className="flex justify-between text-[10px] text-ai-subtext">
+                      <span>-50%</span>
+                      <span>0%</span>
+                      <span>+50%</span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Op. Pecuária
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      value={formData.operationPecuary}
+                      onChange={e => {
+                        handleCurrencyChange('operationPecuary', e.target.value);
+                        // Limpar erro quando o usuário começar a digitar
+                        if (errors.operationSum) {
+                          setErrors({ ...errors, operationSum: '' });
+                        }
+                      }}
+                      placeholder="0"
+                      inputMode="numeric"
+                      className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
+                        errors.operationSum ? 'border-red-500' : 'border-ai-border'
+                      }`}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Op. Agrícola
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      value={formData.operationAgricultural}
+                      onChange={e => {
+                        handleCurrencyChange('operationAgricultural', e.target.value);
+                        // Limpar erro quando o usuário começar a digitar
+                        if (errors.operationSum) {
+                          setErrors({ ...errors, operationSum: '' });
+                        }
+                      }}
+                      placeholder="0"
+                      inputMode="numeric"
+                      className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
+                        errors.operationSum ? 'border-red-500' : 'border-ai-border'
+                      }`}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Outras Operações
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      value={formData.otherOperations}
+                      onChange={e => {
+                        handleCurrencyChange('otherOperations', e.target.value);
+                        // Limpar erro quando o usuário começar a digitar
+                        if (errors.operationSum) {
+                          setErrors({ ...errors, operationSum: '' });
+                        }
+                      }}
+                      placeholder="0"
+                      inputMode="numeric"
+                      className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
+                        errors.operationSum ? 'border-red-500' : 'border-ai-border'
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
+              {/* Mensagem de erro da soma (se houver) */}
+              {errors.operationSum && (
+                <div className="mb-3">
+                  <p className="text-red-500 text-xs mt-1">{errors.operationSum}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Métrica de peso
+                  </label>
+                  <select
+                    value={formData.weightMetric}
+                    onChange={e => setFormData({ ...formData, weightMetric: e.target.value as Farm['weightMetric'] })}
+                    className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  >
+                    <option value="Arroba (@)">Arroba (@)</option>
+                    <option value="Quilograma (Kg)">Quilograma (Kg)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Rebanho médio (12M)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.averageHerd}
+                    onChange={e => {
+                      // Remove all non-numeric characters
+                      const cleaned = e.target.value.replace(/[^\d]/g, '');
+                      // Format with thousands separator
+                      const formatted = cleaned ? cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+                      setFormData({ ...formData, averageHerd: formatted });
+                    }}
+                    onBlur={() => {
+                      // Ensure it's formatted on blur
+                      if (formData.averageHerd) {
+                        const cleaned = formData.averageHerd.replace(/\./g, '');
+                        const formatted = cleaned ? cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+                        setFormData({ ...formData, averageHerd: formatted });
+                      }
+                    }}
+                    placeholder="0"
+                    inputMode="numeric"
+                    className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Valor do Rebanho
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-ai-subtext">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      value={formData.herdValue}
+                      onChange={e => handleCurrencyChange('herdValue', e.target.value)}
+                      placeholder="0"
+                      inputMode="numeric"
+                      className="w-full pl-10 pr-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
+                    Comercializa genética animal
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer mt-1.5">
+                    <input
+                      type="checkbox"
+                      checked={formData.commercializesGenetics}
+                      onChange={e => setFormData({ ...formData, commercializesGenetics: e.target.checked })}
+                      className="mt-0.5 w-4 h-4 text-ai-accent border-ai-border rounded focus:ring-ai-accent"
+                    />
+                    <div>
+                      <span className="block text-xs font-medium text-ai-text">Sim</span>
+                      <span className="block text-[10px] text-ai-subtext mt-0.5">Vende touros, matrizes ou sêmen</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-
-        </div>
         </fieldset>
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4 border-t border-ai-border flex-shrink-0 mt-4">
@@ -1605,4 +1698,3 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 };
 
 export default FarmManagement;
-

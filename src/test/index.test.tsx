@@ -47,7 +47,7 @@ describe('Inicialização da Aplicação', () => {
   it('deve montar o React corretamente no root', () => {
     const rootElement = document.getElementById('root');
     expect(rootElement).toBeTruthy();
-    
+
     // Verificar se o React pode ser montado
     const canMount = rootElement !== null;
     expect(canMount).toBe(true);
@@ -72,4 +72,3 @@ describe('Verificação de Dependências', () => {
     expect(typeof App).toBe('function');
   });
 });
-

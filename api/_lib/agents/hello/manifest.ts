@@ -30,4 +30,3 @@ export const helloManifest: AgentManifest = {
   },
   estimatedTokensPerCall: 100,
 };
-

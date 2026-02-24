@@ -43,15 +43,18 @@ const MAX_STAKEHOLDER_ROWS = 50;
 
 function normalizeStakeholderMatrix(raw: unknown): ProjectStakeholderRow[] {
   if (!Array.isArray(raw)) return [];
-  return raw.slice(0, MAX_STAKEHOLDER_ROWS).map((row) => {
-    if (row && typeof row === 'object' && 'name' in row && 'activity' in row) {
-      return {
-        name: String((row as { name: unknown }).name ?? '').trim(),
-        activity: String((row as { activity: unknown }).activity ?? '').trim(),
-      };
-    }
-    return { name: '', activity: '' };
-  }).filter((r) => r.name !== '' || r.activity !== '');
+  return raw
+    .slice(0, MAX_STAKEHOLDER_ROWS)
+    .map(row => {
+      if (row && typeof row === 'object' && 'name' in row && 'activity' in row) {
+        return {
+          name: String((row as { name: unknown }).name ?? '').trim(),
+          activity: String((row as { activity: unknown }).activity ?? '').trim(),
+        };
+      }
+      return { name: '', activity: '' };
+    })
+    .filter(r => r.name !== '' || r.activity !== '');
 }
 
 function mapProjectRow(data: Record<string, unknown>): ProjectRow {
@@ -104,7 +107,8 @@ function isValidISODate(dateStr: string | null | undefined): boolean {
 function validatePayload(payload: ProjectPayload): void {
   const name = payload.name?.trim() || '';
   if (!name) throw new Error('O nome do projeto é obrigatório.');
-  if (name.length > MAX_NAME_LENGTH) throw new Error(`O nome do projeto é muito longo (máx ${MAX_NAME_LENGTH} caracteres).`);
+  if (name.length > MAX_NAME_LENGTH)
+    throw new Error(`O nome do projeto é muito longo (máx ${MAX_NAME_LENGTH} caracteres).`);
 
   if (payload.start_date && !isValidISODate(payload.start_date)) {
     throw new Error('Data de início do projeto com formato inválido (esperado AAAA-MM-DD).');
@@ -117,13 +121,11 @@ function validatePayload(payload: ProjectPayload): void {
     throw new Error('A data de início do projeto não pode ser posterior à data final.');
   }
 
-  if ((payload.transformations_achievements || '').length > MAX_TRANSFORMATIONS_LENGTH) throw new Error('A descrição das transformações é muito longa.');
+  if ((payload.transformations_achievements || '').length > MAX_TRANSFORMATIONS_LENGTH)
+    throw new Error('A descrição das transformações é muito longa.');
 }
 
-export async function fetchProjects(
-  createdBy: string,
-  filters?: FetchProjectsFilters
-): Promise<ProjectRow[]> {
+export async function fetchProjects(createdBy: string, filters?: FetchProjectsFilters): Promise<ProjectRow[]> {
   validateUserId(createdBy);
   let q = supabase
     .from('projects')
@@ -141,15 +143,16 @@ export async function fetchProjects(
   return (data || []).map(mapProjectRow);
 }
 
-export async function createProject(
-  createdBy: string,
-  payload: ProjectPayload
-): Promise<ProjectRow> {
+export async function createProject(createdBy: string, payload: ProjectPayload): Promise<ProjectRow> {
   validateUserId(createdBy);
   validatePayload(payload);
   const nextSortOrder = await getNextProjectSortOrder(createdBy, payload.client_id ?? null);
-  const stakeholder = Array.isArray(payload.stakeholder_matrix) ? payload.stakeholder_matrix.slice(0, MAX_STAKEHOLDER_ROWS) : [];
-  const successEvidence = Array.isArray(payload.success_evidence) ? payload.success_evidence.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim()) : [];
+  const stakeholder = Array.isArray(payload.stakeholder_matrix)
+    ? payload.stakeholder_matrix.slice(0, MAX_STAKEHOLDER_ROWS)
+    : [];
+  const successEvidence = Array.isArray(payload.success_evidence)
+    ? payload.success_evidence.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim())
+    : [];
   const { data, error } = await supabase
     .from('projects')
     .insert({
@@ -157,7 +160,9 @@ export async function createProject(
       client_id: payload.client_id || null,
       name: sanitizeText(payload.name),
       description: payload.description?.trim() ? sanitizeText(payload.description) : null,
-      transformations_achievements: payload.transformations_achievements?.trim() ? sanitizeText(payload.transformations_achievements) : null,
+      transformations_achievements: payload.transformations_achievements?.trim()
+        ? sanitizeText(payload.transformations_achievements)
+        : null,
       success_evidence: successEvidence,
       start_date: payload.start_date?.trim() || null,
       end_date: payload.end_date?.trim() || null,
@@ -170,20 +175,23 @@ export async function createProject(
   return mapProjectRow(data);
 }
 
-export async function updateProject(
-  projectId: string,
-  payload: ProjectPayload
-): Promise<ProjectRow> {
+export async function updateProject(projectId: string, payload: ProjectPayload): Promise<ProjectRow> {
   validateProjectId(projectId);
   validatePayload(payload);
-  const stakeholder = Array.isArray(payload.stakeholder_matrix) ? payload.stakeholder_matrix.slice(0, MAX_STAKEHOLDER_ROWS) : [];
-  const successEvidence = Array.isArray(payload.success_evidence) ? payload.success_evidence.filter((s) => typeof s === 'string' && s.trim()).map((s) => s.trim()) : [];
+  const stakeholder = Array.isArray(payload.stakeholder_matrix)
+    ? payload.stakeholder_matrix.slice(0, MAX_STAKEHOLDER_ROWS)
+    : [];
+  const successEvidence = Array.isArray(payload.success_evidence)
+    ? payload.success_evidence.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim())
+    : [];
   const { data, error } = await supabase
     .from('projects')
     .update({
       name: sanitizeText(payload.name),
       description: payload.description?.trim() ? sanitizeText(payload.description) : null,
-      transformations_achievements: payload.transformations_achievements?.trim() ? sanitizeText(payload.transformations_achievements) : null,
+      transformations_achievements: payload.transformations_achievements?.trim()
+        ? sanitizeText(payload.transformations_achievements)
+        : null,
       success_evidence: successEvidence,
       start_date: payload.start_date?.trim() || null,
       end_date: payload.end_date?.trim() || null,

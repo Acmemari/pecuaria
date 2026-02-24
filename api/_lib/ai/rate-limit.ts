@@ -59,13 +59,11 @@ async function incrementCounter(key: string, windowStart: string): Promise<numbe
   const current = await getCountForKey(key, windowStart);
 
   if (current === 0) {
-    const { error: insertError } = await supabaseAdmin
-      .from('rate_limits')
-      .insert({
-        key,
-        window_start: windowStart,
-        request_count: 1,
-      });
+    const { error: insertError } = await supabaseAdmin.from('rate_limits').insert({
+      key,
+      window_start: windowStart,
+      request_count: 1,
+    });
 
     if (!insertError) return 1;
     // If conflict due to race, continue to update path below.
@@ -97,10 +95,7 @@ export async function checkAndIncrementRateLimit(args: {
     getCountForKey(userKey, windowStart),
   ]);
 
-  if (
-    orgCountBefore >= rates.max_requests_per_minute_org ||
-    userCountBefore >= rates.max_requests_per_minute_user
-  ) {
+  if (orgCountBefore >= rates.max_requests_per_minute_org || userCountBefore >= rates.max_requests_per_minute_user) {
     return {
       allowed: false,
       retryAfterMs: remainingWindowMs(),
@@ -114,10 +109,7 @@ export async function checkAndIncrementRateLimit(args: {
     incrementCounter(userKey, windowStart),
   ]);
 
-  if (
-    orgCount > rates.max_requests_per_minute_org ||
-    userCount > rates.max_requests_per_minute_user
-  ) {
+  if (orgCount > rates.max_requests_per_minute_org || userCount > rates.max_requests_per_minute_user) {
     return {
       allowed: false,
       retryAfterMs: remainingWindowMs(),
@@ -132,4 +124,3 @@ export async function checkAndIncrementRateLimit(args: {
     userCount,
   };
 }
-

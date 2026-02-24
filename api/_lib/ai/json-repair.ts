@@ -95,7 +95,7 @@ function parseAndValidate<T>(raw: string, schema: ZodTypeAny): SafeJsonParseResu
     if (!checked.success) {
       return {
         success: false,
-        error: checked.error.issues.map((issue) => issue.message).join('; '),
+        error: checked.error.issues.map(issue => issue.message).join('; '),
         repaired: false,
       };
     }
@@ -116,7 +116,7 @@ export function safeJsonParseWithRepair<T>(raw: string, schema: ZodTypeAny): Saf
     if (!checked.success) {
       return {
         success: false,
-        error: checked.error.issues.map((issue) => issue.message).join('; '),
+        error: checked.error.issues.map(issue => issue.message).join('; '),
         repaired: true,
       };
     }
@@ -125,4 +125,3 @@ export function safeJsonParseWithRepair<T>(raw: string, schema: ZodTypeAny): Saf
     return { success: false, error: `Repair failed: ${(error as Error).message}`, repaired: true };
   }
 }
-

@@ -23,15 +23,9 @@ export interface ScenarioFilters {
 /**
  * Get all saved scenarios for the current user or filtered by client/farm
  */
-export const getSavedScenarios = async (
-  userId: string,
-  filters?: ScenarioFilters
-): Promise<CattleScenario[]> => {
+export const getSavedScenarios = async (userId: string, filters?: ScenarioFilters): Promise<CattleScenario[]> => {
   try {
-    let query = supabase
-      .from('cattle_scenarios')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let query = supabase.from('cattle_scenarios').select('*').order('created_at', { ascending: false });
 
     // Se tiver filtro por cliente, buscar por client_id OU user_id (para itens legados sem client_id)
     if (filters?.clientId) {
@@ -68,26 +62,28 @@ export const getSavedScenarios = async (
     }
 
     // Map and validate the data
-    return data.map((scenario) => {
-      // Validate that required fields exist
-      if (!scenario.id || !scenario.user_id || !scenario.name || !scenario.inputs) {
-        log.warn('Invalid scenario data found, skipping');
-        return null;
-      }
+    return data
+      .map(scenario => {
+        // Validate that required fields exist
+        if (!scenario.id || !scenario.user_id || !scenario.name || !scenario.inputs) {
+          log.warn('Invalid scenario data found, skipping');
+          return null;
+        }
 
-      return {
-        id: scenario.id,
-        user_id: scenario.user_id,
-        client_id: scenario.client_id,
-        farm_id: scenario.farm_id,
-        farm_name: scenario.farm_name,
-        name: scenario.name,
-        inputs: scenario.inputs as CattleCalculatorInputs,
-        results: scenario.results ? (scenario.results as CalculationResults) : undefined,
-        created_at: scenario.created_at,
-        updated_at: scenario.updated_at || scenario.created_at
-      } as CattleScenario;
-    }).filter((scenario): scenario is CattleScenario => scenario !== null);
+        return {
+          id: scenario.id,
+          user_id: scenario.user_id,
+          client_id: scenario.client_id,
+          farm_id: scenario.farm_id,
+          farm_name: scenario.farm_name,
+          name: scenario.name,
+          inputs: scenario.inputs as CattleCalculatorInputs,
+          results: scenario.results ? (scenario.results as CalculationResults) : undefined,
+          created_at: scenario.created_at,
+          updated_at: scenario.updated_at || scenario.created_at,
+        } as CattleScenario;
+      })
+      .filter((scenario): scenario is CattleScenario => scenario !== null);
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));
     log.error('Error in getSavedScenarios', error);
@@ -141,8 +137,14 @@ const validateScenarioData = (name?: string, inputs?: CattleCalculatorInputs) =>
     }
 
     const requiredFields: (keyof CattleCalculatorInputs)[] = [
-      'pesoCompra', 'valorCompra', 'pesoAbate', 'rendimentoCarcaca',
-      'valorVenda', 'gmd', 'custoMensal', 'lotacao'
+      'pesoCompra',
+      'valorCompra',
+      'pesoAbate',
+      'rendimentoCarcaca',
+      'valorVenda',
+      'gmd',
+      'custoMensal',
+      'lotacao',
     ];
 
     for (const field of requiredFields) {
@@ -172,7 +174,7 @@ export const saveReportPdf = async (
   name: string,
   pdfBase64: string,
   reportType: string,
-  options?: SaveScenarioOptions
+  options?: SaveScenarioOptions,
 ): Promise<CattleScenario> => {
   validateUUID(userId, 'ID do usuário');
 
@@ -214,7 +216,7 @@ export const saveReportPdf = async (
   return {
     ...data,
     inputs: data.inputs as CattleCalculatorInputs,
-    results: data.results as CalculationResults | undefined
+    results: data.results as CalculationResults | undefined,
   };
 };
 
@@ -226,7 +228,7 @@ export const saveComparatorReport = async (
   userId: string,
   name: string,
   comparatorResult: ComparatorResult,
-  options?: SaveScenarioOptions
+  options?: SaveScenarioOptions,
 ): Promise<CattleScenario> => {
   validateUUID(userId, 'ID do usuário');
 
@@ -239,7 +241,11 @@ export const saveComparatorReport = async (
     throw new Error('PDF do comparativo inválido para salvamento');
   }
 
-  if (!comparatorResult.scenarios || !Array.isArray(comparatorResult.scenarios) || comparatorResult.scenarios.length !== 3) {
+  if (
+    !comparatorResult.scenarios ||
+    !Array.isArray(comparatorResult.scenarios) ||
+    comparatorResult.scenarios.length !== 3
+  ) {
     throw new Error('O comparativo deve conter exatamente 3 cenários');
   }
 
@@ -265,7 +271,7 @@ export const saveComparatorReport = async (
   return {
     ...data,
     inputs: (data.inputs || {}) as CattleCalculatorInputs,
-    results: data.results as CalculationResults | undefined
+    results: data.results as CalculationResults | undefined,
   };
 };
 
@@ -277,7 +283,7 @@ export const saveScenario = async (
   name: string,
   inputs: CattleCalculatorInputs,
   results?: CalculationResults,
-  options?: SaveScenarioOptions
+  options?: SaveScenarioOptions,
 ): Promise<CattleScenario> => {
   // Validar IDs
   validateUUID(userId, 'ID do usuário');
@@ -302,7 +308,7 @@ export const saveScenario = async (
       farm_name: options?.farmName || null,
       name: sanitizedName,
       inputs: normalizedInputs,
-      results
+      results,
     })
     .select()
     .single();
@@ -312,7 +318,9 @@ export const saveScenario = async (
 
     // Check if table doesn't exist
     if (error.message?.includes('schema cache') || error.code === '42P01') {
-      throw new Error('Funcionalidade de salvar cenários ainda não está disponível. A tabela precisa ser criada no banco de dados.');
+      throw new Error(
+        'Funcionalidade de salvar cenários ainda não está disponível. A tabela precisa ser criada no banco de dados.',
+      );
     }
 
     // Check for RLS policy violation
@@ -330,7 +338,7 @@ export const saveScenario = async (
     farm_id: data.farm_id,
     farm_name: data.farm_name,
     inputs: data.inputs as CattleCalculatorInputs,
-    results: data.results as CalculationResults | undefined
+    results: data.results as CalculationResults | undefined,
   };
 };
 
@@ -344,7 +352,7 @@ export const updateScenario = async (
     name?: string;
     inputs?: CattleCalculatorInputs;
     results?: CalculationResults;
-  }
+  },
 ): Promise<CattleScenario> => {
   // Validar IDs
   validateUUID(scenarioId, 'ID do cenário');
@@ -373,7 +381,7 @@ export const updateScenario = async (
   return {
     ...data,
     inputs: data.inputs as CattleCalculatorInputs,
-    results: data.results as CalculationResults | undefined
+    results: data.results as CalculationResults | undefined,
   };
 };
 
@@ -384,11 +392,7 @@ export const deleteScenario = async (scenarioId: string, userId: string): Promis
   validateUUID(scenarioId, 'ID do cenário');
   validateUUID(userId, 'ID do usuário');
 
-  const { error } = await supabase
-    .from('cattle_scenarios')
-    .delete()
-    .eq('id', scenarioId)
-    .eq('user_id', userId);
+  const { error } = await supabase.from('cattle_scenarios').delete().eq('id', scenarioId).eq('user_id', userId);
 
   if (error) {
     log.error('Error deleting scenario', new Error(error.message));
@@ -421,7 +425,6 @@ export const getScenario = async (scenarioId: string, userId: string): Promise<C
   return {
     ...data,
     inputs: data.inputs as CattleCalculatorInputs,
-    results: data.results as CalculationResults | undefined
+    results: data.results as CalculationResults | undefined,
   };
 };
-

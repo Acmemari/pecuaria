@@ -99,11 +99,7 @@
       {
         "name": "Gestão de iniciativas",
         "description": "Cria, lista, edita, exclui e detalha iniciativas com filtros por analista, cliente e fazenda.",
-        "files": [
-          "agents/InitiativesActivities.tsx",
-          "lib/initiatives.ts",
-          "components/DateInputBR.tsx"
-        ],
+        "files": ["agents/InitiativesActivities.tsx", "lib/initiatives.ts", "components/DateInputBR.tsx"],
         "entry_route": "/iniciativas/atividades",
         "user_interactions": [
           "Clicar em \"Nova Iniciativa\" para abrir modal de cadastro.",
@@ -143,10 +139,7 @@
       {
         "name": "Evidências de marcos",
         "description": "Registra evidências de entrega por marco com notas e arquivos por tipo.",
-        "files": [
-          "components/EvidenciaEntregaModal.tsx",
-          "lib/milestoneEvidence.ts"
-        ],
+        "files": ["components/EvidenciaEntregaModal.tsx", "lib/milestoneEvidence.ts"],
         "entry_route": "/iniciativas/evidencias",
         "user_interactions": [
           "Abrir modal de evidência ao clicar em \"Clique para detalhar evidências\".",
@@ -174,10 +167,7 @@
       {
         "name": "Painel executivo de iniciativas",
         "description": "Exibe indicadores consolidados e gráficos do portfólio.",
-        "files": [
-          "agents/InitiativesOverview.tsx",
-          "lib/initiatives.ts"
-        ],
+        "files": ["agents/InitiativesOverview.tsx", "lib/initiatives.ts"],
         "entry_route": "/iniciativas/overview",
         "user_interactions": [
           "Acessar o painel para visualizar KPIs de iniciativas.",
@@ -199,9 +189,7 @@
       {
         "name": "Calendário de atividades",
         "description": "Cria e remove atividades em calendário via UI modal customizada.",
-        "files": [
-          "agents/CalendarAgent.tsx"
-        ],
+        "files": ["agents/CalendarAgent.tsx"],
         "entry_route": "/calendar",
         "user_interactions": [
           "Selecionar intervalo no calendário e inserir nome da atividade.",

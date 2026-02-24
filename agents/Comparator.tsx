@@ -45,9 +45,7 @@ function calculateResults(inputs: CattleCalculatorInputs, country?: string): Cal
 
   // Para Paraguai: valorVenda está em G$/kg carcaça, então multiplica por kg carcaça
   // Para Brasil: valorVenda está em R$/@, então multiplica por arrobas
-  const valorBoi = country === 'PY'
-    ? pesoFinalKgCarcaca * inputs.valorVenda
-    : pesoFinalArrobas * inputs.valorVenda;
+  const valorBoi = country === 'PY' ? pesoFinalKgCarcaca * inputs.valorVenda : pesoFinalArrobas * inputs.valorVenda;
   const custoCompra = inputs.pesoCompra * inputs.valorCompra;
 
   // Para Paraguai: custo mensal deve ser multiplicado por 1000 para o cálculo de resultados
@@ -63,24 +61,27 @@ function calculateResults(inputs: CattleCalculatorInputs, country?: string): Cal
     inputs.valorCompra,
     custoMensalAjustado,
     valorBoi,
-    mesesPermanencia
+    mesesPermanencia,
   );
 
   const resultadoAnual = convertMonthlyToAnnualRate(resultadoMensal);
 
   const custoPorArrobaProduzida = arrobasProduzidas > 0 ? custoOperacional / arrobasProduzidas : 0;
   // Para Paraguai: custo por kg carcaça final; Para Brasil: custo por arroba final
-  const custoPorArrobaFinal = country === 'PY'
-    ? (pesoFinalKgCarcaca > 0 ? custoTotal / pesoFinalKgCarcaca : 0)
-    : (pesoFinalArrobas > 0 ? custoTotal / pesoFinalArrobas : 0);
+  const custoPorArrobaFinal =
+    country === 'PY'
+      ? pesoFinalKgCarcaca > 0
+        ? custoTotal / pesoFinalKgCarcaca
+        : 0
+      : pesoFinalArrobas > 0
+        ? custoTotal / pesoFinalArrobas
+        : 0;
 
   const giroEstoque = mesesPermanencia > 0 ? (12 / mesesPermanencia) * 100 : 0;
 
   const pesoMedio = (inputs.pesoCompra + inputs.pesoAbate) / 2;
   const lotacaoCabecas = pesoMedio > 0 ? (450 * inputs.lotacao) / pesoMedio : 0;
-  const producaoArrobaPorHa = mesesPermanencia > 0
-    ? (arrobasProduzidas / mesesPermanencia) * 12 * lotacaoCabecas
-    : 0;
+  const producaoArrobaPorHa = mesesPermanencia > 0 ? (arrobasProduzidas / mesesPermanencia) * 12 * lotacaoCabecas : 0;
 
   // Indicador 15: Resultado por @ final (ou por kg carcaça para PY)
   // Para Paraguai: valorVenda está em G$/kg, então resultadoPorArrobaFinal será em G$/kg
@@ -88,9 +89,8 @@ function calculateResults(inputs: CattleCalculatorInputs, country?: string): Cal
   const resultadoPorArrobaFinal = inputs.valorVenda - custoPorArrobaFinal;
 
   const mesesPermanenciaArredondado = Math.round(mesesPermanencia * 100000) / 100000;
-  const resultadoPorHectareAno = mesesPermanenciaArredondado > 0
-    ? (resultadoPorBoi / mesesPermanenciaArredondado) * 12 * lotacaoCabecas
-    : 0;
+  const resultadoPorHectareAno =
+    mesesPermanenciaArredondado > 0 ? (resultadoPorBoi / mesesPermanenciaArredondado) * 12 * lotacaoCabecas : 0;
 
   return {
     pesoCompraArrobas,
@@ -112,7 +112,7 @@ function calculateResults(inputs: CattleCalculatorInputs, country?: string): Cal
     giroEstoque,
     producaoArrobaPorHa,
     resultadoPorArrobaFinal,
-    resultadoPorHectareAno
+    resultadoPorHectareAno,
   };
 }
 
@@ -124,13 +124,13 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
   const defaultInputs: CattleCalculatorInputs = {
     pesoCompra: 200,
-    valorCompra: 14.50,
+    valorCompra: 14.5,
     pesoAbate: 530,
     rendimentoCarcaca: 54.5,
     valorVenda: 300,
     gmd: 0.65,
     custoMensal: 135,
-    lotacao: 1.5
+    lotacao: 1.5,
   };
 
   const defaultScenarios: Scenario[] = [
@@ -141,7 +141,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       results: null,
       color: 'blue',
       colorLight: 'bg-blue-50',
-      colorBorder: 'border-blue-500'
+      colorBorder: 'border-blue-500',
     },
     {
       id: 'B',
@@ -150,7 +150,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       results: null,
       color: 'green',
       colorLight: 'bg-green-50',
-      colorBorder: 'border-green-500'
+      colorBorder: 'border-green-500',
     },
     {
       id: 'C',
@@ -159,8 +159,8 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       results: null,
       color: 'orange',
       colorLight: 'bg-orange-50',
-      colorBorder: 'border-orange-500'
-    }
+      colorBorder: 'border-orange-500',
+    },
   ];
 
   // Validar initialScenarios antes de usar
@@ -181,7 +181,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       return initialScenarios.map(s => ({
         ...s,
         inputs: normalizeCattleCalculatorInputs({ ...defaultInputs, ...(s.inputs || {}) }),
-        results: s.results || null
+        results: s.results || null,
       }));
     } catch (error) {
       console.error('Error validating scenarios:', error);
@@ -200,41 +200,43 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
   // Ajustar valores quando o país mudar para garantir que estejam dentro dos ranges
   useEffect(() => {
-    setScenarios(prev => prev.map(scenario => {
-      const updated = { ...scenario.inputs };
+    setScenarios(prev =>
+      prev.map(scenario => {
+        const updated = { ...scenario.inputs };
 
-      // Ajustar valor de compra para ficar dentro do range
-      if (country === 'PY') {
-        if (updated.valorCompra < 15000) {
-          updated.valorCompra = 15000;
-        } else if (updated.valorCompra > 30000) {
-          updated.valorCompra = 30000;
+        // Ajustar valor de compra para ficar dentro do range
+        if (country === 'PY') {
+          if (updated.valorCompra < 15000) {
+            updated.valorCompra = 15000;
+          } else if (updated.valorCompra > 30000) {
+            updated.valorCompra = 30000;
+          }
+          // Ajustar valor de venda
+          if (updated.valorVenda < 20000) {
+            updated.valorVenda = 20000;
+          } else if (updated.valorVenda > 40000) {
+            updated.valorVenda = 40000;
+          }
+        } else {
+          if (updated.valorCompra < 11) {
+            updated.valorCompra = 11;
+          } else if (updated.valorCompra > 18) {
+            updated.valorCompra = 18;
+          }
+          // Ajustar valor de venda
+          if (updated.valorVenda < 250) {
+            updated.valorVenda = 250;
+          } else if (updated.valorVenda > 350) {
+            updated.valorVenda = 350;
+          }
         }
-        // Ajustar valor de venda
-        if (updated.valorVenda < 20000) {
-          updated.valorVenda = 20000;
-        } else if (updated.valorVenda > 40000) {
-          updated.valorVenda = 40000;
-        }
-      } else {
-        if (updated.valorCompra < 11) {
-          updated.valorCompra = 11;
-        } else if (updated.valorCompra > 18) {
-          updated.valorCompra = 18;
-        }
-        // Ajustar valor de venda
-        if (updated.valorVenda < 250) {
-          updated.valorVenda = 250;
-        } else if (updated.valorVenda > 350) {
-          updated.valorVenda = 350;
-        }
-      }
 
-      return {
-        ...scenario,
-        inputs: updated
-      };
-    }));
+        return {
+          ...scenario,
+          inputs: updated,
+        };
+      }),
+    );
   }, [country]);
 
   // Calculate results for all scenarios
@@ -246,9 +248,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       prevInputsKeyRef.current = currentInputsKey;
       setScenarios(prev => {
         // Garantir que temos exatamente 3 cenários únicos
-        const uniqueScenarios = prev.filter((s, index, self) =>
-          index === self.findIndex(sc => sc.id === s.id)
-        );
+        const uniqueScenarios = prev.filter((s, index, self) => index === self.findIndex(sc => sc.id === s.id));
 
         if (uniqueScenarios.length !== 3) {
           return prev; // Não atualizar se houver duplicatas
@@ -256,18 +256,14 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
         return prev.map(scenario => ({
           ...scenario,
-          results: calculateResults(scenario.inputs, country)
+          results: calculateResults(scenario.inputs, country),
         }));
       });
     }
   }, [scenarios, country]);
 
   const handleInputChange = (scenarioId: 'A' | 'B' | 'C', key: keyof CattleCalculatorInputs, value: number) => {
-    setScenarios(prev => prev.map(s =>
-      s.id === scenarioId
-        ? { ...s, inputs: { ...s.inputs, [key]: value } }
-        : s
-    ));
+    setScenarios(prev => prev.map(s => (s.id === scenarioId ? { ...s, inputs: { ...s.inputs, [key]: value } } : s)));
   };
 
   const handleNameEdit = (scenarioId: 'A' | 'B' | 'C') => {
@@ -279,11 +275,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
   };
 
   const handleNameSave = (scenarioId: 'A' | 'B' | 'C') => {
-    setScenarios(prev => prev.map(s =>
-      s.id === scenarioId
-        ? { ...s, name: tempName || s.name }
-        : s
-    ));
+    setScenarios(prev => prev.map(s => (s.id === scenarioId ? { ...s, name: tempName || s.name } : s)));
     setEditingName(null);
     setTempName('');
   };
@@ -293,10 +285,15 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
     setTempName('');
   };
 
+  // Apenas gera e baixa o PDF — NÃO persiste no banco (evita salvamento indevido de cenário)
   const handleDownloadClick = () => {
     try {
       if (scenarios.length !== 3) {
-        onToast?.({ id: Date.now().toString(), message: 'É necessário ter 3 cenários para gerar o relatório', type: 'error' });
+        onToast?.({
+          id: Date.now().toString(),
+          message: 'É necessário ter 3 cenários para gerar o relatório',
+          type: 'error',
+        });
         return;
       }
 
@@ -305,7 +302,11 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       const scenarioC = scenarios.find(s => s.id === 'C');
 
       if (!scenarioA || !scenarioB || !scenarioC || !scenarioA.results || !scenarioB.results || !scenarioC.results) {
-        onToast?.({ id: Date.now().toString(), message: 'Todos os cenários devem ter resultados calculados', type: 'error' });
+        onToast?.({
+          id: Date.now().toString(),
+          message: 'Todos os cenários devem ter resultados calculados',
+          type: 'error',
+        });
         return;
       }
 
@@ -313,22 +314,22 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
         scenarios: [
           { id: 'A', name: scenarioA.name, inputs: scenarioA.inputs, results: scenarioA.results },
           { id: 'B', name: scenarioB.name, inputs: scenarioB.inputs, results: scenarioB.results },
-          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results }
+          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results },
         ],
         userName: user?.name || user?.email || undefined,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       });
 
       onToast?.({
         id: Date.now().toString(),
         message: 'PDF baixado com sucesso!',
-        type: 'success'
+        type: 'success',
       });
     } catch (error: any) {
       onToast?.({
         id: Date.now().toString(),
         message: error.message || 'Erro ao gerar PDF',
-        type: 'error'
+        type: 'error',
       });
     }
   };
@@ -353,9 +354,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
     setIsSaving(true);
     try {
-      const uniqueScenarios = scenarios.filter((s, index, self) =>
-        index === self.findIndex(sc => sc.id === s.id)
-      );
+      const uniqueScenarios = scenarios.filter((s, index, self) => index === self.findIndex(sc => sc.id === s.id));
 
       if (uniqueScenarios.length !== 3) {
         throw new Error('É necessário ter exatamente 3 cenários para salvar o comparativo');
@@ -374,10 +373,10 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
         scenarios: [
           { id: 'A', name: scenarioA.name, inputs: scenarioA.inputs, results: scenarioA.results },
           { id: 'B', name: scenarioB.name, inputs: scenarioB.inputs, results: scenarioB.results },
-          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results }
+          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results },
         ],
         userName: user?.name || user?.email || undefined,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       });
 
       // Salvar o PDF E os dados dos cenários para permitir edição posterior
@@ -387,41 +386,34 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
         scenarios: [
           { id: 'A', name: scenarioA.name, inputs: scenarioA.inputs, results: scenarioA.results },
           { id: 'B', name: scenarioB.name, inputs: scenarioB.inputs, results: scenarioB.results },
-          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results }
-        ]
+          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results },
+        ],
       };
 
       // Salvar o comparativo completo (PDF + dados dos cenários) - um único registro, sem cenário adicional
-      await saveComparatorReport(
-        user.id,
-        saveName.trim(),
-        comparatorData,
-        {
-          clientId: selectedClient?.id || null,
-          farmId: selectedFarm?.id || null,
-          farmName: selectedFarm?.name || null
-        }
-      );
+      await saveComparatorReport(user.id, saveName.trim(), comparatorData, {
+        clientId: selectedClient?.id || null,
+        farmId: selectedFarm?.id || null,
+        farmName: selectedFarm?.name || null,
+      });
 
       setIsSaveModalOpen(false);
       setSaveName('');
       onToast?.({
         id: Date.now().toString(),
         message: 'Comparativo salvo com sucesso!',
-        type: 'success'
+        type: 'success',
       });
     } catch (error: any) {
       onToast?.({
         id: Date.now().toString(),
         message: error.message || 'Erro ao salvar comparativo',
-        type: 'error'
+        type: 'error',
       });
     } finally {
       setIsSaving(false);
     }
   };
-
-
 
   const scenarioA = scenarios.find(s => s.id === 'A');
   const scenarioB = scenarios.find(s => s.id === 'B');
@@ -435,7 +427,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
         month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
       setSaveName(`Comparativo ${dateStr}`);
     }
@@ -448,21 +440,21 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
           bg: 'bg-blue-50',
           border: 'border-blue-500',
           text: 'text-blue-700',
-          accent: 'bg-blue-500'
+          accent: 'bg-blue-500',
         };
       case 'B':
         return {
           bg: 'bg-green-50',
           border: 'border-green-500',
           text: 'text-green-700',
-          accent: 'bg-green-500'
+          accent: 'bg-green-500',
         };
       case 'C':
         return {
           bg: 'bg-orange-50',
           border: 'border-orange-500',
           text: 'text-orange-700',
-          accent: 'bg-orange-500'
+          accent: 'bg-orange-500',
         };
     }
   };
@@ -495,7 +487,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       {/* Scenarios Section */}
       <div className="flex-[1.4] overflow-hidden overflow-x-hidden flex flex-col min-h-0">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3 flex-1 min-h-0 overflow-visible w-full">
-          {scenarios.map((scenario) => {
+          {scenarios.map(scenario => {
             const colors = getColorClasses(scenario.id);
             return (
               <div key={scenario.id} className="flex flex-col h-full">
@@ -506,9 +498,9 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       <input
                         type="text"
                         value={tempName}
-                        onChange={(e) => setTempName(e.target.value)}
+                        onChange={e => setTempName(e.target.value)}
                         className="flex-1 px-1.5 py-0.5 text-xs border border-ai-border rounded focus:outline-none focus:border-ai-accent"
-                        onKeyDown={(e) => {
+                        onKeyDown={e => {
                           if (e.key === 'Enter') handleNameSave(scenario.id);
                           if (e.key === 'Escape') handleNameCancel();
                         }}
@@ -520,10 +512,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       >
                         <Check size={14} />
                       </button>
-                      <button
-                        onClick={handleNameCancel}
-                        className="p-0.5 text-red-600 hover:bg-red-50 rounded"
-                      >
+                      <button onClick={handleNameCancel} className="p-0.5 text-red-600 hover:bg-red-50 rounded">
                         <X size={14} />
                       </button>
                     </div>
@@ -541,10 +530,16 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                 </div>
 
                 {/* Card apenas com sliders */}
-                <div className="bg-white rounded-lg border border-gray-200 p-2 md:p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full" style={{ overflowX: 'visible', overflowY: 'visible' }}>
+                <div
+                  className="bg-white rounded-lg border border-gray-200 p-2 md:p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full"
+                  style={{ overflowX: 'visible', overflowY: 'visible' }}
+                >
                   {/* Colored vertical bar on the left */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors.accent} rounded-l-lg`}></div>
-                  <div className="pl-2 md:pl-1 flex flex-col flex-1 min-h-0 overflow-visible w-full" style={{ overflowX: 'visible' }}>
+                  <div
+                    className="pl-2 md:pl-1 flex flex-col flex-1 min-h-0 overflow-visible w-full"
+                    style={{ overflowX: 'visible' }}
+                  >
                     {/* Inputs */}
                     <div className="flex flex-col gap-0.35 md:gap-0.35 flex-1 min-h-0 overflow-visible w-full">
                       <Slider
@@ -555,7 +550,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         max={420}
                         step={1}
                         unit="kg"
-                        onChange={(v) => handleInputChange(scenario.id, 'pesoCompra', v)}
+                        onChange={v => handleInputChange(scenario.id, 'pesoCompra', v)}
                         description="Peso de entrada do animal no sistema"
                       />
                       <Slider
@@ -566,7 +561,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         max={country === 'PY' ? 30000 : 18}
                         step={country === 'PY' ? 100 : 0.05}
                         unit={`${currencySymbol}/kg`}
-                        onChange={(v) => handleInputChange(scenario.id, 'valorCompra', v)}
+                        onChange={v => handleInputChange(scenario.id, 'valorCompra', v)}
                         description="Custo de aquisição por quilograma"
                       />
                       <Slider
@@ -577,7 +572,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         max={630}
                         step={1}
                         unit="kg"
-                        onChange={(v) => handleInputChange(scenario.id, 'pesoAbate', v)}
+                        onChange={v => handleInputChange(scenario.id, 'pesoAbate', v)}
                         description="Meta de peso final do animal"
                       />
                       <Slider
@@ -588,7 +583,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         max={58}
                         step={0.5}
                         unit="%"
-                        onChange={(v) => handleInputChange(scenario.id, 'rendimentoCarcaca', v)}
+                        onChange={v => handleInputChange(scenario.id, 'rendimentoCarcaca', v)}
                         description="Rendimento de carcaça"
                       />
                       <Slider
@@ -599,7 +594,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         max={country === 'PY' ? 40000 : 350}
                         step={country === 'PY' ? 100 : 1}
                         unit={country === 'PY' ? `${currencySymbol}/kg` : `${currencySymbol}/@`}
-                        onChange={(v) => handleInputChange(scenario.id, 'valorVenda', v)}
+                        onChange={v => handleInputChange(scenario.id, 'valorVenda', v)}
                         description="Preço de venda por arroba"
                       />
                       <Slider
@@ -610,7 +605,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         max={1.1}
                         step={0.01}
                         unit="kg/dia"
-                        onChange={(v) => handleInputChange(scenario.id, 'gmd', v)}
+                        onChange={v => handleInputChange(scenario.id, 'gmd', v)}
                         description="Ganho médio diário"
                       />
                       <Slider
@@ -621,7 +616,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         max={220}
                         step={1}
                         unit={`${currencySymbol}/mês`}
-                        onChange={(v) => handleInputChange(scenario.id, 'custoMensal', v)}
+                        onChange={v => handleInputChange(scenario.id, 'custoMensal', v)}
                         description="Desembolso por cabeça ao mês"
                       />
                       <Slider
@@ -632,7 +627,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         max={4.5}
                         step={0.1}
                         unit="UA/HA"
-                        onChange={(v) => handleInputChange(scenario.id, 'lotacao', v)}
+                        onChange={v => handleInputChange(scenario.id, 'lotacao', v)}
                         description="Lotação em Unidade Animal por Hectare"
                       />
                     </div>
@@ -655,24 +650,51 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
             {/* Resultado por Boi */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">{country === 'PY' ? '1. Resultado por cabeça' : '1. Resultado por cabeça'}</h3>
+              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">
+                {country === 'PY' ? '1. Resultado por cabeça' : '1. Resultado por cabeça'}
+              </h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-blue-700 font-medium">{scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:</span>
-                  <span className="text-sm font-bold text-ai-text">{scenarioA.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
+                  <span className="text-xs text-blue-700 font-medium">
+                    {scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:
+                  </span>
+                  <span className="text-sm font-bold text-ai-text">
+                    {scenarioA.results.resultadoPorBoi.toLocaleString('pt-BR', {
+                      minimumFractionDigits: country === 'PY' ? 0 : 2,
+                      maximumFractionDigits: country === 'PY' ? 0 : 2,
+                    })}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-green-700 font-medium">{scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:</span>
+                  <span className="text-xs text-green-700 font-medium">
+                    {scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:
+                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">↑ +{(scenarioB.results.resultadoPorBoi - scenarioA.results.resultadoPorBoi).toFixed(0)}</span>
-                    <span className="text-sm font-bold text-ai-text">{scenarioB.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
+                    <span className="text-xs text-green-600 font-medium">
+                      ↑ +{(scenarioB.results.resultadoPorBoi - scenarioA.results.resultadoPorBoi).toFixed(0)}
+                    </span>
+                    <span className="text-sm font-bold text-ai-text">
+                      {scenarioB.results.resultadoPorBoi.toLocaleString('pt-BR', {
+                        minimumFractionDigits: country === 'PY' ? 0 : 2,
+                        maximumFractionDigits: country === 'PY' ? 0 : 2,
+                      })}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-orange-700 font-medium">{scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:</span>
+                  <span className="text-xs text-orange-700 font-medium">
+                    {scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:
+                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">↑ +{(scenarioC.results.resultadoPorBoi - scenarioA.results.resultadoPorBoi).toFixed(0)}</span>
-                    <span className="text-sm font-bold text-ai-text">{scenarioC.results.resultadoPorBoi.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
+                    <span className="text-xs text-green-600 font-medium">
+                      ↑ +{(scenarioC.results.resultadoPorBoi - scenarioA.results.resultadoPorBoi).toFixed(0)}
+                    </span>
+                    <span className="text-sm font-bold text-ai-text">
+                      {scenarioC.results.resultadoPorBoi.toLocaleString('pt-BR', {
+                        minimumFractionDigits: country === 'PY' ? 0 : 2,
+                        maximumFractionDigits: country === 'PY' ? 0 : 2,
+                      })}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -680,24 +702,42 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
             {/* TIR Mensal */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">{country === 'PY' ? '2. RETORNO MENSUAL' : '2. RETORNO MENSAL'}</h3>
+              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">
+                {country === 'PY' ? '2. RETORNO MENSUAL' : '2. RETORNO MENSAL'}
+              </h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-blue-700 font-medium">{scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:</span>
-                  <span className="text-sm font-bold text-ai-text">{scenarioA.results.resultadoMensal.toFixed(2)}% a.m.</span>
+                  <span className="text-xs text-blue-700 font-medium">
+                    {scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:
+                  </span>
+                  <span className="text-sm font-bold text-ai-text">
+                    {scenarioA.results.resultadoMensal.toFixed(2)}% a.m.
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-green-700 font-medium">{scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:</span>
+                  <span className="text-xs text-green-700 font-medium">
+                    {scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:
+                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">↑ +{(scenarioB.results.resultadoMensal - scenarioA.results.resultadoMensal).toFixed(2)}%</span>
-                    <span className="text-sm font-bold text-ai-text">{scenarioB.results.resultadoMensal.toFixed(2)}%</span>
+                    <span className="text-xs text-green-600 font-medium">
+                      ↑ +{(scenarioB.results.resultadoMensal - scenarioA.results.resultadoMensal).toFixed(2)}%
+                    </span>
+                    <span className="text-sm font-bold text-ai-text">
+                      {scenarioB.results.resultadoMensal.toFixed(2)}%
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-orange-700 font-medium">{scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:</span>
+                  <span className="text-xs text-orange-700 font-medium">
+                    {scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:
+                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">↑ +{(scenarioC.results.resultadoMensal - scenarioA.results.resultadoMensal).toFixed(2)}%</span>
-                    <span className="text-sm font-bold text-ai-text">{scenarioC.results.resultadoMensal.toFixed(2)}%</span>
+                    <span className="text-xs text-green-600 font-medium">
+                      ↑ +{(scenarioC.results.resultadoMensal - scenarioA.results.resultadoMensal).toFixed(2)}%
+                    </span>
+                    <span className="text-sm font-bold text-ai-text">
+                      {scenarioC.results.resultadoMensal.toFixed(2)}%
+                    </span>
                   </div>
                 </div>
               </div>
@@ -705,23 +745,35 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
             {/* Margem Líquida */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">{country === 'PY' ? '3. MARGEN NETO' : '3. MARGEM LÍQUIDA'}</h3>
+              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">
+                {country === 'PY' ? '3. MARGEN NETO' : '3. MARGEM LÍQUIDA'}
+              </h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-blue-700 font-medium">{scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:</span>
+                  <span className="text-xs text-blue-700 font-medium">
+                    {scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:
+                  </span>
                   <span className="text-sm font-bold text-ai-text">{scenarioA.results.margemVenda.toFixed(2)}%</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-green-700 font-medium">{scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:</span>
+                  <span className="text-xs text-green-700 font-medium">
+                    {scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:
+                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">↑ +{(scenarioB.results.margemVenda - scenarioA.results.margemVenda).toFixed(2)}%</span>
+                    <span className="text-xs text-green-600 font-medium">
+                      ↑ +{(scenarioB.results.margemVenda - scenarioA.results.margemVenda).toFixed(2)}%
+                    </span>
                     <span className="text-sm font-bold text-ai-text">{scenarioB.results.margemVenda.toFixed(2)}%</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-orange-700 font-medium">{scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:</span>
+                  <span className="text-xs text-orange-700 font-medium">
+                    {scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:
+                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">↑ +{(scenarioC.results.margemVenda - scenarioA.results.margemVenda).toFixed(2)}%</span>
+                    <span className="text-xs text-green-600 font-medium">
+                      ↑ +{(scenarioC.results.margemVenda - scenarioA.results.margemVenda).toFixed(2)}%
+                    </span>
                     <span className="text-sm font-bold text-ai-text">{scenarioC.results.margemVenda.toFixed(2)}%</span>
                   </div>
                 </div>
@@ -730,24 +782,70 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
             {/* Resultado por Hectare */}
             <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">{country === 'PY' ? '4. RESULTADO POR HECTÁREA' : '4. RESULTADO POR HECTARE'}</h3>
+              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">
+                {country === 'PY' ? '4. RESULTADO POR HECTÁREA' : '4. RESULTADO POR HECTARE'}
+              </h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-blue-700 font-medium">{scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:</span>
-                  <span className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}>{country === 'PY' ? currencySymbol : 'R$'} {scenarioA.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
+                  <span className="text-xs text-blue-700 font-medium">
+                    {scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:
+                  </span>
+                  <span
+                    className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}
+                  >
+                    {country === 'PY' ? currencySymbol : 'R$'}{' '}
+                    {scenarioA.results.resultadoPorHectareAno.toLocaleString('pt-BR', {
+                      minimumFractionDigits: country === 'PY' ? 0 : 2,
+                      maximumFractionDigits: country === 'PY' ? 0 : 2,
+                    })}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-green-700 font-medium">{scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:</span>
+                  <span className="text-xs text-green-700 font-medium">
+                    {scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:
+                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">↑ +{((scenarioB.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) / 1000).toFixed(1)}k</span>
-                    <span className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}>{currencySymbol} {scenarioB.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
+                    <span className="text-xs text-green-600 font-medium">
+                      ↑ +
+                      {(
+                        (scenarioB.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) /
+                        1000
+                      ).toFixed(1)}
+                      k
+                    </span>
+                    <span
+                      className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}
+                    >
+                      {currencySymbol}{' '}
+                      {scenarioB.results.resultadoPorHectareAno.toLocaleString('pt-BR', {
+                        minimumFractionDigits: country === 'PY' ? 0 : 2,
+                        maximumFractionDigits: country === 'PY' ? 0 : 2,
+                      })}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-orange-700 font-medium">{scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:</span>
+                  <span className="text-xs text-orange-700 font-medium">
+                    {scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:
+                  </span>
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">↑ +{((scenarioC.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) / 1000).toFixed(1)}k</span>
-                    <span className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}>{currencySymbol} {scenarioC.results.resultadoPorHectareAno.toLocaleString('pt-BR', { minimumFractionDigits: country === 'PY' ? 0 : 2, maximumFractionDigits: country === 'PY' ? 0 : 2 })}</span>
+                    <span className="text-xs text-green-600 font-medium">
+                      ↑ +
+                      {(
+                        (scenarioC.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) /
+                        1000
+                      ).toFixed(1)}
+                      k
+                    </span>
+                    <span
+                      className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}
+                    >
+                      {currencySymbol}{' '}
+                      {scenarioC.results.resultadoPorHectareAno.toLocaleString('pt-BR', {
+                        minimumFractionDigits: country === 'PY' ? 0 : 2,
+                        maximumFractionDigits: country === 'PY' ? 0 : 2,
+                      })}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -776,13 +874,16 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                 <X size={18} />
               </button>
             </div>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!isSaving) {
-                handleSave();
-              }
-            }} className="p-4">
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isSaving) {
+                  handleSave();
+                }
+              }}
+              className="p-4"
+            >
               <div className="mb-4">
                 <label htmlFor="comparative-name" className="block text-sm font-medium text-ai-text mb-2">
                   Nome do Comparativo
@@ -791,7 +892,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                   id="comparative-name"
                   type="text"
                   value={saveName}
-                  onChange={(e) => setSaveName(e.target.value)}
+                  onChange={e => setSaveName(e.target.value)}
                   placeholder="Digite um nome para o comparativo"
                   className="w-full px-3 py-2 border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent text-ai-text bg-white"
                   autoFocus
@@ -1019,4 +1120,3 @@ if (typeof document !== 'undefined') {
     document.head.appendChild(style);
   }
 }
-

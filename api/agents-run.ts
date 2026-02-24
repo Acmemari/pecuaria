@@ -15,22 +15,17 @@ import type { AIProviderName, PlanId } from './_lib/ai/types.js';
 
 export const maxDuration = 60; // Allow long-running LLM calls on Vercel
 
-
-type AgentHandler = (args: {
-  input: unknown;
-  provider: AIProvider;
-  model: string;
-  systemPrompt?: string;
-}) => Promise<{
+type AgentHandler = (args: { input: unknown; provider: AIProvider; model: string; systemPrompt?: string }) => Promise<{
   data: unknown;
   usage: { inputTokens: number; outputTokens: number; totalTokens: number };
   latencyMs: number;
 }>;
 
 const agentHandlers: Record<string, AgentHandler> = {
-  hello: (args) => runHelloAgent({ ...args, input: args.input as Parameters<typeof runHelloAgent>[0]['input'] }),
-  feedback: (args) => runFeedbackAgent({ ...args, input: args.input as Parameters<typeof runFeedbackAgent>[0]['input'] }),
-  'damages-gen': (args) => runDamagesGenAgent({ ...args, input: args.input as Parameters<typeof runDamagesGenAgent>[0]['input'] }),
+  hello: args => runHelloAgent({ ...args, input: args.input as Parameters<typeof runHelloAgent>[0]['input'] }),
+  feedback: args => runFeedbackAgent({ ...args, input: args.input as Parameters<typeof runFeedbackAgent>[0]['input'] }),
+  'damages-gen': args =>
+    runDamagesGenAgent({ ...args, input: args.input as Parameters<typeof runDamagesGenAgent>[0]['input'] }),
 };
 
 const runRequestSchema = z.object({
@@ -122,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const parsedBody = runRequestSchema.safeParse(req.body);
     if (!parsedBody.success) {
       return res.status(400).json({
-        error: parsedBody.error.issues.map((i) => i.message).join('; '),
+        error: parsedBody.error.issues.map(i => i.message).join('; '),
         code: 'INPUT_INVALID_REQUEST',
       });
     }
@@ -140,7 +135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const inputValidation = manifest.inputSchema.safeParse(parsedBody.data.input);
     if (!inputValidation.success) {
       return res.status(400).json({
-        error: inputValidation.error.issues.map((i) => i.message).join('; '),
+        error: inputValidation.error.issues.map(i => i.message).join('; '),
         code: 'INPUT_SCHEMA_INVALID',
       });
     }
@@ -203,19 +198,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         break;
       } catch (err) {
         const reason = (err as Error)?.message ?? 'unknown';
-        console.error(
-          `[agents-run] Provider ${route.provider}/${route.model} failed:`,
-          reason,
-        );
+        console.error(`[agents-run] Provider ${route.provider}/${route.model} failed:`, reason);
         failedProviders.push(`${route.provider}(${reason.slice(0, 120)})`);
         lastExecutionError = err;
       }
     }
 
     if (!outputData) {
-      const detail = failedProviders.length > 0
-        ? failedProviders.join(' | ')
-        : (lastExecutionError as Error)?.message ?? 'unknown error';
+      const detail =
+        failedProviders.length > 0
+          ? failedProviders.join(' | ')
+          : ((lastExecutionError as Error)?.message ?? 'unknown error');
       console.error('[agents-run] All providers exhausted:', detail);
       throw new Error(`AGENT_EXECUTION_FAILED:${detail}`);
     }
@@ -251,7 +244,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           status: 'success',
           error_code: null,
           metadata: {
-            route_candidates: routes.map((r) => `${r.provider}:${r.model}`),
+            route_candidates: routes.map(r => `${r.provider}:${r.model}`),
           },
         });
       } catch (err) {

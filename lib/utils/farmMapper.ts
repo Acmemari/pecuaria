@@ -61,7 +61,7 @@ export function mapFarmFromDatabase(dbFarm: DatabaseFarm): Farm {
     commercializesGenetics: dbFarm.commercializes_genetics || false,
     productionSystem: dbFarm.production_system as Farm['productionSystem'],
     createdAt: dbFarm.created_at || new Date().toISOString(),
-    updatedAt: dbFarm.updated_at || new Date().toISOString()
+    updatedAt: dbFarm.updated_at || new Date().toISOString(),
   };
 }
 
@@ -75,12 +75,8 @@ export function mapFarmsFromDatabase(dbFarms: DatabaseFarm[]): Farm[] {
  *   - base: campos que existem na tabela original (compatibilidade)
  *   - extended: base + colunas novas (dimensões v2)
  */
-export function buildFarmDatabasePayload(
-  farm: Partial<Farm>,
-  clientId?: string | null
-) {
-  const agricultureTotal =
-    ((farm.agricultureAreaOwned || 0) + (farm.agricultureAreaLeased || 0)) || null;
+export function buildFarmDatabasePayload(farm: Partial<Farm>, clientId?: string | null) {
+  const agricultureTotal = (farm.agricultureAreaOwned || 0) + (farm.agricultureAreaLeased || 0) || null;
 
   const base: Record<string, unknown> = {
     id: farm.id,
@@ -105,7 +101,7 @@ export function buildFarmDatabasePayload(
     average_herd: farm.averageHerd ?? null,
     herd_value: farm.herdValue ?? null,
     commercializes_genetics: farm.commercializesGenetics ?? false,
-    production_system: farm.productionSystem || null
+    production_system: farm.productionSystem || null,
   };
 
   const extended: Record<string, unknown> = {
@@ -113,7 +109,7 @@ export function buildFarmDatabasePayload(
     forage_production_area: farm.forageProductionArea ?? null,
     agriculture_area_owned: farm.agricultureAreaOwned ?? null,
     agriculture_area_leased: farm.agricultureAreaLeased ?? null,
-    other_area: farm.otherArea ?? null
+    other_area: farm.otherArea ?? null,
   };
 
   return { base, extended };
@@ -121,8 +117,5 @@ export function buildFarmDatabasePayload(
 
 export function isMissingColumnError(error: unknown): boolean {
   const msg = String((error as { message?: string })?.message || '').toLowerCase();
-  return (
-    msg.includes("in the schema cache") ||
-    (msg.includes("could not find the '") && msg.includes("' column"))
-  );
+  return msg.includes('in the schema cache') || (msg.includes("could not find the '") && msg.includes("' column"));
 }

@@ -16,13 +16,7 @@ describe('SubscriptionPage', () => {
   const mockOnBack = vi.fn();
 
   it('should render all plans', () => {
-    render(
-      <SubscriptionPage
-        user={mockUser}
-        onUpgrade={mockOnUpgrade}
-        onBack={mockOnBack}
-      />
-    );
+    render(<SubscriptionPage user={mockUser} onUpgrade={mockOnUpgrade} onBack={mockOnBack} />);
 
     expect(screen.getByText('Básico')).toBeInTheDocument();
     expect(screen.getByText('Profissional')).toBeInTheDocument();
@@ -30,13 +24,7 @@ describe('SubscriptionPage', () => {
   });
 
   it('should highlight current plan', () => {
-    render(
-      <SubscriptionPage
-        user={mockUser}
-        onUpgrade={mockOnUpgrade}
-        onBack={mockOnBack}
-      />
-    );
+    render(<SubscriptionPage user={mockUser} onUpgrade={mockOnUpgrade} onBack={mockOnBack} />);
 
     // Check that "Plano Atual" appears for basic plan
     const basicPlanSection = screen.getByText('Básico').closest('div');
@@ -46,13 +34,7 @@ describe('SubscriptionPage', () => {
   });
 
   it('should show plan prices', () => {
-    render(
-      <SubscriptionPage
-        user={mockUser}
-        onUpgrade={mockOnUpgrade}
-        onBack={mockOnBack}
-      />
-    );
+    render(<SubscriptionPage user={mockUser} onUpgrade={mockOnUpgrade} onBack={mockOnBack} />);
 
     expect(screen.getByText(/R\$ 0/)).toBeInTheDocument();
     expect(screen.getByText(/R\$ 97/)).toBeInTheDocument();
@@ -60,15 +42,8 @@ describe('SubscriptionPage', () => {
   });
 
   it('should show "Plano Atual" for current plan', () => {
-    render(
-      <SubscriptionPage
-        user={mockUser}
-        onUpgrade={mockOnUpgrade}
-        onBack={mockOnBack}
-      />
-    );
+    render(<SubscriptionPage user={mockUser} onUpgrade={mockOnUpgrade} onBack={mockOnBack} />);
 
     expect(screen.getByText('Plano Atual')).toBeInTheDocument();
   });
 });
-

@@ -8,9 +8,10 @@ const log = logger.withContext({ component: 'useFarmPermissions' });
 
 /** Acesso total (admin). Referencia estavel, sem query. */
 export const FULL_ACCESS: FarmPermissionsResult = {
-  permissions: Object.fromEntries(
-    Object.keys(DEFAULT_PERMISSIONS).map((k) => [k, 'edit' as PermissionLevel])
-  ) as Record<string, PermissionLevel>,
+  permissions: Object.fromEntries(Object.keys(DEFAULT_PERMISSIONS).map(k => [k, 'edit' as PermissionLevel])) as Record<
+    string,
+    PermissionLevel
+  >,
   canView: () => true,
   canEdit: () => true,
   isHidden: () => false,
@@ -43,7 +44,7 @@ export const LOADING_RESULT: FarmPermissionsResult = {
 
 function buildPermissionsResult(
   analystFarm: { permissions: Record<string, string>; is_responsible: boolean } | null,
-  isLoading: boolean
+  isLoading: boolean,
 ): FarmPermissionsResult {
   const merged: Record<string, PermissionLevel> = { ...DEFAULT_PERMISSIONS };
   if (analystFarm?.permissions) {
@@ -53,11 +54,9 @@ function buildPermissionsResult(
       }
     }
   }
-  const canView = (key: string): boolean =>
-    merged[key] === 'view' || merged[key] === 'edit';
+  const canView = (key: string): boolean => merged[key] === 'view' || merged[key] === 'edit';
   const canEdit = (key: string): boolean => merged[key] === 'edit';
-  const isHidden = (key: string): boolean =>
-    merged[key] === 'hidden' || merged[key] === undefined;
+  const isHidden = (key: string): boolean => merged[key] === 'hidden' || merged[key] === undefined;
   return {
     permissions: merged,
     canView,
@@ -88,7 +87,7 @@ export interface FarmPermissionsResult {
 export function useFarmPermissions(
   farmId: string | null | undefined,
   userId: string | null | undefined,
-  userRole?: string | null
+  userRole?: string | null,
 ): FarmPermissionsResult {
   const [analystFarm, setAnalystFarm] = useState<{
     permissions: Record<string, string>;
@@ -131,12 +130,14 @@ export function useFarmPermissions(
     };
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [farmId, userId, userRole]);
 
   return useMemo(
     () => (userRole === 'admin' ? FULL_ACCESS : buildPermissionsResult(analystFarm, isLoading)),
-    [analystFarm, isLoading, userRole]
+    [analystFarm, isLoading, userRole],
   );
 }
 
@@ -148,21 +149,18 @@ export function useFarmPermissions(
 export function useBatchFarmPermissions(
   farmIds: string[],
   userId: string | null | undefined,
-  userRole?: string | null
+  userRole?: string | null,
 ): Record<string, FarmPermissionsResult> {
-  const [rows, setRows] = useState<
-    { farm_id: string; is_responsible: boolean; permissions: Record<string, string> }[]
-  >([]);
+  const [rows, setRows] = useState<{ farm_id: string; is_responsible: boolean; permissions: Record<string, string> }[]>(
+    [],
+  );
   const [isLoading, setIsLoading] = useState(true);
 
   const idsKey = useMemo(
     () => (farmIds.length > 0 ? [...new Set(farmIds)].sort().join(',') : ''),
-    [farmIds.length, farmIds.join(',')]
+    [farmIds.length, farmIds.join(',')],
   );
-  const stableIds = useMemo(
-    () => (idsKey ? idsKey.split(',') : []),
-    [idsKey]
-  );
+  const stableIds = useMemo(() => (idsKey ? idsKey.split(',') : []), [idsKey]);
 
   useEffect(() => {
     if (userRole === 'admin' || !userId || stableIds.length === 0) {
@@ -188,13 +186,15 @@ export function useBatchFarmPermissions(
             farm_id: r.farm_id,
             is_responsible: r.is_responsible ?? false,
             permissions: (r.permissions as Record<string, string>) ?? {},
-          }))
+          })),
         );
       }
       setIsLoading(false);
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [userId, userRole, idsKey]);
 
   return useMemo(() => {
@@ -207,10 +207,8 @@ export function useBatchFarmPermissions(
     }
     const map: Record<string, FarmPermissionsResult> = {};
     for (const id of stableIds) {
-      const row = rows.find((r) => r.farm_id === id);
-      const analystFarm = row
-        ? { permissions: row.permissions, is_responsible: row.is_responsible }
-        : null;
+      const row = rows.find(r => r.farm_id === id);
+      const analystFarm = row ? { permissions: row.permissions, is_responsible: row.is_responsible } : null;
       map[id] = buildPermissionsResult(analystFarm, isLoading);
     }
     return map;

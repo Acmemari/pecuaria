@@ -8,18 +8,17 @@ import { supabase } from '../supabase';
 export const createUserProfileIfMissing = async (userId: string): Promise<boolean> => {
   try {
     const { data, error } = await supabase.rpc('create_user_profile_if_missing', {
-      user_id: userId
+      user_id: userId,
     });
-    
+
     if (error) {
       console.error('Error creating user profile:', error);
       return false;
     }
-    
+
     return data === true;
   } catch (error) {
     console.error('Error calling create_user_profile_if_missing:', error);
     return false;
   }
 };
-

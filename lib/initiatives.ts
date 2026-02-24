@@ -140,15 +140,13 @@ function validatePayload(payload: CreateInitiativePayload): void {
     throw new Error('Máximo de 50 marcos por iniciativa.');
   }
 
-  const totalPercent = payload.milestones
-    .filter((m) => m.title?.trim())
-    .reduce((s, m) => s + (m.percent || 0), 0);
+  const totalPercent = payload.milestones.filter(m => m.title?.trim()).reduce((s, m) => s + (m.percent || 0), 0);
 
   if (totalPercent > 100) {
     throw new Error(`A soma dos marcos (${totalPercent}%) excede 100%.`);
   }
 
-  for (const m of payload.milestones.filter((mil) => mil.title?.trim() && mil.due_date)) {
+  for (const m of payload.milestones.filter(mil => mil.title?.trim() && mil.due_date)) {
     if (!isValidISODate(m.due_date)) {
       throw new Error(`Data do marco "${m.title}" está em formato inválido.`);
     }
@@ -171,13 +169,14 @@ function validatePayload(payload: CreateInitiativePayload): void {
  */
 export async function fetchInitiatives(
   effectiveUserId: string,
-  filters?: FetchInitiativesFilters
+  filters?: FetchInitiativesFilters,
 ): Promise<InitiativeWithProgress[]> {
   if (!effectiveUserId?.trim()) return [];
 
   let q = supabase
     .from('initiatives')
-    .select(`
+    .select(
+      `
       *,
       initiative_milestones (
         id, initiative_id, title, percent, completed, completed_at, sort_order, due_date,
@@ -185,7 +184,8 @@ export async function fetchInitiatives(
           id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at
         )
       )
-    `)
+    `,
+    )
     .eq('created_by', effectiveUserId)
     .order('start_date', { ascending: true, nullsFirst: false });
 
@@ -201,45 +201,59 @@ export async function fetchInitiatives(
   if (initError) throw initError;
   if (!initiatives?.length) return [];
 
-  return initiatives.map((i: InitiativeRow & { initiative_milestones?: Array<InitiativeMilestoneRow & { initiative_tasks?: InitiativeTaskRow[] }> }) => {
-    const list = (i.initiative_milestones || []).map((m) => {
-      const { initiative_tasks, ...rest } = m;
+  return initiatives.map(
+    (
+      i: InitiativeRow & {
+        initiative_milestones?: Array<InitiativeMilestoneRow & { initiative_tasks?: InitiativeTaskRow[] }>;
+      },
+    ) => {
+      const list = (i.initiative_milestones || [])
+        .map(m => {
+          const { initiative_tasks, ...rest } = m;
+          return {
+            ...rest,
+            tasks: (initiative_tasks || []).sort((a, b) => a.sort_order - b.sort_order),
+          };
+        })
+        .sort((a, b) => a.sort_order - b.sort_order);
+
+      const progress = Math.min(
+        100,
+        Math.max(
+          0,
+          list.filter(m => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0),
+        ),
+      );
+
+      // Cleanup keys that came nested
+      const { initiative_milestones, ...initData } = i;
+
       return {
-        ...rest,
-        tasks: (initiative_tasks || []).sort((a, b) => a.sort_order - b.sort_order)
-      };
-    }).sort((a, b) => a.sort_order - b.sort_order);
-
-    const progress = Math.min(100, Math.max(0, list.filter((m) => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0)));
-
-    // Cleanup keys that came nested
-    const { initiative_milestones, ...initData } = i;
-
-    return {
-      ...initData,
-      progress,
-      milestones: list,
-    } as InitiativeWithProgress;
-  });
+        ...initData,
+        progress,
+        milestones: list,
+      } as InitiativeWithProgress;
+    },
+  );
 }
 
 /**
  * Busca iniciativas vinculadas a uma entrega específica, com milestones.
  * Usado pelo ProgramaWorkbench para carregamento sob demanda por coluna.
  */
-export async function fetchInitiativesByDelivery(
-  deliveryId: string
-): Promise<InitiativeWithProgress[]> {
+export async function fetchInitiativesByDelivery(deliveryId: string): Promise<InitiativeWithProgress[]> {
   if (!deliveryId?.trim()) return [];
 
   const { data: initiatives, error: initError } = await supabase
     .from('initiatives')
-    .select(`
+    .select(
+      `
       *,
       initiative_milestones (
         id, initiative_id, title, percent, completed, completed_at, sort_order, due_date
       )
-    `)
+    `,
+    )
     .eq('delivery_id', deliveryId)
     .order('sort_order', { ascending: true })
     .order('start_date', { ascending: true, nullsFirst: false });
@@ -248,12 +262,20 @@ export async function fetchInitiativesByDelivery(
   if (!initiatives?.length) return [];
 
   return initiatives.map((i: any) => {
-    const list = (i.initiative_milestones || []).map((m: any) => {
-      const { ...rest } = m;
-      return rest;
-    }).sort((a: any, b: any) => a.sort_order - b.sort_order) as InitiativeMilestoneRow[];
+    const list = (i.initiative_milestones || [])
+      .map((m: any) => {
+        const { ...rest } = m;
+        return rest;
+      })
+      .sort((a: any, b: any) => a.sort_order - b.sort_order) as InitiativeMilestoneRow[];
 
-    const progress = Math.min(100, Math.max(0, list.filter((m) => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0)));
+    const progress = Math.min(
+      100,
+      Math.max(
+        0,
+        list.filter(m => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0),
+      ),
+    );
 
     // Cleanup keys
     const { initiative_milestones, ...initData } = i;
@@ -272,13 +294,14 @@ export async function fetchInitiativesByDelivery(
  */
 export async function fetchInitiativesWithTeams(
   effectiveUserId: string,
-  filters?: FetchInitiativesFilters
+  filters?: FetchInitiativesFilters,
 ): Promise<InitiativeWithTeam[]> {
   if (!effectiveUserId?.trim()) return [];
 
   let q = supabase
     .from('initiatives')
-    .select(`
+    .select(
+      `
       *,
       initiative_milestones (
         id, initiative_id, title, percent, completed, completed_at, sort_order, due_date,
@@ -287,7 +310,8 @@ export async function fetchInitiativesWithTeams(
         )
       ),
       initiative_team (initiative_id, name, role, sort_order)
-    `)
+    `,
+    )
     .eq('created_by', effectiveUserId)
     .order('start_date', { ascending: true, nullsFirst: false });
 
@@ -304,17 +328,27 @@ export async function fetchInitiativesWithTeams(
   if (!initiatives?.length) return [];
 
   return initiatives.map((i: any) => {
-    const list = (i.initiative_milestones || []).map((m: any) => {
-      const { initiative_tasks, ...rest } = m;
-      return {
-        ...rest,
-        tasks: (initiative_tasks || []).sort((a: any, b: any) => a.sort_order - b.sort_order)
-      };
-    }).sort((a: any, b: any) => a.sort_order - b.sort_order);
+    const list = (i.initiative_milestones || [])
+      .map((m: any) => {
+        const { initiative_tasks, ...rest } = m;
+        return {
+          ...rest,
+          tasks: (initiative_tasks || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+        };
+      })
+      .sort((a: any, b: any) => a.sort_order - b.sort_order);
 
-    const progress = Math.min(100, Math.max(0, list.filter((m: any) => m.completed === true).reduce((s: any, m: any) => s + (m.percent ?? 0), 0)));
+    const progress = Math.min(
+      100,
+      Math.max(
+        0,
+        list.filter((m: any) => m.completed === true).reduce((s: any, m: any) => s + (m.percent ?? 0), 0),
+      ),
+    );
 
-    const team = (i.initiative_team || []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((t: any) => ({ name: t.name || '', role: t.role || '' }));
+    const team = (i.initiative_team || [])
+      .sort((a: any, b: any) => a.sort_order - b.sort_order)
+      .map((t: any) => ({ name: t.name || '', role: t.role || '' }));
 
     const { initiative_milestones, initiative_team, ...initData } = i;
 
@@ -340,11 +374,13 @@ export async function fetchInitiativeForEdit(initiativeId: string): Promise<{
 
   const { data: initiative, error: initError } = await supabase
     .from('initiatives')
-    .select(`
+    .select(
+      `
       *,
       initiative_team (name, sort_order),
       initiative_milestones (id, title, percent, due_date, completed, sort_order)
-    `)
+    `,
+    )
     .eq('id', initiativeId)
     .single();
 
@@ -355,13 +391,15 @@ export async function fetchInitiativeForEdit(initiativeId: string): Promise<{
   return {
     initiative: initData as InitiativeRow,
     team: (initiative_team || []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((r: any) => r.name || ''),
-    milestones: (initiative_milestones || []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((m: any) => ({
-      id: m.id,
-      title: m.title || '',
-      percent: m.percent ?? 0,
-      due_date: m.due_date ?? null,
-      completed: m.completed ?? false,
-    })),
+    milestones: (initiative_milestones || [])
+      .sort((a: any, b: any) => a.sort_order - b.sort_order)
+      .map((m: any) => ({
+        id: m.id,
+        title: m.title || '',
+        percent: m.percent ?? 0,
+        due_date: m.due_date ?? null,
+        completed: m.completed ?? false,
+      })),
   };
 }
 
@@ -371,10 +409,7 @@ export async function fetchInitiativeForEdit(initiativeId: string): Promise<{
  * RLS: INSERT permite created_by = auth.uid() OU admin.
  * DB trigger valida: client pertence ao analyst, farm pertence ao client.
  */
-export async function createInitiative(
-  createdBy: string,
-  payload: CreateInitiativePayload
-): Promise<InitiativeRow> {
+export async function createInitiative(createdBy: string, payload: CreateInitiativePayload): Promise<InitiativeRow> {
   validatePayload(payload);
 
   const sanitizedName = sanitizeText(payload.name);
@@ -406,7 +441,7 @@ export async function createInitiative(
   const initiativeId = initiative.id;
 
   // Time
-  const teamNames = (payload.team || []).filter((n) => n?.trim());
+  const teamNames = (payload.team || []).filter(n => n?.trim());
   if (teamNames.length > 0) {
     const teamRows = teamNames.map((name, i) => ({
       initiative_id: initiativeId,
@@ -420,7 +455,7 @@ export async function createInitiative(
 
   // Marcos
   const milestoneRows = (payload.milestones || [])
-    .filter((m) => m.title?.trim())
+    .filter(m => m.title?.trim())
     .map((m, i) => ({
       initiative_id: initiativeId,
       title: m.title.trim(),
@@ -444,10 +479,7 @@ export async function createInitiative(
  * DB trigger `set_updated_at` atualiza updated_at automaticamente.
  * DB trigger `validate_initiative_references` valida client/farm.
  */
-export async function updateInitiative(
-  initiativeId: string,
-  payload: CreateInitiativePayload
-): Promise<InitiativeRow> {
+export async function updateInitiative(initiativeId: string, payload: CreateInitiativePayload): Promise<InitiativeRow> {
   if (!initiativeId) throw new Error('ID da iniciativa é obrigatório.');
   validatePayload(payload);
 
@@ -478,13 +510,10 @@ export async function updateInitiative(
   if (!initiative) throw new Error('Iniciativa não encontrada');
 
   // Recria time
-  const { error: delTeamErr } = await supabase
-    .from('initiative_team')
-    .delete()
-    .eq('initiative_id', initiativeId);
+  const { error: delTeamErr } = await supabase.from('initiative_team').delete().eq('initiative_id', initiativeId);
   if (delTeamErr) throw delTeamErr;
 
-  const teamNames = (payload.team || []).filter((n) => n?.trim());
+  const teamNames = (payload.team || []).filter(n => n?.trim());
   if (teamNames.length > 0) {
     const teamRows = teamNames.map((name, i) => ({
       initiative_id: initiativeId,
@@ -497,14 +526,11 @@ export async function updateInitiative(
   }
 
   // Recria marcos
-  const { error: delMilErr } = await supabase
-    .from('initiative_milestones')
-    .delete()
-    .eq('initiative_id', initiativeId);
+  const { error: delMilErr } = await supabase.from('initiative_milestones').delete().eq('initiative_id', initiativeId);
   if (delMilErr) throw delMilErr;
 
   const milestoneRows = (payload.milestones || [])
-    .filter((m) => m.title?.trim())
+    .filter(m => m.title?.trim())
     .map((m, i) => ({
       initiative_id: initiativeId,
       title: m.title.trim(),
@@ -539,7 +565,7 @@ export async function deleteInitiative(initiativeId: string): Promise<void> {
 
   let storagePaths: string[] = [];
 
-  const milestoneIds = (milestoneRows || []).map((m) => m.id);
+  const milestoneIds = (milestoneRows || []).map(m => m.id);
   if (milestoneIds.length > 0) {
     const { data: evidenceRows, error: evidenceErr } = await supabase
       .from('milestone_evidence')
@@ -547,14 +573,14 @@ export async function deleteInitiative(initiativeId: string): Promise<void> {
       .in('milestone_id', milestoneIds);
     if (evidenceErr) throw evidenceErr;
 
-    const evidenceIds = (evidenceRows || []).map((e) => e.id);
+    const evidenceIds = (evidenceRows || []).map(e => e.id);
     if (evidenceIds.length > 0) {
       const { data: fileRows, error: filesErr } = await supabase
         .from('milestone_evidence_files')
         .select('storage_path')
         .in('evidence_id', evidenceIds);
       if (filesErr) throw filesErr;
-      storagePaths = (fileRows || []).map((f) => f.storage_path).filter(Boolean);
+      storagePaths = (fileRows || []).map(f => f.storage_path).filter(Boolean);
     }
   }
 
@@ -605,13 +631,14 @@ export async function toggleMilestoneCompleted(milestoneId: string): Promise<voi
  * RLS garante que apenas criador ou admin acessem.
  */
 export async function fetchInitiativeDetail(
-  initiativeId: string
+  initiativeId: string,
 ): Promise<InitiativeWithProgress & { team: { name: string; role: string }[] }> {
   if (!initiativeId) throw new Error('ID da iniciativa é obrigatório.');
 
   const { data: initiative, error: initError } = await supabase
     .from('initiatives')
-    .select(`
+    .select(
+      `
       *,
       initiative_team (name, role, sort_order),
       initiative_milestones (
@@ -620,7 +647,8 @@ export async function fetchInitiativeDetail(
           id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at
         )
       )
-    `)
+    `,
+    )
     .eq('id', initiativeId)
     .single();
 
@@ -628,21 +656,31 @@ export async function fetchInitiativeDetail(
 
   const { initiative_team, initiative_milestones, ...initData } = initiative as any;
 
-  const milestonesList = (initiative_milestones || []).map((m: any) => {
-    const { initiative_tasks, ...rest } = m;
-    return {
-      ...rest,
-      tasks: (initiative_tasks || []).sort((a: any, b: any) => a.sort_order - b.sort_order)
-    };
-  }).sort((a: any, b: any) => a.sort_order - b.sort_order);
+  const milestonesList = (initiative_milestones || [])
+    .map((m: any) => {
+      const { initiative_tasks, ...rest } = m;
+      return {
+        ...rest,
+        tasks: (initiative_tasks || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+      };
+    })
+    .sort((a: any, b: any) => a.sort_order - b.sort_order);
 
-  const progress = Math.min(100, Math.max(0, milestonesList.filter((m: any) => m.completed === true).reduce((s: any, m: any) => s + (m.percent ?? 0), 0)));
+  const progress = Math.min(
+    100,
+    Math.max(
+      0,
+      milestonesList.filter((m: any) => m.completed === true).reduce((s: any, m: any) => s + (m.percent ?? 0), 0),
+    ),
+  );
 
   return {
     ...initData,
     progress,
     milestones: milestonesList,
-    team: (initiative_team || []).sort((a: any, b: any) => a.sort_order - b.sort_order).map((r: any) => ({ name: r.name || '', role: r.role || '' })),
+    team: (initiative_team || [])
+      .sort((a: any, b: any) => a.sort_order - b.sort_order)
+      .map((r: any) => ({ name: r.name || '', role: r.role || '' })),
   } as InitiativeWithProgress & { team: { name: string; role: string }[] };
 }
 
@@ -671,7 +709,9 @@ export async function listTasksByMilestone(milestoneId: string): Promise<Initiat
   validateUUID(milestoneId, 'Marco');
   const { data, error } = await supabase
     .from('initiative_tasks')
-    .select('id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+    .select(
+      'id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at',
+    )
     .eq('milestone_id', milestoneId)
     .order('sort_order');
   if (error) throw error;
@@ -680,7 +720,7 @@ export async function listTasksByMilestone(milestoneId: string): Promise<Initiat
 
 export async function createTask(
   milestoneId: string,
-  payload: CreateInitiativeTaskPayload
+  payload: CreateInitiativeTaskPayload,
 ): Promise<InitiativeTaskRow> {
   validateUUID(milestoneId, 'Marco');
   validateTaskTitle(payload.title);
@@ -702,7 +742,9 @@ export async function createTask(
       kanban_order: Number.isFinite(payload.kanban_order) ? Number(payload.kanban_order) : 0,
       sort_order: Number.isFinite(payload.sort_order) ? Number(payload.sort_order) : 0,
     })
-    .select('id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+    .select(
+      'id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at',
+    )
     .single();
   if (error || !data) throw new Error(error?.message || 'Erro ao criar tarefa.');
   return data as InitiativeTaskRow;
@@ -721,7 +763,7 @@ export async function updateTask(
     kanban_order: number;
     completed: boolean;
     sort_order: number;
-  }>
+  }>,
 ): Promise<InitiativeTaskRow> {
   validateUUID(taskId, 'Tarefa');
   const updateData: Record<string, unknown> = {};
@@ -771,26 +813,28 @@ export async function updateTask(
     .from('initiative_tasks')
     .update(updateData)
     .eq('id', taskId)
-    .select('id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at')
+    .select(
+      'id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at',
+    )
     .single();
   if (error || !data) throw new Error(error?.message || 'Erro ao atualizar tarefa.');
   return data as InitiativeTaskRow;
 }
 
 export async function updateTasksKanban(
-  updates: Array<{ id: string; kanban_status: KanbanStatus; kanban_order: number; completed?: boolean }>
+  updates: Array<{ id: string; kanban_status: KanbanStatus; kanban_order: number; completed?: boolean }>,
 ): Promise<void> {
   if (!updates.length) return;
   for (const item of updates) {
     validateUUID(item.id, 'Tarefa');
   }
 
-  const promises = updates.map((item) =>
+  const promises = updates.map(item =>
     updateTask(item.id, {
       kanban_status: item.kanban_status,
       kanban_order: item.kanban_order,
       ...(typeof item.completed === 'boolean' ? { completed: item.completed } : {}),
-    })
+    }),
   );
 
   await Promise.all(promises);
@@ -818,10 +862,7 @@ export async function toggleTaskCompleted(taskId: string): Promise<void> {
 
 export async function deleteTask(taskId: string): Promise<void> {
   validateUUID(taskId, 'Tarefa');
-  const { error } = await supabase
-    .from('initiative_tasks')
-    .delete()
-    .eq('id', taskId);
+  const { error } = await supabase.from('initiative_tasks').delete().eq('id', taskId);
   if (error) throw error;
 }
 

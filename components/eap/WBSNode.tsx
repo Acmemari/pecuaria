@@ -69,7 +69,7 @@ const WBSNodeComponent: React.FC<NodeProps<WBSFlowNode>> = ({ id, data, selected
         {level !== 'task' && (
           <button
             type="button"
-            onClick={(e) => {
+            onClick={e => {
               e.stopPropagation();
               actions.onAdd?.(id, level);
             }}
@@ -81,7 +81,7 @@ const WBSNodeComponent: React.FC<NodeProps<WBSFlowNode>> = ({ id, data, selected
         )}
         <button
           type="button"
-          onClick={(e) => {
+          onClick={e => {
             e.stopPropagation();
             actions.onEdit?.(id, level);
           }}
@@ -92,7 +92,7 @@ const WBSNodeComponent: React.FC<NodeProps<WBSFlowNode>> = ({ id, data, selected
         </button>
         <button
           type="button"
-          onClick={(e) => {
+          onClick={e => {
             e.stopPropagation();
             actions.onDelete?.(id, level);
           }}

@@ -11,7 +11,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   return res.status(410).json({
-    error: 'Este endpoint foi descontinuado. Use POST /api/agents-run com agentId: "feedback" e header Authorization: Bearer <token>.',
+    error:
+      'Este endpoint foi descontinuado. Use POST /api/agents-run com agentId: "feedback" e header Authorization: Bearer <token>.',
     code: 'ENDPOINT_DEPRECATED',
     migration: '/api/agents-run',
   });

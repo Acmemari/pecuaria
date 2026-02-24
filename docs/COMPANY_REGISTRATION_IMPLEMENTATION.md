@@ -9,6 +9,7 @@ A funcionalidade de **Notificações** na aba de Configurações foi substituíd
 ### 1. Banco de Dados
 
 #### Migration: `004_add_company_fields.sql`
+
 Adiciona campos completos para cadastro de empresa na tabela `organizations`:
 
 - **CNPJ**: Número de registro da empresa (14 dígitos)
@@ -22,6 +23,7 @@ Adiciona campos completos para cadastro de empresa na tabela `organizations`:
 - **Status**: Status da empresa (active, inactive, pending)
 
 #### Migration: `005_organizations_rls_policies.sql`
+
 Garante segurança completa com políticas RLS (Row Level Security):
 
 - Usuários podem criar empresas onde são proprietários
@@ -86,28 +88,33 @@ CREATE TABLE organizations (
 ## Funcionalidades Implementadas
 
 ### ✅ Cadastro de Empresa
+
 - Formulário completo com validação
 - Formatação automática de CNPJ, telefone e CEP
 - Validação de campos obrigatórios
 - Integração com Supabase
 
 ### ✅ Listagem de Empresas
+
 - Tabela responsiva e organizada
 - Busca em tempo real
 - Filtros visuais por plano e status
 - Carregamento assíncrono
 
 ### ✅ Edição de Empresa
+
 - Pré-preenchimento do formulário
 - Atualização de dados existentes
 - Validação mantida durante edição
 
 ### ✅ Exclusão de Empresa
+
 - Confirmação antes de excluir
 - Verificação de propriedade (segurança)
 - Feedback visual ao usuário
 
 ### ✅ Segurança
+
 - Políticas RLS implementadas
 - Usuários só acessam suas próprias empresas
 - Admins têm acesso completo
@@ -133,12 +140,14 @@ O sistema aplica formatação automática nos seguintes campos:
 ## Integração com Sistema Existente
 
 ### Relacionamentos
+
 - `organizations.owner_id` → `auth.users.id`
 - `user_profiles.organization_id` → `organizations.id`
 - `chat_messages.organization_id` → `organizations.id`
 - `calculations.organization_id` → `organizations.id`
 
 ### Permissões
+
 - Usuários podem gerenciar apenas empresas onde são proprietários
 - Admins podem visualizar e editar todas as empresas
 - RLS garante segurança no nível do banco de dados
@@ -175,30 +184,31 @@ O sistema aplica formatação automática nos seguintes campos:
 #### Adicionar Novos Campos
 
 1. Adicione a coluna na migration:
+
 ```sql
 ALTER TABLE organizations ADD COLUMN novo_campo TEXT;
 ```
 
 2. Atualize o estado do formulário:
+
 ```typescript
 const [companyForm, setCompanyForm] = useState({
   // ... campos existentes
-  novo_campo: ''
+  novo_campo: '',
 });
 ```
 
 3. Adicione o campo no formulário:
+
 ```tsx
 <div>
   <label>Novo Campo</label>
-  <input
-    value={companyForm.novo_campo}
-    onChange={(e) => handleCompanyFormChange('novo_campo', e.target.value)}
-  />
+  <input value={companyForm.novo_campo} onChange={e => handleCompanyFormChange('novo_campo', e.target.value)} />
 </div>
 ```
 
 4. Atualize a tabela (se necessário):
+
 ```tsx
 <th>Novo Campo</th>
 <td>{company.novo_campo || '-'}</td>
@@ -207,16 +217,19 @@ const [companyForm, setCompanyForm] = useState({
 ## Considerações Técnicas
 
 ### Performance
+
 - Índices criados em `cnpj`, `status` e `owner_id` para consultas rápidas
 - Busca otimizada com filtros no frontend
 - Carregamento assíncrono de dados
 
 ### Segurança
+
 - RLS (Row Level Security) ativado
 - Validação no frontend e backend
 - Verificação de propriedade antes de operações
 
 ### UX/UI
+
 - Interface responsiva
 - Feedback visual em todas as ações
 - Formatação automática melhora experiência
@@ -234,16 +247,19 @@ const [companyForm, setCompanyForm] = useState({
 ## Troubleshooting
 
 ### Empresa não aparece na lista
+
 - Verifique se o usuário é o proprietário (`owner_id`)
 - Verifique políticas RLS no Supabase
 - Verifique console do navegador para erros
 
 ### Erro ao salvar empresa
+
 - Verifique se o nome está preenchido (obrigatório)
 - Verifique formato do CNPJ (14 dígitos)
 - Verifique permissões RLS no Supabase
 
 ### Formatação não funciona
+
 - Certifique-se de que os campos estão usando as funções de formatação
 - Verifique se os valores estão sendo limpos antes de salvar
 
@@ -256,4 +272,3 @@ const [companyForm, setCompanyForm] = useState({
 ## Conclusão
 
 A implementação do cadastro de empresa substitui completamente a funcionalidade de notificações, oferecendo uma solução robusta e segura para gerenciamento de empresas. O sistema está integrado com a arquitetura existente e segue as melhores práticas de segurança e UX.
-

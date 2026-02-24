@@ -18,7 +18,7 @@ const dynamicConfigCache = new Map<string, { prompt: string; expiresAt: number }
 export async function getAgentManifest(
   agentId: string,
   version?: string,
-  db?: SupabaseClient
+  db?: SupabaseClient,
 ): Promise<AgentManifest | null> {
   let manifest: AgentManifest | null = null;
 
@@ -26,7 +26,7 @@ export async function getAgentManifest(
     manifest = manifestMap.get(`${agentId}@${version}`) ?? null;
   } else {
     // Latest static version: choose lexicographically highest semver-like string
-    const candidates = Array.from(manifestMap.values()).filter((m) => m.id === agentId);
+    const candidates = Array.from(manifestMap.values()).filter(m => m.id === agentId);
     if (candidates.length > 0) {
       candidates.sort((a, b) => a.version.localeCompare(b.version, undefined, { numeric: true }));
       manifest = candidates[candidates.length - 1] ?? null;
@@ -57,7 +57,7 @@ export async function getAgentManifest(
         });
         return {
           ...manifest,
-          systemPrompt: data.system_prompt
+          systemPrompt: data.system_prompt,
         };
       }
     } catch (e) {
@@ -67,4 +67,3 @@ export async function getAgentManifest(
 
   return manifest;
 }
-

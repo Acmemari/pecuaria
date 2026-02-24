@@ -7,11 +7,13 @@
 ## 📝 Logger
 
 ### Import
+
 ```typescript
 import { logger } from '../lib/logger';
 ```
 
 ### Uso Básico
+
 ```typescript
 logger.debug('Debug message');
 logger.info('Info message');
@@ -20,15 +22,17 @@ logger.error('Error message', error);
 ```
 
 ### Com Contexto
+
 ```typescript
 logger.info('User logged in', {
   component: 'LoginPage',
   userId: user.id,
-  action: 'login'
+  action: 'login',
 });
 ```
 
 ### Logger com Contexto Fixo
+
 ```typescript
 const log = logger.withContext({ component: 'MyComponent' });
 log.info('Started');
@@ -36,12 +40,9 @@ log.error('Failed', error);
 ```
 
 ### Medir Performance
+
 ```typescript
-const result = await logger.measureAsync(
-  async () => await fetchData(),
-  'Fetch Data',
-  { component: 'MyComponent' }
-);
+const result = await logger.measureAsync(async () => await fetchData(), 'Fetch Data', { component: 'MyComponent' });
 ```
 
 ---
@@ -49,51 +50,54 @@ const result = await logger.measureAsync(
 ## 🔄 Supabase Client
 
 ### Import
+
 ```typescript
 import { supabaseClient } from '../lib/supabaseClient';
 ```
 
 ### Select
+
 ```typescript
 const users = await supabaseClient.select('users');
 const user = await supabaseClient.select('users', 'id, name, email');
 ```
 
 ### Insert
+
 ```typescript
 const newUser = await supabaseClient.insert('users', {
   name: 'João',
-  email: 'joao@example.com'
+  email: 'joao@example.com',
 });
 ```
 
 ### Update
+
 ```typescript
-const updated = await supabaseClient.update(
-  'users',
-  { name: 'João Silva' },
-  { id: '123' }
-);
+const updated = await supabaseClient.update('users', { name: 'João Silva' }, { id: '123' });
 ```
 
 ### Delete
+
 ```typescript
 await supabaseClient.delete('users', { id: '123' });
 ```
 
 ### RPC
+
 ```typescript
 const result = await supabaseClient.rpc('my_function', {
-  param1: 'value1'
+  param1: 'value1',
 });
 ```
 
 ### Com Retry Customizado
+
 ```typescript
 const data = await supabaseClient.select('users', '*', {
   maxRetries: 5,
   delayMs: 2000,
-  exponentialBackoff: true
+  exponentialBackoff: true,
 });
 ```
 
@@ -102,6 +106,7 @@ const data = await supabaseClient.select('users', '*', {
 ## ✅ Validações
 
 ### Import
+
 ```typescript
 import {
   validateEmail,
@@ -112,11 +117,12 @@ import {
   validateDocument,
   validateUrl,
   validateDate,
-  sanitizeInput
+  sanitizeInput,
 } from '../lib/questionnaireValidation';
 ```
 
 ### Email
+
 ```typescript
 const result = validateEmail(email);
 if (!result.valid) {
@@ -126,6 +132,7 @@ if (!result.valid) {
 ```
 
 ### Telefone
+
 ```typescript
 const result = validatePhone(phone);
 if (!result.valid) {
@@ -135,6 +142,7 @@ if (!result.valid) {
 ```
 
 ### Senha
+
 ```typescript
 const result = validatePassword(password);
 if (!result.valid) {
@@ -144,6 +152,7 @@ if (!result.valid) {
 ```
 
 ### Número Positivo
+
 ```typescript
 const result = validatePositiveNumber(value, 'Preço');
 if (!result.valid) {
@@ -153,6 +162,7 @@ if (!result.valid) {
 ```
 
 ### Intervalo Numérico
+
 ```typescript
 const result = validateNumberRange(age, 0, 120, 'Idade');
 if (!result.valid) {
@@ -162,6 +172,7 @@ if (!result.valid) {
 ```
 
 ### CPF/CNPJ
+
 ```typescript
 const result = validateDocument(document);
 if (!result.valid) {
@@ -171,6 +182,7 @@ if (!result.valid) {
 ```
 
 ### URL
+
 ```typescript
 const result = validateUrl(url);
 if (!result.valid) {
@@ -180,6 +192,7 @@ if (!result.valid) {
 ```
 
 ### Data
+
 ```typescript
 const result = validateDate(date); // DD/MM/YYYY
 if (!result.valid) {
@@ -189,6 +202,7 @@ if (!result.valid) {
 ```
 
 ### Sanitizar Input
+
 ```typescript
 const safeName = sanitizeInput(userInput);
 ```
@@ -198,48 +212,45 @@ const safeName = sanitizeInput(userInput);
 ## ⚡ useAsync Hook
 
 ### Import
+
 ```typescript
 import { useAsync } from '../hooks/useAsync';
 ```
 
 ### Uso Básico
+
 ```typescript
-const { loading, error, data, execute } = useAsync(
-  async (userId: string) => {
-    return await fetchUser(userId);
-  }
-);
+const { loading, error, data, execute } = useAsync(async (userId: string) => {
+  return await fetchUser(userId);
+});
 
 // Executar
 await execute('user-123');
 ```
 
 ### Com Callbacks
+
 ```typescript
-const { loading, error, data, execute } = useAsync(
-  async (userId: string) => await fetchUser(userId),
-  {
-    onSuccess: (user) => {
-      toast.success(`Bem-vindo, ${user.name}!`);
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    }
-  }
-);
+const { loading, error, data, execute } = useAsync(async (userId: string) => await fetchUser(userId), {
+  onSuccess: user => {
+    toast.success(`Bem-vindo, ${user.name}!`);
+  },
+  onError: error => {
+    toast.error(error.message);
+  },
+});
 ```
 
 ### Com Dados Iniciais
+
 ```typescript
-const { loading, error, data, execute } = useAsync(
-  fetchUsers,
-  {
-    initialData: []
-  }
-);
+const { loading, error, data, execute } = useAsync(fetchUsers, {
+  initialData: [],
+});
 ```
 
 ### Reset
+
 ```typescript
 const { reset } = useAsync(fetchData);
 
@@ -248,12 +259,11 @@ reset();
 ```
 
 ### Execução Imediata
+
 ```typescript
 import { useAsyncImmediate } from '../hooks/useAsync';
 
-const { loading, error, data, reload } = useAsyncImmediate(
-  async () => await fetchUsers()
-);
+const { loading, error, data, reload } = useAsyncImmediate(async () => await fetchUsers());
 
 // Recarregar
 await reload();
@@ -264,11 +274,13 @@ await reload();
 ## 🛡️ ErrorBoundary
 
 ### Import
+
 ```typescript
 import ErrorBoundary from '../components/ErrorBoundary';
 ```
 
 ### Uso Básico
+
 ```typescript
 <ErrorBoundary>
   <App />
@@ -276,6 +288,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 ```
 
 ### Com Callback
+
 ```typescript
 <ErrorBoundary
   onError={(error, errorInfo) => {
@@ -288,6 +301,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 ```
 
 ### Com Fallback Customizado
+
 ```typescript
 <ErrorBoundary
   fallback={
@@ -308,6 +322,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 ## 📋 Padrões Comuns
 
 ### Formulário com Validação
+
 ```typescript
 const handleSubmit = async () => {
   // Validar email
@@ -332,18 +347,18 @@ const handleSubmit = async () => {
     const user = await supabaseClient.insert('users', {
       name: safeName,
       email,
-      password
+      password,
     });
 
     logger.info('User created', {
       component: 'RegisterForm',
-      userId: user.id
+      userId: user.id,
     });
 
     toast.success('Cadastro realizado!');
   } catch (error) {
     logger.error('Failed to create user', error, {
-      component: 'RegisterForm'
+      component: 'RegisterForm',
     });
     toast.error('Erro ao cadastrar');
   }
@@ -351,6 +366,7 @@ const handleSubmit = async () => {
 ```
 
 ### Componente com useAsync
+
 ```typescript
 function UserProfile({ userId }: { userId: string }) {
   const log = logger.withContext({ component: 'UserProfile' });
@@ -386,6 +402,7 @@ function UserProfile({ userId }: { userId: string }) {
 ```
 
 ### Operação com Medição de Performance
+
 ```typescript
 const handleSave = async () => {
   const result = await logger.measureAsync(
@@ -399,14 +416,14 @@ const handleSave = async () => {
       // Salvar com retry
       return await supabaseClient.insert('questionnaires', {
         name: sanitizeInput(name),
-        user_id: user.id
+        user_id: user.id,
       });
     },
     'Save Questionnaire',
     {
       component: 'QuestionnaireFiller',
-      userId: user.id
-    }
+      userId: user.id,
+    },
   );
 
   toast.success('Salvo com sucesso!');
@@ -432,6 +449,7 @@ const handleSave = async () => {
 ## 📚 Documentação Completa
 
 Para mais detalhes, veja:
+
 - `.analysis/ROBUSTNESS_COMPLETE.md` - Resumo completo
 - `.analysis/implementation-summary.md` - Guias detalhados
 - `.analysis/next-actions.md` - Próximos passos

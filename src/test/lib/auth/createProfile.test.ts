@@ -14,4 +14,3 @@ describe('createUserProfileIfMissing', () => {
   // Integration tests would require actual Supabase connection
   // These are tested in AuthContext integration tests
 });
-

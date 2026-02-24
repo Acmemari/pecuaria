@@ -68,9 +68,7 @@ function normalizeAnswer(a: SavedAnswer | Record<string, unknown>): SavedAnswer 
   const ansNorm = normalizeAnswerValue(raw.answer);
   if (qId == null || ansNorm == null) return null;
   const hasExplicit = raw.isPositive !== undefined || raw.is_positive !== undefined;
-  const isPositive = hasExplicit
-    ? Boolean(raw.isPositive ?? raw.is_positive)
-    : (ansNorm === 'Sim'); // heurística quando não salvo (ex.: dados antigos)
+  const isPositive = hasExplicit ? Boolean(raw.isPositive ?? raw.is_positive) : ansNorm === 'Sim'; // heurística quando não salvo (ex.: dados antigos)
   return {
     questionId: String(qId).trim().toLowerCase(),
     answer: ansNorm,
@@ -84,12 +82,15 @@ function normalizeAnswer(a: SavedAnswer | Record<string, unknown>): SavedAnswer 
  */
 export function computeQuestionnaireResults(
   answers: SavedAnswer[] | Record<string, unknown>[],
-  questionsMap: Map<string, QuestionMeta>
+  questionsMap: Map<string, QuestionMeta>,
 ): QuestionnaireResultsData {
   const normalized = answers.map(normalizeAnswer).filter((a): a is SavedAnswer => a != null);
-  const answerByQuestion = new Map(normalized.map((a) => [a.questionId, a]));
+  const answerByQuestion = new Map(normalized.map(a => [a.questionId, a]));
 
-  const byGroup = new Map<string, { total: number; positive: number; categories: Map<string, { total: number; positive: number }> }>();
+  const byGroup = new Map<
+    string,
+    { total: number; positive: number; categories: Map<string, { total: number; positive: number }> }
+  >();
 
   // Agregação por categoria (Gente, Gestão, Produção) e subgrupo (group)
   for (const [questionId, meta] of questionsMap) {
@@ -99,7 +100,7 @@ export function computeQuestionnaireResults(
 
     const isPositive = answer.answer === meta.positiveAnswer;
     const categoryName = meta.category; // Gente | Gestão | Produção (os 3 pilares)
-    const groupName = meta.group;       // subgrupo dentro da categoria
+    const groupName = meta.group; // subgrupo dentro da categoria
 
     if (!byGroup.has(categoryName)) {
       byGroup.set(categoryName, {
@@ -131,7 +132,7 @@ export function computeQuestionnaireResults(
     const g = byGroup.get(groupName);
     if (!g) continue;
 
-    const groupScore = (g.total > 0 ? (g.positive / g.total) * 100 : 0);
+    const groupScore = g.total > 0 ? (g.positive / g.total) * 100 : 0;
     totalQuestions += g.total;
     totalPositive += g.positive;
 
@@ -164,7 +165,7 @@ export function computeQuestionnaireResults(
 
   // Fallback: se temos respostas mas nenhum pareamento (IDs diferentes ou questionsMap vazio), usar nota geral nas três categorias (Gente, Gestão, Produção)
   if (normalized.length > 0 && totalQuestions === 0) {
-    const positiveCount = normalized.filter((a) => a.isPositive).length;
+    const positiveCount = normalized.filter(a => a.isPositive).length;
     totalQuestions = normalized.length;
     totalPositive = positiveCount;
     finalScore = Math.round((totalPositive / totalQuestions) * 100);

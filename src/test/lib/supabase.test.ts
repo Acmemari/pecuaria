@@ -18,4 +18,3 @@ describe('Supabase Client', () => {
     expect(supabaseUrl).toMatch(/^https?:\/\//);
   });
 });
-

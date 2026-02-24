@@ -42,7 +42,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
 
     // Incrementar contador e verificar loop infinito
     this.setState(
-      (prev) => ({
+      prev => ({
         errorCount: prev.errorCount + 1,
       }),
       () => {
@@ -63,11 +63,13 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
                 }
               }
               keysToRemove.forEach(k => localStorage.removeItem(k));
-            } catch { /* ignore storage errors */ }
+            } catch {
+              /* ignore storage errors */
+            }
             window.location.href = '/';
           }, 2000);
         }
-      }
+      },
     );
   }
 
@@ -160,5 +162,3 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, State> {
 }
 
 export default ErrorBoundary;
-
-

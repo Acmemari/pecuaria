@@ -30,4 +30,3 @@ export async function logAgentRun(record: AgentRunRecord): Promise<string | null
 
   return data?.id ?? null;
 }
-

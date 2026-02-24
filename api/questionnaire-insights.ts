@@ -114,8 +114,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Método não permitido' });
   }
 
-  const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
-    || req.socket?.remoteAddress || 'unknown';
+  const clientIp =
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
   if (!checkRateLimit(clientIp)) {
     return res.status(429).json({
       error: 'Limite de requisições excedido. Aguarde um minuto e tente novamente.',

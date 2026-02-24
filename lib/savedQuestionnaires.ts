@@ -17,12 +17,9 @@ export interface QuestionnaireFilters {
 
 export const getSavedQuestionnaires = async (
   userId: string,
-  filters?: QuestionnaireFilters
+  filters?: QuestionnaireFilters,
 ): Promise<SavedQuestionnaire[]> => {
-  let query = supabase
-    .from('saved_questionnaires')
-    .select('*')
-    .order('created_at', { ascending: false });
+  let query = supabase.from('saved_questionnaires').select('*').order('created_at', { ascending: false });
 
   // Se tiver filtro por cliente, buscar por client_id OU user_id (para itens legados sem client_id)
   if (filters?.clientId) {
@@ -45,7 +42,7 @@ export const getSavedQuestionnaires = async (
     throw new Error(error.message || 'Erro ao carregar questionários salvos');
   }
 
-  return (data || []).map((row) => ({
+  return (data || []).map(row => ({
     id: row.id,
     user_id: row.user_id,
     client_id: row.client_id,
@@ -70,7 +67,7 @@ export const saveQuestionnaire = async (
     productionSystem: string;
     questionnaireId: string;
     answers: SavedQuestionnaireAnswer[];
-  }
+  },
 ): Promise<SavedQuestionnaire> => {
   const sanitizedName = sanitizeText(name);
   if (!sanitizedName || sanitizedName.length > 300) {
@@ -93,7 +90,8 @@ export const saveQuestionnaire = async (
     .single();
 
   if (error) {
-    if (error.code === '42P01') throw new Error('Tabela de questionários salvos não existe. Execute a migration 018 no Supabase.');
+    if (error.code === '42P01')
+      throw new Error('Tabela de questionários salvos não existe. Execute a migration 018 no Supabase.');
     throw new Error(error.message || 'Erro ao salvar questionário');
   }
 
@@ -107,7 +105,7 @@ export const saveQuestionnaire = async (
 export const updateSavedQuestionnaire = async (
   id: string,
   userId: string,
-  answers: SavedQuestionnaireAnswer[]
+  answers: SavedQuestionnaireAnswer[],
 ): Promise<void> => {
   validateId(id, 'ID do questionário');
   validateId(userId, 'ID do usuário');
@@ -116,7 +114,7 @@ export const updateSavedQuestionnaire = async (
     .from('saved_questionnaires')
     .update({
       answers: answers,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
     .eq('id', id)
     .eq('user_id', userId);
@@ -158,11 +156,7 @@ export const deleteSavedQuestionnaire = async (id: string, userId: string): Prom
   validateId(id, 'ID do questionário');
   validateId(userId, 'ID do usuário');
 
-  const { error } = await supabase
-    .from('saved_questionnaires')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', userId);
+  const { error } = await supabase.from('saved_questionnaires').delete().eq('id', id).eq('user_id', userId);
 
   if (error) throw new Error(error.message || 'Erro ao excluir questionário');
 };

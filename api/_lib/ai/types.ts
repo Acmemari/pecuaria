@@ -83,4 +83,3 @@ export interface TokenReservation {
   reservedTokens: number;
   createdAt: string;
 }
-

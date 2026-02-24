@@ -65,11 +65,7 @@ function validatePersonId(id: string): void {
 export async function fetchPeople(userId: string, filters?: FetchPeopleFilters): Promise<Person[]> {
   validateUserId(userId);
 
-  let q = supabase
-    .from('people')
-    .select('*')
-    .eq('created_by', userId)
-    .order('full_name', { ascending: true });
+  let q = supabase.from('people').select('*').eq('created_by', userId).order('full_name', { ascending: true });
 
   if (filters?.farmId?.trim()) {
     q = q.eq('farm_id', filters.farmId);
@@ -140,7 +136,9 @@ export async function updatePerson(id: string, payload: Partial<PersonFormData>)
       ...(payload.location_city_uf !== undefined && { location_city_uf: payload.location_city_uf?.trim() || null }),
       ...(payload.base !== undefined && { base: payload.base?.trim() || null }),
       ...(payload.photo_url !== undefined && { photo_url: payload.photo_url || null }),
-      ...(payload.main_activities !== undefined && { main_activities: payload.main_activities?.trim()?.slice(0, MAX_TEXT_LENGTH) || null }),
+      ...(payload.main_activities !== undefined && {
+        main_activities: payload.main_activities?.trim()?.slice(0, MAX_TEXT_LENGTH) || null,
+      }),
       ...(payload.farm_id !== undefined && { farm_id: payload.farm_id || null }),
     })
     .eq('id', id)

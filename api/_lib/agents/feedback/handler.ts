@@ -58,9 +58,7 @@ function buildUserPrompt(input: FeedbackInput): string {
     lines.push(input.existingText.trim());
   }
 
-  lines.push(
-    'Inclua no campo "tips" orientações práticas para melhorar a conversa de feedback.'
-  );
+  lines.push('Inclua no campo "tips" orientações práticas para melhorar a conversa de feedback.');
 
   return lines.join('\n');
 }
@@ -103,4 +101,3 @@ export async function runFeedbackAgent(args: {
     latencyMs: response.latencyMs,
   };
 }
-

@@ -15,6 +15,7 @@ npm run db:link
 ```
 
 Quando pedir, informe:
+
 - **Project ref**: o ID do projeto no Supabase (em Dashboard → Project Settings → General)
 - **Database password**: a senha do banco que você definiu ao criar o projeto
 
@@ -27,6 +28,7 @@ npm run db:push
 ```
 
 Isso aplica as migrações em `supabase/migrations/`, criando por exemplo:
+
 - `questionnaire_questions` (e a função `is_admin()` se precisar)
 - `saved_questionnaires`
 

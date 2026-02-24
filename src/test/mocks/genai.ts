@@ -17,4 +17,3 @@ export const mockGoogleGenAI = {
 };
 
 export const createMockGenAI = () => mockGoogleGenAI;
-

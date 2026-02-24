@@ -12,6 +12,7 @@ api/
 ```
 
 **Em produção, o Vercel compila para:**
+
 ```
 /api/ask-assistant.js  ← Arquivo JavaScript compilado (automático)
 ```
@@ -21,6 +22,7 @@ api/
 ### 1. Verificar se o arquivo está sendo detectado
 
 No Vercel Dashboard:
+
 1. Vá em **Functions**
 2. Procure por `api/ask-assistant`
 3. Se aparecer, está configurado corretamente ✅
@@ -46,6 +48,7 @@ curl -X POST https://seu-projeto.vercel.app/api/ask-assistant \
 ```
 
 Ou usando o navegador (apenas para verificar se o endpoint existe):
+
 - Acesse: `https://seu-projeto.vercel.app/api/ask-assistant`
 - Deve retornar: `{"error":"Método não permitido"}` (porque é GET, mas o endpoint aceita apenas POST)
 
@@ -56,6 +59,7 @@ Ou usando o navegador (apenas para verificar se o endpoint existe):
 **Causa:** Arquivo não está sendo detectado pelo Vercel
 
 **Solução:**
+
 1. Verifique se o arquivo está em `api/ask-assistant.ts` (não `api/ask-assistant.js`)
 2. Certifique-se de que o arquivo exporta um `default` handler
 3. Faça um novo deploy
@@ -65,6 +69,7 @@ Ou usando o navegador (apenas para verificar se o endpoint existe):
 **Causa:** Dependências não estão instaladas ou caminho incorreto
 
 **Solução:**
+
 1. Verifique se `@vercel/node` está em `dependencies` ou `devDependencies`
 2. Verifique se o caminho do import está correto: `'../lib/server/openai/assistantClient'`
 3. Certifique-se de que o arquivo `lib/server/openai/assistantClient.ts` existe
@@ -74,6 +79,7 @@ Ou usando o navegador (apenas para verificar se o endpoint existe):
 **Causa:** Variável de ambiente não está configurada
 
 **Solução:**
+
 1. Vá em **Settings** → **Environment Variables**
 2. Adicione `OPENAI_API_KEY` (maiúsculas)
 3. Faça um **Redeploy**
@@ -85,10 +91,7 @@ Ou usando o navegador (apenas para verificar se o endpoint existe):
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { callAssistant } from '../lib/server/openai/assistantClient';
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ... código do handler
 }
 ```
@@ -107,6 +110,7 @@ export default async function handler(
 Para ver logs detalhados:
 
 1. Adicione `console.log` no início do handler:
+
 ```typescript
 export default async function handler(req, res) {
   console.log('[DEBUG] Handler chamado');
@@ -118,6 +122,7 @@ export default async function handler(req, res) {
 2. Verifique os logs no Vercel Dashboard (Functions → Logs)
 
 3. Se necessário, adicione tratamento de erro mais detalhado:
+
 ```typescript
 catch (err: any) {
   console.error('[DEBUG] Erro completo:', {
@@ -131,4 +136,3 @@ catch (err: any) {
   // ... resto do tratamento
 }
 ```
-

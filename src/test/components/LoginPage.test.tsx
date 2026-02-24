@@ -30,39 +30,39 @@ describe('LoginPage', () => {
   it('should toggle to signup mode', async () => {
     const user = userEvent.setup();
     render(<LoginPage />);
-    
+
     const signupButton = screen.getByText('Cadastrar');
     await user.click(signupButton);
-    
+
     expect(screen.getByText('Criar nova conta')).toBeInTheDocument();
   });
 
   it('should show name field in signup mode', async () => {
     const user = userEvent.setup();
     render(<LoginPage />);
-    
+
     await user.click(screen.getByText('Cadastrar'));
-    
+
     expect(screen.getByPlaceholderText(/Seu nome completo/i)).toBeInTheDocument();
   });
 
   it('should validate password length on signup', async () => {
     const user = userEvent.setup();
-    
+
     render(<LoginPage />);
     await user.click(screen.getByText('Cadastrar'));
-    
+
     const nameInput = screen.getByPlaceholderText(/Seu nome completo/i);
     const emailInput = screen.getByPlaceholderText(/exemplo@pecuaria.com/i);
     const passwordInput = screen.getByPlaceholderText(/Mínimo 6 caracteres/i);
-    
+
     await user.type(nameInput, 'Test User');
     await user.type(emailInput, 'test@example.com');
     await user.type(passwordInput, '12345'); // Less than 6 chars
-    
+
     const submitButtons = screen.getAllByRole('button', { name: /Cadastrar/i });
     const submitButton = submitButtons[submitButtons.length - 1];
-    
+
     // Button should be disabled due to validation
     expect(submitButton).toBeDisabled();
   });
@@ -70,18 +70,18 @@ describe('LoginPage', () => {
   it('should call login on form submit', async () => {
     const user = userEvent.setup();
     mockLogin.mockResolvedValue(true);
-    
+
     render(<LoginPage />);
-    
+
     const emailInput = screen.getByPlaceholderText(/exemplo@pecuaria.com/i);
     const passwordInput = screen.getByPlaceholderText(/••••••••/i);
-    
+
     await user.type(emailInput, 'test@example.com');
     await user.type(passwordInput, 'password123');
-    
+
     const submitButtons = screen.getAllByRole('button', { name: /Entrar/i });
     await user.click(submitButtons[submitButtons.length - 1]); // Click the submit button
-    
+
     expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123');
   });
 
@@ -93,13 +93,12 @@ describe('LoginPage', () => {
   it('should call signInWithOAuth when Google button is clicked', async () => {
     const user = userEvent.setup();
     mockSignInWithOAuth.mockResolvedValue({});
-    
+
     render(<LoginPage />);
-    
+
     const googleButton = screen.getByText(/Continuar com Google/i);
     await user.click(googleButton);
-    
+
     expect(mockSignInWithOAuth).toHaveBeenCalledWith('google');
   });
 });
-

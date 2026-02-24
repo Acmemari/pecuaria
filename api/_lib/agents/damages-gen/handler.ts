@@ -20,45 +20,45 @@ const JSON_FORMAT_INSTRUCTIONS = `{
 const SYSTEM_PROMPT = `${BASE_SYSTEM_PROMPT}\n\nFORMATO JSON:\n${JSON_FORMAT_INSTRUCTIONS}`;
 
 export async function runDamagesGenAgent(args: {
-    input: DamagesGenInput;
-    provider: AIProvider;
-    model: string;
-    systemPrompt?: string;
+  input: DamagesGenInput;
+  provider: AIProvider;
+  model: string;
+  systemPrompt?: string;
 }): Promise<{
-    data: DamagesGenOutput;
-    rawContent: string;
-    usage: { inputTokens: number; outputTokens: number; totalTokens: number };
-    latencyMs: number;
+  data: DamagesGenOutput;
+  rawContent: string;
+  usage: { inputTokens: number; outputTokens: number; totalTokens: number };
+  latencyMs: number;
 }> {
-    const userPrompt = `Gere os prejuízos para esta situação:
+  const userPrompt = `Gere os prejuízos para esta situação:
 Objetivo do feedback: ${args.input.objective}
 O que ocorreu: ${args.input.whatHappened}
 Contexto: ${args.input.context || 'Geral'}`;
 
-    const finalSystemPrompt = args.systemPrompt
-        ? `${args.systemPrompt}\n\nIMPORTANTE: Você deve obrigatoriamente retornar a resposta no formato JSON abaixo:\n${JSON_FORMAT_INSTRUCTIONS}`
-        : SYSTEM_PROMPT;
+  const finalSystemPrompt = args.systemPrompt
+    ? `${args.systemPrompt}\n\nIMPORTANTE: Você deve obrigatoriamente retornar a resposta no formato JSON abaixo:\n${JSON_FORMAT_INSTRUCTIONS}`
+    : SYSTEM_PROMPT;
 
-    const response = await args.provider.complete({
-        model: args.model,
-        systemPrompt: finalSystemPrompt,
-        userPrompt,
-        responseFormat: 'json',
-        temperature: 0.7,
-        maxTokens: 500,
-        timeoutMs: 30_000,
-    });
+  const response = await args.provider.complete({
+    model: args.model,
+    systemPrompt: finalSystemPrompt,
+    userPrompt,
+    responseFormat: 'json',
+    temperature: 0.7,
+    maxTokens: 500,
+    timeoutMs: 30_000,
+  });
 
-    const parsed = safeJsonParseWithRepair<DamagesGenOutput>(response.content, damagesGenOutputSchema);
+  const parsed = safeJsonParseWithRepair<DamagesGenOutput>(response.content, damagesGenOutputSchema);
 
-    if (!parsed.success) {
-        throw new Error('Falha ao gerar prejuízos automaticamente.');
-    }
+  if (!parsed.success) {
+    throw new Error('Falha ao gerar prejuízos automaticamente.');
+  }
 
-    return {
-        data: parsed.data,
-        rawContent: response.content,
-        usage: response.usage,
-        latencyMs: response.latencyMs,
-    };
+  return {
+    data: parsed.data,
+    rawContent: response.content,
+    usage: response.usage,
+    latencyMs: response.latencyMs,
+  };
 }

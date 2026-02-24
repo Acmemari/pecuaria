@@ -60,14 +60,14 @@ async function testAgentsHealth() {
         fail(
           '❌ Resposta HTML recebida. A API (porta 3001) não está respondendo com JSON.\n' +
             '   Provavelmente só o Vite está rodando. Inicie a API em outro terminal.',
-          hint
+          hint,
         );
       }
       if (raw.includes('Cannot GET') || raw.includes('Cannot POST')) {
         fail(
           '❌ Rota /api/agents-health não encontrada (404).\n' +
             '   Reinicie o servidor: Ctrl+C e depois npm run dev:api',
-          hint
+          hint,
         );
       }
       fail('❌ Resposta inesperada: ' + raw.slice(0, 150), hint);

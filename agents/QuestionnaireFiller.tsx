@@ -5,7 +5,13 @@ import { useAnalyst } from '../contexts/AnalystContext';
 import { useClient } from '../contexts/ClientContext';
 import { useFarm } from '../contexts/FarmContext';
 import { Farm, SavedQuestionnaire } from '../types';
-import { saveQuestionnaire, getSavedQuestionnaires, updateSavedQuestionnaireName, deleteSavedQuestionnaire, updateSavedQuestionnaire } from '../lib/savedQuestionnaires';
+import {
+  saveQuestionnaire,
+  getSavedQuestionnaires,
+  updateSavedQuestionnaireName,
+  deleteSavedQuestionnaire,
+  updateSavedQuestionnaire,
+} from '../lib/savedQuestionnaires';
 import QuestionnaireResultsDashboard from './QuestionnaireResultsDashboard';
 import { QuestionnaireIntro } from '../components/questionnaire/QuestionnaireIntro';
 import { QuestionnaireForm } from '../components/questionnaire/QuestionnaireForm';
@@ -29,7 +35,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   onToast,
   selectedFarm: externalSelectedFarm,
   initialData,
-  onClearInitialData
+  onClearInitialData,
 }) => {
   const { user } = useAuth();
   const { selectedAnalyst } = useAnalyst();
@@ -38,16 +44,15 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   const { questions, loading: loadingQuestions } = useQuestions();
 
   // Determine target user ID (admin viewing analyst's data or regular user)
-  const targetUserId = (user?.role === 'admin' && selectedAnalyst) ? selectedAnalyst.id : user?.id;
+  const targetUserId = user?.role === 'admin' && selectedAnalyst ? selectedAnalyst.id : user?.id;
 
   // Internal state for farms (used only when no external farm is provided)
   const [farms, setFarms] = useState<Farm[]>([]);
   const [internalSelectedFarm, setInternalSelectedFarm] = useState<Farm | null>(null);
 
   // Use external farm if provided, then context farm, otherwise use internal state
-  const selectedFarm = externalSelectedFarm !== undefined
-    ? externalSelectedFarm
-    : contextSelectedFarm || internalSelectedFarm;
+  const selectedFarm =
+    externalSelectedFarm !== undefined ? externalSelectedFarm : contextSelectedFarm || internalSelectedFarm;
   const isControlled = externalSelectedFarm !== undefined || contextSelectedFarm !== null;
 
   // Questionnaire State
@@ -94,10 +99,11 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
     }
 
     // Filter by farm type
-    const filtered = questions.filter(q =>
-      !q.applicableTypes ||
-      q.applicableTypes.length === 0 ||
-      q.applicableTypes.includes(selectedFarm.productionSystem)
+    const filtered = questions.filter(
+      q =>
+        !q.applicableTypes ||
+        q.applicableTypes.length === 0 ||
+        q.applicableTypes.includes(selectedFarm.productionSystem),
     );
 
     // Shuffle (Fisher-Yates)
@@ -129,13 +135,13 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
       return;
     }
     getSavedQuestionnaires(targetUserId)
-      .then((all) => {
+      .then(all => {
         const forFarm = all.filter(
-          (q) => q.farm_id === selectedFarm.id || (q.farm_name && q.farm_name === selectedFarm.name)
+          q => q.farm_id === selectedFarm.id || (q.farm_name && q.farm_name === selectedFarm.name),
         );
         setSavedForFarm(forFarm);
       })
-      .catch((err) => {
+      .catch(err => {
         console.error('Erro ao carregar questionários salvos:', err);
         setSavedForFarm([]);
       });
@@ -149,20 +155,22 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   useEffect(() => {
     if (initialData && questions.length > 0) {
       // Find the farm from the initial data
-      const farm = farms.find(f => f.id === initialData.farm_id) || {
-        id: initialData.farm_id,
-        name: initialData.farm_name || 'Fazenda Desconhecida',
-        productionSystem: initialData.production_system || 'Ciclo Completo',
-        area: 0,
-        city: '',
-        state: '',
-        country: 'BR',
-        propertyType: 'Fazenda',
-        weightMetric: 'kg',
-        commercializesGenetics: false,
-        technologies: [],
-        infrastructure: []
-      } as unknown as Farm;
+      const farm =
+        farms.find(f => f.id === initialData.farm_id) ||
+        ({
+          id: initialData.farm_id,
+          name: initialData.farm_name || 'Fazenda Desconhecida',
+          productionSystem: initialData.production_system || 'Ciclo Completo',
+          area: 0,
+          city: '',
+          state: '',
+          country: 'BR',
+          propertyType: 'Fazenda',
+          weightMetric: 'kg',
+          commercializesGenetics: false,
+          technologies: [],
+          infrastructure: [],
+        } as unknown as Farm);
 
       // Set farm using the appropriate method
       if (!isControlled) {
@@ -186,13 +194,16 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   }, [initialData, questions, farms, isControlled, onClearInitialData]);
 
   // Handlers
-  const handleFarmSelect = useCallback((farm: Farm) => {
-    if (!isControlled) {
-      setInternalSelectedFarm(farm);
-    }
-    setShowQuestionnaire(false);
-    setViewResultsQuestionnaire(null);
-  }, [isControlled]);
+  const handleFarmSelect = useCallback(
+    (farm: Farm) => {
+      if (!isControlled) {
+        setInternalSelectedFarm(farm);
+      }
+      setShowQuestionnaire(false);
+      setViewResultsQuestionnaire(null);
+    },
+    [isControlled],
+  );
 
   const handleStartQuestionnaire = useCallback(() => {
     setShowQuestionnaire(true);
@@ -214,48 +225,54 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
   const handleAnswerChange = useCallback((questionId: string, answer: 'Sim' | 'Não') => {
     setAnswers(prev => ({
       ...prev,
-      [questionId]: answer
+      [questionId]: answer,
     }));
   }, []);
 
-  const handleUpdateName = useCallback(async (id: string, newName: string) => {
-    if (!targetUserId) return;
+  const handleUpdateName = useCallback(
+    async (id: string, newName: string) => {
+      if (!targetUserId) return;
 
-    const validation = validateQuestionnaireName(newName);
-    if (!validation.valid) {
-      onToast?.(validation.error!, 'error');
-      return;
-    }
+      const validation = validateQuestionnaireName(newName);
+      if (!validation.valid) {
+        onToast?.(validation.error!, 'error');
+        return;
+      }
 
-    setIsUpdating(true);
-    try {
-      await updateSavedQuestionnaireName(id, targetUserId, newName);
-      loadSavedForFarm();
-      onToast?.('Nome atualizado.', 'success');
-    } catch (err: any) {
-      handleQuestionnaireError(err, 'updateQuestionnaireName', onToast);
-    } finally {
-      setIsUpdating(false);
-    }
-  }, [targetUserId, loadSavedForFarm, onToast]);
+      setIsUpdating(true);
+      try {
+        await updateSavedQuestionnaireName(id, targetUserId, newName);
+        loadSavedForFarm();
+        onToast?.('Nome atualizado.', 'success');
+      } catch (err: any) {
+        handleQuestionnaireError(err, 'updateQuestionnaireName', onToast);
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    [targetUserId, loadSavedForFarm, onToast],
+  );
 
-  const handleDelete = useCallback(async (id: string) => {
-    if (!targetUserId) return;
-    if (!window.confirm('Tem certeza que deseja excluir este questionário?')) return;
+  const handleDelete = useCallback(
+    async (id: string) => {
+      if (!targetUserId) return;
+      if (!window.confirm('Tem certeza que deseja excluir este questionário?')) return;
 
-    const wasOnlyOne = savedForFarm.length <= 1;
-    setDeletingId(id);
-    try {
-      await deleteSavedQuestionnaire(id, targetUserId);
-      loadSavedForFarm();
-      if (wasOnlyOne) setShowResultsList(false);
-      onToast?.('Questionário excluído.', 'success');
-    } catch (err: any) {
-      onToast?.(err.message || 'Erro ao excluir.', 'error');
-    } finally {
-      setDeletingId(null);
-    }
-  }, [targetUserId, savedForFarm.length, loadSavedForFarm, onToast]);
+      const wasOnlyOne = savedForFarm.length <= 1;
+      setDeletingId(id);
+      try {
+        await deleteSavedQuestionnaire(id, targetUserId);
+        loadSavedForFarm();
+        if (wasOnlyOne) setShowResultsList(false);
+        onToast?.('Questionário excluído.', 'success');
+      } catch (err: any) {
+        onToast?.(err.message || 'Erro ao excluir.', 'error');
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [targetUserId, savedForFarm.length, loadSavedForFarm, onToast],
+  );
 
   const handleManualSave = useCallback(async () => {
     if (!targetUserId || !selectedFarm || !viewResultsQuestionnaire) return;
@@ -280,7 +297,6 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
         // Update view to reflect saved state
         const updated = savedForFarm.find(q => q.id === editingQuestionnaireId);
         if (updated) setViewResultsQuestionnaire(updated);
-
       } else {
         // CREATE new - usar user.id (auth.uid) para INSERT respeitar RLS
         const name = generateQuestionnaireName(selectedFarm.name);
@@ -291,7 +307,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
           farmName: selectedFarm.name,
           productionSystem: selectedFarm.productionSystem,
           questionnaireId,
-          answers: viewResultsQuestionnaire.answers!
+          answers: viewResultsQuestionnaire.answers!,
         });
 
         onToast?.('Questionário salvo com sucesso em Meus Salvos!', 'success');
@@ -301,7 +317,16 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
     } catch (err: any) {
       handleQuestionnaireError(err, 'saveQuestionnaire', onToast);
     }
-  }, [targetUserId, selectedFarm, viewResultsQuestionnaire, questionnaireId, loadSavedForFarm, onToast, editingQuestionnaireId, savedForFarm]);
+  }, [
+    targetUserId,
+    selectedFarm,
+    viewResultsQuestionnaire,
+    questionnaireId,
+    loadSavedForFarm,
+    onToast,
+    editingQuestionnaireId,
+    savedForFarm,
+  ]);
 
   const handleEditQuestionnaire = useCallback((q: SavedQuestionnaire) => {
     setEditingQuestionnaireId(q.id);
@@ -318,7 +343,9 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
     const validation = validateAnswers(answers, questionIds);
 
     if (!validation.valid) {
-      const firstUnansweredIndex = filteredQuestions.findIndex(q => answers[q.id] === null || answers[q.id] === undefined);
+      const firstUnansweredIndex = filteredQuestions.findIndex(
+        q => answers[q.id] === null || answers[q.id] === undefined,
+      );
       setCurrentQuestionIndex(firstUnansweredIndex >= 0 ? firstUnansweredIndex : 0);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       onToast?.(validation.error!, 'error');
@@ -334,7 +361,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
       const answersPayload = filteredQuestions.map(q => ({
         questionId: q.id,
         answer: answers[q.id]!,
-        isPositive: answers[q.id] === q.positiveAnswer
+        isPositive: answers[q.id] === q.positiveAnswer,
       }));
 
       // Create a temporary questionnaire object for preview
@@ -348,7 +375,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
         questionnaire_id: questionnaireId,
         answers: answersPayload,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       setShowSuccess(true);
@@ -453,7 +480,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
       onBack={() => {
         if (!isControlled) handleBackToFarms();
       }}
-      onView={(q) => setViewResultsQuestionnaire(q)}
+      onView={q => setViewResultsQuestionnaire(q)}
       onEdit={handleEditQuestionnaire}
       onRename={handleUpdateName}
       onDelete={handleDelete}

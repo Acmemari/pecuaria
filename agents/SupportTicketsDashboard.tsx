@@ -1,5 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CheckCheck, ExternalLink, Loader2, MapPin, MessageSquare, Paperclip, Reply, Search, Send, Wifi, WifiOff, X } from 'lucide-react';
+import {
+  Check,
+  CheckCheck,
+  ExternalLink,
+  Loader2,
+  MapPin,
+  MessageSquare,
+  Paperclip,
+  Reply,
+  Search,
+  Send,
+  Wifi,
+  WifiOff,
+  X,
+} from 'lucide-react';
 import {
   listAdminTickets,
   sendAIMessage,
@@ -131,11 +145,17 @@ const SupportTicketsDashboard: React.FC = () => {
     }
   }, [debouncedSearch, statusFilter]);
 
-  useEffect(() => { void loadTickets(); }, [loadTickets]);
+  useEffect(() => {
+    void loadTickets();
+  }, [loadTickets]);
 
   useEffect(() => {
-    const unsubscribe = subscribeAdminUnread(() => { void loadTickets(); });
-    return () => { unsubscribe(); };
+    const unsubscribe = subscribeAdminUnread(() => {
+      void loadTickets();
+    });
+    return () => {
+      unsubscribe();
+    };
   }, [loadTickets]);
 
   useEffect(() => {
@@ -159,7 +179,10 @@ const SupportTicketsDashboard: React.FC = () => {
     const file = imageItem.getAsFile();
     if (!file) return;
     const err = validateImageFile(file);
-    if (err) { setError(err); return; }
+    if (err) {
+      setError(err);
+      return;
+    }
     if (replyImagePreview) URL.revokeObjectURL(replyImagePreview);
     setReplyImage(file);
     setReplyImagePreview(URL.createObjectURL(file));
@@ -170,7 +193,10 @@ const SupportTicketsDashboard: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     const err = validateImageFile(file);
-    if (err) { setError(err); return; }
+    if (err) {
+      setError(err);
+      return;
+    }
     if (replyImagePreview) URL.revokeObjectURL(replyImagePreview);
     setReplyImage(file);
     setReplyImagePreview(URL.createObjectURL(file));
@@ -180,7 +206,7 @@ const SupportTicketsDashboard: React.FC = () => {
 
   const attachmentsByMessage = useMemo(() => {
     const map = new Map<string, SupportTicketAttachment[]>();
-    chat.attachments.forEach((att) => {
+    chat.attachments.forEach(att => {
       if (!att.message_id) return;
       const current = map.get(att.message_id) || [];
       current.push(att);
@@ -244,7 +270,7 @@ const SupportTicketsDashboard: React.FC = () => {
       if (status === 'testing') {
         await sendAIMessage(
           selectedTicketId,
-          'Uma correção foi aplicada e o chamado está em fase de teste. Por favor, verifique se o problema foi resolvido e aprove ou recuse a solução.'
+          'Uma correção foi aplicada e o chamado está em fase de teste. Por favor, verifique se o problema foi resolvido e aprove ou recuse a solução.',
         );
       }
 
@@ -276,7 +302,6 @@ const SupportTicketsDashboard: React.FC = () => {
       )}
 
       <div className="flex-1 min-h-0 flex overflow-hidden px-5 pb-5 gap-4">
-
         {/* ===== LEFT: Ticket List ===== */}
         <section
           className={`border border-slate-200 rounded-xl bg-slate-50/50 flex flex-col min-h-0 overflow-hidden
@@ -288,13 +313,13 @@ const SupportTicketsDashboard: React.FC = () => {
               <Search size={14} className="text-slate-400 shrink-0" />
               <input
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={e => setSearch(e.target.value)}
                 placeholder="Buscar por usuário ou assunto"
                 className="bg-transparent text-sm text-slate-700 flex-1 outline-none min-w-0 placeholder:text-slate-400"
               />
             </div>
             <div className="flex gap-1.5 flex-wrap">
-              {statusOptions.map((opt) => (
+              {statusOptions.map(opt => (
                 <button
                   key={opt.value}
                   type="button"
@@ -323,7 +348,7 @@ const SupportTicketsDashboard: React.FC = () => {
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {tickets.map((ticket) => {
+                {tickets.map(ticket => {
                   const badge = statusBadge[ticket.status];
                   return (
                     <button
@@ -335,7 +360,9 @@ const SupportTicketsDashboard: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-semibold text-slate-700 truncate">{ticket.user_name || 'Usuário'}</span>
+                        <span className="text-xs font-semibold text-slate-700 truncate">
+                          {ticket.user_name || 'Usuário'}
+                        </span>
                         <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${badge}`}>
                           {statusConfig[ticket.status].label}
                         </span>
@@ -362,7 +389,9 @@ const SupportTicketsDashboard: React.FC = () => {
             <div className="h-full flex items-center justify-center text-slate-400 text-sm gap-2">
               <MessageSquare size={15} />
               {chat.loadingInitial ? (
-                <><Loader2 size={14} className="animate-spin" /> Carregando...</>
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Carregando...
+                </>
               ) : (
                 'Selecione um ticket para ver os detalhes.'
               )}
@@ -427,7 +456,7 @@ const SupportTicketsDashboard: React.FC = () => {
 
                   {/* Status buttons */}
                   <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
-                    {(['open', 'in_progress', 'testing', 'done'] as SupportTicketStatus[]).map((s) => {
+                    {(['open', 'in_progress', 'testing', 'done'] as SupportTicketStatus[]).map(s => {
                       const cfg = statusConfig[s];
                       const isActive = ticketHeader.status === s;
                       return (
@@ -450,18 +479,16 @@ const SupportTicketsDashboard: React.FC = () => {
 
               {/* Messages */}
               <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-                {chat.messages.map((msg) => {
+                {chat.messages.map(msg => {
                   const linked = attachmentsByMessage.get(msg.id) || [];
                   const isAI = msg.author_type === 'ai';
                   const isAgent = msg.author_type === 'agent';
                   const isUser = msg.author_type === 'user';
-                  const repliedMsg = msg.reply_to_id
-                    ? chat.messages.find((m) => m.id === msg.reply_to_id)
-                    : null;
+                  const repliedMsg = msg.reply_to_id ? chat.messages.find(m => m.id === msg.reply_to_id) : null;
                   const quotedText = repliedMsg
-                    ? (repliedMsg.message.length > 60
-                        ? repliedMsg.message.slice(0, 60).trim() + '...'
-                        : repliedMsg.message)
+                    ? repliedMsg.message.length > 60
+                      ? repliedMsg.message.slice(0, 60).trim() + '...'
+                      : repliedMsg.message
                     : null;
 
                   if (isAI) {
@@ -499,7 +526,10 @@ const SupportTicketsDashboard: React.FC = () => {
                   }
 
                   return (
-                    <div key={msg.id} className={`flex ${isAgent ? 'justify-end' : 'justify-start'} animate-fade-in group`}>
+                    <div
+                      key={msg.id}
+                      className={`flex ${isAgent ? 'justify-end' : 'justify-start'} animate-fade-in group`}
+                    >
                       <div
                         className={`max-w-[75%] rounded-xl px-4 py-2.5 text-sm shadow-sm relative ${
                           isAgent
@@ -543,17 +573,19 @@ const SupportTicketsDashboard: React.FC = () => {
                           </div>
                         )}
                         <div className="flex items-center justify-between gap-3 mb-1">
-                          <p className={`text-[10px] font-semibold ${
-                            isAgent ? 'text-amber-600' : isUser ? 'text-white/70' : 'text-slate-400'
-                          }`}>
-                            {isAgent ? 'Agente Técnico' : (msg.author_name || 'Usuário')}
+                          <p
+                            className={`text-[10px] font-semibold ${
+                              isAgent ? 'text-amber-600' : isUser ? 'text-white/70' : 'text-slate-400'
+                            }`}
+                          >
+                            {isAgent ? 'Agente Técnico' : msg.author_name || 'Usuário'}
                           </p>
                           <p className={`text-[10px] ${isUser ? 'text-white/50' : 'text-slate-400'}`}>
                             {new Date(msg.created_at).toLocaleString('pt-BR')}
                           </p>
                         </div>
                         <p className="whitespace-pre-wrap break-words">{msg.message}</p>
-                        {linked.map((att) => (
+                        {linked.map(att => (
                           <a key={att.id} href={att.signed_url} target="_blank" rel="noreferrer" className="block mt-2">
                             {att.signed_url ? (
                               <img
@@ -568,7 +600,10 @@ const SupportTicketsDashboard: React.FC = () => {
                           </a>
                         ))}
                         {isUser && (
-                          <div className="flex justify-end mt-1" title={msg.read_at ? 'Lido' : msg.id?.startsWith('temp-') ? 'Enviado' : 'Recebido'}>
+                          <div
+                            className="flex justify-end mt-1"
+                            title={msg.read_at ? 'Lido' : msg.id?.startsWith('temp-') ? 'Enviado' : 'Recebido'}
+                          >
                             {msg.read_at ? (
                               <CheckCheck size={13} className="text-cyan-400" />
                             ) : msg.id?.startsWith('temp-') ? (
@@ -586,9 +621,18 @@ const SupportTicketsDashboard: React.FC = () => {
                   <div className="flex justify-start animate-fade-in">
                     <div className="px-4 py-2 rounded-xl bg-slate-100 text-slate-500 text-xs flex items-center gap-2">
                       <span className="flex gap-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce"
+                          style={{ animationDelay: '0ms' }}
+                        />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce"
+                          style={{ animationDelay: '150ms' }}
+                        />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce"
+                          style={{ animationDelay: '300ms' }}
+                        />
                       </span>
                       {chat.typingUsers.join(', ')} está digitando...
                     </div>
@@ -628,7 +672,11 @@ const SupportTicketsDashboard: React.FC = () => {
                 )}
                 {replyImagePreview && (
                   <div className="mb-2 relative inline-block">
-                    <img src={replyImagePreview} alt="Preview" className="max-h-20 rounded-lg border border-slate-200" />
+                    <img
+                      src={replyImagePreview}
+                      alt="Preview"
+                      className="max-h-20 rounded-lg border border-slate-200"
+                    />
                     <button
                       type="button"
                       onClick={resetReplyComposer}
@@ -668,7 +716,13 @@ const SupportTicketsDashboard: React.FC = () => {
                     onClick={handleReply}
                     className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-40 hover:bg-blue-700 transition-all active:scale-95 duration-150 shrink-0 flex items-center gap-2"
                   >
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : <><Send size={14} /> Enviar</>}
+                    {saving ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <>
+                        <Send size={14} /> Enviar
+                      </>
+                    )}
                   </button>
                 </div>
                 <p className="mt-1.5 flex items-center gap-2 text-[11px] text-slate-400">

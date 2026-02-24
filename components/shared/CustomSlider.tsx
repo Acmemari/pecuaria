@@ -61,7 +61,7 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
 }) => {
   const range = max - min;
   const colors = colorClasses[color];
-  
+
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = parseFloat(e.target.value);
@@ -69,7 +69,7 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
         onChange(newValue);
       }
     },
-    [onChange]
+    [onChange],
   );
 
   const handleInput = useCallback(
@@ -79,29 +79,36 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
         onChange(newValue);
       }
     },
-    [onChange]
+    [onChange],
   );
 
   // Gerar marcadores automáticos se não fornecidos
-  const sliderMarks = marks || (() => {
-    const autoMarks: number[] = [];
-    const markerStep = range > 20 ? 5 : range > 10 ? 2 : 1;
-    for (let i = min; i <= max; i += markerStep) {
-      autoMarks.push(i);
-    }
-    if (!autoMarks.includes(max)) autoMarks.push(max);
-    return autoMarks;
-  })();
+  const sliderMarks =
+    marks ||
+    (() => {
+      const autoMarks: number[] = [];
+      const markerStep = range > 20 ? 5 : range > 10 ? 2 : 1;
+      for (let i = min; i <= max; i += markerStep) {
+        autoMarks.push(i);
+      }
+      if (!autoMarks.includes(max)) autoMarks.push(max);
+      return autoMarks;
+    })();
 
   return (
     <div className={compact ? 'space-y-1' : 'space-y-2'}>
       {!compact && (
         <label className="block text-xs font-medium text-ai-text">
           {label}
-          {showValue && <span className="ml-2 text-ai-accent font-semibold">{value.toFixed(step < 1 ? 1 : 0)}{unit}</span>}
+          {showValue && (
+            <span className="ml-2 text-ai-accent font-semibold">
+              {value.toFixed(step < 1 ? 1 : 0)}
+              {unit}
+            </span>
+          )}
         </label>
       )}
-      
+
       <div className={`relative ${compact ? 'pt-2 pb-1' : 'pt-4 pb-1.5'}`}>
         {/* Track */}
         <div className="relative h-1.5 bg-gray-200 rounded-full overflow-visible">
@@ -119,25 +126,16 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
           {/* Marcadores */}
           {!compact && (
             <div className="absolute -top-3 left-0 right-0 flex justify-between px-0.5">
-              {sliderMarks.map((val) => {
-                const isInRange =
-                  !highlightRange ||
-                  (val >= highlightRange.start && val <= highlightRange.end);
+              {sliderMarks.map(val => {
+                const isInRange = !highlightRange || (val >= highlightRange.start && val <= highlightRange.end);
                 return (
                   <div key={val} className="flex flex-col items-center">
-                    <div
-                      className={`w-0.5 h-0.5 ${
-                        isInRange ? colors.marker : 'bg-gray-400'
-                      }`}
-                    />
+                    <div className={`w-0.5 h-0.5 ${isInRange ? colors.marker : 'bg-gray-400'}`} />
                     <span
-                      className={`text-[8px] mt-0.5 ${
-                        isInRange
-                          ? `${colors.marker} font-semibold`
-                          : 'text-gray-500'
-                      }`}
+                      className={`text-[8px] mt-0.5 ${isInRange ? `${colors.marker} font-semibold` : 'text-gray-500'}`}
                     >
-                      {val}{unit}
+                      {val}
+                      {unit}
                     </span>
                   </div>
                 );
@@ -170,7 +168,8 @@ export const CustomSlider: React.FC<CustomSliderProps> = ({
             <div
               className={`absolute -top-5 left-1/2 -translate-x-1/2 ${colors.tooltip} text-white text-[9px] font-semibold px-1 py-0.5 rounded whitespace-nowrap shadow`}
             >
-              {value.toFixed(step < 1 ? 1 : 0)}{unit}
+              {value.toFixed(step < 1 ? 1 : 0)}
+              {unit}
               <div
                 className={`absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent ${colors.tooltip}`}
               ></div>

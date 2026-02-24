@@ -14,7 +14,7 @@ const EditScenarioNameModal: React.FC<EditScenarioNameModalProps> = ({
   onClose,
   onSave,
   currentName,
-  isLoading = false
+  isLoading = false,
 }) => {
   const [name, setName] = useState(currentName);
   const [error, setError] = useState('');
@@ -78,7 +78,7 @@ const EditScenarioNameModal: React.FC<EditScenarioNameModalProps> = ({
               id="scenario-name"
               type="text"
               value={name}
-              onChange={(e) => {
+              onChange={e => {
                 setName(e.target.value);
                 setError('');
               }}
@@ -88,12 +88,8 @@ const EditScenarioNameModal: React.FC<EditScenarioNameModalProps> = ({
               maxLength={100}
               disabled={isLoading}
             />
-            {error && (
-              <p className="mt-1 text-xs text-red-600">{error}</p>
-            )}
-            <p className="mt-1 text-xs text-ai-subtext">
-              {name.length}/100 caracteres
-            </p>
+            {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+            <p className="mt-1 text-xs text-ai-subtext">{name.length}/100 caracteres</p>
           </div>
 
           {/* Actions */}
@@ -131,4 +127,3 @@ const EditScenarioNameModal: React.FC<EditScenarioNameModalProps> = ({
 };
 
 export default EditScenarioNameModal;
-

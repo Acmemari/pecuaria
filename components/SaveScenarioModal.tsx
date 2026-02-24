@@ -16,7 +16,7 @@ const SaveScenarioModal: React.FC<SaveScenarioModalProps> = ({
   onClose,
   onSave,
   inputs,
-  isLoading = false
+  isLoading = false,
 }) => {
   const { country, currencySymbol } = useLocation();
   const [name, setName] = useState('');
@@ -31,7 +31,7 @@ const SaveScenarioModal: React.FC<SaveScenarioModalProps> = ({
         month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
       setName(`Cenário ${dateStr}`);
       setError('');
@@ -85,7 +85,7 @@ const SaveScenarioModal: React.FC<SaveScenarioModalProps> = ({
               id="scenario-name"
               type="text"
               value={name}
-              onChange={(e) => {
+              onChange={e => {
                 setName(e.target.value);
                 setError('');
               }}
@@ -95,12 +95,8 @@ const SaveScenarioModal: React.FC<SaveScenarioModalProps> = ({
               maxLength={100}
               disabled={isLoading}
             />
-            {error && (
-              <p className="mt-1 text-xs text-red-600">{error}</p>
-            )}
-            <p className="mt-1 text-xs text-ai-subtext">
-              {name.length}/100 caracteres
-            </p>
+            {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+            <p className="mt-1 text-xs text-ai-subtext">{name.length}/100 caracteres</p>
           </div>
 
           {/* Preview */}
@@ -111,13 +107,15 @@ const SaveScenarioModal: React.FC<SaveScenarioModalProps> = ({
                 <span className="text-ai-subtext">Peso Compra:</span> {inputs.pesoCompra} kg
               </div>
               <div>
-                <span className="text-ai-subtext">Valor Compra:</span> {currencySymbol} {inputs.valorCompra.toFixed(2)}/kg
+                <span className="text-ai-subtext">Valor Compra:</span> {currencySymbol} {inputs.valorCompra.toFixed(2)}
+                /kg
               </div>
               <div>
                 <span className="text-ai-subtext">Peso Abate:</span> {inputs.pesoAbate} kg
               </div>
               <div>
-                <span className="text-ai-subtext">Valor Venda:</span> {currencySymbol} {inputs.valorVenda}{country === 'PY' ? '/kg' : '/@'}
+                <span className="text-ai-subtext">Valor Venda:</span> {currencySymbol} {inputs.valorVenda}
+                {country === 'PY' ? '/kg' : '/@'}
               </div>
             </div>
           </div>
@@ -157,4 +155,3 @@ const SaveScenarioModal: React.FC<SaveScenarioModalProps> = ({
 };
 
 export default SaveScenarioModal;
-

@@ -43,7 +43,9 @@ const MarketTrends: React.FC = () => {
             </LineChart>
           </ResponsiveContainer>
           <div className="mt-4 text-xs text-ai-subtext">
-            <p>Tendência: <span className="text-emerald-600 font-medium">Alta de 7.1% nos últimos 6 meses</span></p>
+            <p>
+              Tendência: <span className="text-emerald-600 font-medium">Alta de 7.1% nos últimos 6 meses</span>
+            </p>
           </div>
         </div>
 
@@ -90,4 +92,3 @@ const MarketTrends: React.FC = () => {
 };
 
 export default MarketTrends;
-

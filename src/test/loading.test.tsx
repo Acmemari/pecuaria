@@ -74,7 +74,8 @@ describe('Carregamento de Recursos', () => {
       // Se não existir, criar para o teste
       if (!fontLink) {
         const link = document.createElement('link');
-        link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap';
+        link.href =
+          'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap';
         link.rel = 'stylesheet';
         document.head.appendChild(link);
       }
@@ -95,9 +96,9 @@ describe('Carregamento de Recursos', () => {
         script.textContent = JSON.stringify({
           imports: {
             'react/': 'https://aistudiocdn.com/react@^19.2.0/',
-            'react': 'https://aistudiocdn.com/react@^19.2.0',
+            react: 'https://aistudiocdn.com/react@^19.2.0',
             'react-dom/': 'https://aistudiocdn.com/react-dom@^19.2.0/',
-          }
+          },
         });
         document.head.appendChild(script);
       }
@@ -105,8 +106,6 @@ describe('Carregamento de Recursos', () => {
       const scriptElement = document.querySelector('script[type="importmap"]');
       expect(scriptElement).toBeTruthy();
     });
-
-
   });
 
   describe('Inicialização do React', () => {
@@ -207,4 +206,3 @@ describe('Verificação de Erros de Carregamento', () => {
     });
   });
 });
-

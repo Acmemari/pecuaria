@@ -9,7 +9,6 @@ describe('AuthContext', () => {
   });
 
   it('should have correct function signatures', () => {
-    
     const user = {
       id: '1',
       name: 'Test',
@@ -30,4 +29,3 @@ describe('AuthContext', () => {
   // Integration tests for AuthContext would require more complex setup
   // The core logic is tested in the auth module tests
 });
-

@@ -10,12 +10,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Calendar, PauseCircle, PlayCircle, CheckCircle2, MoreVertical, Pencil, Trash2 } from 'lucide-react';
@@ -96,7 +91,16 @@ function KanbanCard({
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}
       onClick={handleCardClick}
-      onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onEdit?.(task); } } : undefined}
+      onKeyDown={
+        isClickable
+          ? e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onEdit?.(task);
+              }
+            }
+          : undefined
+      }
       className={[
         'rounded-lg border border-ai-border bg-white dark:bg-ai-bg shadow-sm',
         'px-3 py-2 text-sm',
@@ -110,12 +114,8 @@ function KanbanCard({
             {task.title}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-ai-subtext">
-            <span>
-              Início: {formatDateBR(task.activity_date)}
-            </span>
-            <span>
-              Duração: {typeof task.duration_days === 'number' ? `${task.duration_days}d` : '—'}
-            </span>
+            <span>Início: {formatDateBR(task.activity_date)}</span>
+            <span>Duração: {typeof task.duration_days === 'number' ? `${task.duration_days}d` : '—'}</span>
             <span className="inline-flex items-center gap-1">
               <Calendar size={12} />
               {formatDateBR(task.due_date)}
@@ -129,8 +129,12 @@ function KanbanCard({
           <div className="relative flex-shrink-0" ref={menuRef} data-card-menu>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); e.preventDefault(); setMenuOpen((v) => !v); }}
-              onPointerDown={(e) => e.stopPropagation()}
+              onClick={e => {
+                e.stopPropagation();
+                e.preventDefault();
+                setMenuOpen(v => !v);
+              }}
+              onPointerDown={e => e.stopPropagation()}
               className="p-1 rounded text-ai-subtext hover:text-ai-text hover:bg-ai-surface2"
               aria-label="Abrir menu"
             >
@@ -139,13 +143,16 @@ function KanbanCard({
             {menuOpen && (
               <div
                 className="absolute right-0 top-full mt-0.5 py-1 min-w-[120px] rounded-lg border border-ai-border bg-white dark:bg-ai-bg shadow-lg z-10"
-                onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
+                onPointerDown={e => e.stopPropagation()}
               >
                 {onEdit && (
                   <button
                     type="button"
-                    onClick={() => { setMenuOpen(false); onEdit(task); }}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onEdit(task);
+                    }}
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm text-ai-text hover:bg-ai-surface2"
                   >
                     <Pencil size={14} />
@@ -155,7 +162,10 @@ function KanbanCard({
                 {onDelete && (
                   <button
                     type="button"
-                    onClick={() => { setMenuOpen(false); onDelete(task); }}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onDelete(task);
+                    }}
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
                     <Trash2 size={14} />
@@ -198,14 +208,9 @@ const SortableCard: React.FC<{
       {...listeners}
       className="touch-manipulation"
       data-kanban-card
-      onClick={(e) => e.stopPropagation()}
+      onClick={e => e.stopPropagation()}
     >
-      <KanbanCard
-        task={task}
-        responsibleLabel={responsibleLabel}
-        onEdit={onEdit}
-        onDelete={onDelete}
-      />
+      <KanbanCard task={task} responsibleLabel={responsibleLabel} onEdit={onEdit} onDelete={onDelete} />
     </div>
   );
 };
@@ -217,11 +222,7 @@ const DroppableColumn: React.FC<{
 }> = ({ status, children, onClick }) => {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
-    <div
-      ref={setNodeRef}
-      className={isOver ? 'ring-2 ring-ai-accent/30 rounded-xl' : ''}
-      onClick={onClick}
-    >
+    <div ref={setNodeRef} className={isOver ? 'ring-2 ring-ai-accent/30 rounded-xl' : ''} onClick={onClick}>
       {children}
     </div>
   );
@@ -259,7 +260,7 @@ export default function InitiativeTasksKanban({
   const filteredFlatTasks = useMemo(() => {
     if (!filterByResponsibleIds?.length) return flatTasks;
     const set = new Set(filterByResponsibleIds);
-    return flatTasks.filter((t) => t.responsible_person_id && set.has(t.responsible_person_id));
+    return flatTasks.filter(t => t.responsible_person_id && set.has(t.responsible_person_id));
   }, [flatTasks, filterByResponsibleIds]);
 
   const [tasksById, setTasksById] = useState<Record<string, FlatTask>>({});
@@ -270,7 +271,9 @@ export default function InitiativeTasksKanban({
     Concluído: [],
   });
   const columnsRef = useRef(columns);
-  useEffect(() => { columnsRef.current = columns; }, [columns]);
+  useEffect(() => {
+    columnsRef.current = columns;
+  }, [columns]);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -293,97 +296,99 @@ export default function InitiativeTasksKanban({
     setColumns(next);
   }, [filteredFlatTasks]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  const persistKanban = useCallback(async (prevCols: Record<KanbanStatus, string[]>, nextCols: Record<KanbanStatus, string[]>, movedId: string) => {
-    const prevStatus = findContainer(prevCols, movedId);
-    const nextStatus = findContainer(nextCols, movedId);
-    if (!prevStatus || !nextStatus) return;
+  const persistKanban = useCallback(
+    async (prevCols: Record<KanbanStatus, string[]>, nextCols: Record<KanbanStatus, string[]>, movedId: string) => {
+      const prevStatus = findContainer(prevCols, movedId);
+      const nextStatus = findContainer(nextCols, movedId);
+      if (!prevStatus || !nextStatus) return;
 
-    const affected = new Set<KanbanStatus>([prevStatus, nextStatus]);
-    const updates: Array<{ id: string; kanban_status: KanbanStatus; kanban_order: number; completed?: boolean }> = [];
+      const affected = new Set<KanbanStatus>([prevStatus, nextStatus]);
+      const updates: Array<{ id: string; kanban_status: KanbanStatus; kanban_order: number; completed?: boolean }> = [];
 
-    for (const status of affected) {
-      const ids = nextCols[status] || [];
-      ids.forEach((id, idx) => {
-        updates.push({ id, kanban_status: status, kanban_order: idx });
-      });
-    }
-
-    // Sync completed only if the moved card crosses Concluído boundary
-    if (prevStatus !== nextStatus) {
-      const completed =
-        nextStatus === 'Concluído' ? true :
-          prevStatus === 'Concluído' ? false :
-            undefined;
-      if (typeof completed === 'boolean') {
-        const entry = updates.find((u) => u.id === movedId);
-        if (entry) entry.completed = completed;
-        else updates.push({ id: movedId, kanban_status: nextStatus, kanban_order: 0, completed });
+      for (const status of affected) {
+        const ids = nextCols[status] || [];
+        ids.forEach((id, idx) => {
+          updates.push({ id, kanban_status: status, kanban_order: idx });
+        });
       }
-    }
 
-    setSaving(true);
-    try {
-      await updateTasksKanban(updates);
-      await onRefresh?.();
-    } catch (e) {
-      onToast?.(e instanceof Error ? e.message : 'Erro ao salvar Kanban', 'error');
-      await onRefresh?.();
-    } finally {
-      setSaving(false);
-    }
-  }, [onRefresh, onToast]);
+      // Sync completed only if the moved card crosses Concluído boundary
+      if (prevStatus !== nextStatus) {
+        const completed = nextStatus === 'Concluído' ? true : prevStatus === 'Concluído' ? false : undefined;
+        if (typeof completed === 'boolean') {
+          const entry = updates.find(u => u.id === movedId);
+          if (entry) entry.completed = completed;
+          else updates.push({ id: movedId, kanban_status: nextStatus, kanban_order: 0, completed });
+        }
+      }
+
+      setSaving(true);
+      try {
+        await updateTasksKanban(updates);
+        await onRefresh?.();
+      } catch (e) {
+        onToast?.(e instanceof Error ? e.message : 'Erro ao salvar Kanban', 'error');
+        await onRefresh?.();
+      } finally {
+        setSaving(false);
+      }
+    },
+    [onRefresh, onToast],
+  );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(String(event.active.id));
   }, []);
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    const activeKey = String(active.id);
-    setActiveId(null);
-    if (!over) return;
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      const activeKey = String(active.id);
+      setActiveId(null);
+      if (!over) return;
 
-    setColumns((prev) => {
-      const activeContainer = findContainer(prev, active.id);
-      const overContainer = findContainer(prev, over.id);
-      if (!activeContainer || !overContainer) return prev;
+      setColumns(prev => {
+        const activeContainer = findContainer(prev, active.id);
+        const overContainer = findContainer(prev, over.id);
+        if (!activeContainer || !overContainer) return prev;
 
-      if (activeContainer === overContainer) {
-        const oldIndex = prev[activeContainer].indexOf(activeKey);
+        if (activeContainer === overContainer) {
+          const oldIndex = prev[activeContainer].indexOf(activeKey);
+          const overId = String(over.id);
+          const overIndex =
+            overId === overContainer ? prev[overContainer].length - 1 : prev[overContainer].indexOf(overId);
+          if (oldIndex === -1 || overIndex === -1 || oldIndex === overIndex) return prev;
+          const nextCols = {
+            ...prev,
+            [activeContainer]: arrayMove(prev[activeContainer], oldIndex, overIndex),
+          };
+          void persistKanban(prev, nextCols, activeKey);
+          return nextCols;
+        }
+
+        const activeItems = [...prev[activeContainer]];
+        const overItems = [...prev[overContainer]];
+        const activeIndex = activeItems.indexOf(activeKey);
+        if (activeIndex === -1) return prev;
+        activeItems.splice(activeIndex, 1);
+
         const overId = String(over.id);
-        const overIndex = overId === overContainer ? prev[overContainer].length - 1 : prev[overContainer].indexOf(overId);
-        if (oldIndex === -1 || overIndex === -1 || oldIndex === overIndex) return prev;
+        const overIndex = overItems.includes(overId) ? overItems.indexOf(overId) : overItems.length;
+        overItems.splice(overIndex, 0, activeKey);
+
         const nextCols = {
           ...prev,
-          [activeContainer]: arrayMove(prev[activeContainer], oldIndex, overIndex),
+          [activeContainer]: activeItems,
+          [overContainer]: overItems,
         };
         void persistKanban(prev, nextCols, activeKey);
         return nextCols;
-      }
-
-      const activeItems = [...prev[activeContainer]];
-      const overItems = [...prev[overContainer]];
-      const activeIndex = activeItems.indexOf(activeKey);
-      if (activeIndex === -1) return prev;
-      activeItems.splice(activeIndex, 1);
-
-      const overId = String(over.id);
-      const overIndex = overItems.includes(overId) ? overItems.indexOf(overId) : overItems.length;
-      overItems.splice(overIndex, 0, activeKey);
-
-      const nextCols = {
-        ...prev,
-        [activeContainer]: activeItems,
-        [overContainer]: overItems,
-      };
-      void persistKanban(prev, nextCols, activeKey);
-      return nextCols;
-    });
-  }, [persistKanban]);
+      });
+    },
+    [persistKanban],
+  );
 
   const overlayTask = activeId ? tasksById[activeId] : null;
 
@@ -401,7 +406,7 @@ export default function InitiativeTasksKanban({
         onDragEnd={handleDragEnd}
       >
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {STATUSES.map((status) => {
+          {STATUSES.map(status => {
             const meta = statusMeta(status);
             const Icon = meta.icon;
             const ids = columns[status] || [];
@@ -409,7 +414,7 @@ export default function InitiativeTasksKanban({
               <DroppableColumn
                 key={status}
                 status={status}
-                onClick={(e) => {
+                onClick={e => {
                   if (activeId) return; // não abrir durante drag
                   if (status !== 'A Fazer') return;
                   const target = e.target as HTMLElement | null;
@@ -418,7 +423,9 @@ export default function InitiativeTasksKanban({
                 }}
               >
                 <div className="min-h-[220px] rounded-xl border border-ai-border bg-ai-surface/20">
-                  <div className={`px-3 py-2 rounded-t-xl border-b ${meta.headerClass} flex items-center justify-between`}>
+                  <div
+                    className={`px-3 py-2 rounded-t-xl border-b ${meta.headerClass} flex items-center justify-between`}
+                  >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className={`w-2 h-2 rounded-full ${meta.dotClass}`} />
                       <Icon size={14} className="text-ai-subtext" />
@@ -430,7 +437,7 @@ export default function InitiativeTasksKanban({
                   <div className="p-3">
                     <SortableContext items={ids} strategy={verticalListSortingStrategy}>
                       <div className="space-y-2">
-                        {ids.map((id) => {
+                        {ids.map(id => {
                           const t = tasksById[id];
                           if (!t) return null;
                           return (
@@ -459,12 +466,9 @@ export default function InitiativeTasksKanban({
         </div>
 
         <DragOverlay>
-          {overlayTask ? (
-            <KanbanCard task={overlayTask} responsibleLabel={responsibleLabel} isOverlay />
-          ) : null}
+          {overlayTask ? <KanbanCard task={overlayTask} responsibleLabel={responsibleLabel} isOverlay /> : null}
         </DragOverlay>
       </DndContext>
     </div>
   );
 }
-

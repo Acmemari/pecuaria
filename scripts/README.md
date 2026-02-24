@@ -26,6 +26,7 @@ O hook está localizado em `.git/hooks/pre-commit` e é executado automaticament
 ### Formato de versão
 
 O projeto usa o formato semântico: `MAJOR.MINOR.PATCH`
+
 - **MAJOR**: Incrementa quando há mudanças incompatíveis
 - **MINOR**: Incrementa quando há novas funcionalidades compatíveis
 - **PATCH**: Incrementa automaticamente a cada commit

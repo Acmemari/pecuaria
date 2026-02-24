@@ -80,11 +80,11 @@ describe('AdminDashboard Component', () => {
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockResolvedValue({
         data: [{ id: 'org-1', name: 'Org 1', status: 'active' }],
-        error: null
+        error: null,
       }),
     };
 
-    mockFrom.mockImplementation((tableName) => {
+    mockFrom.mockImplementation(tableName => {
       if (tableName === 'organizations') return mockOrgChain;
       return {
         select: mockSelect,
@@ -156,7 +156,9 @@ describe('AdminDashboard Component', () => {
 
       await waitFor(() => {
         expect(mockFrom).toHaveBeenCalledWith('user_profiles');
-        expect(mockSelect).toHaveBeenCalledWith('id, name, email, role, avatar, plan, status, last_login, organization_id, phone, qualification, created_at, updated_at');
+        expect(mockSelect).toHaveBeenCalledWith(
+          'id, name, email, role, avatar, plan, status, last_login, organization_id, phone, qualification, created_at, updated_at',
+        );
         expect(mockEq).toHaveBeenCalledWith('role', 'client');
         expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
       });
@@ -236,9 +238,12 @@ describe('AdminDashboard Component', () => {
 
       render(<AdminDashboard />);
 
-      await waitFor(() => {
-        expect(screen.getByText(/erro ao carregar usuários/i)).toBeInTheDocument();
-      }, { timeout: 4000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/erro ao carregar usuários/i)).toBeInTheDocument();
+        },
+        { timeout: 4000 },
+      );
     });
 
     it('should show retry button on error', async () => {
@@ -254,10 +259,13 @@ describe('AdminDashboard Component', () => {
 
       render(<AdminDashboard />);
 
-      await waitFor(() => {
-        const retryButton = screen.getByText(/tentar novamente/i);
-        expect(retryButton).toBeInTheDocument();
-      }, { timeout: 4000 });
+      await waitFor(
+        () => {
+          const retryButton = screen.getByText(/tentar novamente/i);
+          expect(retryButton).toBeInTheDocument();
+        },
+        { timeout: 4000 },
+      );
     });
 
     it('should retry loading on retry button click', async () => {
@@ -269,16 +277,22 @@ describe('AdminDashboard Component', () => {
 
       render(<AdminDashboard />);
 
-      await waitFor(() => {
-        expect(screen.getByText(/tentar novamente/i)).toBeInTheDocument();
-      }, { timeout: 4000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/tentar novamente/i)).toBeInTheDocument();
+        },
+        { timeout: 4000 },
+      );
 
       const retryButton = screen.getByText(/tentar novamente/i);
       await userEvent.click(retryButton);
 
-      await waitFor(() => {
-        expect(screen.getByText('Client One')).toBeInTheDocument();
-      }, { timeout: 4000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Client One')).toBeInTheDocument();
+        },
+        { timeout: 4000 },
+      );
     });
   });
 
@@ -371,11 +385,14 @@ describe('AdminDashboard Component', () => {
     it('should display client qualification badges correctly', async () => {
       render(<AdminDashboard />);
 
-      await waitFor(() => {
-        expect(screen.getByText(/visitante/i)).toBeInTheDocument();
-        expect(screen.getByText(/cliente/i)).toBeInTheDocument();
-        expect(screen.getByText(/analista/i)).toBeInTheDocument();
-      }, { timeout: 4000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/visitante/i)).toBeInTheDocument();
+          expect(screen.getByText(/cliente/i)).toBeInTheDocument();
+          expect(screen.getByText(/analista/i)).toBeInTheDocument();
+        },
+        { timeout: 4000 },
+      );
     });
 
     it('should display client status correctly', async () => {
@@ -430,9 +447,12 @@ describe('AdminDashboard Component', () => {
 
       render(<AdminDashboard />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Client One')).toBeInTheDocument();
-      }, { timeout: 5000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText('Client One')).toBeInTheDocument();
+        },
+        { timeout: 5000 },
+      );
 
       expect(attemptCount).toBe(3);
     });
@@ -468,17 +488,18 @@ describe('AdminDashboard Component', () => {
     });
 
     it('should handle network timeout', async () => {
-      mockOrder.mockImplementation(() =>
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Network timeout')), 100)
-        )
+      mockOrder.mockImplementation(
+        () => new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout')), 100)),
       );
 
       render(<AdminDashboard />);
 
-      await waitFor(() => {
-        expect(screen.getByText(/^Erro ao carregar dados$/i)).toBeInTheDocument();
-      }, { timeout: 10000 });
+      await waitFor(
+        () => {
+          expect(screen.getByText(/^Erro ao carregar dados$/i)).toBeInTheDocument();
+        },
+        { timeout: 10000 },
+      );
     }, 15000);
   });
 
@@ -486,18 +507,21 @@ describe('AdminDashboard Component', () => {
     it('should show correct table headers', async () => {
       render(<AdminDashboard />);
 
-      await waitFor(() => {
-        const table = screen.getByRole('table');
-        const thead = table.querySelector('thead');
-        if (!thead) throw new Error('Table head not found');
+      await waitFor(
+        () => {
+          const table = screen.getByRole('table');
+          const thead = table.querySelector('thead');
+          if (!thead) throw new Error('Table head not found');
 
-        const headerContainer = within(thead as HTMLElement);
-        expect(headerContainer.getByText(/^usuário$/i)).toBeInTheDocument();
-        expect(headerContainer.getByText(/^qualificação$/i)).toBeInTheDocument();
-        expect(headerContainer.getByText(/^status$/i)).toBeInTheDocument();
-        expect(headerContainer.getByText(/^último acesso$/i)).toBeInTheDocument();
-        expect(headerContainer.getByText(/^ações$/i)).toBeInTheDocument();
-      }, { timeout: 4000 });
+          const headerContainer = within(thead as HTMLElement);
+          expect(headerContainer.getByText(/^usuário$/i)).toBeInTheDocument();
+          expect(headerContainer.getByText(/^qualificação$/i)).toBeInTheDocument();
+          expect(headerContainer.getByText(/^status$/i)).toBeInTheDocument();
+          expect(headerContainer.getByText(/^último acesso$/i)).toBeInTheDocument();
+          expect(headerContainer.getByText(/^ações$/i)).toBeInTheDocument();
+        },
+        { timeout: 4000 },
+      );
     });
 
     it('should show client count in footer', async () => {

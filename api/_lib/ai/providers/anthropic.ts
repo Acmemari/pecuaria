@@ -5,14 +5,16 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function isRetryableError(err: unknown): boolean {
   const e = err as { status?: number; message?: string };
   if (typeof e?.status === 'number' && RETRYABLE_STATUS.has(e.status)) return true;
   const msg = String(e?.message || '').toLowerCase();
-  return msg.includes('timeout') || msg.includes('rate limit') || msg.includes('overloaded') || msg.includes('temporar');
+  return (
+    msg.includes('timeout') || msg.includes('rate limit') || msg.includes('overloaded') || msg.includes('temporar')
+  );
 }
 
 export class AnthropicProvider implements AIProvider {

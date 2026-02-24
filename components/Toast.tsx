@@ -27,21 +27,21 @@ const ToastComponent: React.FC<ToastProps> = ({ toast, onClose }) => {
     success: CheckCircle2,
     error: XCircle,
     warning: AlertCircle,
-    info: Info
+    info: Info,
   };
 
   const colors = {
     success: 'bg-green-50 border-green-200 text-green-800',
     error: 'bg-red-50 border-red-200 text-red-800',
     warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800'
+    info: 'bg-blue-50 border-blue-200 text-blue-800',
   };
 
   const iconColors = {
     success: 'text-green-600',
     error: 'text-red-600',
     warning: 'text-yellow-600',
-    info: 'text-blue-600'
+    info: 'text-blue-600',
   };
 
   const Icon = icons[toast.type];
@@ -77,10 +77,9 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onClose 
 
   return (
     <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2">
-      {toasts.map((toast) => (
+      {toasts.map(toast => (
         <ToastComponent key={toast.id} toast={toast} onClose={onClose} />
       ))}
     </div>
   );
 };
-

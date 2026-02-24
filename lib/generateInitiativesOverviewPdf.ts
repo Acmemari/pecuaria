@@ -31,10 +31,10 @@ export interface InitiativesOverviewPdfData {
 
 const STATUS_BAR_RGB: Record<string, [number, number, number]> = {
   'Em Andamento': [99, 102, 241],
-  'Concluído': [34, 197, 94],
+  Concluído: [34, 197, 94],
   'Não Iniciado': [148, 163, 184],
-  'Atrasado': [239, 68, 68],
-  'Suspenso': [245, 158, 11],
+  Atrasado: [239, 68, 68],
+  Suspenso: [245, 158, 11],
 };
 
 const formatDateBR = (d: string | null): string => {
@@ -59,7 +59,10 @@ function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
   let y = m;
 
   const text = (
-    t: string, x: number, yy: number, size: number,
+    t: string,
+    x: number,
+    yy: number,
+    size: number,
     weight: 'bold' | 'normal' = 'normal',
     color: [number, number, number] = [0, 0, 0],
     align: 'left' | 'center' | 'right' = 'left',
@@ -92,7 +95,11 @@ function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
   text('Relatório de Iniciativas — Visão Geral', m, 17, 9, 'normal', [203, 213, 225]);
 
   const dateStr = new Date().toLocaleDateString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
   text(dateStr, pw - m, 9, 8, 'normal', [148, 163, 184], 'right');
   if (userName) {
@@ -112,8 +119,18 @@ function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
 
   const kpis = [
     { label: 'TOTAL INICIATIVAS', value: String(metrics.total), color: [99, 102, 241] as [number, number, number] },
-    { label: 'PROGRESSO MÉDIO', value: `${metrics.avgProgress}%`, color: [34, 197, 94] as [number, number, number], bar: metrics.avgProgress },
-    { label: 'MARCOS ENTREGUES', value: `${metrics.milestones.completed}/${metrics.milestones.total}`, color: [16, 185, 129] as [number, number, number], bar: metrics.milPct },
+    {
+      label: 'PROGRESSO MÉDIO',
+      value: `${metrics.avgProgress}%`,
+      color: [34, 197, 94] as [number, number, number],
+      bar: metrics.avgProgress,
+    },
+    {
+      label: 'MARCOS ENTREGUES',
+      value: `${metrics.milestones.completed}/${metrics.milestones.total}`,
+      color: [16, 185, 129] as [number, number, number],
+      bar: metrics.milPct,
+    },
     { label: 'ATRASADAS', value: String(metrics.atrasadas), color: [239, 68, 68] as [number, number, number] },
   ];
 
@@ -134,7 +151,7 @@ function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
       doc.roundedRect(x + 4, barY, barW, 2, 1, 1, 'F');
       if (kpi.bar > 0) {
         doc.setFillColor(kpi.color[0], kpi.color[1], kpi.color[2]);
-        doc.roundedRect(x + 4, barY, Math.max(1, barW * Math.min(100, kpi.bar) / 100), 2, 1, 1, 'F');
+        doc.roundedRect(x + 4, barY, Math.max(1, (barW * Math.min(100, kpi.bar)) / 100), 2, 1, 1, 'F');
       }
     }
   });
@@ -166,7 +183,7 @@ function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
     doc.roundedRect(statusX + 5, sY, barW, 2.5, 1, 1, 'F');
     const rgb = STATUS_BAR_RGB[status] || [148, 163, 184];
     doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-    doc.roundedRect(statusX + 5, sY, Math.max(1, barW * pct / 100), 2.5, 1, 1, 'F');
+    doc.roundedRect(statusX + 5, sY, Math.max(1, (barW * pct) / 100), 2.5, 1, 1, 'F');
     sY += 6;
   });
 
@@ -188,7 +205,7 @@ function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
     doc.setFillColor(240, 240, 240);
     doc.roundedRect(leaderX + 5, lY, barW, 2.5, 1, 1, 'F');
     doc.setFillColor(99, 102, 241);
-    doc.roundedRect(leaderX + 5, lY, Math.max(1, barW * info.avgProgress / 100), 2.5, 1, 1, 'F');
+    doc.roundedRect(leaderX + 5, lY, Math.max(1, (barW * info.avgProgress) / 100), 2.5, 1, 1, 'F');
     lY += 6;
   });
 
@@ -211,7 +228,7 @@ function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
     doc.line(m, y + 7, m + cw, y + 7);
 
     let cx = m;
-    cols.forEach((col) => {
+    cols.forEach(col => {
       text(col.label, cx + 2, y + 5, 6, 'bold', [100, 116, 139]);
       cx += col.w;
     });
@@ -233,7 +250,7 @@ function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
       text(name, rx + 2, y + 5, 6.5, 'normal', [30, 41, 59], 'left', cols[0].w - 4);
       rx += cols[0].w;
 
-      const leader = (init.leader || '—').length > 16 ? (init.leader || '').slice(0, 14) + '…' : (init.leader || '—');
+      const leader = (init.leader || '—').length > 16 ? (init.leader || '').slice(0, 14) + '…' : init.leader || '—';
       text(leader, rx + 2, y + 5, 6.5, 'normal', [51, 65, 85]);
       rx += cols[1].w;
 
@@ -242,7 +259,14 @@ function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
       text(stShort, rx + 2, y + 5, 6, 'bold', STATUS_BAR_RGB[st] || [100, 116, 139]);
       rx += cols[2].w;
 
-      text(`${formatDateBR(init.start_date)} - ${formatDateBR(init.end_date)}`, rx + 2, y + 5, 5.5, 'normal', [100, 116, 139]);
+      text(
+        `${formatDateBR(init.start_date)} - ${formatDateBR(init.end_date)}`,
+        rx + 2,
+        y + 5,
+        5.5,
+        'normal',
+        [100, 116, 139],
+      );
       rx += cols[3].w;
 
       const prog = init.progress ?? 0;
@@ -250,15 +274,16 @@ function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
       doc.setFillColor(229, 231, 235);
       doc.roundedRect(rx + 2, y + 2.5, barPW, 2, 1, 1, 'F');
       if (prog > 0) {
-        const prgColor: [number, number, number] = prog >= 100 ? [34, 197, 94] : prog >= 50 ? [99, 102, 241] : [245, 158, 11];
+        const prgColor: [number, number, number] =
+          prog >= 100 ? [34, 197, 94] : prog >= 50 ? [99, 102, 241] : [245, 158, 11];
         doc.setFillColor(prgColor[0], prgColor[1], prgColor[2]);
-        doc.roundedRect(rx + 2, y + 2.5, Math.max(1, barPW * Math.min(100, prog) / 100), 2, 1, 1, 'F');
+        doc.roundedRect(rx + 2, y + 2.5, Math.max(1, (barPW * Math.min(100, prog)) / 100), 2, 1, 1, 'F');
       }
       text(`${prog}%`, rx + barPW + 4, y + 5, 6, 'bold', [30, 41, 59]);
       rx += cols[4].w;
 
       const milestones = init.milestones || [];
-      const completedMil = milestones.filter((mm) => mm.completed === true).length;
+      const completedMil = milestones.filter(mm => mm.completed === true).length;
       text(`${completedMil}/${milestones.length}`, rx + 2, y + 5, 6.5, 'normal', [51, 65, 85]);
       y += rowH;
     });
@@ -284,7 +309,7 @@ function buildPdfDoc(data: InitiativesOverviewPdfData): jsPDF {
         y + 8,
         6,
         'normal',
-        [100, 116, 139]
+        [100, 116, 139],
       );
       y += 12;
       renderInitiativesTable(group.initiatives);

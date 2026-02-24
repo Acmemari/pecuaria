@@ -35,7 +35,7 @@ const CalendarAgent: React.FC = () => {
       open: true,
       selectInfo,
       value: '',
-      date: selectInfo.startStr.slice(0, 10)
+      date: selectInfo.startStr.slice(0, 10),
     });
   };
 
@@ -43,7 +43,7 @@ const CalendarAgent: React.FC = () => {
     const { selectInfo, value, date } = promptState;
     setPromptState({ open: false, selectInfo: null, value: '', date: '' });
     if (!selectInfo || !value?.trim()) return;
-    setEvents((prev) => [
+    setEvents(prev => [
       ...prev,
       {
         id: `activity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -61,7 +61,7 @@ const CalendarAgent: React.FC = () => {
 
   const handleConfirmDelete = () => {
     if (confirmState.event) {
-      setEvents((prev) => prev.filter((e) => e.id !== confirmState.event!.id));
+      setEvents(prev => prev.filter(e => e.id !== confirmState.event!.id));
     }
     setConfirmState({ open: false, event: null });
   };
@@ -70,8 +70,14 @@ const CalendarAgent: React.FC = () => {
     <div className="h-full p-4 md:p-6">
       {/* Modal: Inclua uma atividade */}
       {promptState.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setPromptState({ open: false, selectInfo: null, value: '', date: '' })}>
-          <div className="bg-ai-bg border border-ai-border rounded-xl shadow-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setPromptState({ open: false, selectInfo: null, value: '', date: '' })}
+        >
+          <div
+            className="bg-ai-bg border border-ai-border rounded-xl shadow-xl w-full max-w-md p-6"
+            onClick={e => e.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold text-ai-text mb-3">Inclua uma atividade</h3>
 
             <div className="space-y-4 mb-4">
@@ -82,30 +88,33 @@ const CalendarAgent: React.FC = () => {
                 <input
                   type="text"
                   value={promptState.value}
-                  onChange={(e) => setPromptState((p) => ({ ...p, value: e.target.value }))}
+                  onChange={e => setPromptState(p => ({ ...p, value: e.target.value }))}
                   placeholder="Ex: Vacinação, Pesagem, etc."
                   className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text"
                   autoFocus
-                  onKeyDown={(e) => e.key === 'Enter' && handlePromptConfirm()}
+                  onKeyDown={e => e.key === 'Enter' && handlePromptConfirm()}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-ai-subtext uppercase tracking-wider mb-1">
-                  Data
-                </label>
-                <DateInputBR
-                  value={promptState.date}
-                  onChange={(v) => setPromptState((p) => ({ ...p, date: v }))}
-                />
+                <label className="block text-xs font-medium text-ai-subtext uppercase tracking-wider mb-1">Data</label>
+                <DateInputBR value={promptState.date} onChange={v => setPromptState(p => ({ ...p, date: v }))} />
               </div>
             </div>
 
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setPromptState({ open: false, selectInfo: null, value: '', date: '' })} className="px-4 py-2 rounded-md border border-ai-border text-ai-text hover:bg-ai-surface2">
+              <button
+                type="button"
+                onClick={() => setPromptState({ open: false, selectInfo: null, value: '', date: '' })}
+                className="px-4 py-2 rounded-md border border-ai-border text-ai-text hover:bg-ai-surface2"
+              >
                 Cancelar
               </button>
-              <button type="button" onClick={handlePromptConfirm} className="px-4 py-2 rounded-md bg-ai-accent text-white hover:opacity-90">
+              <button
+                type="button"
+                onClick={handlePromptConfirm}
+                className="px-4 py-2 rounded-md bg-ai-accent text-white hover:opacity-90"
+              >
                 Adicionar
               </button>
             </div>
@@ -115,10 +124,13 @@ const CalendarAgent: React.FC = () => {
 
       {/* Modal: Confirmar exclusão */}
       {confirmState.open && confirmState.event && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setConfirmState({ open: false, event: null })}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setConfirmState({ open: false, event: null })}
+        >
           <div
             className="bg-white dark:bg-ai-bg border border-ai-border rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200"
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
           >
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4 text-red-600">
@@ -130,7 +142,8 @@ const CalendarAgent: React.FC = () => {
 
               <div className="space-y-3">
                 <p className="text-ai-text font-medium">
-                  Deseja realmente excluir a atividade <span className="text-ai-accent">"{confirmState.event.title}"</span>?
+                  Deseja realmente excluir a atividade{' '}
+                  <span className="text-ai-accent">"{confirmState.event.title}"</span>?
                 </p>
                 <p className="text-ai-subtext text-sm leading-relaxed">
                   Esta ação não poderá ser desfeita e a atividade será removida permanentemente do seu calendário.

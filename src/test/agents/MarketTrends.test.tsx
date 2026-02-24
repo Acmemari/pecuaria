@@ -10,4 +10,3 @@ describe('MarketTrends Component', () => {
   // Component tests with Recharts require complex mocking
   // The component structure is validated by the export test
 });
-

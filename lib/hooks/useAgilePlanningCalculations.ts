@@ -21,7 +21,7 @@ export interface AgilePlanningParams {
   percentage: number;
   expectedMargin: number;
   operationPecuaryValue: number;
-  
+
   // Índices reprodutivos
   fertility: number;
   prePartumLoss: number;
@@ -29,11 +29,11 @@ export interface AgilePlanningParams {
   maleWeaningWeight: number;
   femaleWeaningWeight: number;
   firstMatingAge: number;
-  
+
   // Categorias e validações
   animalCategories: AnimalCategory[];
   isPercentageSumValid: boolean;
-  
+
   // Fazenda
   farm: Farm | null;
   showReproductiveIndices: boolean;
@@ -48,19 +48,19 @@ export interface AgilePlanningResults {
   requiredRevenue: number;
   averageValue: number;
   requiredSales: number;
-  
+
   // Índices reprodutivos
   weaningRate: number;
   kgPerMatrix: number;
   requiredMatrixes: number;
   averageHerd: number;
   matricesOverAverageHerd: number;
-  
+
   // Performance
   salesPerHectare: number;
   gmdGlobal: number;
   lotacaoCabHa: number;
-  
+
   // Financeiro
   revenue: number;
   totalDisbursement: number;
@@ -68,7 +68,7 @@ export interface AgilePlanningResults {
   resultPerHectare: number;
   marginOverSale: number;
   disbursementPerHeadMonth: number;
-  
+
   // Funções auxiliares
   calculateQuantity: (categoryPercentage: number) => number;
   calculateValuePerHead: (category: AnimalCategory) => number;
@@ -127,12 +127,13 @@ export function useAgilePlanningCalculations(params: AgilePlanningParams): Agile
 
   // Função auxiliar: calcular valor por cabeça
   const calculateValuePerHead = useMemo(
-    () => (category: AnimalCategory): number => {
-      const weight = category.weight ?? 0;
-      const valuePerKg = category.valuePerKg ?? 0;
-      return weight * valuePerKg;
-    },
-    []
+    () =>
+      (category: AnimalCategory): number => {
+        const weight = category.weight ?? 0;
+        const valuePerKg = category.valuePerKg ?? 0;
+        return weight * valuePerKg;
+      },
+    [],
   );
 
   // 1. Valor calculado
@@ -203,24 +204,25 @@ export function useAgilePlanningCalculations(params: AgilePlanningParams): Agile
 
   // 9. Função: calcular quantidade
   const calculateQuantity = useMemo(
-    () => (categoryPercentage: number): number => {
-      if (!isPercentageSumValid || requiredSales === 0) return 0;
-      return Math.round(safeDivide(requiredSales * categoryPercentage, 100));
-    },
-    [isPercentageSumValid, requiredSales]
+    () =>
+      (categoryPercentage: number): number => {
+        if (!isPercentageSumValid || requiredSales === 0) return 0;
+        return Math.round(safeDivide(requiredSales * categoryPercentage, 100));
+      },
+    [isPercentageSumValid, requiredSales],
   );
 
   // 10. GMD global
   const gmdGlobal = useMemo(() => {
     if (!showReproductiveIndices || averageHerd <= 0) return 0;
-    
+
     const totalPesoKg = animalCategories.reduce((sum, category) => {
       const quantity = calculateQuantity(category.percentage);
       if (quantity <= 0) return sum;
       const weightKg = isKgCategory(category.id) ? category.weight : category.weight * 30;
       return sum + quantity * weightKg;
     }, 0);
-    
+
     return safeDivide(safeDivide(totalPesoKg, averageHerd), 365);
   }, [showReproductiveIndices, averageHerd, animalCategories, calculateQuantity]);
 

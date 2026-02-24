@@ -1,44 +1,13 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import {
-  Loader2,
-  RefreshCw,
-  Plus,
-  Trash2,
-  FolderOpen,
-  Package,
-  Layers,
-  CheckSquare,
-} from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Loader2, RefreshCw, Plus, Trash2, FolderOpen, Package, Layers, CheckSquare } from 'lucide-react';
 import { loadFullEAPTree, type WBSNode } from '../lib/eapTree';
-import {
-  createProject,
-  updateProject,
-  deleteProject,
-  type ProjectPayload,
-  type ProjectRow,
-} from '../lib/projects';
+import { createProject, updateProject, deleteProject, type ProjectPayload, type ProjectRow } from '../lib/projects';
 import { deleteDelivery } from '../lib/deliveries';
-import {
-  ensureDefaultMilestone,
-  type InitiativeTaskRow,
-  type KanbanStatus,
-} from '../lib/initiatives';
+import { ensureDefaultMilestone, type InitiativeTaskRow, type KanbanStatus } from '../lib/initiatives';
 import { fetchPeople, type Person } from '../lib/people';
 import { sanitizeText } from '../lib/inputSanitizer';
 import { supabase } from '../lib/supabase';
-import {
-  InlineText,
-  InlineTextarea,
-  InlineDate,
-  InlineSelect,
-  InlineNumber,
-} from './eap/InlineField';
+import { InlineText, InlineTextarea, InlineDate, InlineSelect, InlineNumber } from './eap/InlineField';
 import { getCurrentIsoDate } from './eap';
 
 const DEBOUNCE_MS = 600;
@@ -95,12 +64,9 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
     };
   }, []);
 
-  const toast = useCallback(
-    (msg: string, type: 'success' | 'error' | 'warning' | 'info') => {
-      if (mountedRef.current) toastRef.current?.(msg, type);
-    },
-    []
-  );
+  const toast = useCallback((msg: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    if (mountedRef.current) toastRef.current?.(msg, type);
+  }, []);
 
   const [tree, setTree] = useState<WBSNode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +90,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
       setTree(t);
       if (t.length > 0 && !selectedProgramId) {
         setSelectedProgramId(t[0].data.rawId);
-      } else if (t.length > 0 && selectedProgramId && !t.some((n) => n.data.rawId === selectedProgramId)) {
+      } else if (t.length > 0 && selectedProgramId && !t.some(n => n.data.rawId === selectedProgramId)) {
         setSelectedProgramId(t[0].data.rawId);
       }
     } catch (err) {
@@ -145,7 +111,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
   useEffect(() => {
     let active = true;
     fetchPeople(effectiveUserId, selectedFarmId ? { farmId: selectedFarmId } : undefined)
-      .then((rows) => {
+      .then(rows => {
         if (active && mountedRef.current) setPeople(rows);
       })
       .catch(() => {
@@ -174,13 +140,10 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
         }
       }, DEBOUNCE_MS);
     },
-    [loadTree, toast]
+    [loadTree, toast],
   );
 
-  const selectedProgram = useMemo(
-    () => tree.find((n) => n.data.rawId === selectedProgramId),
-    [tree, selectedProgramId]
-  );
+  const selectedProgram = useMemo(() => tree.find(n => n.data.rawId === selectedProgramId), [tree, selectedProgramId]);
 
   const handleProgramChange = useCallback(
     (field: keyof ProjectPayload, value: string | string[] | { name: string; activity: string }[] | null) => {
@@ -203,20 +166,23 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
       } else if (typeof value === 'string') {
         (payload as unknown as Record<string, unknown>)[field] = value || null;
       }
-      scheduleSave(`program-${p.id}`, async () => { await updateProject(p.id, payload); });
-      setTree((prev) =>
-        prev.map((n) => {
+      scheduleSave(`program-${p.id}`, async () => {
+        await updateProject(p.id, payload);
+      });
+      setTree(prev =>
+        prev.map(n => {
           if (n.data.rawId !== p.id) return n;
           const proj = n.data.project!;
           const updated = { ...proj };
           if (field === 'success_evidence' && Array.isArray(value)) updated.success_evidence = value as string[];
-          else if (field === 'stakeholder_matrix' && Array.isArray(value)) updated.stakeholder_matrix = value as { name: string; activity: string }[];
+          else if (field === 'stakeholder_matrix' && Array.isArray(value))
+            updated.stakeholder_matrix = value as { name: string; activity: string }[];
           else if (typeof value === 'string') (updated as Record<string, unknown>)[field] = value || null;
           return { ...n, data: { ...n.data, project: updated } };
-        })
+        }),
       );
     },
-    [selectedProgram, selectedClientId, scheduleSave]
+    [selectedProgram, selectedClientId, scheduleSave],
   );
 
   const handleDeliveryChange = useCallback(
@@ -227,20 +193,20 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
         const { error } = await supabase.from('deliveries').update(payload).eq('id', deliveryId);
         if (error) throw new Error(error.message);
       });
-      setTree((prev) =>
-        prev.map((prog) => ({
+      setTree(prev =>
+        prev.map(prog => ({
           ...prog,
-          children: prog.children.map((d) => {
+          children: prog.children.map(d => {
             if (d.data.rawId !== deliveryId) return d;
             const del = d.data.delivery!;
             const updated = { ...del, [field]: value };
             if (field === 'end_date') (updated as Record<string, unknown>).due_date = value;
             return { ...d, data: { ...d.data, delivery: updated } };
           }),
-        }))
+        })),
       );
     },
-    [scheduleSave]
+    [scheduleSave],
   );
 
   const handleActivityChange = useCallback(
@@ -248,25 +214,24 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
       scheduleSave(`activity-${initiativeId}`, async () => {
         let leaderVal: string | null = value;
         if (field === 'leader_id' && value) {
-          const person = people.find((p) => p.id === value);
+          const person = people.find(p => p.id === value);
           leaderVal = person ? person.preferred_name?.trim() || person.full_name : value;
         }
-        const payload: Record<string, unknown> =
-          field === 'leader_id' ? { leader: leaderVal } : { [field]: value };
+        const payload: Record<string, unknown> = field === 'leader_id' ? { leader: leaderVal } : { [field]: value };
         const { error } = await supabase.from('initiatives').update(payload).eq('id', initiativeId);
         if (error) throw new Error(error.message);
       });
-      setTree((prev) =>
-        prev.map((prog) => ({
+      setTree(prev =>
+        prev.map(prog => ({
           ...prog,
-          children: prog.children.map((del) => ({
+          children: prog.children.map(del => ({
             ...del,
-            children: del.children.map((act) => {
+            children: del.children.map(act => {
               if (act.data.rawId !== initiativeId) return act;
               const init = act.data.initiative!;
               const updated = { ...init };
               if (field === 'leader_id') {
-                const person = people.find((p) => p.id === value);
+                const person = people.find(p => p.id === value);
                 updated.leader = person ? person.preferred_name?.trim() || person.full_name : value;
               } else {
                 (updated as Record<string, unknown>)[field] = value;
@@ -274,10 +239,10 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
               return { ...act, data: { ...act.data, initiative: updated } };
             }),
           })),
-        }))
+        })),
       );
     },
-    [scheduleSave, people]
+    [scheduleSave, people],
   );
 
   const findTaskInTree = useCallback((taskId: string): InitiativeTaskRow | null => {
@@ -304,20 +269,19 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
         }
         if (field === 'duration_days' && task) {
           const actDate = task.activity_date || task.due_date;
-          if (actDate)
-            payload.due_date = addDaysIso(actDate, Math.max(1, Number(value) || 1) - 1);
+          if (actDate) payload.due_date = addDaysIso(actDate, Math.max(1, Number(value) || 1) - 1);
         }
         const { error } = await supabase.from('initiative_tasks').update(payload).eq('id', taskId);
         if (error) throw new Error(error.message);
       });
-      setTree((prev) =>
-        prev.map((prog) => ({
+      setTree(prev =>
+        prev.map(prog => ({
           ...prog,
-          children: prog.children.map((del) => ({
+          children: prog.children.map(del => ({
             ...del,
-            children: del.children.map((act) => ({
+            children: del.children.map(act => ({
               ...act,
-              children: act.children.map((t) => {
+              children: act.children.map(t => {
                 if (t.data.rawId !== taskId) return t;
                 const task = t.data.task!;
                 const updated = { ...task, [field]: value };
@@ -330,17 +294,17 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                   if (actDate)
                     (updated as Record<string, unknown>).due_date = addDaysIso(
                       actDate,
-                      Math.max(1, Number(value) || 1) - 1
+                      Math.max(1, Number(value) || 1) - 1,
                     );
                 }
                 return { ...t, data: { ...t.data, task: updated } };
               }),
             })),
           })),
-        }))
+        })),
       );
     },
-    [scheduleSave, findTaskInTree]
+    [scheduleSave, findTaskInTree],
   );
 
   const addDelivery = useCallback(async () => {
@@ -389,7 +353,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
         setSaving(false);
       }
     },
-    [effectiveUserId, selectedClientId, selectedFarmId, loadTree, toast]
+    [effectiveUserId, selectedClientId, selectedFarmId, loadTree, toast],
   );
 
   const addTask = useCallback(
@@ -413,12 +377,12 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
         setSaving(false);
       }
     },
-    [loadTree, toast]
+    [loadTree, toast],
   );
 
   const deleteDeliveryById = useCallback(
     async (id: string) => {
-      const d = tree.flatMap((p) => p.children).find((c) => c.data.rawId === id);
+      const d = tree.flatMap(p => p.children).find(c => c.data.rawId === id);
       if (!d || !window.confirm(`Excluir "${d.data.delivery?.name || 'Entrega'}"?`)) return;
       try {
         await deleteDelivery(id);
@@ -428,12 +392,15 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
         toast(err instanceof Error ? err.message : 'Erro ao excluir.', 'error');
       }
     },
-    [tree, loadTree, toast]
+    [tree, loadTree, toast],
   );
 
   const deleteActivityById = useCallback(
     async (id: string) => {
-      const act = tree.flatMap((p) => p.children).flatMap((d) => d.children).find((c) => c.data.rawId === id);
+      const act = tree
+        .flatMap(p => p.children)
+        .flatMap(d => d.children)
+        .find(c => c.data.rawId === id);
       if (!act || !window.confirm(`Excluir "${act.data.initiative?.name || 'Atividade'}"?`)) return;
       try {
         const { error } = await supabase.from('initiatives').delete().eq('id', id);
@@ -444,16 +411,16 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
         toast(err instanceof Error ? err.message : 'Erro ao excluir.', 'error');
       }
     },
-    [tree, loadTree, toast]
+    [tree, loadTree, toast],
   );
 
   const deleteTaskById = useCallback(
     async (id: string) => {
       const t = tree
-        .flatMap((p) => p.children)
-        .flatMap((d) => d.children)
-        .flatMap((a) => a.children)
-        .find((c) => c.data.rawId === id);
+        .flatMap(p => p.children)
+        .flatMap(d => d.children)
+        .flatMap(a => a.children)
+        .find(c => c.data.rawId === id);
       if (!t || !window.confirm(`Excluir "${t.data.task?.title || 'Tarefa'}"?`)) return;
       try {
         const { error } = await supabase.from('initiative_tasks').delete().eq('id', id);
@@ -464,25 +431,21 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
         toast(err instanceof Error ? err.message : 'Erro ao excluir.', 'error');
       }
     },
-    [tree, loadTree, toast]
+    [tree, loadTree, toast],
   );
 
   const peopleOptions = useMemo(
-    () => people.map((p) => ({ value: p.id, label: p.preferred_name?.trim() || p.full_name })),
-    [people]
+    () => people.map(p => ({ value: p.id, label: p.preferred_name?.trim() || p.full_name })),
+    [people],
   );
 
   const getLeaderIdFromName = useCallback(
     (name: string | null): string => {
       if (!name) return '';
-      const p = people.find(
-        (x) =>
-          (x.preferred_name?.trim() || x.full_name) === name ||
-          x.full_name === name
-      );
+      const p = people.find(x => (x.preferred_name?.trim() || x.full_name) === name || x.full_name === name);
       return p?.id ?? '';
     },
-    [people]
+    [people],
   );
 
   if (loading && tree.length === 0) {
@@ -548,10 +511,10 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <select
           value={selectedProgramId ?? ''}
-          onChange={(e) => setSelectedProgramId(e.target.value || null)}
+          onChange={e => setSelectedProgramId(e.target.value || null)}
           className="rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
         >
-          {programs.map((p) => (
+          {programs.map(p => (
             <option key={p.data.rawId} value={p.data.rawId}>
               {p.data.project?.name || 'Programa sem nome'}
             </option>
@@ -583,7 +546,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                   <span className="text-sm text-ai-subtext shrink-0">Nome:</span>
                   <InlineText
                     value={currentProgram.name || ''}
-                    onChange={(v) => handleProgramChange('name', v)}
+                    onChange={v => handleProgramChange('name', v)}
                     placeholder="Nome do programa"
                     className="flex-1 min-w-[200px]"
                   />
@@ -592,13 +555,13 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                   <span className="text-sm text-ai-subtext shrink-0">Início:</span>
                   <InlineDate
                     value={currentProgram.start_date || ''}
-                    onChange={(v) => handleProgramChange('start_date', v)}
+                    onChange={v => handleProgramChange('start_date', v)}
                     max={currentProgram.end_date || undefined}
                   />
                   <span className="text-sm text-ai-subtext shrink-0 ml-4">Fim:</span>
                   <InlineDate
                     value={currentProgram.end_date || ''}
-                    onChange={(v) => handleProgramChange('end_date', v)}
+                    onChange={v => handleProgramChange('end_date', v)}
                     min={currentProgram.start_date || undefined}
                   />
                 </div>
@@ -606,7 +569,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                   <div className="text-sm text-ai-subtext mb-1">Descrição geral:</div>
                   <InlineTextarea
                     value={currentProgram.description || ''}
-                    onChange={(v) => handleProgramChange('description', v)}
+                    onChange={v => handleProgramChange('description', v)}
                     placeholder="Descreva o programa aqui..."
                     rows={3}
                   />
@@ -615,7 +578,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                   <div className="text-sm text-ai-subtext mb-1">Transformações e conquistas esperadas:</div>
                   <InlineTextarea
                     value={currentProgram.transformations_achievements || ''}
-                    onChange={(v) => handleProgramChange('transformations_achievements', v)}
+                    onChange={v => handleProgramChange('transformations_achievements', v)}
                     placeholder="O que será transformado?"
                     rows={2}
                   />
@@ -628,7 +591,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                         <div key={idx} className="flex items-center gap-2">
                           <InlineText
                             value={item}
-                            onChange={(v) => {
+                            onChange={v => {
                               const arr = [...(currentProgram.success_evidence || [''])];
                               arr[idx] = v;
                               handleProgramChange('success_evidence', arr);
@@ -647,15 +610,12 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                             <Trash2 size={14} />
                           </button>
                         </div>
-                      )
+                      ),
                     )}
                     <button
                       type="button"
                       onClick={() =>
-                        handleProgramChange('success_evidence', [
-                          ...(currentProgram.success_evidence || []),
-                          '',
-                        ])
+                        handleProgramChange('success_evidence', [...(currentProgram.success_evidence || []), ''])
                       }
                       className="text-xs text-ai-accent hover:underline flex items-center gap-1"
                     >
@@ -674,7 +634,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                       <div key={idx} className="flex flex-wrap items-center gap-2">
                         <InlineText
                           value={row.name}
-                          onChange={(v) => {
+                          onChange={v => {
                             const arr = [...(currentProgram.stakeholder_matrix || [])];
                             arr[idx] = { ...arr[idx], name: v };
                             handleProgramChange('stakeholder_matrix', arr);
@@ -684,7 +644,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                         />
                         <InlineText
                           value={row.activity}
-                          onChange={(v) => {
+                          onChange={v => {
                             const arr = [...(currentProgram.stakeholder_matrix || [])];
                             arr[idx] = { ...arr[idx], activity: v };
                             handleProgramChange('stakeholder_matrix', arr);
@@ -741,7 +701,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
               </button>
             </div>
 
-            {(selectedProgram?.children ?? []).map((delNode) => {
+            {(selectedProgram?.children ?? []).map(delNode => {
               const del = delNode.data.delivery!;
               return (
                 <div key={del.id} className="pl-6 border-l-2 border-blue-200 space-y-4">
@@ -761,7 +721,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                       <span className="text-sm text-ai-subtext shrink-0">Nome:</span>
                       <InlineText
                         value={del.name || ''}
-                        onChange={(v) => handleDeliveryChange(del.id, 'name', v)}
+                        onChange={v => handleDeliveryChange(del.id, 'name', v)}
                         placeholder="Nome da entrega"
                         className="flex-1 min-w-[200px]"
                       />
@@ -770,7 +730,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                       <div className="text-sm text-ai-subtext mb-1">Descrição:</div>
                       <InlineTextarea
                         value={del.description || ''}
-                        onChange={(v) => handleDeliveryChange(del.id, 'description', v)}
+                        onChange={v => handleDeliveryChange(del.id, 'description', v)}
                         placeholder="Descrição da entrega..."
                         rows={2}
                       />
@@ -779,13 +739,13 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                       <span className="text-sm text-ai-subtext shrink-0">Início:</span>
                       <InlineDate
                         value={del.start_date || ''}
-                        onChange={(v) => handleDeliveryChange(del.id, 'start_date', v)}
+                        onChange={v => handleDeliveryChange(del.id, 'start_date', v)}
                         max={del.end_date || del.due_date || undefined}
                       />
                       <span className="text-sm text-ai-subtext shrink-0 ml-4">Fim:</span>
                       <InlineDate
                         value={del.end_date || del.due_date || ''}
-                        onChange={(v) => handleDeliveryChange(del.id, 'end_date', v)}
+                        onChange={v => handleDeliveryChange(del.id, 'end_date', v)}
                         min={del.start_date || undefined}
                       />
                     </div>
@@ -808,7 +768,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                         </button>
                       </div>
                       <div className="pl-4 space-y-4 border-l-2 border-emerald-200">
-                        {delNode.children.map((actNode) => {
+                        {delNode.children.map(actNode => {
                           const act = actNode.data.initiative!;
                           return (
                             <div key={act.id} className="space-y-3">
@@ -827,14 +787,14 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                                   <span className="text-sm text-ai-subtext shrink-0">Nome:</span>
                                   <InlineText
                                     value={act.name || ''}
-                                    onChange={(v) => handleActivityChange(act.id, 'name', v)}
+                                    onChange={v => handleActivityChange(act.id, 'name', v)}
                                     placeholder="Nome da atividade"
                                     className="flex-1 min-w-[180px]"
                                   />
                                   <span className="text-sm text-ai-subtext shrink-0 ml-2">Líder:</span>
                                   <InlineSelect
                                     value={getLeaderIdFromName(act.leader)}
-                                    onChange={(v) => handleActivityChange(act.id, 'leader_id', v)}
+                                    onChange={v => handleActivityChange(act.id, 'leader_id', v)}
                                     options={peopleOptions}
                                     placeholder="Selecione"
                                     className="min-w-[140px]"
@@ -844,19 +804,19 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                                   <span className="text-sm text-ai-subtext shrink-0">Início:</span>
                                   <InlineDate
                                     value={act.start_date || ''}
-                                    onChange={(v) => handleActivityChange(act.id, 'start_date', v)}
+                                    onChange={v => handleActivityChange(act.id, 'start_date', v)}
                                     max={act.end_date || undefined}
                                   />
                                   <span className="text-sm text-ai-subtext shrink-0 ml-2">Fim:</span>
                                   <InlineDate
                                     value={act.end_date || ''}
-                                    onChange={(v) => handleActivityChange(act.id, 'end_date', v)}
+                                    onChange={v => handleActivityChange(act.id, 'end_date', v)}
                                     min={act.start_date || undefined}
                                   />
                                   <span className="text-sm text-ai-subtext shrink-0 ml-2">Status:</span>
                                   <InlineSelect
                                     value={act.status || 'Não Iniciado'}
-                                    onChange={(v) => handleActivityChange(act.id, 'status', v)}
+                                    onChange={v => handleActivityChange(act.id, 'status', v)}
                                     options={STATUS_OPTIONS}
                                   />
                                 </div>
@@ -879,7 +839,7 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                                     </button>
                                   </div>
                                   <div className="space-y-3">
-                                    {actNode.children.map((taskNode) => {
+                                    {actNode.children.map(taskNode => {
                                       const task = taskNode.data.task!;
                                       return (
                                         <div key={task.id} className="space-y-2">
@@ -897,16 +857,14 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                                             <span className="text-sm text-ai-subtext shrink-0">Título:</span>
                                             <InlineText
                                               value={task.title || ''}
-                                              onChange={(v) => handleTaskChange(task.id, 'title', v)}
+                                              onChange={v => handleTaskChange(task.id, 'title', v)}
                                               placeholder="Título da tarefa"
                                               className="flex-1 min-w-[160px]"
                                             />
                                             <span className="text-sm text-ai-subtext shrink-0 ml-2">Responsável:</span>
                                             <InlineSelect
                                               value={task.responsible_person_id || ''}
-                                              onChange={(v) =>
-                                                handleTaskChange(task.id, 'responsible_person_id', v)
-                                              }
+                                              onChange={v => handleTaskChange(task.id, 'responsible_person_id', v)}
                                               options={peopleOptions}
                                               placeholder="Selecione"
                                               className="min-w-[120px]"
@@ -916,20 +874,20 @@ const ProgramaDocumento: React.FC<ProgramaDocumentoProps> = ({
                                             <span className="text-sm text-ai-subtext shrink-0">Início:</span>
                                             <InlineDate
                                               value={task.activity_date || ''}
-                                              onChange={(v) => handleTaskChange(task.id, 'activity_date', v)}
+                                              onChange={v => handleTaskChange(task.id, 'activity_date', v)}
                                             />
-                                            <span className="text-sm text-ai-subtext shrink-0 ml-2">Duração (dias):</span>
+                                            <span className="text-sm text-ai-subtext shrink-0 ml-2">
+                                              Duração (dias):
+                                            </span>
                                             <InlineNumber
                                               value={String(task.duration_days ?? 1)}
-                                              onChange={(v) =>
-                                                handleTaskChange(task.id, 'duration_days', Number(v) || 1)
-                                              }
+                                              onChange={v => handleTaskChange(task.id, 'duration_days', Number(v) || 1)}
                                               min={1}
                                             />
                                             <span className="text-sm text-ai-subtext shrink-0 ml-2">Status:</span>
                                             <InlineSelect
                                               value={task.kanban_status || 'A Fazer'}
-                                              onChange={(v) =>
+                                              onChange={v =>
                                                 handleTaskChange(task.id, 'kanban_status', v as KanbanStatus)
                                               }
                                               options={KANBAN_OPTIONS}

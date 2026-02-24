@@ -23,9 +23,10 @@ function calculateCattleProfit(inputs: CattleCalculatorInputs): CalculationResul
   const margemVenda = valorBoi > 0 ? (resultadoPorBoi / valorBoi) * 100 : 0;
 
   const capitalInvestidoCompra = custoCompra;
-  const resultadoMensal = mesesPermanencia > 0 && capitalInvestidoCompra > 0
-    ? ((resultadoPorBoi / capitalInvestidoCompra) / mesesPermanencia) * 100
-    : 0;
+  const resultadoMensal =
+    mesesPermanencia > 0 && capitalInvestidoCompra > 0
+      ? (resultadoPorBoi / capitalInvestidoCompra / mesesPermanencia) * 100
+      : 0;
 
   const resultadoAnual = resultadoMensal * 12;
 
@@ -38,9 +39,7 @@ function calculateCattleProfit(inputs: CattleCalculatorInputs): CalculationResul
   // Indicador 14: Produção @/ha
   const pesoMedio = (inputs.pesoCompra + inputs.pesoAbate) / 2;
   const lotacaoCabecas = pesoMedio > 0 ? (450 * inputs.lotacao) / pesoMedio : 0;
-  const producaoArrobaPorHa = mesesPermanencia > 0
-    ? (arrobasProduzidas / mesesPermanencia) * 12 * lotacaoCabecas
-    : 0;
+  const producaoArrobaPorHa = mesesPermanencia > 0 ? (arrobasProduzidas / mesesPermanencia) * 12 * lotacaoCabecas : 0;
 
   // Indicador 15: Resultado por @ final
   const resultadoPorArrobaFinal = inputs.valorVenda - custoPorArrobaFinal;
@@ -48,9 +47,8 @@ function calculateCattleProfit(inputs: CattleCalculatorInputs): CalculationResul
   // Indicador 16: Resultado por hectare ano
   // Usar 5 casas decimais para o tempo de permanência em meses
   const mesesPermanenciaArredondado = Math.round(mesesPermanencia * 100000) / 100000;
-  const resultadoPorHectareAno = mesesPermanenciaArredondado > 0
-    ? (resultadoPorBoi / mesesPermanenciaArredondado) * 12 * lotacaoCabecas
-    : 0;
+  const resultadoPorHectareAno =
+    mesesPermanenciaArredondado > 0 ? (resultadoPorBoi / mesesPermanenciaArredondado) * 12 * lotacaoCabecas : 0;
 
   return {
     pesoCompraArrobas,
@@ -71,14 +69,14 @@ function calculateCattleProfit(inputs: CattleCalculatorInputs): CalculationResul
     giroEstoque,
     producaoArrobaPorHa,
     resultadoPorArrobaFinal,
-    resultadoPorHectareAno
+    resultadoPorHectareAno,
   };
 }
 
 describe('Cattle Profit Calculations', () => {
   const baseInputs: CattleCalculatorInputs = {
     pesoCompra: 300,
-    valorCompra: 14.50,
+    valorCompra: 14.5,
     pesoAbate: 510,
     rendimentoCarcaca: 52,
     valorVenda: 280,
@@ -184,4 +182,3 @@ describe('Cattle Profit Calculations', () => {
     expect(result.custoPorArrobaFinal).toBeLessThan(320);
   });
 });
-

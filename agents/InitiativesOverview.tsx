@@ -68,10 +68,10 @@ const statusVariant = (status: string) => {
 
 const STATUS_BAR_COLORS: Record<string, string> = {
   'Em Andamento': 'bg-indigo-500',
-  'Concluído': 'bg-green-500',
+  Concluído: 'bg-green-500',
   'Não Iniciado': 'bg-slate-400',
-  'Atrasado': 'bg-red-500',
-  'Suspenso': 'bg-amber-500',
+  Atrasado: 'bg-red-500',
+  Suspenso: 'bg-amber-500',
 };
 
 const MONTH_OPTIONS = [
@@ -114,7 +114,7 @@ const InitiativesOverview: React.FC = () => {
   const isAdmin = user?.role === 'admin';
   const effectiveUserId = useMemo(
     () => (isAdmin && selectedAnalyst ? selectedAnalyst.id : user?.id),
-    [isAdmin, selectedAnalyst, user?.id]
+    [isAdmin, selectedAnalyst, user?.id],
   );
 
   const loadData = useCallback(async () => {
@@ -135,14 +135,8 @@ const InitiativesOverview: React.FC = () => {
       if (selectedClient?.id) deliveryFilters.clientId = selectedClient.id;
 
       const [list, deliveryList] = await Promise.all([
-        fetchInitiatives(
-          effectiveUserId,
-          Object.keys(initiativeFilters).length > 0 ? initiativeFilters : undefined
-        ),
-        fetchDeliveries(
-          effectiveUserId,
-          Object.keys(deliveryFilters).length > 0 ? deliveryFilters : undefined
-        ),
+        fetchInitiatives(effectiveUserId, Object.keys(initiativeFilters).length > 0 ? initiativeFilters : undefined),
+        fetchDeliveries(effectiveUserId, Object.keys(deliveryFilters).length > 0 ? deliveryFilters : undefined),
       ]);
 
       setInitiatives(list);
@@ -163,7 +157,7 @@ const InitiativesOverview: React.FC = () => {
 
   const yearOptions = useMemo(() => {
     const years = new Set<number>();
-    initiatives.forEach((i) => {
+    initiatives.forEach(i => {
       if (i.start_date?.slice(0, 4)) years.add(Number(i.start_date.slice(0, 4)));
       if (i.end_date?.slice(0, 4)) years.add(Number(i.end_date.slice(0, 4)));
     });
@@ -171,7 +165,7 @@ const InitiativesOverview: React.FC = () => {
     years.add(current - 1);
     years.add(current);
     years.add(current + 1);
-    return [...years].filter((y) => Number.isFinite(y)).sort((a, b) => b - a);
+    return [...years].filter(y => Number.isFinite(y)).sort((a, b) => b - a);
   }, [initiatives]);
 
   useEffect(() => {
@@ -190,7 +184,7 @@ const InitiativesOverview: React.FC = () => {
 
   const filteredInitiatives = useMemo(() => {
     if (!dateFrom && !dateTo) return initiatives;
-    return initiatives.filter((init) => {
+    return initiatives.filter(init => {
       const initStart = init.start_date || null;
       const initEnd = init.end_date || null;
       // A iniciativa é incluída se o período dela tem interseção com o período do filtro
@@ -201,14 +195,17 @@ const InitiativesOverview: React.FC = () => {
   }, [initiatives, dateFrom, dateTo]);
 
   const groupedByDelivery = useMemo(() => {
-    const grouped = new Map<string, {
-      key: string;
-      delivery: DeliveryRow | null;
-      title: string;
-      dueDate: string | null;
-      sortOrder: number;
-      initiatives: InitiativeWithProgress[];
-    }>();
+    const grouped = new Map<
+      string,
+      {
+        key: string;
+        delivery: DeliveryRow | null;
+        title: string;
+        dueDate: string | null;
+        sortOrder: number;
+        initiatives: InitiativeWithProgress[];
+      }
+    >();
 
     deliveries.forEach((delivery, idx) => {
       grouped.set(delivery.id, {
@@ -221,7 +218,7 @@ const InitiativesOverview: React.FC = () => {
       });
     });
 
-    filteredInitiatives.forEach((initiative) => {
+    filteredInitiatives.forEach(initiative => {
       const deliveryId = initiative.delivery_id?.trim();
       if (deliveryId && grouped.has(deliveryId)) {
         grouped.get(deliveryId)?.initiatives.push(initiative);
@@ -242,7 +239,7 @@ const InitiativesOverview: React.FC = () => {
     });
 
     return Array.from(grouped.values())
-      .filter((group) => group.initiatives.length > 0)
+      .filter(group => group.initiatives.length > 0)
       .sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, 'pt-BR'));
   }, [deliveries, filteredInitiatives]);
 
@@ -254,7 +251,7 @@ const InitiativesOverview: React.FC = () => {
   }, [dateFrom, dateTo]);
 
   useEffect(() => {
-    setExpandedDeliveries(new Set(groupedByDelivery.map((group) => group.key)));
+    setExpandedDeliveries(new Set(groupedByDelivery.map(group => group.key)));
   }, [groupedByDelivery]);
 
   // ─── Métricas ─────────────────────────────────────────────────────
@@ -268,7 +265,7 @@ const InitiativesOverview: React.FC = () => {
     let atrasadas = 0;
     const now = new Date();
 
-    filteredInitiatives.forEach((init) => {
+    filteredInitiatives.forEach(init => {
       const st = init.status || 'Não Iniciado';
       byStatus[st] = (byStatus[st] || 0) + 1;
       totalProgress += init.progress ?? 0;
@@ -278,7 +275,7 @@ const InitiativesOverview: React.FC = () => {
       byLeader[leader].count++;
       byLeader[leader].avgProgress += init.progress ?? 0;
 
-      (init.milestones || []).forEach((m) => {
+      (init.milestones || []).forEach(m => {
         allMilestones.total++;
         if (m.completed === true) allMilestones.completed++;
       });
@@ -288,7 +285,7 @@ const InitiativesOverview: React.FC = () => {
       }
     });
 
-    Object.values(byLeader).forEach((v) => {
+    Object.values(byLeader).forEach(v => {
       v.avgProgress = v.count > 0 ? Math.round(v.avgProgress / v.count) : 0;
     });
 
@@ -318,15 +315,18 @@ const InitiativesOverview: React.FC = () => {
         userName: user?.name,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
-        deliveryGroups: groupedByDelivery.map((group) => {
+        deliveryGroups: groupedByDelivery.map(group => {
           const milestonesTotal = group.initiatives.reduce((acc, init) => acc + (init.milestones || []).length, 0);
           const milestonesCompleted = group.initiatives.reduce(
-            (acc, init) => acc + (init.milestones || []).filter((m) => m.completed === true).length,
-            0
+            (acc, init) => acc + (init.milestones || []).filter(m => m.completed === true).length,
+            0,
           );
-          const avgProgress = group.initiatives.length > 0
-            ? Math.round(group.initiatives.reduce((acc, init) => acc + (init.progress ?? 0), 0) / group.initiatives.length)
-            : 0;
+          const avgProgress =
+            group.initiatives.length > 0
+              ? Math.round(
+                  group.initiatives.reduce((acc, init) => acc + (init.progress ?? 0), 0) / group.initiatives.length,
+                )
+              : 0;
 
           return {
             title: group.title,
@@ -446,32 +446,38 @@ const InitiativesOverview: React.FC = () => {
               {isGeneratingPdf ? 'Gerando PDF...' : 'Salvar/Imprimir PDF'}
             </button>
             <Calendar size={13} className="text-ai-subtext" />
-            <span className="text-[10px] text-ai-subtext font-medium uppercase tracking-wider whitespace-nowrap">Período:</span>
+            <span className="text-[10px] text-ai-subtext font-medium uppercase tracking-wider whitespace-nowrap">
+              Período:
+            </span>
             <select
               value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              onChange={e => setSelectedMonth(e.target.value)}
               className="px-2 py-1 text-xs border border-ai-border rounded-md bg-ai-surface text-ai-text w-[115px]"
               title="Selecionar mês"
             >
               <option value="">Mês</option>
-              {MONTH_OPTIONS.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
+              {MONTH_OPTIONS.map(m => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
               ))}
             </select>
             <select
               value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
+              onChange={e => setSelectedYear(e.target.value)}
               className="px-2 py-1 text-xs border border-ai-border rounded-md bg-ai-surface text-ai-text w-[86px]"
               title="Selecionar ano"
             >
               <option value="">Ano</option>
-              {yearOptions.map((y) => (
-                <option key={y} value={String(y)}>{y}</option>
+              {yearOptions.map(y => (
+                <option key={y} value={String(y)}>
+                  {y}
+                </option>
               ))}
             </select>
             <DateInputBR
               value={dateFrom}
-              onChange={(v) => {
+              onChange={v => {
                 setDateFrom(v);
                 setSelectedMonth('');
               }}
@@ -481,7 +487,7 @@ const InitiativesOverview: React.FC = () => {
             <span className="text-xs font-medium text-ai-subtext px-1 select-none">a</span>
             <DateInputBR
               value={dateTo}
-              onChange={(v) => {
+              onChange={v => {
                 setDateTo(v);
                 setSelectedMonth('');
               }}
@@ -513,9 +519,7 @@ const InitiativesOverview: React.FC = () => {
         </div>
 
         {pdfError && (
-          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {pdfError}
-          </div>
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{pdfError}</div>
         )}
 
         {/* Admin sem analista */}
@@ -541,7 +545,9 @@ const InitiativesOverview: React.FC = () => {
           <div className="bg-white border border-ai-border rounded-lg p-3">
             <div className="flex items-center gap-2 mb-1">
               <Target size={14} className="text-indigo-500" />
-              <span className="text-[10px] uppercase tracking-wider text-ai-subtext font-medium">Total Iniciativas</span>
+              <span className="text-[10px] uppercase tracking-wider text-ai-subtext font-medium">
+                Total Iniciativas
+              </span>
             </div>
             <p className="text-2xl font-bold text-ai-text">{total}</p>
           </div>
@@ -561,7 +567,8 @@ const InitiativesOverview: React.FC = () => {
               <span className="text-[10px] uppercase tracking-wider text-ai-subtext font-medium">Marcos Entregues</span>
             </div>
             <p className="text-2xl font-bold text-ai-text">
-              {allMilestones.completed}<span className="text-sm font-normal text-ai-subtext">/{allMilestones.total}</span>
+              {allMilestones.completed}
+              <span className="text-sm font-normal text-ai-subtext">/{allMilestones.total}</span>
             </p>
             <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1.5">
               <div className="bg-emerald-500 h-1.5 rounded-full transition-all" style={{ width: `${milPct}%` }} />
@@ -593,7 +600,10 @@ const InitiativesOverview: React.FC = () => {
                     <div className="flex items-center justify-between mb-0.5">
                       <span className="text-xs text-ai-text">{status}</span>
                       <span className="text-xs font-semibold text-ai-text">
-                        {count} <span className="text-ai-subtext font-normal">({total > 0 ? Math.round((count / total) * 100) : 0}%)</span>
+                        {count}{' '}
+                        <span className="text-ai-subtext font-normal">
+                          ({total > 0 ? Math.round((count / total) * 100) : 0}%)
+                        </span>
                       </span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-2.5">
@@ -638,20 +648,21 @@ const InitiativesOverview: React.FC = () => {
 
         {/* Entregas com iniciativas */}
         <div className="space-y-3">
-          {groupedByDelivery.map((group) => {
+          {groupedByDelivery.map(group => {
             const isDeliveryExpanded = expandedDeliveries.has(group.key);
             const initiativesCount = group.initiatives.length;
-            const deliveryAvgProgress = initiativesCount > 0
-              ? Math.round(group.initiatives.reduce((acc, init) => acc + (init.progress ?? 0), 0) / initiativesCount)
-              : 0;
+            const deliveryAvgProgress =
+              initiativesCount > 0
+                ? Math.round(group.initiatives.reduce((acc, init) => acc + (init.progress ?? 0), 0) / initiativesCount)
+                : 0;
             const deliveryMilestones = group.initiatives.reduce(
               (acc, init) => {
                 const milestones = init.milestones || [];
                 acc.total += milestones.length;
-                acc.completed += milestones.filter((m) => m.completed === true).length;
+                acc.completed += milestones.filter(m => m.completed === true).length;
                 return acc;
               },
-              { total: 0, completed: 0 }
+              { total: 0, completed: 0 },
             );
 
             return (
@@ -659,7 +670,7 @@ const InitiativesOverview: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setExpandedDeliveries((prev) => {
+                    setExpandedDeliveries(prev => {
                       const next = new Set(prev);
                       if (next.has(group.key)) next.delete(group.key);
                       else next.add(group.key);
@@ -688,13 +699,18 @@ const InitiativesOverview: React.FC = () => {
                       </div>
                       <div className="mt-2 flex items-center gap-3 text-[10px] text-ai-subtext">
                         <span>{initiativesCount} iniciativa(s)</span>
-                        <span>{deliveryMilestones.completed}/{deliveryMilestones.total} marcos</span>
+                        <span>
+                          {deliveryMilestones.completed}/{deliveryMilestones.total} marcos
+                        </span>
                         <span>{deliveryAvgProgress}% progresso médio</span>
                       </div>
                     </div>
                     <div className="w-24 shrink-0">
                       <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className="bg-indigo-500 h-2 rounded-full transition-all" style={{ width: `${deliveryAvgProgress}%` }} />
+                        <div
+                          className="bg-indigo-500 h-2 rounded-full transition-all"
+                          style={{ width: `${deliveryAvgProgress}%` }}
+                        />
                       </div>
                     </div>
                   </div>
@@ -705,18 +721,30 @@ const InitiativesOverview: React.FC = () => {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-ai-border bg-ai-surface/30">
-                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Iniciativa</th>
-                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Líder</th>
-                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Status</th>
-                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Período</th>
-                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider w-32">Progresso</th>
-                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">Marcos</th>
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">
+                            Iniciativa
+                          </th>
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">
+                            Líder
+                          </th>
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">
+                            Período
+                          </th>
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider w-32">
+                            Progresso
+                          </th>
+                          <th className="text-left px-3 py-2 font-semibold text-ai-subtext uppercase tracking-wider">
+                            Marcos
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {group.initiatives.map((init, idx) => {
                           const milestones = init.milestones || [];
-                          const completedMil = milestones.filter((m) => m.completed === true).length;
+                          const completedMil = milestones.filter(m => m.completed === true).length;
                           const indicator = getScheduleIndicator(init.start_date, init.end_date);
                           const isExpanded = expandedId === init.id;
                           return (
@@ -727,7 +755,12 @@ const InitiativesOverview: React.FC = () => {
                                 aria-expanded={isExpanded}
                                 aria-label={`${init.name} — ${init.progress ?? 0}%`}
                                 onClick={() => setExpandedId(isExpanded ? null : init.id)}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedId(isExpanded ? null : init.id); } }}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setExpandedId(isExpanded ? null : init.id);
+                                  }
+                                }}
                                 className={`border-b border-ai-border/50 hover:bg-ai-surface/30 cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-ai-accent/30 ${idx % 2 === 0 ? '' : 'bg-ai-surface/10'} ${isExpanded ? 'bg-indigo-50/50' : ''}`}
                               >
                                 <td className="px-3 py-2">
@@ -737,11 +770,17 @@ const InitiativesOverview: React.FC = () => {
                                       className={`shrink-0 text-ai-subtext transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
                                     />
                                     <div className="min-w-0">
-                                      <div className="font-medium text-ai-text max-w-[200px] truncate" title={init.name}>
+                                      <div
+                                        className="font-medium text-ai-text max-w-[200px] truncate"
+                                        title={init.name}
+                                      >
                                         {init.name}
                                       </div>
                                       {init.tags && (
-                                        <div className="text-[10px] text-ai-subtext mt-0.5 truncate max-w-[200px]" title={init.tags}>
+                                        <div
+                                          className="text-[10px] text-ai-subtext mt-0.5 truncate max-w-[200px]"
+                                          title={init.tags}
+                                        >
                                           {init.tags}
                                         </div>
                                       )}
@@ -796,7 +835,7 @@ const InitiativesOverview: React.FC = () => {
                                   <span className="text-ai-subtext">/{milestones.length}</span>
                                   {milestones.length > 0 && (
                                     <div className="flex gap-0.5 mt-1">
-                                      {milestones.map((m) => (
+                                      {milestones.map(m => (
                                         <div
                                           key={m.id}
                                           className={`h-1.5 rounded-full flex-1 ${m.completed ? 'bg-green-500' : 'bg-gray-200'}`}
@@ -813,17 +852,25 @@ const InitiativesOverview: React.FC = () => {
                                   <td colSpan={6} className="px-4 py-3">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                       <div>
-                                        <h4 className="text-[10px] font-semibold text-ai-subtext uppercase tracking-wider mb-1.5">Descrição</h4>
+                                        <h4 className="text-[10px] font-semibold text-ai-subtext uppercase tracking-wider mb-1.5">
+                                          Descrição
+                                        </h4>
                                         <p className="text-xs text-ai-text leading-relaxed">
                                           {init.description?.trim() || 'Sem descrição cadastrada.'}
                                         </p>
                                         {init.tags && (
                                           <div className="flex flex-wrap gap-1 mt-2">
-                                            {init.tags.split(/\s+/).filter((t) => t.startsWith('#') && t.length > 1).map((tag) => (
-                                              <span key={tag} className="inline-flex px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-medium">
-                                                {tag}
-                                              </span>
-                                            ))}
+                                            {init.tags
+                                              .split(/\s+/)
+                                              .filter(t => t.startsWith('#') && t.length > 1)
+                                              .map(tag => (
+                                                <span
+                                                  key={tag}
+                                                  className="inline-flex px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-medium"
+                                                >
+                                                  {tag}
+                                                </span>
+                                              ))}
                                           </div>
                                         )}
                                       </div>
@@ -836,22 +883,30 @@ const InitiativesOverview: React.FC = () => {
                                           <p className="text-xs text-ai-subtext italic">Nenhum marco cadastrado.</p>
                                         ) : (
                                           <div className="space-y-1.5">
-                                            {milestones.map((m) => (
+                                            {milestones.map(m => (
                                               <div key={m.id} className="flex items-start gap-2">
-                                                <div className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center mt-0.5 ${m.completed ? 'bg-green-500' : 'bg-gray-200'}`}>
+                                                <div
+                                                  className={`w-4 h-4 rounded-full shrink-0 flex items-center justify-center mt-0.5 ${m.completed ? 'bg-green-500' : 'bg-gray-200'}`}
+                                                >
                                                   {m.completed && <CheckCircle size={10} className="text-white" />}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                   <div className="flex items-center justify-between gap-2">
-                                                    <span className={`text-xs font-medium ${m.completed ? 'text-green-700 line-through' : 'text-ai-text'}`}>
+                                                    <span
+                                                      className={`text-xs font-medium ${m.completed ? 'text-green-700 line-through' : 'text-ai-text'}`}
+                                                    >
                                                       {m.title}
                                                     </span>
-                                                    <span className="text-[10px] text-ai-subtext shrink-0 tabular-nums">{m.percent}%</span>
+                                                    <span className="text-[10px] text-ai-subtext shrink-0 tabular-nums">
+                                                      {m.percent}%
+                                                    </span>
                                                   </div>
                                                   {m.due_date && (
                                                     <div className="flex items-center gap-1 mt-0.5">
                                                       <Calendar size={9} className="text-ai-subtext" />
-                                                      <span className="text-[10px] text-ai-subtext">{formatDate(m.due_date)}</span>
+                                                      <span className="text-[10px] text-ai-subtext">
+                                                        {formatDate(m.due_date)}
+                                                      </span>
                                                     </div>
                                                   )}
                                                 </div>

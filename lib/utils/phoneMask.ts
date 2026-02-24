@@ -10,10 +10,10 @@
 export const formatPhone = (value: string): string => {
   // Remove all non-digit characters
   const digits = value.replace(/\D/g, '');
-  
+
   // Limit to 11 digits (DDD + 9 digits)
   const limitedDigits = digits.slice(0, 11);
-  
+
   // Apply mask based on length
   if (limitedDigits.length <= 2) {
     return limitedDigits.length > 0 ? `(${limitedDigits}` : '';
@@ -32,7 +32,7 @@ export const formatPhone = (value: string): string => {
 export const validatePhone = (phone: string): boolean => {
   // Remove all non-digit characters
   const digits = phone.replace(/\D/g, '');
-  
+
   // Brazilian phone numbers should have 10 (landline) or 11 (mobile) digits
   return digits.length === 10 || digits.length === 11;
 };
@@ -45,4 +45,3 @@ export const validatePhone = (phone: string): boolean => {
 export const unformatPhone = (phone: string): string => {
   return phone.replace(/\D/g, '');
 };
-

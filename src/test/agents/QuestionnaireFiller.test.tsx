@@ -80,7 +80,7 @@ vi.mock('../../../lib/supabase', () => {
       or: vi.fn(() => chain),
       single: vi.fn(() => chain),
       insert: vi.fn(() => chain),
-      then: vi.fn((resolve) => {
+      then: vi.fn(resolve => {
         return Promise.resolve(response).then(resolve);
       }),
     };
@@ -88,7 +88,7 @@ vi.mock('../../../lib/supabase', () => {
   };
   return {
     supabase: {
-      from: vi.fn((table) => {
+      from: vi.fn(table => {
         if (table === 'saved_questionnaires') {
           return createChain({ data: [], error: null });
         }
@@ -105,9 +105,9 @@ describe('QuestionnaireFiller', () => {
 
     // Mock ResizeObserver for Recharts
     global.ResizeObserver = class ResizeObserver {
-      observe() { }
-      unobserve() { }
-      disconnect() { }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
     };
 
     // Mock Math.random to be deterministic (prevents shuffling by returning high value so j=i)
@@ -124,7 +124,7 @@ describe('QuestionnaireFiller', () => {
     render(
       <LocationProvider>
         <QuestionnaireFiller />
-      </LocationProvider>
+      </LocationProvider>,
     );
 
     await waitFor(() => {
@@ -149,7 +149,7 @@ describe('QuestionnaireFiller', () => {
       } else {
         await user.click(simButton);
       }
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 400));
     }
 
     const submitButton = await screen.findByRole('button', { name: /Enviar Questionário/i });
@@ -159,7 +159,7 @@ describe('QuestionnaireFiller', () => {
       () => {
         expect(screen.getByText(/Diagnóstico de Alta Performance/i)).toBeInTheDocument();
       },
-      { timeout: 5000 }
+      { timeout: 5000 },
     );
   }, 15000);
 });

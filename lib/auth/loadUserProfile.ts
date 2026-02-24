@@ -11,18 +11,10 @@ import { logger } from '../logger';
  * @param delay Delay entre tentativas em ms
  * @returns Perfil do usuário ou null se não encontrado
  */
-export const loadUserProfile = async (
-  userId: string,
-  retries = 3,
-  delay = 500
-): Promise<User | null> => {
+export const loadUserProfile = async (userId: string, retries = 3, delay = 500): Promise<User | null> => {
   for (let i = 0; i < retries; i++) {
     try {
-      const { data: profile, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const { data: profile, error } = await supabase.from('user_profiles').select('*').eq('id', userId).single();
 
       if (error) {
         logger.warn(`Error loading user profile (attempt ${i + 1}/${retries})`, {
@@ -35,7 +27,9 @@ export const loadUserProfile = async (
         if (error.code === 'PGRST116' || error.message?.includes('No rows')) {
           if (i === 0) {
             // Get user info from auth
-            const { data: { user } } = await supabase.auth.getUser();
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
             if (user) {
               logger.info('Profile not found, attempting to create...', { component: 'loadUserProfile' });
               await createUserProfileIfMissing(userId);
@@ -83,4 +77,3 @@ export const loadUserProfile = async (
   console.warn(`Failed to load profile after ${retries} attempts`);
   return null;
 };
-

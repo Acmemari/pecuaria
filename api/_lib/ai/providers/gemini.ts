@@ -13,7 +13,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
 function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 interface GeminiContent {
@@ -96,7 +96,7 @@ export class GeminiProvider implements AIProvider {
           clearTimeout(timer);
         }
 
-        const rawData = await fetchRes.json() as GeminiResponse;
+        const rawData = (await fetchRes.json()) as GeminiResponse;
 
         if (!fetchRes.ok) {
           const errMsg = rawData?.error?.message ?? `Gemini HTTP ${fetchRes.status}`;

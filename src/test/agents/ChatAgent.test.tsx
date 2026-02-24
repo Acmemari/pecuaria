@@ -11,4 +11,3 @@ describe('ChatAgent Component', () => {
   // The component structure is validated by the export test
   // Full integration tests are covered in integration test suite
 });
-

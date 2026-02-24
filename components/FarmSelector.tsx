@@ -6,17 +6,8 @@ import HierarchyCombobox from './hierarchy/HierarchyCombobox';
 
 const FarmSelector: React.FC = () => {
   const { user } = useAuth();
-  const {
-    selectedClient,
-    selectedFarm,
-    farms,
-    setSelectedFarm,
-    searchFarms,
-    loadMoreFarms,
-    hasMore,
-    loading,
-    errors,
-  } = useHierarchy();
+  const { selectedClient, selectedFarm, farms, setSelectedFarm, searchFarms, loadMoreFarms, hasMore, loading, errors } =
+    useHierarchy();
 
   // Não mostrar se não houver cliente selecionado
   if (!selectedClient) {
@@ -33,9 +24,9 @@ const FarmSelector: React.FC = () => {
       icon={<Building2 className="w-4 h-4 text-ai-accent flex-shrink-0" />}
       items={farms}
       selectedItem={selectedFarm}
-      getItemId={(item) => item.id}
-      getItemLabel={(item) => item.name}
-      getItemDescription={(item) => `${item.city}, ${item.state || item.country}`}
+      getItemId={item => item.id}
+      getItemLabel={item => item.name}
+      getItemDescription={item => `${item.city}, ${item.state || item.country}`}
       onSelect={setSelectedFarm}
       onSearch={searchFarms}
       onLoadMore={loadMoreFarms}

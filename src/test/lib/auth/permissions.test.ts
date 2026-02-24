@@ -151,4 +151,3 @@ describe('checkLimit', () => {
     expect(checkLimit(user, 'users', 3)).toBe(false);
   });
 });
-

@@ -92,7 +92,7 @@ function normalizeText(value: string | null | undefined, maxLength = 600): strin
 
 /** Escapa caracteres especiais do PostgREST para uso seguro em filtros .or() / .ilike() */
 function sanitizeSearchTerm(term: string): string {
-  return term.replace(/[%_\\]/g, (ch) => `\\${ch}`);
+  return term.replace(/[%_\\]/g, ch => `\\${ch}`);
 }
 
 /** Debounce simples para callbacks realtime */
@@ -142,10 +142,7 @@ export async function fetchUserNames(userIds: string[]): Promise<Record<string, 
   const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
   if (uniqueIds.length === 0) return {};
 
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('id, name')
-    .in('id', uniqueIds);
+  const { data, error } = await supabase.from('user_profiles').select('id, name').in('id', uniqueIds);
 
   if (error) {
     console.error('[supportTickets.fetchUserNames] erro:', error.message);
@@ -160,14 +157,12 @@ export async function fetchUserNames(userIds: string[]): Promise<Record<string, 
 
 export async function withSignedUrls(attachments: SupportTicketAttachment[]): Promise<SupportTicketAttachment[]> {
   const signed = await Promise.all(
-    attachments.map(async (attachment) => {
-      const { data, error } = await supabase.storage
-        .from(BUCKET_NAME)
-        .createSignedUrl(attachment.storage_path, 3600);
+    attachments.map(async attachment => {
+      const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(attachment.storage_path, 3600);
 
       if (error) return attachment;
       return { ...attachment, signed_url: data.signedUrl };
-    })
+    }),
   );
 
   return signed;
@@ -176,7 +171,9 @@ export async function withSignedUrls(attachments: SupportTicketAttachment[]): Pr
 export async function createTicket(payload: TicketCreatePayload): Promise<SupportTicket> {
   const createdBy = await getCurrentUserId();
   const ticketType = payload.ticketType;
-  const subject = normalizeText(payload.subject || '', 200) || (ticketType === 'erro_tecnico' ? 'Erro técnico' : 'Sugestão/Solicitação');
+  const subject =
+    normalizeText(payload.subject || '', 200) ||
+    (ticketType === 'erro_tecnico' ? 'Erro técnico' : 'Sugestão/Solicitação');
   const currentUrl = normalizeText(payload.currentUrl || safeLocationHref(), 1200) || null;
 
   const locationArea = payload.locationArea || null;
@@ -224,11 +221,11 @@ export async function listMyTickets(): Promise<SupportTicket[]> {
   return (data || []) as SupportTicket[];
 }
 
-export async function listAdminTickets(params?: { status?: SupportTicketStatus; search?: string }): Promise<SupportTicket[]> {
-  let query = supabase
-    .from('support_tickets')
-    .select('*')
-    .order('last_message_at', { ascending: false });
+export async function listAdminTickets(params?: {
+  status?: SupportTicketStatus;
+  search?: string;
+}): Promise<SupportTicket[]> {
+  let query = supabase.from('support_tickets').select('*').order('last_message_at', { ascending: false });
 
   if (params?.status) {
     query = query.eq('status', params.status);
@@ -245,9 +242,9 @@ export async function listAdminTickets(params?: { status?: SupportTicketStatus; 
   }
 
   const tickets = (data || []) as SupportTicket[];
-  const userNameMap = await fetchUserNames(tickets.map((ticket) => ticket.created_by));
+  const userNameMap = await fetchUserNames(tickets.map(ticket => ticket.created_by));
 
-  return tickets.map((ticket) => ({
+  return tickets.map(ticket => ({
     ...ticket,
     user_name: userNameMap[ticket.created_by] || 'Usuário',
   }));
@@ -256,12 +253,23 @@ export async function listAdminTickets(params?: { status?: SupportTicketStatus; 
 export async function getTicketDetail(ticketId: string): Promise<SupportTicketDetail> {
   if (!ticketId) throw new Error('Ticket inválido.');
 
-  const [{ data: ticket, error: ticketError }, { data: messages, error: messagesError }, { data: attachments, error: attachmentsError }] =
-    await Promise.all([
-      supabase.from('support_tickets').select('*').eq('id', ticketId).single(),
-      supabase.from('support_ticket_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true }),
-      supabase.from('support_ticket_attachments').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true }),
-    ]);
+  const [
+    { data: ticket, error: ticketError },
+    { data: messages, error: messagesError },
+    { data: attachments, error: attachmentsError },
+  ] = await Promise.all([
+    supabase.from('support_tickets').select('*').eq('id', ticketId).single(),
+    supabase
+      .from('support_ticket_messages')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('support_ticket_attachments')
+      .select('*')
+      .eq('ticket_id', ticketId)
+      .order('created_at', { ascending: true }),
+  ]);
 
   if (ticketError || !ticket) throw new Error(ticketError?.message || 'Ticket não encontrado.');
   if (messagesError) throw new Error(messagesError.message || 'Erro ao carregar mensagens.');
@@ -269,10 +277,7 @@ export async function getTicketDetail(ticketId: string): Promise<SupportTicketDe
 
   const baseMessages = (messages || []) as SupportTicketMessage[];
   const baseAttachments = (attachments || []) as SupportTicketAttachment[];
-  const userNameMap = await fetchUserNames([
-    ticket.created_by,
-    ...baseMessages.map((message) => message.author_id),
-  ]);
+  const userNameMap = await fetchUserNames([ticket.created_by, ...baseMessages.map(message => message.author_id)]);
 
   const signedAttachments = await withSignedUrls(baseAttachments);
 
@@ -281,7 +286,7 @@ export async function getTicketDetail(ticketId: string): Promise<SupportTicketDe
       ...(ticket as SupportTicket),
       user_name: userNameMap[ticket.created_by] || 'Usuário',
     },
-    messages: baseMessages.map((message) => ({
+    messages: baseMessages.map(message => ({
       ...message,
       author_name: userNameMap[message.author_id] || 'Usuário',
     })),
@@ -289,7 +294,11 @@ export async function getTicketDetail(ticketId: string): Promise<SupportTicketDe
   };
 }
 
-export async function uploadTicketAttachment(ticketId: string, file: File, messageId?: string): Promise<SupportTicketAttachment> {
+export async function uploadTicketAttachment(
+  ticketId: string,
+  file: File,
+  messageId?: string,
+): Promise<SupportTicketAttachment> {
   const userId = await getCurrentUserId();
   validateImageFile(file);
 
@@ -326,7 +335,10 @@ export async function uploadTicketAttachment(ticketId: string, file: File, messa
   return attachment;
 }
 
-export async function sendTicketMessage(ticketId: string, payload: SendTicketMessagePayload): Promise<SendTicketMessageResult> {
+export async function sendTicketMessage(
+  ticketId: string,
+  payload: SendTicketMessagePayload,
+): Promise<SendTicketMessageResult> {
   const authorId = await getCurrentUserId();
   const text = normalizeText(payload.message, 4000);
 
@@ -371,19 +383,13 @@ export async function updateTicketMessage(messageId: string, newMessage: string)
 }
 
 export async function deleteTicketMessage(messageId: string): Promise<void> {
-  const { error } = await supabase
-    .from('support_ticket_messages')
-    .delete()
-    .eq('id', messageId);
+  const { error } = await supabase.from('support_ticket_messages').delete().eq('id', messageId);
 
   if (error) throw new Error(error.message || 'Erro ao excluir mensagem.');
 }
 
 export async function updateTicketStatus(ticketId: string, status: SupportTicketStatus): Promise<void> {
-  const { error } = await supabase
-    .from('support_tickets')
-    .update({ status })
-    .eq('id', ticketId);
+  const { error } = await supabase.from('support_tickets').update({ status }).eq('id', ticketId);
 
   if (error) throw new Error(error.message || 'Erro ao atualizar status.');
 }
@@ -404,11 +410,7 @@ export async function sendAIMessage(ticketId: string, message: string): Promise<
 }
 
 export async function fetchMessageWithAuthor(messageId: string): Promise<SupportTicketMessage | null> {
-  const { data, error } = await supabase
-    .from('support_ticket_messages')
-    .select('*')
-    .eq('id', messageId)
-    .single();
+  const { data, error } = await supabase.from('support_ticket_messages').select('*').eq('id', messageId).single();
 
   if (error || !data) return null;
 
@@ -443,11 +445,11 @@ export async function fetchMessagesSince(
     return { messages: [], attachments: [] };
   }
 
-  const nameMap = await fetchUserNames(baseMessages.map((m) => m.author_id));
+  const nameMap = await fetchUserNames(baseMessages.map(m => m.author_id));
   const signedAttachments = await withSignedUrls(baseAttachments);
 
   return {
-    messages: baseMessages.map((m) => ({ ...m, author_name: nameMap[m.author_id] || 'Usuário' })),
+    messages: baseMessages.map(m => ({ ...m, author_name: nameMap[m.author_id] || 'Usuário' })),
     attachments: signedAttachments,
   };
 }
@@ -465,7 +467,7 @@ export function subscribeTicketMessages(ticketId: string, onRefresh: () => void)
         table: 'support_ticket_messages',
         filter: `ticket_id=eq.${ticketId}`,
       },
-      () => debouncedRefresh()
+      () => debouncedRefresh(),
     )
     .on(
       'postgres_changes',
@@ -475,7 +477,7 @@ export function subscribeTicketMessages(ticketId: string, onRefresh: () => void)
         table: 'support_ticket_attachments',
         filter: `ticket_id=eq.${ticketId}`,
       },
-      () => debouncedRefresh()
+      () => debouncedRefresh(),
     )
     .subscribe();
 
@@ -489,16 +491,10 @@ export function subscribeAdminUnread(onRefresh: () => void): () => void {
 
   const channel = supabase
     .channel('support-admin-unread')
-    .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'support_ticket_messages' },
-      () => debouncedRefresh()
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_ticket_messages' }, () =>
+      debouncedRefresh(),
     )
-    .on(
-      'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'support_tickets' },
-      () => debouncedRefresh()
-    )
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'support_tickets' }, () => debouncedRefresh())
     .subscribe();
 
   return () => {

@@ -13,24 +13,14 @@ interface DeliveryModalProps {
   mode: 'create' | 'edit';
 }
 
-export const DeliveryModal: React.FC<DeliveryModalProps> = ({
-  form,
-  onChange,
-  onSave,
-  onClose,
-  saving,
-  mode,
-}) => (
-  <ModalShell
-    title={mode === 'create' ? 'Nova Entrega' : 'Editar Entrega'}
-    onClose={saving ? () => {} : onClose}
-  >
+export const DeliveryModal: React.FC<DeliveryModalProps> = ({ form, onChange, onSave, onClose, saving, mode }) => (
+  <ModalShell title={mode === 'create' ? 'Nova Entrega' : 'Editar Entrega'} onClose={saving ? () => {} : onClose}>
     <div>
       <label className="block text-sm font-medium text-ai-text mb-1">Nome *</label>
       <input
         type="text"
         value={form.name}
-        onChange={(e) => onChange({ ...form, name: e.target.value })}
+        onChange={e => onChange({ ...form, name: e.target.value })}
         className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
       />
     </div>
@@ -39,7 +29,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
       <textarea
         rows={3}
         value={form.description}
-        onChange={(e) => onChange({ ...form, description: e.target.value })}
+        onChange={e => onChange({ ...form, description: e.target.value })}
         className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none"
       />
     </div>
@@ -48,7 +38,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
       <textarea
         rows={2}
         value={form.transformations_achievements}
-        onChange={(e) => onChange({ ...form, transformations_achievements: e.target.value })}
+        onChange={e => onChange({ ...form, transformations_achievements: e.target.value })}
         placeholder="Mudanças esperadas com esta entrega"
         className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none"
       />
@@ -56,13 +46,13 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div>
         <label className="block text-sm font-medium text-ai-text mb-1">Data inicial</label>
-        <DateInputBR value={form.start_date} onChange={(v) => onChange({ ...form, start_date: v })} />
+        <DateInputBR value={form.start_date} onChange={v => onChange({ ...form, start_date: v })} />
       </div>
       <div>
         <label className="block text-sm font-medium text-ai-text mb-1">Data final</label>
         <DateInputBR
           value={form.end_date}
-          onChange={(v) => onChange({ ...form, end_date: v })}
+          onChange={v => onChange({ ...form, end_date: v })}
           min={form.start_date || undefined}
         />
       </div>

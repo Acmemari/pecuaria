@@ -33,7 +33,7 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
       <input
         type="text"
         value={form.name}
-        onChange={(e) => onChange({ ...form, name: e.target.value })}
+        onChange={e => onChange({ ...form, name: e.target.value })}
         className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
       />
     </div>
@@ -42,20 +42,20 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
       <textarea
         rows={3}
         value={form.description}
-        onChange={(e) => onChange({ ...form, description: e.target.value })}
+        onChange={e => onChange({ ...form, description: e.target.value })}
         className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none"
       />
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div>
         <label className="block text-sm font-medium text-ai-text mb-1">Data inicial</label>
-        <DateInputBR value={form.start_date} onChange={(v) => onChange({ ...form, start_date: v })} />
+        <DateInputBR value={form.start_date} onChange={v => onChange({ ...form, start_date: v })} />
       </div>
       <div>
         <label className="block text-sm font-medium text-ai-text mb-1">Data final</label>
         <DateInputBR
           value={form.end_date}
-          onChange={(v) => onChange({ ...form, end_date: v })}
+          onChange={v => onChange({ ...form, end_date: v })}
           min={form.start_date || undefined}
         />
       </div>
@@ -65,11 +65,11 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
         <label className="block text-sm font-medium text-ai-text mb-1">Responsável</label>
         <select
           value={form.leader_id}
-          onChange={(e) => onChange({ ...form, leader_id: e.target.value })}
+          onChange={e => onChange({ ...form, leader_id: e.target.value })}
           className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
         >
           <option value="">Selecione</option>
-          {people.map((person) => (
+          {people.map(person => (
             <option key={person.id} value={person.id}>
               {person.preferred_name?.trim() || person.full_name}
             </option>
@@ -80,7 +80,7 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
         <label className="block text-sm font-medium text-ai-text mb-1">Status</label>
         <select
           value={form.status}
-          onChange={(e) => onChange({ ...form, status: e.target.value })}
+          onChange={e => onChange({ ...form, status: e.target.value })}
           className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
         >
           <option value="Não Iniciado">Não Iniciado</option>

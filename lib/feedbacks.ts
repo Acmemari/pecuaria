@@ -86,10 +86,7 @@ export async function saveFeedback(input: SaveFeedbackInput): Promise<SavedFeedb
 }
 
 export async function getSavedFeedbacks(): Promise<SavedFeedback[]> {
-  const { data, error } = await supabase
-    .from('saved_feedbacks')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('saved_feedbacks').select('*').order('created_at', { ascending: false });
 
   if (error) {
     if (error.code === '42P01') return [];

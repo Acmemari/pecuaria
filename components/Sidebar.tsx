@@ -49,6 +49,7 @@ const INICIATIVAS_OVERVIEW_ID = 'iniciativas-overview';
 const INICIATIVAS_ATIVIDADES_ID = 'iniciativas-atividades';
 const INICIATIVAS_KANBAN_ID = 'iniciativas-kanban';
 const PROJECT_STRUCTURE_ID = 'project-structure';
+const ROTINAS_FAZENDA_ID = 'rotinas-fazenda';
 const CALENDAR_ID = 'calendar';
 const RH_FEEDBACK_ID = 'rh-feedback-list';
 const isGerenciamentoView = (id: string) =>
@@ -57,10 +58,20 @@ const isGerenciamentoView = (id: string) =>
   id === INICIATIVAS_ATIVIDADES_ID ||
   id === INICIATIVAS_KANBAN_ID ||
   id === PROJECT_STRUCTURE_ID ||
+  id === ROTINAS_FAZENDA_ID ||
   id === CALENDAR_ID;
 
-
-const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent, isOpen, toggleSidebar, user, onLogout, onSettingsClick, onSwitchToInttegra }) => {
+const Sidebar: React.FC<SidebarProps> = ({
+  agents,
+  activeAgentId,
+  onSelectAgent,
+  isOpen,
+  toggleSidebar,
+  user,
+  onLogout,
+  onSettingsClick,
+  onSwitchToInttegra,
+}) => {
   const { country, setCountry } = useLocation();
   const [isIniciativasOpen, setIsIniciativasOpen] = useState(() => isGerenciamentoView(activeAgentId));
   const [isRhOpen, setIsRhOpen] = useState(() => activeAgentId === RH_FEEDBACK_ID);
@@ -86,13 +97,12 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
         />
       )}
 
-      <div className={`
+      <div
+        className={`
         fixed top-0 left-0 h-full bg-ai-surface border-r border-ai-border z-30 transition-all duration-300 ease-in-out flex flex-col shadow-lg
-        ${isOpen
-          ? 'w-56 translate-x-0'
-          : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden'
-        }
-      `}>
+        ${isOpen ? 'w-56 translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden'}
+      `}
+      >
         {/* Header */}
         <div className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-ai-border bg-ai-bg">
           <div className="flex items-center space-x-2 text-ai-text">
@@ -120,7 +130,13 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
               className={`flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 ${country === 'BR' ? 'opacity-100 scale-[1.2]' : 'opacity-50 hover:opacity-75 scale-[0.72]'}`}
               title="Brasil"
             >
-              <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0 cursor-pointer" xmlns="http://www.w3.org/2000/svg">
+              <svg
+                width="20"
+                height="14"
+                viewBox="0 0 20 14"
+                className="flex-shrink-0 cursor-pointer"
+                xmlns="http://www.w3.org/2000/svg"
+              >
                 <rect width="20" height="14" fill="#009739" />
                 <path d="M10 0L20 7L10 14L0 7Z" fill="#FEDD00" />
                 <circle cx="10" cy="7" r="4.5" fill="#012169" />
@@ -133,7 +149,13 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
               className={`flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 ${country === 'PY' ? 'opacity-100 scale-[1.2]' : 'opacity-50 hover:opacity-75 scale-[0.72]'}`}
               title="Paraguai"
             >
-              <svg width="20" height="14" viewBox="0 0 20 14" className="flex-shrink-0 cursor-pointer" xmlns="http://www.w3.org/2000/svg">
+              <svg
+                width="20"
+                height="14"
+                viewBox="0 0 20 14"
+                className="flex-shrink-0 cursor-pointer"
+                xmlns="http://www.w3.org/2000/svg"
+              >
                 <rect width="20" height="4.67" y="0" fill="#CE1126" />
                 <rect width="20" height="4.67" y="4.67" fill="#FFFFFF" />
                 <rect width="20" height="4.66" y="9.34" fill="#0038A8" />
@@ -142,46 +164,51 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
             </button>
           </div>
           <div className="px-4 mb-2">
-            <span className="text-[10px] font-bold text-ai-subtext uppercase tracking-widest">
-              Ferramentas
-            </span>
+            <span className="text-[10px] font-bold text-ai-subtext uppercase tracking-widest">Ferramentas</span>
           </div>
 
           <nav className="space-y-0.5 px-2">
             {/* Cadastros - sempre primeiro */}
-            {agents.filter((a) => a.id === 'cadastros').map((agent) => {
-              const isActive = activeAgentId === agent.id;
-              const isLocked = agent.status !== 'active';
-              return (
-                <div key={agent.id} className="space-y-0.5 mb-1">
-                  <button
-                    onClick={() => !isLocked && onSelectAgent(agent.id)}
-                    disabled={isLocked}
-                    className={`
+            {agents
+              .filter(a => a.id === 'cadastros')
+              .map(agent => {
+                const isActive = activeAgentId === agent.id;
+                const isLocked = agent.status !== 'active';
+                return (
+                  <div key={agent.id} className="space-y-0.5 mb-1">
+                    <button
+                      onClick={() => !isLocked && onSelectAgent(agent.id)}
+                      disabled={isLocked}
+                      className={`
                       w-full flex items-center px-3 py-2 rounded-md transition-all relative group
                       ${isActive ? 'bg-ai-accent/10 text-ai-accent' : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'}
                       ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                     `}
-                    title={agent.name}
-                  >
-                    <div className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}>
-                      <ClipboardList size={16} />
-                    </div>
-                    <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
-                    {isLocked && <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />}
-                  </button>
-                </div>
-              );
-            })}
+                      title={agent.name}
+                    >
+                      <div
+                        className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}
+                      >
+                        <ClipboardList size={16} />
+                      </div>
+                      <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
+                      {isLocked && (
+                        <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
             {/* Gerenciamento (menu retrátil: Projeto + Calendário) */}
             <div className="space-y-0.5 mb-1">
               <button
                 type="button"
                 onClick={() => setIsIniciativasOpen(!isIniciativasOpen)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group ${isGerenciamentoView(activeAgentId)
-                  ? 'bg-ai-accent/5 text-ai-accent'
-                  : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                  }`}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group ${
+                  isGerenciamentoView(activeAgentId)
+                    ? 'bg-ai-accent/5 text-ai-accent'
+                    : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                }`}
                 title="Gerenciamento"
               >
                 <div className="flex items-center">
@@ -198,25 +225,39 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                   <button
                     type="button"
                     onClick={() => onSelectAgent(PROJETO_ID)}
-                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === PROJETO_ID ||
+                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${
+                      activeAgentId === PROJETO_ID ||
                       activeAgentId === INICIATIVAS_OVERVIEW_ID ||
                       activeAgentId === INICIATIVAS_ATIVIDADES_ID ||
                       activeAgentId === INICIATIVAS_KANBAN_ID ||
                       activeAgentId === PROJECT_STRUCTURE_ID
-                      ? 'bg-ai-accent/10 text-ai-accent'
-                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                      }`}
+                        ? 'bg-ai-accent/10 text-ai-accent'
+                        : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                    }`}
                   >
                     <LayoutDashboard size={14} className="flex-shrink-0 mr-2" />
                     <span className="truncate">Projeto</span>
                   </button>
                   <button
                     type="button"
+                    onClick={() => onSelectAgent(ROTINAS_FAZENDA_ID)}
+                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${
+                      activeAgentId === ROTINAS_FAZENDA_ID
+                        ? 'bg-ai-accent/10 text-ai-accent'
+                        : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                    }`}
+                  >
+                    <ListTodo size={14} className="flex-shrink-0 mr-2" />
+                    <span className="truncate">Rotinas Fazenda</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => onSelectAgent(CALENDAR_ID)}
-                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === CALENDAR_ID
-                      ? 'bg-ai-accent/10 text-ai-accent'
-                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                      }`}
+                    className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${
+                      activeAgentId === CALENDAR_ID
+                        ? 'bg-ai-accent/10 text-ai-accent'
+                        : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                    }`}
                   >
                     <Calendar size={14} className="flex-shrink-0 mr-2" />
                     <span className="truncate">Calendário</span>
@@ -225,89 +266,118 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
               )}
             </div>
 
-            {agents.filter((a) => a.id !== 'cadastros' && a.id !== 'calendar').map((agent) => {
-              const isActive = activeAgentId === agent.id;
-              const isLocked = agent.status !== 'active';
+            {agents
+              .filter(a => a.id !== 'cadastros' && a.id !== 'calendar' && a.id !== 'area-certificados')
+              .map(agent => {
+                const isActive = activeAgentId === agent.id;
+                const isLocked = agent.status !== 'active';
 
-              return (
-                <React.Fragment key={agent.id}>
-                  <button
-                    onClick={() => !isLocked && onSelectAgent(agent.id)}
-                    disabled={isLocked}
-                    className={`
+                return (
+                  <React.Fragment key={agent.id}>
+                    <button
+                      onClick={() => !isLocked && onSelectAgent(agent.id)}
+                      disabled={isLocked}
+                      className={`
                       w-full flex items-center px-3 py-2 rounded-md transition-all relative group
-                      ${isActive
-                        ? 'bg-ai-accent/10 text-ai-accent'
-                        : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                      ${
+                        isActive
+                          ? 'bg-ai-accent/10 text-ai-accent'
+                          : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                       }
                       ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                     `}
-                    title={agent.name}
-                  >
-                    <div className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}>
-                      {agent.icon === 'calculator' && <Calculator size={16} />}
-                      {agent.icon === 'save' && <Save size={16} />}
-                      {agent.icon === 'chart' && <TrendingUp size={16} />}
-                      {agent.icon === 'nutrition' && <Sprout size={16} />}
-                      {agent.icon === 'users' && <Users size={16} />}
-                      {agent.icon === 'brain' && <Brain size={16} />}
-                      {agent.icon === 'farm' && <Building2 size={16} />}
-                      {agent.icon === 'target' && <Target size={16} />}
-                      {agent.icon === 'folder' && <FolderOpen size={16} />}
-                      {agent.icon === 'file-check' && <FileCheck size={16} />}
-                      {agent.icon === 'calendar' && <Calendar size={16} />}
-                      {agent.icon === 'brain-circuit' && <BrainCircuit size={16} />}
-                      {agent.icon === 'bot' && <Bot size={16} />}
-                      {agent.icon === 'help-circle' && <HelpCircle size={16} />}
-                      {agent.icon === 'folder-plus' && <FolderPlus size={16} />}
-                    </div>
-
-                    <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
-
-                    {isLocked && (
-                      <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />
-                    )}
-                  </button>
-                  {agent.id === 'cattle-profit' && canAccessRh && (
-                    <div className="space-y-0.5 mb-1">
-                      <button
-                        type="button"
-                        onClick={() => setIsRhOpen(!isRhOpen)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group ${activeAgentId === RH_FEEDBACK_ID
-                          ? 'bg-ai-accent/5 text-ai-accent'
-                          : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                          }`}
-                        title="Equipe"
+                      title={agent.name}
+                    >
+                      <div
+                        className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}
                       >
-                        <div className="flex items-center">
-                          <Users size={16} className="flex-shrink-0 text-ai-subtext group-hover:text-ai-text" />
-                          <span className="ml-3 text-sm font-medium block truncate">Equipe</span>
-                        </div>
-                        <ChevronDown
-                          size={14}
-                          className={`flex-shrink-0 transition-transform duration-200 ${isRhOpen ? 'rotate-180' : ''}`}
-                        />
-                      </button>
-                      {isRhOpen && (
-                        <div className="ml-4 space-y-0.5 border-l border-ai-border pl-2 overflow-hidden transition-all duration-200">
-                          <button
-                            type="button"
-                            onClick={() => onSelectAgent(RH_FEEDBACK_ID)}
-                            className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${activeAgentId === RH_FEEDBACK_ID
-                              ? 'bg-ai-accent/10 text-ai-accent'
-                              : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                              }`}
-                          >
-                            <MessageSquareText size={14} className="flex-shrink-0 mr-2" />
-                            <span className="truncate">Feedback</span>
-                          </button>
-                        </div>
+                        {agent.icon === 'calculator' && <Calculator size={16} />}
+                        {agent.icon === 'save' && <Save size={16} />}
+                        {agent.icon === 'chart' && <TrendingUp size={16} />}
+                        {agent.icon === 'nutrition' && <Sprout size={16} />}
+                        {agent.icon === 'users' && <Users size={16} />}
+                        {agent.icon === 'brain' && <Brain size={16} />}
+                        {agent.icon === 'farm' && <Building2 size={16} />}
+                        {agent.icon === 'target' && <Target size={16} />}
+                        {agent.icon === 'folder' && <FolderOpen size={16} />}
+                        {agent.icon === 'file-check' && <FileCheck size={16} />}
+                        {agent.icon === 'calendar' && <Calendar size={16} />}
+                        {agent.icon === 'brain-circuit' && <BrainCircuit size={16} />}
+                        {agent.icon === 'bot' && <Bot size={16} />}
+                        {agent.icon === 'help-circle' && <HelpCircle size={16} />}
+                        {agent.icon === 'folder-plus' && <FolderPlus size={16} />}
+                      </div>
+
+                      <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
+
+                      {isLocked && (
+                        <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />
                       )}
-                    </div>
-                  )}
-                </React.Fragment>
-              );
-            })}
+                    </button>
+                    {agent.id === 'cattle-profit' && canAccessRh && (
+                      <div className="space-y-0.5 mb-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsRhOpen(!isRhOpen)}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left cursor-pointer group ${
+                            activeAgentId === RH_FEEDBACK_ID
+                              ? 'bg-ai-accent/5 text-ai-accent'
+                              : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                          }`}
+                          title="Equipe"
+                        >
+                          <div className="flex items-center">
+                            <Users size={16} className="flex-shrink-0 text-ai-subtext group-hover:text-ai-text" />
+                            <span className="ml-3 text-sm font-medium block truncate">Equipe</span>
+                          </div>
+                          <ChevronDown
+                            size={14}
+                            className={`flex-shrink-0 transition-transform duration-200 ${isRhOpen ? 'rotate-180' : ''}`}
+                          />
+                        </button>
+                        {isRhOpen && (
+                          <div className="ml-4 space-y-0.5 border-l border-ai-border pl-2 overflow-hidden transition-all duration-200">
+                            <button
+                              type="button"
+                              onClick={() => onSelectAgent(RH_FEEDBACK_ID)}
+                              className={`w-full flex items-center px-2 py-1.5 rounded-md transition-all text-xs ${
+                                activeAgentId === RH_FEEDBACK_ID
+                                  ? 'bg-ai-accent/10 text-ai-accent'
+                                  : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                              }`}
+                            >
+                              <MessageSquareText size={14} className="flex-shrink-0 mr-2" />
+                              <span className="truncate">Feedback</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+
+            {/* Área Certificados - último item */}
+            <button
+              onClick={() => onSelectAgent('area-certificados')}
+              className={`
+                w-full flex items-center px-3 py-2 rounded-md transition-all relative group
+                ${
+                  activeAgentId === 'area-certificados'
+                    ? 'bg-ai-accent/10 text-ai-accent'
+                    : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                }
+                cursor-pointer
+              `}
+              title="Área Certificados"
+            >
+              <div
+                className={`flex-shrink-0 ${activeAgentId === 'area-certificados' ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}
+              >
+                <FileCheck size={16} />
+              </div>
+              <span className="ml-3 text-sm font-medium block text-left truncate">Área Certificados</span>
+            </button>
           </nav>
         </div>
 
@@ -337,9 +407,7 @@ const Sidebar: React.FC<SidebarProps> = ({ agents, activeAgentId, onSelectAgent,
                 {user.role === 'admin' && (
                   <p className="text-[10px] text-ai-subtext truncate capitalize">Administrador</p>
                 )}
-                <p className="text-[9px] text-ai-subtext font-bold uppercase tracking-wide mt-1">
-                  v{APP_VERSION} SaaS
-                </p>
+                <p className="text-[9px] text-ai-subtext font-bold uppercase tracking-wide mt-1">v{APP_VERSION} SaaS</p>
               </div>
             </div>
           )}

@@ -43,47 +43,107 @@ const INTEGRA_ACCENT = '#65C04A';
 const INTEGRA_BORDER = '#5E6D82';
 
 const InttegraLogo: React.FC<{ className?: string }> = ({ className }) => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-  >
-    <rect
-      x="4"
-      y="4"
-      width="10"
-      height="10"
-      rx="2"
-      fill={INTEGRA_ACCENT}
-      stroke="#FFFFFF"
-      strokeWidth="1.5"
-    />
-    <rect
-      x="10"
-      y="10"
-      width="10"
-      height="10"
-      rx="2"
-      fill={INTEGRA_ACCENT}
-      stroke="#FFFFFF"
-      strokeWidth="1.5"
-    />
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <rect x="4" y="4" width="10" height="10" rx="2" fill={INTEGRA_ACCENT} stroke="#FFFFFF" strokeWidth="1.5" />
+    <rect x="10" y="10" width="10" height="10" rx="2" fill={INTEGRA_ACCENT} stroke="#FFFFFF" strokeWidth="1.5" />
   </svg>
 );
 
-const menuItems: { label: string; icon: React.ElementType }[] = [
-  { label: 'Pecuária', icon: Beef },
-  { label: 'Estoque', icon: Package },
-  { label: 'Máquinas', icon: Tractor },
-  { label: 'Agricultura', icon: Sprout },
-  { label: 'Clima', icon: CloudRain },
-  { label: 'Planejamento Fazenda', icon: ClipboardList },
-  { label: 'Rotinas Gerenciais', icon: RefreshCw },
-  { label: 'Sustentabilidade', icon: Leaf },
-  { label: 'Cadastros Gerais', icon: Settings },
+type SubItem = { label: string; icon?: 'chevron' | 'star' };
+type ExpandableItem = { id: string; label: string; icon: React.ElementType; subItems: SubItem[] };
+
+const expandableSections: ExpandableItem[] = [
+  {
+    id: 'pecuaria',
+    label: 'Pecuária',
+    icon: Beef,
+    subItems: [
+      { label: 'Cadastros', icon: 'chevron' },
+      { label: 'Movimentações', icon: 'chevron' },
+      { label: 'Efetivo Pecuário', icon: 'chevron' },
+      { label: 'Reprodução', icon: 'chevron' },
+      { label: 'Aprovações', icon: 'chevron' },
+    ],
+  },
+  {
+    id: 'estoque',
+    label: 'Estoque',
+    icon: Package,
+    subItems: [
+      { label: 'Cadastros', icon: 'chevron' },
+      { label: 'Movimentações', icon: 'chevron' },
+      { label: 'Relatórios', icon: 'chevron' },
+    ],
+  },
+  {
+    id: 'maquinas',
+    label: 'Máquinas',
+    icon: Tractor,
+    subItems: [
+      { label: 'Cadastros', icon: 'chevron' },
+      { label: 'Movimentações', icon: 'chevron' },
+    ],
+  },
+  {
+    id: 'agricultura',
+    label: 'Agricultura',
+    icon: Sprout,
+    subItems: [
+      { label: 'Cadastros', icon: 'chevron' },
+      { label: 'Movimentações', icon: 'chevron' },
+    ],
+  },
+  {
+    id: 'clima',
+    label: 'Clima',
+    icon: CloudRain,
+    subItems: [
+      { label: 'Cadastros', icon: 'chevron' },
+      { label: 'Movimentações', icon: 'chevron' },
+    ],
+  },
+  {
+    id: 'planejamento',
+    label: 'Planejamento Fazenda',
+    icon: ClipboardList,
+    subItems: [
+      { label: 'DISC', icon: 'star' },
+      { label: 'Mapa Cultural', icon: 'star' },
+      { label: 'Metas', icon: 'chevron' },
+    ],
+  },
+  {
+    id: 'rotinas',
+    label: 'Rotinas Gerenciais',
+    icon: RefreshCw,
+    subItems: [
+      { label: 'Tarefas', icon: 'star' },
+      { label: 'Painel de Consultas', icon: 'chevron' },
+      { label: 'Terminação Intensiva a Pasto (TIP)', icon: 'star' },
+      { label: 'Desempenho Animal', icon: 'star' },
+      { label: 'Evolução de Categoria Individual', icon: 'star' },
+    ],
+  },
+  {
+    id: 'sustentabilidade',
+    label: 'Sustentabilidade',
+    icon: Leaf,
+    subItems: [{ label: 'Saúde e Bem-Estar Animal', icon: 'star' }],
+  },
+  {
+    id: 'cadastros-gerais',
+    label: 'Cadastros Gerais',
+    icon: Settings,
+    subItems: [
+      { label: 'Propriedades', icon: 'chevron' },
+      { label: 'Safras', icon: 'chevron' },
+      { label: 'Dispositivos', icon: 'chevron' },
+      { label: 'Importação Resultta', icon: 'star' },
+    ],
+  },
+];
+
+const simpleItems: { label: string; icon: React.ElementType }[] = [
   { label: 'Favoritos', icon: Star },
   { label: 'Recentes', icon: Clock },
 ];
@@ -99,8 +159,23 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
   onSwitchToPecuaria,
 }) => {
   const [isFinanceiroOpen, setIsFinanceiroOpen] = useState(true);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    pecuaria: false,
+    estoque: false,
+    maquinas: false,
+    agricultura: false,
+    clima: false,
+    planejamento: false,
+    rotinas: false,
+    sustentabilidade: false,
+    'cadastros-gerais': false,
+  });
 
-  const sidebarWidth = isCollapsed ? 'w-16' : 'w-56';
+  const toggleSection = (id: string) => {
+    setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const sidebarWidth = isCollapsed ? 'w-16' : 'w-64';
   const sidebarVisible = isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden';
 
   return (
@@ -204,8 +279,20 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
             className={`flex items-center rounded-md mb-1 ${isCollapsed ? 'justify-center p-2' : 'gap-3 px-3 py-2'}`}
             style={{ color: INTEGRA_TEXT }}
           >
-            <div className="w-8 h-8 rounded flex items-center justify-center shrink-0" style={{ backgroundColor: INTEGRA_SURFACE }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div
+              className="w-8 h-8 rounded flex items-center justify-center shrink-0"
+              style={{ backgroundColor: INTEGRA_SURFACE }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <rect x="3" y="3" width="7" height="7" />
                 <rect x="14" y="3" width="7" height="7" />
                 <rect x="14" y="14" width="7" height="7" />
@@ -225,7 +312,10 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
               title="Financeiro"
             >
               <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: INTEGRA_SURFACE }}>
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: INTEGRA_SURFACE }}
+                >
                   <DollarSign size={16} />
                 </div>
                 {!isCollapsed && <span className="text-sm font-medium">Financeiro</span>}
@@ -234,7 +324,7 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
             </button>
             {!isCollapsed && isFinanceiroOpen && (
               <div className="ml-4 pl-4 mt-1 space-y-0.5 border-l" style={{ borderColor: INTEGRA_BORDER }}>
-                {['Cadastros', 'Movimentações', 'Relatórios'].map((label) => (
+                {['Cadastros', 'Movimentações', 'Relatórios'].map(label => (
                   <div
                     key={label}
                     className="flex items-center justify-between px-2 py-1.5 rounded-md"
@@ -248,9 +338,49 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
             )}
           </div>
 
-          {/* Menu items (visual only) */}
+          {/* Expandable sections */}
+          {expandableSections.map(({ id, label, icon: Icon, subItems }) => {
+            const isOpen = openSections[id] ?? false;
+            return (
+              <div key={id} className="mb-2">
+                <button
+                  type="button"
+                  onClick={() => !isCollapsed && toggleSection(id)}
+                  className={`w-full flex items-center rounded-md transition-colors hover:opacity-90 ${isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'}`}
+                  style={{ color: INTEGRA_TEXT, backgroundColor: 'transparent' }}
+                  title={label}
+                >
+                  <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
+                    <Icon size={16} className="flex-shrink-0" style={{ color: INTEGRA_TEXT }} />
+                    {!isCollapsed && <span className="text-sm font-medium">{label}</span>}
+                  </div>
+                  {!isCollapsed && (isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
+                </button>
+                {!isCollapsed && isOpen && (
+                  <div className="ml-4 pl-4 mt-1 space-y-0.5 border-l" style={{ borderColor: INTEGRA_BORDER }}>
+                    {subItems.map(sub => (
+                      <div
+                        key={sub.label}
+                        className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md min-w-0"
+                        style={{ color: INTEGRA_TEXT }}
+                      >
+                        <span className="text-sm truncate">{sub.label}</span>
+                        {sub.icon === 'star' ? (
+                          <Star size={14} className="flex-shrink-0" style={{ color: INTEGRA_PLACEHOLDER }} />
+                        ) : (
+                          <ChevronDown size={14} style={{ color: INTEGRA_PLACEHOLDER }} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Simple items (Favoritos, Recentes) */}
           <nav className="space-y-0.5">
-            {menuItems.map(({ label, icon: Icon }) => (
+            {simpleItems.map(({ label, icon: Icon }) => (
               <div
                 key={label}
                 className={`flex items-center rounded-md ${isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'}`}
@@ -290,7 +420,10 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
                       Administrador
                     </p>
                   )}
-                  <p className="text-[9px] font-bold uppercase tracking-wide mt-1" style={{ color: INTEGRA_PLACEHOLDER }}>
+                  <p
+                    className="text-[9px] font-bold uppercase tracking-wide mt-1"
+                    style={{ color: INTEGRA_PLACEHOLDER }}
+                  >
                     v{APP_VERSION} SaaS
                   </p>
                 </div>

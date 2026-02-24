@@ -96,7 +96,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
   const isAdmin = user?.role === 'admin';
   const effectiveUserId = useMemo(
     () => (isAdmin && selectedAnalyst ? selectedAnalyst.id : user?.id),
-    [isAdmin, selectedAnalyst, user?.id]
+    [isAdmin, selectedAnalyst, user?.id],
   );
 
   useEffect(() => {
@@ -215,11 +215,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
       if (sw > 0 && sh > 0) {
         ctx.drawImage(img, sx, sy, sw, sh, 0, 0, CROP_SIZE, CROP_SIZE);
       }
-      canvas.toBlob(
-        (blob) => (blob ? resolve(blob) : reject(new Error('Falha ao gerar imagem'))),
-        'image/jpeg',
-        0.92
-      );
+      canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('Falha ao gerar imagem'))), 'image/jpeg', 0.92);
     });
   }, [cropZoom, cropPosition, cropImageSize]);
 
@@ -279,7 +275,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
         full_name: formData.full_name.trim(),
         preferred_name: formData.preferred_name.trim() || undefined,
         person_type: formData.person_type,
-        job_role: formData.person_type === 'Colaborador Fazenda' ? (formData.job_role || undefined) : undefined,
+        job_role: formData.person_type === 'Colaborador Fazenda' ? formData.job_role || undefined : undefined,
         phone_whatsapp: formData.phone_whatsapp.trim() || undefined,
         email: formData.email.trim() || undefined,
         location_farm: selectedFarm?.name || formData.location_farm.trim() || undefined,
@@ -327,11 +323,11 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
   };
 
   const filtered = people.filter(
-    (p) =>
+    p =>
       !search ||
       [p.full_name, p.preferred_name, p.person_type, p.job_role, p.email].some(
-        (v) => v && String(v).toLowerCase().includes(search.toLowerCase())
-      )
+        v => v && String(v).toLowerCase().includes(search.toLowerCase()),
+      ),
   );
 
   if (view === 'form') {
@@ -345,9 +341,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
           >
             <ArrowLeft size={16} /> Voltar para lista
           </button>
-          <h1 className="text-xl font-semibold text-ai-text">
-            {editing ? 'Editar pessoa' : 'Nova pessoa'}
-          </h1>
+          <h1 className="text-xl font-semibold text-ai-text">{editing ? 'Editar pessoa' : 'Nova pessoa'}</h1>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -356,7 +350,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
                 <input
                   type="text"
                   value={formData.full_name}
-                  onChange={(e) => setFormData((f) => ({ ...f, full_name: e.target.value }))}
+                  onChange={e => setFormData(f => ({ ...f, full_name: e.target.value }))}
                   className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                   placeholder="Nome completo"
                 />
@@ -366,7 +360,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
                 <input
                   type="text"
                   value={formData.preferred_name}
-                  onChange={(e) => setFormData((f) => ({ ...f, preferred_name: e.target.value }))}
+                  onChange={e => setFormData(f => ({ ...f, preferred_name: e.target.value }))}
                   className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                   placeholder="Apelido ou nome preferido"
                 />
@@ -378,9 +372,9 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
                 <label className="block text-sm font-medium text-ai-text mb-1">Tipo de pessoa</label>
                 <select
                   value={formData.person_type}
-                  onChange={(e) => {
+                  onChange={e => {
                     const next = e.target.value;
-                    setFormData((f) => ({
+                    setFormData(f => ({
                       ...f,
                       person_type: next,
                       job_role: next === 'Colaborador Fazenda' ? f.job_role : '',
@@ -388,8 +382,10 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
                   }}
                   className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                 >
-                  {PERSON_TYPES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                  {PERSON_TYPES.map(t => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -398,12 +394,14 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
                   <label className="block text-sm font-medium text-ai-text mb-1">Cargo/função</label>
                   <select
                     value={formData.job_role}
-                    onChange={(e) => setFormData((f) => ({ ...f, job_role: e.target.value }))}
+                    onChange={e => setFormData(f => ({ ...f, job_role: e.target.value }))}
                     className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                   >
                     <option value="">Selecione...</option>
-                    {JOB_ROLES.map((r) => (
-                      <option key={r} value={r}>{r}</option>
+                    {JOB_ROLES.map(r => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -416,7 +414,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
                 <input
                   type="tel"
                   value={formData.phone_whatsapp}
-                  onChange={(e) => setFormData((f) => ({ ...f, phone_whatsapp: e.target.value }))}
+                  onChange={e => setFormData(f => ({ ...f, phone_whatsapp: e.target.value }))}
                   className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                   placeholder="(00) 00000-0000"
                 />
@@ -426,7 +424,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData((f) => ({ ...f, email: e.target.value }))}
+                  onChange={e => setFormData(f => ({ ...f, email: e.target.value }))}
                   className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                   placeholder="email@exemplo.com"
                 />
@@ -434,11 +432,13 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-ai-text mb-1">Base (onde fica a maior parte do tempo)</label>
+              <label className="block text-sm font-medium text-ai-text mb-1">
+                Base (onde fica a maior parte do tempo)
+              </label>
               <input
                 type="text"
                 value={formData.base}
-                onChange={(e) => setFormData((f) => ({ ...f, base: e.target.value }))}
+                onChange={e => setFormData(f => ({ ...f, base: e.target.value }))}
                 className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                 placeholder="Ex: Sede, Retiro Norte..."
               />
@@ -490,7 +490,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
               <label className="block text-sm font-medium text-ai-text mb-1">Descrição das principais atividades</label>
               <textarea
                 value={formData.main_activities}
-                onChange={(e) => setFormData((f) => ({ ...f, main_activities: e.target.value }))}
+                onChange={e => setFormData(f => ({ ...f, main_activities: e.target.value }))}
                 rows={4}
                 className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm resize-none"
                 placeholder="Descreva as principais atividades desta pessoa..."
@@ -520,79 +520,83 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
         {/* Modal de recorte e centralização da foto */}
         {showCropModal && cropSourceUrl && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={closeCropModal}>
-          <div
-            className="bg-ai-bg border border-ai-border rounded-xl shadow-xl max-w-lg w-full overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-ai-border">
-              <span className="text-sm font-medium text-ai-text flex items-center gap-2">
-                <Move size={16} /> Arraste para centralizar · use o zoom para cortar
-              </span>
-              <button type="button" onClick={closeCropModal} className="p-1.5 text-ai-subtext hover:text-ai-text rounded">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="p-4 flex flex-col items-center gap-4">
-              <div
-                className="rounded-full overflow-hidden border-2 border-ai-border bg-ai-surface cursor-move select-none"
-                style={{ width: CROP_SIZE, height: CROP_SIZE }}
-                onMouseDown={onCropMouseDown}
-              >
-                <div
-                  className="w-full h-full overflow-hidden flex items-center justify-center"
-                  style={{ transform: `scale(${cropZoom}) translate(${cropPosition.x}px, ${cropPosition.y}px)` }}
+            <div
+              className="bg-ai-bg border border-ai-border rounded-xl shadow-xl max-w-lg w-full overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-ai-border">
+                <span className="text-sm font-medium text-ai-text flex items-center gap-2">
+                  <Move size={16} /> Arraste para centralizar · use o zoom para cortar
+                </span>
+                <button
+                  type="button"
+                  onClick={closeCropModal}
+                  className="p-1.5 text-ai-subtext hover:text-ai-text rounded"
                 >
-                  <img
-                    ref={cropImageRef}
-                    src={cropSourceUrl}
-                    alt="Crop"
-                    className="max-w-none object-cover"
-                    style={{
-                      width: CROP_SIZE,
-                      height: CROP_SIZE,
-                      objectPosition: 'center',
-                    }}
-                    onLoad={(e) => {
-                      const el = e.currentTarget;
-                      setCropImageSize({ w: el.naturalWidth, h: el.naturalHeight });
-                    }}
-                    draggable={false}
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-4 flex flex-col items-center gap-4">
+                <div
+                  className="rounded-full overflow-hidden border-2 border-ai-border bg-ai-surface cursor-move select-none"
+                  style={{ width: CROP_SIZE, height: CROP_SIZE }}
+                  onMouseDown={onCropMouseDown}
+                >
+                  <div
+                    className="w-full h-full overflow-hidden flex items-center justify-center"
+                    style={{ transform: `scale(${cropZoom}) translate(${cropPosition.x}px, ${cropPosition.y}px)` }}
+                  >
+                    <img
+                      ref={cropImageRef}
+                      src={cropSourceUrl}
+                      alt="Crop"
+                      className="max-w-none object-cover"
+                      style={{
+                        width: CROP_SIZE,
+                        height: CROP_SIZE,
+                        objectPosition: 'center',
+                      }}
+                      onLoad={e => {
+                        const el = e.currentTarget;
+                        setCropImageSize({ w: el.naturalWidth, h: el.naturalHeight });
+                      }}
+                      draggable={false}
+                    />
+                  </div>
+                </div>
+                <div className="w-full max-w-xs flex items-center gap-3">
+                  <ZoomIn size={18} className="text-ai-subtext shrink-0" />
+                  <input
+                    type="range"
+                    min={1}
+                    max={3}
+                    step={0.1}
+                    value={cropZoom}
+                    onChange={e => setCropZoom(Number(e.target.value))}
+                    className="flex-1 h-2 rounded-full appearance-none bg-ai-surface2 accent-ai-accent"
                   />
+                  <span className="text-xs text-ai-subtext w-8">{cropZoom.toFixed(1)}×</span>
                 </div>
               </div>
-              <div className="w-full max-w-xs flex items-center gap-3">
-                <ZoomIn size={18} className="text-ai-subtext shrink-0" />
-                <input
-                  type="range"
-                  min={1}
-                  max={3}
-                  step={0.1}
-                  value={cropZoom}
-                  onChange={(e) => setCropZoom(Number(e.target.value))}
-                  className="flex-1 h-2 rounded-full appearance-none bg-ai-surface2 accent-ai-accent"
-                />
-                <span className="text-xs text-ai-subtext w-8">{cropZoom.toFixed(1)}×</span>
+              <div className="flex justify-end gap-2 px-4 py-3 border-t border-ai-border">
+                <button
+                  type="button"
+                  onClick={closeCropModal}
+                  className="px-4 py-2 rounded-md border border-ai-border text-ai-text hover:bg-ai-surface2"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCropApply}
+                  disabled={!cropImageSize}
+                  className="px-4 py-2 rounded-md bg-ai-accent text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  Aplicar
+                </button>
               </div>
             </div>
-            <div className="flex justify-end gap-2 px-4 py-3 border-t border-ai-border">
-              <button
-                type="button"
-                onClick={closeCropModal}
-                className="px-4 py-2 rounded-md border border-ai-border text-ai-text hover:bg-ai-surface2"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleCropApply}
-                disabled={!cropImageSize}
-                className="px-4 py-2 rounded-md bg-ai-accent text-white hover:opacity-90 disabled:opacity-50"
-              >
-                Aplicar
-              </button>
-            </div>
           </div>
-        </div>
         )}
       </div>
     );
@@ -622,7 +626,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nome, tipo, cargo, e-mail..."
             className="w-full pl-9 pr-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
           />
@@ -653,7 +657,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
           </div>
         ) : (
           <ul className="space-y-3">
-            {filtered.map((p) => (
+            {filtered.map(p => (
               <li
                 key={p.id}
                 className="bg-ai-surface border border-ai-border rounded-lg p-4 flex items-center gap-4 hover:border-ai-accent/30 transition-colors"
@@ -668,9 +672,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-ai-text truncate">
                     {p.full_name}
-                    {p.preferred_name && (
-                      <span className="text-ai-subtext font-normal"> ({p.preferred_name})</span>
-                    )}
+                    {p.preferred_name && <span className="text-ai-subtext font-normal"> ({p.preferred_name})</span>}
                   </p>
                   <p className="text-sm text-ai-subtext truncate">
                     {p.person_type}

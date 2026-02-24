@@ -1,11 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -20,12 +13,7 @@ import {
 } from '@xyflow/react';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import { Loader2, RefreshCw } from 'lucide-react';
-import {
-  loadFullEAPTree,
-  wbsTreeToFlowData,
-  type WBSNode,
-  type WBSLevel,
-} from '../lib/eapTree';
+import { loadFullEAPTree, wbsTreeToFlowData, type WBSNode, type WBSLevel } from '../lib/eapTree';
 import { WBSNode as WBSNodeComponent, EAPNodeActionsContext } from './eap/WBSNode';
 import {
   ProgramModal,
@@ -50,16 +38,8 @@ import {
   type ProjectPayload,
   type ProjectRow,
 } from '../lib/projects';
-import {
-  deleteDelivery,
-  fetchDeliveriesByProject,
-  type DeliveryRow,
-} from '../lib/deliveries';
-import {
-  fetchInitiativesByDelivery,
-  fetchTasksByInitiative,
-  ensureDefaultMilestone,
-} from '../lib/initiatives';
+import { deleteDelivery, fetchDeliveriesByProject, type DeliveryRow } from '../lib/deliveries';
+import { fetchInitiativesByDelivery, fetchTasksByInitiative, ensureDefaultMilestone } from '../lib/initiatives';
 import { fetchPeople, type Person } from '../lib/people';
 import { sanitizeText } from '../lib/inputSanitizer';
 import { supabase } from '../lib/supabase';
@@ -119,23 +99,20 @@ function getRawIdFromNodeId(nodeId: string): string {
   return parts.length >= 2 ? parts.slice(1).join('-') : nodeId;
 }
 
-const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
-  effectiveUserId,
-  selectedClientId,
-  selectedFarmId,
-  onToast,
-}) => {
+const EAPMindMapInner: React.FC<EAPMindMapProps> = ({ effectiveUserId, selectedClientId, selectedFarmId, onToast }) => {
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   const toast = useCallback(
     (msg: string, type: 'success' | 'error' | 'warning' | 'info') => {
       if (mountedRef.current) onToast?.(msg, type);
     },
-    [onToast]
+    [onToast],
   );
 
   const [tree, setTree] = useState<WBSNode[]>([]);
@@ -174,12 +151,12 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
       const graph = {
         id: 'root',
         layoutOptions: elkOptions,
-        children: flowNodes.map((n) => ({
+        children: flowNodes.map(n => ({
           id: n.id,
           width: (n.width as number) || 220,
           height: (n.height as number) || 72,
         })),
-        edges: flowEdges.map((e) => ({
+        edges: flowEdges.map(e => ({
           id: e.id,
           sources: [e.source],
           targets: [e.target],
@@ -187,8 +164,8 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
       };
 
       const layouted = await elk.layout(graph);
-      const layoutedNodes: Node[] = flowNodes.map((n) => {
-        const layoutNode = layouted.children?.find((c) => c.id === n.id);
+      const layoutedNodes: Node[] = flowNodes.map(n => {
+        const layoutNode = layouted.children?.find(c => c.id === n.id);
         return {
           ...n,
           position: {
@@ -221,16 +198,18 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
   useEffect(() => {
     let active = true;
     fetchPeople(effectiveUserId, selectedFarmId ? { farmId: selectedFarmId } : undefined)
-      .then((rows) => {
+      .then(rows => {
         if (active && mountedRef.current) setPeople(rows);
       })
-      .catch((err) => {
+      .catch(err => {
         if (active && mountedRef.current) {
           setPeople([]);
           toast(err instanceof Error ? err.message : 'Erro ao carregar pessoas.', 'error');
         }
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [effectiveUserId, selectedFarmId, toast]);
 
   const findNodeInTree = useCallback(
@@ -245,7 +224,7 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
       }
       return walk(tree);
     },
-    [tree]
+    [tree],
   );
 
   const closeModal = useCallback(() => {
@@ -254,31 +233,34 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
     setParentNodeIdForCreate(null);
   }, []);
 
-  const openCreate = useCallback((parentNodeId: string, parentLevel: WBSLevel) => {
-    const parent = findNodeInTree(parentNodeId);
-    if (!parent) return;
+  const openCreate = useCallback(
+    (parentNodeId: string, parentLevel: WBSLevel) => {
+      const parent = findNodeInTree(parentNodeId);
+      if (!parent) return;
 
-    if (parentLevel === 'program') {
-      setModalEntity('program');
-      setModalMode('create');
-      setProgramForm(INITIAL_PROGRAM_FORM);
-    } else if (parentLevel === 'delivery') {
-      setModalEntity('delivery');
-      setModalMode('create');
-      setParentNodeIdForCreate(parentNodeId);
-      setDeliveryForm(INITIAL_DELIVERY_FORM);
-    } else if (parentLevel === 'activity') {
-      setModalEntity('activity');
-      setModalMode('create');
-      setParentNodeIdForCreate(parentNodeId);
-      setActivityForm(INITIAL_ACTIVITY_FORM);
-    } else if (parentLevel === 'task') {
-      setModalEntity('task');
-      setModalMode('create');
-      setParentNodeIdForCreate(parentNodeId);
-      setTaskForm({ ...INITIAL_TASK_FORM, activity_date: getCurrentIsoDate() });
-    }
-  }, [findNodeInTree]);
+      if (parentLevel === 'program') {
+        setModalEntity('program');
+        setModalMode('create');
+        setProgramForm(INITIAL_PROGRAM_FORM);
+      } else if (parentLevel === 'delivery') {
+        setModalEntity('delivery');
+        setModalMode('create');
+        setParentNodeIdForCreate(parentNodeId);
+        setDeliveryForm(INITIAL_DELIVERY_FORM);
+      } else if (parentLevel === 'activity') {
+        setModalEntity('activity');
+        setModalMode('create');
+        setParentNodeIdForCreate(parentNodeId);
+        setActivityForm(INITIAL_ACTIVITY_FORM);
+      } else if (parentLevel === 'task') {
+        setModalEntity('task');
+        setModalMode('create');
+        setParentNodeIdForCreate(parentNodeId);
+        setTaskForm({ ...INITIAL_TASK_FORM, activity_date: getCurrentIsoDate() });
+      }
+    },
+    [findNodeInTree],
+  );
 
   const openEdit = useCallback(
     (nodeId: string, level: WBSLevel) => {
@@ -313,7 +295,7 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
         });
       } else if (level === 'activity' && node.data.initiative) {
         const i = node.data.initiative;
-        const leaderId = people.find((p) => (p.preferred_name || p.full_name) === i.leader)?.id || '';
+        const leaderId = people.find(p => (p.preferred_name || p.full_name) === i.leader)?.id || '';
         setModalEntity('activity');
         setModalMode('edit');
         setActivityForm({
@@ -341,7 +323,7 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
         });
       }
     },
-    [findNodeInTree, people]
+    [findNodeInTree, people],
   );
 
   const openDelete = useCallback(
@@ -378,7 +360,7 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
         setSaving(false);
       }
     },
-    [findNodeInTree, loadTree, toast, closeModal]
+    [findNodeInTree, loadTree, toast, closeModal],
   );
 
   const nodeActions = useMemo(
@@ -387,7 +369,7 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
       onEdit: openEdit,
       onDelete: openDelete,
     }),
-    [openCreate, openEdit, openDelete]
+    [openCreate, openEdit, openDelete],
   );
 
   const saveProgram = useCallback(async () => {
@@ -409,10 +391,10 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
       start_date: programForm.start_date || null,
       end_date: programForm.end_date || null,
       transformations_achievements: programForm.transformations_achievements.trim() || null,
-      success_evidence: programForm.success_evidence.map((s) => s.trim()).filter(Boolean),
+      success_evidence: programForm.success_evidence.map(s => s.trim()).filter(Boolean),
       stakeholder_matrix: programForm.stakeholder_matrix
-        .map((r) => ({ name: r.name.trim(), activity: r.activity.trim() }))
-        .filter((r) => r.name || r.activity),
+        .map(r => ({ name: r.name.trim(), activity: r.activity.trim() }))
+        .filter(r => r.name || r.activity),
     };
 
     setSaving(true);
@@ -432,16 +414,7 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [
-    saving,
-    programForm,
-    selectedClientId,
-    editingNodeId,
-    effectiveUserId,
-    loadTree,
-    toast,
-    closeModal,
-  ]);
+  }, [saving, programForm, selectedClientId, editingNodeId, effectiveUserId, loadTree, toast, closeModal]);
 
   const saveDelivery = useCallback(async () => {
     if (saving) return;
@@ -464,7 +437,8 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
       name: sanitizeText(name),
       description: deliveryForm.description.trim() ? sanitizeText(deliveryForm.description.trim()) : null,
       transformations_achievements: deliveryForm.transformations_achievements.trim()
-        ? sanitizeText(deliveryForm.transformations_achievements.trim()) : null,
+        ? sanitizeText(deliveryForm.transformations_achievements.trim())
+        : null,
       start_date: deliveryForm.start_date || null,
       end_date: deliveryForm.end_date || null,
       due_date: deliveryForm.end_date || null,
@@ -525,9 +499,9 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
       return;
     }
 
-    const leaderPerson = people.find((p) => p.id === activityForm.leader_id);
+    const leaderPerson = people.find(p => p.id === activityForm.leader_id);
     const leaderName = leaderPerson
-      ? (leaderPerson.preferred_name?.trim() || leaderPerson.full_name)
+      ? leaderPerson.preferred_name?.trim() || leaderPerson.full_name
       : activityForm.leader_id || null;
 
     setSaving(true);
@@ -657,16 +631,7 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [
-    saving,
-    taskForm,
-    editingNodeId,
-    parentNodeIdForCreate,
-    findNodeInTree,
-    loadTree,
-    toast,
-    closeModal,
-  ]);
+  }, [saving, taskForm, editingNodeId, parentNodeIdForCreate, findNodeInTree, loadTree, toast, closeModal]);
 
   if (loading && tree.length === 0) {
     return (
@@ -742,7 +707,17 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
         >
           <Background />
           <Controls />
-          <MiniMap nodeColor={(n) => (n.data?.level === 'program' ? '#6366f1' : n.data?.level === 'delivery' ? '#3b82f6' : n.data?.level === 'activity' ? '#10b981' : '#f59e0b')} />
+          <MiniMap
+            nodeColor={n =>
+              n.data?.level === 'program'
+                ? '#6366f1'
+                : n.data?.level === 'delivery'
+                  ? '#3b82f6'
+                  : n.data?.level === 'activity'
+                    ? '#10b981'
+                    : '#f59e0b'
+            }
+          />
           <Panel position="top-right" className="flex flex-col gap-2">
             <button
               type="button"
@@ -817,7 +792,7 @@ const EAPMindMapInner: React.FC<EAPMindMapProps> = ({
   );
 };
 
-const EAPMindMapWithProvider: React.FC<EAPMindMapProps> = (props) => (
+const EAPMindMapWithProvider: React.FC<EAPMindMapProps> = props => (
   <ReactFlowProvider>
     <EAPMindMapInner {...props} />
   </ReactFlowProvider>

@@ -24,9 +24,8 @@ export function routeAgent(manifest: AgentManifest, userPlan: PlanId): RoutedMod
 }
 
 export function getFallbackRoutes(manifest: AgentManifest): RoutedModel[] {
-  return (manifest.modelPolicy.fallback ?? []).map((item) => ({
+  return (manifest.modelPolicy.fallback ?? []).map(item => ({
     provider: item.provider,
     model: item.model,
   }));
 }
-

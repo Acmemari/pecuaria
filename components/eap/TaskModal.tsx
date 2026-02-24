@@ -43,15 +43,7 @@ interface TaskModalProps {
   people: Person[];
 }
 
-export const TaskModal: React.FC<TaskModalProps> = ({
-  form,
-  onChange,
-  onSave,
-  onClose,
-  saving,
-  mode,
-  people,
-}) => {
+export const TaskModal: React.FC<TaskModalProps> = ({ form, onChange, onSave, onClose, saving, mode, people }) => {
   const computedTaskDueDate =
     form.activity_date && form.duration_days
       ? addDaysIso(form.activity_date, Math.max(1, parseInt(form.duration_days, 10) || 1) - 1)
@@ -64,7 +56,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         <input
           type="text"
           value={form.title}
-          onChange={(e) => onChange({ ...form, title: e.target.value })}
+          onChange={e => onChange({ ...form, title: e.target.value })}
           className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
         />
       </div>
@@ -73,7 +65,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         <textarea
           rows={3}
           value={form.description}
-          onChange={(e) => onChange({ ...form, description: e.target.value })}
+          onChange={e => onChange({ ...form, description: e.target.value })}
           className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none"
         />
       </div>
@@ -82,11 +74,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           <label className="block text-sm font-medium text-ai-text mb-1">Responsável *</label>
           <select
             value={form.responsible_person_id}
-            onChange={(e) => onChange({ ...form, responsible_person_id: e.target.value })}
+            onChange={e => onChange({ ...form, responsible_person_id: e.target.value })}
             className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
           >
             <option value="">Selecione o responsável</option>
-            {people.map((person) => (
+            {people.map(person => (
               <option key={person.id} value={person.id}>
                 {person.preferred_name?.trim() || person.full_name}
               </option>
@@ -97,7 +89,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           <label className="block text-sm font-medium text-ai-text mb-1">Status Kanban</label>
           <select
             value={form.kanban_status}
-            onChange={(e) => onChange({ ...form, kanban_status: e.target.value as TaskFormState['kanban_status'] })}
+            onChange={e => onChange({ ...form, kanban_status: e.target.value as TaskFormState['kanban_status'] })}
             className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
           >
             <option value="A Fazer">A Fazer</option>
@@ -110,10 +102,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div>
           <label className="block text-sm font-medium text-ai-text mb-1">Início</label>
-          <DateInputBR
-            value={form.activity_date}
-            onChange={(v) => onChange({ ...form, activity_date: v })}
-          />
+          <DateInputBR value={form.activity_date} onChange={v => onChange({ ...form, activity_date: v })} />
         </div>
         <div>
           <label className="block text-sm font-medium text-ai-text mb-1">Duração (dias)</label>
@@ -122,7 +111,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             inputMode="numeric"
             min={1}
             value={form.duration_days}
-            onChange={(e) => onChange({ ...form, duration_days: e.target.value })}
+            onChange={e => onChange({ ...form, duration_days: e.target.value })}
             className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
           />
         </div>
@@ -137,7 +126,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         <input
           type="checkbox"
           checked={form.completed}
-          onChange={(e) => onChange({ ...form, completed: e.target.checked })}
+          onChange={e => onChange({ ...form, completed: e.target.checked })}
         />
         Tarefa concluída
       </label>

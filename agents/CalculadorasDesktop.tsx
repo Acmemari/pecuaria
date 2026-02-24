@@ -34,12 +34,10 @@ const CalculatorCard: React.FC<CalculatorCardProps> = ({
   >
     {/* Top row: icon left, star right */}
     <div className="flex items-start justify-between gap-2 mb-3">
-      <div className="flex items-center justify-center text-gray-500">
-        {icon}
-      </div>
+      <div className="flex items-center justify-center text-gray-500">{icon}</div>
       <button
         type="button"
-        onClick={(e) => {
+        onClick={e => {
           e.stopPropagation();
           if (!locked) onToggleFavorite(id);
         }}
@@ -47,19 +45,12 @@ const CalculatorCard: React.FC<CalculatorCardProps> = ({
         disabled={locked}
         aria-label={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
       >
-        <Star
-          size={16}
-          className={isFavorite ? 'fill-amber-400 text-amber-400' : ''}
-        />
+        <Star size={16} className={isFavorite ? 'fill-amber-400 text-amber-400' : ''} />
       </button>
     </div>
     <h3 className="text-base font-bold text-gray-900 mb-1.5">{title}</h3>
-    <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-4">
-      {description}
-    </p>
-    {locked && (
-      <Lock size={12} className="absolute bottom-2 right-2 text-gray-400" aria-hidden />
-    )}
+    <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-4">{description}</p>
+    {locked && <Lock size={12} className="absolute bottom-2 right-2 text-gray-400" aria-hidden />}
   </button>
 );
 
@@ -84,7 +75,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
   const toggleFavorite = useCallback((id: string) => {
-    setFavoriteIds((prev) => {
+    setFavoriteIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -115,16 +106,17 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
     },
   ];
 
-  const planejamentoCard = showPlanejamentoAgil && onSelectPlanejamentoAgil
-    ? {
-        id: 'agile-planning',
-        title: 'Planejamento Ágil',
-        description:
-          'Planejamento estratégico vinculado a cliente e fazenda. Defina metas, iniciativas e acompanhe o progresso.',
-        icon: <Target size={19} />,
-        onClick: onSelectPlanejamentoAgil,
-      }
-    : null;
+  const planejamentoCard =
+    showPlanejamentoAgil && onSelectPlanejamentoAgil
+      ? {
+          id: 'agile-planning',
+          title: 'Planejamento Ágil',
+          description:
+            'Planejamento estratégico vinculado a cliente e fazenda. Defina metas, iniciativas e acompanhe o progresso.',
+          icon: <Target size={19} />,
+          onClick: onSelectPlanejamentoAgil,
+        }
+      : null;
 
   const avaliacaoCard = onSelectAvaliacaoProtocolo
     ? {
@@ -154,10 +146,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
     feedbackCard,
   ];
 
-  const filteredCards =
-    activeTab === 'favoritos'
-      ? cards.filter((c) => favoriteIds.has(c.id))
-      : cards;
+  const filteredCards = activeTab === 'favoritos' ? cards.filter(c => favoriteIds.has(c.id)) : cards;
 
   return (
     <div className="h-full flex flex-col p-8 md:p-12 max-w-7xl mx-auto">
@@ -194,7 +183,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
               : 'Nenhum item recente.'}
           </p>
         ) : (
-          filteredCards.map((card) => (
+          filteredCards.map(card => (
             <CalculatorCard
               key={card.id}
               id={card.id}

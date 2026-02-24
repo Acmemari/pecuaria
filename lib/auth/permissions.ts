@@ -28,11 +28,7 @@ export const checkPermission = (user: User | null, feature: string): boolean => 
  * @param currentValue Valor atual
  * @returns true se está dentro do limite, false caso contrário
  */
-export const checkLimit = (
-  user: User | null,
-  limit: keyof Plan['limits'],
-  currentValue: number
-): boolean => {
+export const checkLimit = (user: User | null, limit: keyof Plan['limits'], currentValue: number): boolean => {
   if (!user || !user.plan) return false;
   if (user.role === 'admin') return true;
 
@@ -41,4 +37,3 @@ export const checkLimit = (
 
   return currentValue < userPlan.limits[limit];
 };
-

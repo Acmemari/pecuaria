@@ -32,4 +32,3 @@ export const mockSupabaseClient = {
 };
 
 export const createMockSupabase = () => mockSupabaseClient;
-

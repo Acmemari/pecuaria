@@ -4,7 +4,7 @@
 
 ### Problemas Identificados:
 
-1. **Layout de Duas Colunas Fixas** 
+1. **Layout de Duas Colunas Fixas**
    - Coluna esquerda com largura fixa de `300px` (`w-[300px]`)
    - Não se adapta a telas menores que ~600px
    - Os sliders ficam espremidos ou cortados
@@ -38,16 +38,19 @@
 ### Fase 1: Layout Principal (CattleProfitCalculator.tsx)
 
 #### 1.1 - Transformar Layout de Duas Colunas em Stack Vertical no Mobile
+
 - **Desktop (>768px)**: Manter layout horizontal (colunas lado a lado)
 - **Mobile (<768px)**: Stack vertical (coluna única)
 - Usar classes Tailwind: `flex-col md:flex-row`
 
 #### 1.2 - Ajustar Largura da Coluna de Inputs
+
 - **Desktop**: Manter `w-[300px]` fixa
 - **Mobile**: Usar `w-full` ou `w-screen`
 - Remover `shrink-0` no mobile
 
 #### 1.3 - Adicionar Tab/Accordion para Inputs no Mobile (Opcional)
+
 - Considerar sistema de tabs para alternar entre "Premissas" e "Resultados"
 - Ou usar accordion colapsável
 - Isso economiza espaço vertical
@@ -57,15 +60,18 @@
 ### Fase 2: Grid de Resultados
 
 #### 2.1 - Grid Responsivo Adaptativo
+
 - **Mobile (<640px)**: `grid-cols-1` (1 coluna)
 - **Tablet (640-1024px)**: `grid-cols-2` (2 colunas)
 - **Desktop (>1024px)**: `grid-cols-4` (4 colunas)
 
 #### 2.2 - Ajustar Altura das Rows
+
 - Remover `h-[60%]` fixa no mobile
 - Usar `auto` ou `min-h-[...]` no mobile
 
 #### 2.3 - Espaçamento Otimizado
+
 - Reduzir `gap` no mobile (de `gap-3` para `gap-2`)
 - Ajustar padding dos cards
 
@@ -74,14 +80,17 @@
 ### Fase 3: Gráficos Responsivos
 
 #### 3.1 - Stack Vertical no Mobile
+
 - **Mobile**: `flex-col` (gráficos empilhados)
 - **Desktop**: `grid-cols-2` (lado a lado)
 
 #### 3.2 - Ajustar Tamanho dos Gráficos
+
 - Aumentar altura mínima no mobile
 - Garantir que sejam legíveis
 
 #### 3.3 - Legendas e Labels
+
 - Ajustar tamanho de fonte
 - Verificar truncamento de textos
 
@@ -90,14 +99,17 @@
 ### Fase 4: Componente Slider
 
 #### 4.1 - Melhorar Área de Toque
+
 - Aumentar altura do track para melhor usabilidade
 - Garantir área mínima de toque de 44x44px (padrão mobile)
 
 #### 4.2 - Espaçamento e Padding
+
 - Reduzir padding no mobile se necessário
 - Ajustar `space-y-2` para `space-y-1` ou `space-y-1.5`
 
 #### 4.3 - Texto e Labels
+
 - Verificar tamanho de fonte (não muito pequeno)
 - Garantir legibilidade em telas pequenas
 
@@ -106,10 +118,12 @@
 ### Fase 5: Componente ResultCard
 
 #### 5.1 - Tamanho Mínimo Adequado
+
 - Garantir altura mínima adequada
 - Ajustar padding para mobile
 
 #### 5.2 - Tipografia Responsiva
+
 - Textos menores podem ser difíceis de ler
 - Considerar aumentar fonte no mobile
 
@@ -118,10 +132,12 @@
 ### Fase 6: Header e Espaçamento Global
 
 #### 6.1 - Header Compacto
+
 - Verificar se ocupa espaço adequado
 - Considerar reduzir altura no mobile
 
 #### 6.2 - Padding e Margens
+
 - Ajustar padding geral do container
 - Reduzir gaps desnecessários no mobile
 
@@ -130,12 +146,14 @@
 ## 🎯 Implementação Técnica
 
 ### Breakpoints Tailwind a Usar:
+
 - `sm`: 640px (tablet pequeno)
 - `md`: 768px (tablet / desktop pequeno)
 - `lg`: 1024px (desktop)
 - `xl`: 1280px (desktop grande)
 
 ### Estrutura de Classes Sugerida:
+
 ```tsx
 // Exemplo de padrão
 <div className="
@@ -153,17 +171,20 @@
 ## 📋 Checklist de Implementação
 
 ### Prioridade Alta 🔴
+
 - [ ] Layout principal responsivo (stack vertical no mobile)
 - [ ] Grid de resultados adaptativo (1 coluna mobile)
 - [ ] Gráficos em stack vertical no mobile
 - [ ] Largura da coluna de inputs ajustada
 
 ### Prioridade Média 🟡
+
 - [ ] Slider com melhor área de toque
 - [ ] Ajustes de espaçamento global
 - [ ] Tipografia responsiva
 
 ### Prioridade Baixa 🟢
+
 - [ ] Sistema de tabs/accordion para inputs (se necessário)
 - [ ] Otimizações finas de UX
 
@@ -205,4 +226,3 @@
 4. Testar novamente
 5. Continuar com fases seguintes
 6. Teste final completo
-

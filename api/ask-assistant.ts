@@ -2,7 +2,7 @@
 /**
  * Vercel Serverless Function para processar perguntas do assistente
  * Endpoint: POST /api/ask-assistant
- * 
+ *
  * Integração com n8n webhook para processamento das mensagens
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -13,31 +13,30 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 function getWebhookUrl(): string {
   const webhookUrl = process.env.N8N_WEBHOOK_URL || process.env.WEBHOOK_URL;
   if (!webhookUrl || webhookUrl.trim() === '') {
-    const errorMsg = "N8N_WEBHOOK_URL não configurada nas variáveis de ambiente do servidor. " +
-      "Configure a variável N8N_WEBHOOK_URL no painel do Vercel (Settings > Environment Variables).";
+    const errorMsg =
+      'N8N_WEBHOOK_URL não configurada nas variáveis de ambiente do servidor. ' +
+      'Configure a variável N8N_WEBHOOK_URL no painel do Vercel (Settings > Environment Variables).';
     console.error('[API]', errorMsg);
     throw new Error(errorMsg);
   }
   return webhookUrl.trim();
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   console.log('[API] Requisição recebida:', req.method, req.url);
-  
+
   // Verificar webhook URL antes de processar
   try {
     getWebhookUrl();
   } catch (error: any) {
     console.error('[API] Webhook URL não configurada');
     return res.status(500).json({
-      error: 'Configuração de servidor incompleta: N8N_WEBHOOK_URL não está configurada. Configure nas variáveis de ambiente do Vercel.',
-      code: 'MISSING_WEBHOOK_URL'
+      error:
+        'Configuração de servidor incompleta: N8N_WEBHOOK_URL não está configurada. Configure nas variáveis de ambiente do Vercel.',
+      code: 'MISSING_WEBHOOK_URL',
     });
   }
-  
+
   // Permitir apenas POST
   if (req.method !== 'POST') {
     console.log('[API] Método não permitido:', req.method);
@@ -73,7 +72,7 @@ export default async function handler(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'auth': process.env.N8N_WEBHOOK_AUTH || '1234', // Header de autenticação n8n
+        auth: process.env.N8N_WEBHOOK_AUTH || '1234', // Header de autenticação n8n
       },
       body: JSON.stringify(requestPayload),
       signal: controller.signal,
@@ -93,7 +92,7 @@ export default async function handler(
     // Extrair resposta do webhook
     // O n8n pode retornar diferentes formatos, vamos ser flexíveis
     let answer = '';
-    
+
     if (data.output) {
       answer = data.output;
     } else if (data.answer) {
@@ -121,7 +120,6 @@ export default async function handler(
     return res.status(200).json({
       answer: answer,
     });
-
   } catch (err: any) {
     console.error('[API] Erro completo no assistente:', {
       message: err.message,
@@ -129,12 +127,12 @@ export default async function handler(
       name: err.name,
       webhookUrlPresent: !!(process.env.N8N_WEBHOOK_URL || process.env.WEBHOOK_URL),
     });
-    
+
     // Identificar tipo de erro
     let statusCode = 500;
     let errorMessage = err.message || 'Erro interno no assistente.';
     let errorCode = 'UNKNOWN_ERROR';
-    
+
     if (err.message?.includes('N8N_WEBHOOK_URL não configurada') || err.message?.includes('MISSING_WEBHOOK_URL')) {
       statusCode = 500;
       errorCode = 'MISSING_WEBHOOK_URL';
@@ -152,9 +150,9 @@ export default async function handler(
       errorCode = 'NETWORK_ERROR';
       errorMessage = 'Erro de conexão com o webhook. Verifique se o serviço está disponível.';
     }
-    
+
     console.error(`[API] Retornando erro ${statusCode} (${errorCode}):`, errorMessage);
-    
+
     return res.status(statusCode).json({
       error: errorMessage,
       code: errorCode,
@@ -162,4 +160,3 @@ export default async function handler(
     });
   }
 }
-

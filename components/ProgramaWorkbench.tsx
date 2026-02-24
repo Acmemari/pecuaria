@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Loader2, RefreshCw, FolderOpen, Package, Layers, CheckSquare,
-} from 'lucide-react';
+import { Loader2, RefreshCw, FolderOpen, Package, Layers, CheckSquare } from 'lucide-react';
 import {
   createProject,
   deleteProject,
@@ -10,11 +8,7 @@ import {
   type ProjectRow,
   updateProject,
 } from '../lib/projects';
-import {
-  deleteDelivery,
-  fetchDeliveriesByProject,
-  type DeliveryRow,
-} from '../lib/deliveries';
+import { deleteDelivery, fetchDeliveriesByProject, type DeliveryRow } from '../lib/deliveries';
 import {
   fetchInitiativesByDelivery,
   fetchTasksByInitiative,
@@ -97,14 +91,14 @@ function formatDateBR(raw: string | null): string {
 function swapSortOrderLocally<T extends { id: string; sort_order: number }>(
   rows: T[],
   firstId: string,
-  secondId: string
+  secondId: string,
 ): T[] {
-  const first = rows.find((row) => row.id === firstId);
-  const second = rows.find((row) => row.id === secondId);
+  const first = rows.find(row => row.id === firstId);
+  const second = rows.find(row => row.id === secondId);
   if (!first || !second) return rows;
 
   return rows
-    .map((row) => {
+    .map(row => {
       if (row.id === first.id) return { ...row, sort_order: second.sort_order };
       if (row.id === second.id) return { ...row, sort_order: first.sort_order };
       return row;
@@ -122,18 +116,19 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
 }) => {
   const mountedRef = useRef(true);
   const toastRef = useRef(onToast);
-  useEffect(() => { toastRef.current = onToast; }, [onToast]);
+  useEffect(() => {
+    toastRef.current = onToast;
+  }, [onToast]);
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
-  const toast = useCallback(
-    (msg: string, type: 'success' | 'error' | 'warning' | 'info') => {
-      if (mountedRef.current) toastRef.current?.(msg, type);
-    },
-    []
-  );
+  const toast = useCallback((msg: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    if (mountedRef.current) toastRef.current?.(msg, type);
+  }, []);
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -162,10 +157,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   const [activityForm, setActivityForm] = useState<ActivityFormState>(INITIAL_ACTIVITY_FORM);
   const [taskForm, setTaskForm] = useState<TaskFormState>(INITIAL_TASK_FORM);
 
-  const filters = useMemo(
-    () => (selectedClientId ? { clientId: selectedClientId } : undefined),
-    [selectedClientId]
-  );
+  const filters = useMemo(() => (selectedClientId ? { clientId: selectedClientId } : undefined), [selectedClientId]);
 
   // ── Cascade data loading ───────────────────────────────────────────────
 
@@ -186,21 +178,26 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     }
   }, [effectiveUserId, filters, toast]);
 
-  useEffect(() => { loadProjects(); }, [loadProjects]);
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
 
-  const loadDeliveriesForProject = useCallback(async (projectId: string) => {
-    if (!mountedRef.current) return;
-    setLoadingDeliveries(true);
-    try {
-      const d = await fetchDeliveriesByProject(projectId);
-      if (mountedRef.current) setDeliveries(d);
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao carregar entregas.', 'error');
-      if (mountedRef.current) setDeliveries([]);
-    } finally {
-      if (mountedRef.current) setLoadingDeliveries(false);
-    }
-  }, [toast]);
+  const loadDeliveriesForProject = useCallback(
+    async (projectId: string) => {
+      if (!mountedRef.current) return;
+      setLoadingDeliveries(true);
+      try {
+        const d = await fetchDeliveriesByProject(projectId);
+        if (mountedRef.current) setDeliveries(d);
+      } catch (err) {
+        toast(err instanceof Error ? err.message : 'Erro ao carregar entregas.', 'error');
+        if (mountedRef.current) setDeliveries([]);
+      } finally {
+        if (mountedRef.current) setLoadingDeliveries(false);
+      }
+    },
+    [toast],
+  );
 
   useEffect(() => {
     if (selectedProgramId) {
@@ -210,19 +207,22 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     }
   }, [selectedProgramId, loadDeliveriesForProject]);
 
-  const loadActivitiesForDelivery = useCallback(async (deliveryId: string) => {
-    if (!mountedRef.current) return;
-    setLoadingActivities(true);
-    try {
-      const i = await fetchInitiativesByDelivery(deliveryId);
-      if (mountedRef.current) setInitiatives(i);
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao carregar atividades.', 'error');
-      if (mountedRef.current) setInitiatives([]);
-    } finally {
-      if (mountedRef.current) setLoadingActivities(false);
-    }
-  }, [toast]);
+  const loadActivitiesForDelivery = useCallback(
+    async (deliveryId: string) => {
+      if (!mountedRef.current) return;
+      setLoadingActivities(true);
+      try {
+        const i = await fetchInitiativesByDelivery(deliveryId);
+        if (mountedRef.current) setInitiatives(i);
+      } catch (err) {
+        toast(err instanceof Error ? err.message : 'Erro ao carregar atividades.', 'error');
+        if (mountedRef.current) setInitiatives([]);
+      } finally {
+        if (mountedRef.current) setLoadingActivities(false);
+      }
+    },
+    [toast],
+  );
 
   useEffect(() => {
     if (selectedDeliveryId) {
@@ -235,14 +235,16 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   useEffect(() => {
     let active = true;
     fetchPeople(effectiveUserId, selectedFarmId ? { farmId: selectedFarmId } : undefined)
-      .then((rows) => {
+      .then(rows => {
         if (active && mountedRef.current) setPeople(rows);
       })
-      .catch((err) => {
+      .catch(err => {
         if (active && mountedRef.current) setPeople([]);
         toast(err instanceof Error ? err.message : 'Erro ao carregar pessoas.', 'error');
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [effectiveUserId, selectedFarmId, toast]);
 
   const loadTasksForActivity = useCallback(async (initiativeId: string): Promise<WorkbenchTask[]> => {
@@ -251,7 +253,10 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   }, []);
 
   const refreshTasks = useCallback(async () => {
-    if (!selectedActivityId) { setTasks([]); return; }
+    if (!selectedActivityId) {
+      setTasks([]);
+      return;
+    }
     try {
       const rows = await loadTasksForActivity(selectedActivityId);
       if (mountedRef.current) setTasks(rows);
@@ -260,14 +265,16 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     }
   }, [selectedActivityId, loadTasksForActivity, toast]);
 
-  useEffect(() => { refreshTasks(); }, [refreshTasks]);
+  useEffect(() => {
+    refreshTasks();
+  }, [refreshTasks]);
 
   // ── Derived state ─────────────────────────────────────────────────────
 
   const selectedDeliveryActivities = useMemo(() => {
     if (!selectedDeliveryId) return [] as InitiativeWithProgress[];
     return initiatives
-      .filter((i) => i.delivery_id === selectedDeliveryId)
+      .filter(i => i.delivery_id === selectedDeliveryId)
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }, [initiatives, selectedDeliveryId]);
 
@@ -275,7 +282,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
 
   useEffect(() => {
     if (projects.length === 0) return;
-    const hasValidSelection = selectedProgramId && projects.some((p) => p.id === selectedProgramId);
+    const hasValidSelection = selectedProgramId && projects.some(p => p.id === selectedProgramId);
     if (!hasValidSelection) {
       setSelectedProgramId(projects[0].id);
     }
@@ -283,7 +290,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
 
   useEffect(() => {
     if (deliveries.length === 0) return;
-    const hasValidSelection = selectedDeliveryId && deliveries.some((d) => d.id === selectedDeliveryId);
+    const hasValidSelection = selectedDeliveryId && deliveries.some(d => d.id === selectedDeliveryId);
     if (!hasValidSelection) {
       setSelectedDeliveryId(deliveries[0].id);
     }
@@ -291,8 +298,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
 
   useEffect(() => {
     if (selectedDeliveryActivities.length === 0) return;
-    const hasValidSelection = selectedActivityId
-      && selectedDeliveryActivities.some((a) => a.id === selectedActivityId);
+    const hasValidSelection = selectedActivityId && selectedDeliveryActivities.some(a => a.id === selectedActivityId);
     if (!hasValidSelection) {
       setSelectedActivityId(selectedDeliveryActivities[0].id);
     }
@@ -301,41 +307,46 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   // ── Column items (memoized) ───────────────────────────────────────────
 
   const programItems = useMemo<HierarchyColumnItem[]>(
-    () => projects.map((p) => ({
-      id: p.id,
-      title: p.name,
-      subtitle: `${formatDateBR(p.start_date)} — ${formatDateBR(p.end_date)}`,
-    })),
-    [projects]
+    () =>
+      projects.map(p => ({
+        id: p.id,
+        title: p.name,
+        subtitle: `${formatDateBR(p.start_date)} — ${formatDateBR(p.end_date)}`,
+      })),
+    [projects],
   );
 
   const deliveryItems = useMemo<HierarchyColumnItem[]>(
-    () => deliveries.map((d) => ({
-      id: d.id,
-      title: d.name,
-      subtitle: d.start_date || d.end_date || d.due_date
-        ? `${formatDateBR(d.start_date ?? null)} — ${formatDateBR(d.end_date ?? d.due_date ?? null)}`
-        : 'Sem período definido',
-    })),
-    [deliveries]
+    () =>
+      deliveries.map(d => ({
+        id: d.id,
+        title: d.name,
+        subtitle:
+          d.start_date || d.end_date || d.due_date
+            ? `${formatDateBR(d.start_date ?? null)} — ${formatDateBR(d.end_date ?? d.due_date ?? null)}`
+            : 'Sem período definido',
+      })),
+    [deliveries],
   );
 
   const activityItems = useMemo<HierarchyColumnItem[]>(
-    () => selectedDeliveryActivities.map((a) => ({
-      id: a.id,
-      title: a.name,
-      subtitle: `${a.progress ?? 0}% · ${a.status || 'Não Iniciado'}`,
-    })),
-    [selectedDeliveryActivities]
+    () =>
+      selectedDeliveryActivities.map(a => ({
+        id: a.id,
+        title: a.name,
+        subtitle: `${a.progress ?? 0}% · ${a.status || 'Não Iniciado'}`,
+      })),
+    [selectedDeliveryActivities],
   );
 
   const taskItems = useMemo<HierarchyColumnItem[]>(
-    () => tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      subtitle: `${t.kanban_status}${t.due_date ? ` · ${formatDateBR(t.due_date)}` : ''}`,
-    })),
-    [tasks]
+    () =>
+      tasks.map(t => ({
+        id: t.id,
+        title: t.title,
+        subtitle: `${t.kanban_status}${t.due_date ? ` · ${formatDateBR(t.due_date)}` : ''}`,
+      })),
+    [tasks],
   );
 
   // ── Modal helpers ─────────────────────────────────────────────────────
@@ -355,79 +366,97 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     setTaskForm({ ...INITIAL_TASK_FORM, activity_date: getCurrentIsoDate() });
   }, []);
 
-  const openEditProgram = useCallback((id: string) => {
-    const t = projects.find((p) => p.id === id);
-    if (!t) return;
-    setModalEntity('program');
-    setModalMode('edit');
-    setEditingId(id);
-    setProgramForm({
-      name: t.name || '', description: t.description || '',
-      start_date: t.start_date || '',
-      end_date: t.end_date || '',
-      transformations_achievements: t.transformations_achievements || '',
-      success_evidence: t.success_evidence.length ? [...t.success_evidence] : [''],
-      stakeholder_matrix: t.stakeholder_matrix.length ? [...t.stakeholder_matrix] : [{ name: '', activity: '' }],
-    });
-  }, [projects]);
+  const openEditProgram = useCallback(
+    (id: string) => {
+      const t = projects.find(p => p.id === id);
+      if (!t) return;
+      setModalEntity('program');
+      setModalMode('edit');
+      setEditingId(id);
+      setProgramForm({
+        name: t.name || '',
+        description: t.description || '',
+        start_date: t.start_date || '',
+        end_date: t.end_date || '',
+        transformations_achievements: t.transformations_achievements || '',
+        success_evidence: t.success_evidence.length ? [...t.success_evidence] : [''],
+        stakeholder_matrix: t.stakeholder_matrix.length ? [...t.stakeholder_matrix] : [{ name: '', activity: '' }],
+      });
+    },
+    [projects],
+  );
 
-  const openEditDelivery = useCallback((id: string) => {
-    const t = deliveries.find((d) => d.id === id);
-    if (!t) return;
-    setModalEntity('delivery');
-    setModalMode('edit');
-    setEditingId(id);
-    setDeliveryForm({
-      name: t.name || '', description: t.description || '',
-      transformations_achievements: t.transformations_achievements || '',
-      start_date: t.start_date || '',
-      end_date: t.end_date || t.due_date || '',
-    });
-  }, [deliveries]);
+  const openEditDelivery = useCallback(
+    (id: string) => {
+      const t = deliveries.find(d => d.id === id);
+      if (!t) return;
+      setModalEntity('delivery');
+      setModalMode('edit');
+      setEditingId(id);
+      setDeliveryForm({
+        name: t.name || '',
+        description: t.description || '',
+        transformations_achievements: t.transformations_achievements || '',
+        start_date: t.start_date || '',
+        end_date: t.end_date || t.due_date || '',
+      });
+    },
+    [deliveries],
+  );
 
-  const openEditActivity = useCallback((id: string) => {
-    const t = selectedDeliveryActivities.find((a) => a.id === id);
-    if (!t) return;
-    setModalEntity('activity');
-    setModalMode('edit');
-    setEditingId(id);
-    setActivityForm({
-      name: t.name || '',
-      description: t.description || '',
-      start_date: t.start_date || '',
-      end_date: t.end_date || '',
-      status: t.status || 'Não Iniciado',
-      leader_id: t.leader || '',
-    });
-  }, [selectedDeliveryActivities]);
+  const openEditActivity = useCallback(
+    (id: string) => {
+      const t = selectedDeliveryActivities.find(a => a.id === id);
+      if (!t) return;
+      setModalEntity('activity');
+      setModalMode('edit');
+      setEditingId(id);
+      setActivityForm({
+        name: t.name || '',
+        description: t.description || '',
+        start_date: t.start_date || '',
+        end_date: t.end_date || '',
+        status: t.status || 'Não Iniciado',
+        leader_id: t.leader || '',
+      });
+    },
+    [selectedDeliveryActivities],
+  );
 
-  const openEditTask = useCallback((id: string) => {
-    const t = tasks.find((tk) => tk.id === id);
-    if (!t) return;
-    const activityDate = t.activity_date || t.due_date || getCurrentIsoDate();
-    const durationDays = Math.max(1, t.duration_days || 1);
-    setModalEntity('task');
-    setModalMode('edit');
-    setEditingId(id);
-    setTaskForm({
-      title: t.title || '', description: t.description || '',
-      responsible_person_id: t.responsible_person_id || '',
-      activity_date: activityDate,
-      duration_days: String(durationDays),
-      completed: t.completed,
-      kanban_status: t.kanban_status || 'A Fazer',
-    });
-  }, [tasks]);
+  const openEditTask = useCallback(
+    (id: string) => {
+      const t = tasks.find(tk => tk.id === id);
+      if (!t) return;
+      const activityDate = t.activity_date || t.due_date || getCurrentIsoDate();
+      const durationDays = Math.max(1, t.duration_days || 1);
+      setModalEntity('task');
+      setModalMode('edit');
+      setEditingId(id);
+      setTaskForm({
+        title: t.title || '',
+        description: t.description || '',
+        responsible_person_id: t.responsible_person_id || '',
+        activity_date: activityDate,
+        duration_days: String(durationDays),
+        completed: t.completed,
+        kanban_status: t.kanban_status || 'A Fazer',
+      });
+    },
+    [tasks],
+  );
 
   // ── CRUD: Program ─────────────────────────────────────────────────────
 
   const saveProgram = useCallback(async () => {
     if (saving) return;
     const name = programForm.name.trim();
-    if (!name) { toast('Nome do programa é obrigatório.', 'warning'); return; }
-    if (programForm.start_date && programForm.end_date &&
-        programForm.end_date < programForm.start_date) {
-      toast('Data final anterior à data inicial.', 'warning'); return;
+    if (!name) {
+      toast('Nome do programa é obrigatório.', 'warning');
+      return;
+    }
+    if (programForm.start_date && programForm.end_date && programForm.end_date < programForm.start_date) {
+      toast('Data final anterior à data inicial.', 'warning');
+      return;
     }
 
     const payload: ProjectPayload = {
@@ -437,17 +466,15 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       start_date: programForm.start_date || null,
       end_date: programForm.end_date || null,
       transformations_achievements: programForm.transformations_achievements.trim() || null,
-      success_evidence: programForm.success_evidence.map((s) => s.trim()).filter(Boolean),
+      success_evidence: programForm.success_evidence.map(s => s.trim()).filter(Boolean),
       stakeholder_matrix: programForm.stakeholder_matrix
-        .map((r) => ({ name: r.name.trim(), activity: r.activity.trim() }))
-        .filter((r) => r.name || r.activity),
+        .map(r => ({ name: r.name.trim(), activity: r.activity.trim() }))
+        .filter(r => r.name || r.activity),
     };
 
     setSaving(true);
     try {
-      const saved = editingId
-        ? await updateProject(editingId, payload)
-        : await createProject(effectiveUserId, payload);
+      const saved = editingId ? await updateProject(editingId, payload) : await createProject(effectiveUserId, payload);
       await loadProjects();
       setSelectedProgramId(saved.id);
       toast(editingId ? 'Programa atualizado.' : 'Programa criado.', 'success');
@@ -459,34 +486,43 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     }
   }, [saving, programForm, selectedClientId, editingId, effectiveUserId, loadProjects, toast, closeModal]);
 
-  const deleteProgramById = useCallback(async (id: string) => {
-    const t = projects.find((p) => p.id === id);
-    if (!t || !window.confirm(`Excluir "${t.name}"?`)) return;
-    setDeleting(id);
-    try {
-      await deleteProject(id);
-      if (selectedProgramId === id) {
-        setSelectedProgramId(null);
-        setSelectedDeliveryId(null);
-        setSelectedActivityId(null);
-        setTasks([]);
+  const deleteProgramById = useCallback(
+    async (id: string) => {
+      const t = projects.find(p => p.id === id);
+      if (!t || !window.confirm(`Excluir "${t.name}"?`)) return;
+      setDeleting(id);
+      try {
+        await deleteProject(id);
+        if (selectedProgramId === id) {
+          setSelectedProgramId(null);
+          setSelectedDeliveryId(null);
+          setSelectedActivityId(null);
+          setTasks([]);
+        }
+        await loadProjects();
+        toast('Programa removido.', 'success');
+      } catch (err) {
+        toast(err instanceof Error ? err.message : 'Erro ao excluir programa.', 'error');
+      } finally {
+        setDeleting(null);
       }
-      await loadProjects();
-      toast('Programa removido.', 'success');
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao excluir programa.', 'error');
-    } finally {
-      setDeleting(null);
-    }
-  }, [projects, selectedProgramId, loadProjects, toast]);
+    },
+    [projects, selectedProgramId, loadProjects, toast],
+  );
 
   // ── CRUD: Delivery ────────────────────────────────────────────────────
 
   const saveDelivery = useCallback(async () => {
     if (saving) return;
-    if (!selectedProgramId) { toast('Selecione um programa.', 'warning'); return; }
+    if (!selectedProgramId) {
+      toast('Selecione um programa.', 'warning');
+      return;
+    }
     const name = deliveryForm.name.trim();
-    if (!name) { toast('Nome da entrega é obrigatório.', 'warning'); return; }
+    if (!name) {
+      toast('Nome da entrega é obrigatório.', 'warning');
+      return;
+    }
     if (deliveryForm.start_date && deliveryForm.end_date && deliveryForm.end_date < deliveryForm.start_date) {
       toast('Data final da entrega não pode ser anterior à data inicial.', 'warning');
       return;
@@ -496,7 +532,8 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       name: sanitizeText(name),
       description: deliveryForm.description.trim() ? sanitizeText(deliveryForm.description.trim()) : null,
       transformations_achievements: deliveryForm.transformations_achievements.trim()
-        ? sanitizeText(deliveryForm.transformations_achievements.trim()) : null,
+        ? sanitizeText(deliveryForm.transformations_achievements.trim())
+        : null,
       start_date: deliveryForm.start_date || null,
       end_date: deliveryForm.end_date || null,
       // Compatibilidade com consumidores legados que ainda leem due_date.
@@ -526,40 +563,61 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [saving, selectedProgramId, deliveryForm, selectedClientId, editingId, effectiveUserId, loadDeliveriesForProject, toast, closeModal]);
+  }, [
+    saving,
+    selectedProgramId,
+    deliveryForm,
+    selectedClientId,
+    editingId,
+    effectiveUserId,
+    loadDeliveriesForProject,
+    toast,
+    closeModal,
+  ]);
 
-  const deleteDeliveryById = useCallback(async (id: string) => {
-    const t = deliveries.find((d) => d.id === id);
-    if (!t || !window.confirm(`Excluir "${t.name}"?`)) return;
-    setDeleting(id);
-    try {
-      await deleteDelivery(id);
-      if (selectedDeliveryId === id) {
-        setSelectedDeliveryId(null);
-        setSelectedActivityId(null);
-        setTasks([]);
+  const deleteDeliveryById = useCallback(
+    async (id: string) => {
+      const t = deliveries.find(d => d.id === id);
+      if (!t || !window.confirm(`Excluir "${t.name}"?`)) return;
+      setDeleting(id);
+      try {
+        await deleteDelivery(id);
+        if (selectedDeliveryId === id) {
+          setSelectedDeliveryId(null);
+          setSelectedActivityId(null);
+          setTasks([]);
+        }
+        if (selectedProgramId) await loadDeliveriesForProject(selectedProgramId);
+        toast('Entrega removida.', 'success');
+      } catch (err) {
+        toast(err instanceof Error ? err.message : 'Erro ao excluir entrega.', 'error');
+      } finally {
+        setDeleting(null);
       }
-      if (selectedProgramId) await loadDeliveriesForProject(selectedProgramId);
-      toast('Entrega removida.', 'success');
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao excluir entrega.', 'error');
-    } finally {
-      setDeleting(null);
-    }
-  }, [deliveries, selectedDeliveryId, selectedProgramId, loadDeliveriesForProject, toast]);
+    },
+    [deliveries, selectedDeliveryId, selectedProgramId, loadDeliveriesForProject, toast],
+  );
 
   // ── CRUD: Activity (Initiative) ──────────────────────────────────────
 
   const saveActivity = useCallback(async () => {
     if (saving) return;
-    if (!selectedDeliveryId) { toast('Selecione uma entrega.', 'warning'); return; }
+    if (!selectedDeliveryId) {
+      toast('Selecione uma entrega.', 'warning');
+      return;
+    }
     const name = activityForm.name.trim();
-    if (!name) { toast('Nome é obrigatório.', 'warning'); return; }
+    if (!name) {
+      toast('Nome é obrigatório.', 'warning');
+      return;
+    }
 
     setSaving(true);
     try {
-      const leaderPerson = people.find((p) => p.id === activityForm.leader_id);
-      const leaderName = leaderPerson ? (leaderPerson.preferred_name?.trim() || leaderPerson.full_name) : (activityForm.leader_id || null);
+      const leaderPerson = people.find(p => p.id === activityForm.leader_id);
+      const leaderName = leaderPerson
+        ? leaderPerson.preferred_name?.trim() || leaderPerson.full_name
+        : activityForm.leader_id || null;
 
       if (editingId) {
         const { error } = await supabase
@@ -575,21 +633,19 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           .eq('id', editingId);
         if (error) throw new Error(error.message);
       } else {
-        const { error } = await supabase
-          .from('initiatives')
-          .insert({
-            created_by: effectiveUserId,
-            name: sanitizeText(name),
-            description: activityForm.description.trim() ? sanitizeText(activityForm.description.trim()) : null,
-            start_date: activityForm.start_date || null,
-            end_date: activityForm.end_date || null,
-            status: activityForm.status || 'Não Iniciado',
-            leader: leaderName,
-            delivery_id: selectedDeliveryId,
-            client_id: selectedClientId || null,
-            farm_id: selectedFarmId || null,
-            sort_order: selectedDeliveryActivities.length,
-          });
+        const { error } = await supabase.from('initiatives').insert({
+          created_by: effectiveUserId,
+          name: sanitizeText(name),
+          description: activityForm.description.trim() ? sanitizeText(activityForm.description.trim()) : null,
+          start_date: activityForm.start_date || null,
+          end_date: activityForm.end_date || null,
+          status: activityForm.status || 'Não Iniciado',
+          leader: leaderName,
+          delivery_id: selectedDeliveryId,
+          client_id: selectedClientId || null,
+          farm_id: selectedFarmId || null,
+          sort_order: selectedDeliveryActivities.length,
+        });
         if (error) throw new Error(error.message);
       }
       await loadActivitiesForDelivery(selectedDeliveryId);
@@ -600,33 +656,61 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [saving, selectedDeliveryId, activityForm, editingId, effectiveUserId, selectedClientId, selectedFarmId, people, selectedDeliveryActivities.length, loadActivitiesForDelivery, toast, closeModal]);
+  }, [
+    saving,
+    selectedDeliveryId,
+    activityForm,
+    editingId,
+    effectiveUserId,
+    selectedClientId,
+    selectedFarmId,
+    people,
+    selectedDeliveryActivities.length,
+    loadActivitiesForDelivery,
+    toast,
+    closeModal,
+  ]);
 
-  const deleteActivityById = useCallback(async (id: string) => {
-    const t = selectedDeliveryActivities.find((a) => a.id === id);
-    if (!t || !window.confirm(`Excluir "${t.name}"?`)) return;
-    setDeleting(id);
-    try {
-      const { error } = await supabase.from('initiatives').delete().eq('id', id);
-      if (error) throw new Error(error.message);
-      if (selectedActivityId === id) { setSelectedActivityId(null); setTasks([]); }
-      if (selectedDeliveryId) await loadActivitiesForDelivery(selectedDeliveryId);
-      toast('Macro atividade removida.', 'success');
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao excluir macro atividade.', 'error');
-    } finally {
-      setDeleting(null);
-    }
-  }, [selectedDeliveryActivities, selectedActivityId, selectedDeliveryId, loadActivitiesForDelivery, toast]);
+  const deleteActivityById = useCallback(
+    async (id: string) => {
+      const t = selectedDeliveryActivities.find(a => a.id === id);
+      if (!t || !window.confirm(`Excluir "${t.name}"?`)) return;
+      setDeleting(id);
+      try {
+        const { error } = await supabase.from('initiatives').delete().eq('id', id);
+        if (error) throw new Error(error.message);
+        if (selectedActivityId === id) {
+          setSelectedActivityId(null);
+          setTasks([]);
+        }
+        if (selectedDeliveryId) await loadActivitiesForDelivery(selectedDeliveryId);
+        toast('Macro atividade removida.', 'success');
+      } catch (err) {
+        toast(err instanceof Error ? err.message : 'Erro ao excluir macro atividade.', 'error');
+      } finally {
+        setDeleting(null);
+      }
+    },
+    [selectedDeliveryActivities, selectedActivityId, selectedDeliveryId, loadActivitiesForDelivery, toast],
+  );
 
   // ── CRUD: Task ────────────────────────────────────────────────────────
 
   const saveTask = useCallback(async () => {
     if (saving) return;
-    if (!selectedActivityId) { toast('Selecione uma macro atividade.', 'warning'); return; }
+    if (!selectedActivityId) {
+      toast('Selecione uma macro atividade.', 'warning');
+      return;
+    }
     const title = taskForm.title.trim();
-    if (!title) { toast('Título é obrigatório.', 'warning'); return; }
-    if (!taskForm.responsible_person_id.trim()) { toast('Responsável é obrigatório.', 'warning'); return; }
+    if (!title) {
+      toast('Título é obrigatório.', 'warning');
+      return;
+    }
+    if (!taskForm.responsible_person_id.trim()) {
+      toast('Responsável é obrigatório.', 'warning');
+      return;
+    }
 
     const activityDate = taskForm.activity_date || getCurrentIsoDate();
     const durationDays = Math.max(1, Number.parseInt(taskForm.duration_days || '1', 10) || 1);
@@ -653,20 +737,20 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       } else {
         const milestoneId = await ensureDefaultMilestone(selectedActivityId);
         const order = tasks.length;
-        const { error } = await supabase
-          .from('initiative_tasks')
-          .insert({
-            milestone_id: milestoneId,
-            title: sanitizeText(title),
-            description: taskForm.description.trim() ? sanitizeText(taskForm.description.trim()) : null,
-            responsible_person_id: taskForm.responsible_person_id,
-            activity_date: activityDate,
-            duration_days: durationDays,
-            due_date: dueDate,
-            completed: taskForm.completed,
-            completed_at: taskForm.completed ? new Date().toISOString() : null,
-            sort_order: order, kanban_status: taskForm.kanban_status, kanban_order: order,
-          });
+        const { error } = await supabase.from('initiative_tasks').insert({
+          milestone_id: milestoneId,
+          title: sanitizeText(title),
+          description: taskForm.description.trim() ? sanitizeText(taskForm.description.trim()) : null,
+          responsible_person_id: taskForm.responsible_person_id,
+          activity_date: activityDate,
+          duration_days: durationDays,
+          due_date: dueDate,
+          completed: taskForm.completed,
+          completed_at: taskForm.completed ? new Date().toISOString() : null,
+          sort_order: order,
+          kanban_status: taskForm.kanban_status,
+          kanban_order: order,
+        });
         if (error) throw new Error(error.message);
       }
       await refreshTasks();
@@ -679,21 +763,24 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     }
   }, [saving, selectedActivityId, taskForm, editingId, tasks.length, refreshTasks, toast, closeModal]);
 
-  const deleteTaskById = useCallback(async (id: string) => {
-    const t = tasks.find((tk) => tk.id === id);
-    if (!t || !window.confirm(`Excluir "${t.title}"?`)) return;
-    setDeleting(id);
-    try {
-      const { error } = await supabase.from('initiative_tasks').delete().eq('id', id);
-      if (error) throw new Error(error.message);
-      await refreshTasks();
-      toast('Tarefa removida.', 'success');
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Erro ao excluir tarefa.', 'error');
-    } finally {
-      setDeleting(null);
-    }
-  }, [tasks, refreshTasks, toast]);
+  const deleteTaskById = useCallback(
+    async (id: string) => {
+      const t = tasks.find(tk => tk.id === id);
+      if (!t || !window.confirm(`Excluir "${t.title}"?`)) return;
+      setDeleting(id);
+      try {
+        const { error } = await supabase.from('initiative_tasks').delete().eq('id', id);
+        if (error) throw new Error(error.message);
+        await refreshTasks();
+        toast('Tarefa removida.', 'success');
+      } catch (err) {
+        toast(err instanceof Error ? err.message : 'Erro ao excluir tarefa.', 'error');
+      } finally {
+        setDeleting(null);
+      }
+    },
+    [tasks, refreshTasks, toast],
+  );
 
   // ── Selection handlers ────────────────────────────────────────────────
 
@@ -720,7 +807,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     async (
       table: 'projects' | 'deliveries' | 'initiatives' | 'initiative_milestones' | 'initiative_tasks',
       first: { id: string; sort_order: number },
-      second: { id: string; sort_order: number }
+      second: { id: string; sort_order: number },
     ) => {
       const [firstUpdate, secondUpdate] = await Promise.all([
         supabase.from(table).update({ sort_order: second.sort_order }).eq('id', first.id),
@@ -730,108 +817,124 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       const error = firstUpdate.error || secondUpdate.error;
       if (error) throw new Error(error.message || 'Erro ao reordenar itens.');
     },
-    []
+    [],
   );
 
-  const moveProgram = useCallback(async (id: string, direction: -1 | 1) => {
-    const currentIndex = projects.findIndex((project) => project.id === id);
-    const targetIndex = currentIndex + direction;
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= projects.length) return;
+  const moveProgram = useCallback(
+    async (id: string, direction: -1 | 1) => {
+      const currentIndex = projects.findIndex(project => project.id === id);
+      const targetIndex = currentIndex + direction;
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= projects.length) return;
 
-    const current = projects[currentIndex];
-    const target = projects[targetIndex];
-    if (!current || !target) return;
+      const current = projects[currentIndex];
+      const target = projects[targetIndex];
+      if (!current || !target) return;
 
-    setProjects((prev) => swapSortOrderLocally(prev, current.id, target.id));
-    try {
-      await swapSortOrder('projects', current, target);
-    } catch (err) {
-      await loadProjects();
-      toast(err instanceof Error ? err.message : 'Erro ao reordenar programas.', 'error');
-    }
-  }, [projects, swapSortOrder, loadProjects, toast]);
+      setProjects(prev => swapSortOrderLocally(prev, current.id, target.id));
+      try {
+        await swapSortOrder('projects', current, target);
+      } catch (err) {
+        await loadProjects();
+        toast(err instanceof Error ? err.message : 'Erro ao reordenar programas.', 'error');
+      }
+    },
+    [projects, swapSortOrder, loadProjects, toast],
+  );
 
-  const moveDelivery = useCallback(async (id: string, direction: -1 | 1) => {
-    const currentIndex = deliveries.findIndex((delivery) => delivery.id === id);
-    const targetIndex = currentIndex + direction;
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= deliveries.length) return;
+  const moveDelivery = useCallback(
+    async (id: string, direction: -1 | 1) => {
+      const currentIndex = deliveries.findIndex(delivery => delivery.id === id);
+      const targetIndex = currentIndex + direction;
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= deliveries.length) return;
 
-    const current = deliveries[currentIndex];
-    const target = deliveries[targetIndex];
-    if (!current || !target) return;
+      const current = deliveries[currentIndex];
+      const target = deliveries[targetIndex];
+      if (!current || !target) return;
 
-    setDeliveries((prev) => swapSortOrderLocally(prev, current.id, target.id));
-    try {
-      await swapSortOrder('deliveries', current, target);
-    } catch (err) {
-      if (selectedProgramId) await loadDeliveriesForProject(selectedProgramId);
-      toast(err instanceof Error ? err.message : 'Erro ao reordenar entregas.', 'error');
-    }
-  }, [deliveries, swapSortOrder, selectedProgramId, loadDeliveriesForProject, toast]);
+      setDeliveries(prev => swapSortOrderLocally(prev, current.id, target.id));
+      try {
+        await swapSortOrder('deliveries', current, target);
+      } catch (err) {
+        if (selectedProgramId) await loadDeliveriesForProject(selectedProgramId);
+        toast(err instanceof Error ? err.message : 'Erro ao reordenar entregas.', 'error');
+      }
+    },
+    [deliveries, swapSortOrder, selectedProgramId, loadDeliveriesForProject, toast],
+  );
 
-  const moveActivity = useCallback(async (id: string, direction: -1 | 1) => {
-    const currentIndex = selectedDeliveryActivities.findIndex((activity) => activity.id === id);
-    const targetIndex = currentIndex + direction;
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= selectedDeliveryActivities.length) return;
+  const moveActivity = useCallback(
+    async (id: string, direction: -1 | 1) => {
+      const currentIndex = selectedDeliveryActivities.findIndex(activity => activity.id === id);
+      const targetIndex = currentIndex + direction;
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= selectedDeliveryActivities.length) return;
 
-    const current = selectedDeliveryActivities[currentIndex];
-    const target = selectedDeliveryActivities[targetIndex];
-    if (!current || !target) return;
+      const current = selectedDeliveryActivities[currentIndex];
+      const target = selectedDeliveryActivities[targetIndex];
+      if (!current || !target) return;
 
-    const currentSortOrder = current.sort_order ?? currentIndex;
-    const targetSortOrder = target.sort_order ?? targetIndex;
+      const currentSortOrder = current.sort_order ?? currentIndex;
+      const targetSortOrder = target.sort_order ?? targetIndex;
 
-    setInitiatives((prev) => prev.map((init) => {
-      if (init.id === current.id) return { ...init, sort_order: targetSortOrder };
-      if (init.id === target.id) return { ...init, sort_order: currentSortOrder };
-      return init;
-    }));
+      setInitiatives(prev =>
+        prev.map(init => {
+          if (init.id === current.id) return { ...init, sort_order: targetSortOrder };
+          if (init.id === target.id) return { ...init, sort_order: currentSortOrder };
+          return init;
+        }),
+      );
 
-    try {
-      await swapSortOrder('initiatives', { id: current.id, sort_order: currentSortOrder }, { id: target.id, sort_order: targetSortOrder });
-    } catch (err) {
-      if (selectedDeliveryId) await loadActivitiesForDelivery(selectedDeliveryId);
-      toast(err instanceof Error ? err.message : 'Erro ao reordenar atividades.', 'error');
-    }
-  }, [selectedDeliveryActivities, swapSortOrder, selectedDeliveryId, loadActivitiesForDelivery, toast]);
+      try {
+        await swapSortOrder(
+          'initiatives',
+          { id: current.id, sort_order: currentSortOrder },
+          { id: target.id, sort_order: targetSortOrder },
+        );
+      } catch (err) {
+        if (selectedDeliveryId) await loadActivitiesForDelivery(selectedDeliveryId);
+        toast(err instanceof Error ? err.message : 'Erro ao reordenar atividades.', 'error');
+      }
+    },
+    [selectedDeliveryActivities, swapSortOrder, selectedDeliveryId, loadActivitiesForDelivery, toast],
+  );
 
-  const moveTask = useCallback(async (id: string, direction: -1 | 1) => {
-    const currentIndex = tasks.findIndex((task) => task.id === id);
-    const targetIndex = currentIndex + direction;
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= tasks.length) return;
+  const moveTask = useCallback(
+    async (id: string, direction: -1 | 1) => {
+      const currentIndex = tasks.findIndex(task => task.id === id);
+      const targetIndex = currentIndex + direction;
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= tasks.length) return;
 
-    const current = tasks[currentIndex];
-    const target = tasks[targetIndex];
-    if (!current || !target) return;
+      const current = tasks[currentIndex];
+      const target = tasks[targetIndex];
+      if (!current || !target) return;
 
-    setTasks((prev) => swapSortOrderLocally(prev, current.id, target.id));
-    try {
-      await swapSortOrder('initiative_tasks', current, target);
-    } catch (err) {
-      await refreshTasks();
-      toast(err instanceof Error ? err.message : 'Erro ao reordenar tarefas.', 'error');
-    }
-  }, [tasks, swapSortOrder, refreshTasks, toast]);
+      setTasks(prev => swapSortOrderLocally(prev, current.id, target.id));
+      try {
+        await swapSortOrder('initiative_tasks', current, target);
+      } catch (err) {
+        await refreshTasks();
+        toast(err instanceof Error ? err.message : 'Erro ao reordenar tarefas.', 'error');
+      }
+    },
+    [tasks, swapSortOrder, refreshTasks, toast],
+  );
 
   const batchUpdateSortOrder = useCallback(
     async (
       table: 'projects' | 'deliveries' | 'initiatives' | 'initiative_milestones' | 'initiative_tasks',
-      updates: { id: string; sort_order: number }[]
+      updates: { id: string; sort_order: number }[],
     ) => {
       const results = await Promise.all(
-        updates.map(({ id, sort_order }) =>
-          supabase.from(table).update({ sort_order }).eq('id', id)
-        )
+        updates.map(({ id, sort_order }) => supabase.from(table).update({ sort_order }).eq('id', id)),
       );
-      const error = results.find((r) => r.error);
+      const error = results.find(r => r.error);
       if (error) throw new Error(error.error?.message || 'Erro ao reordenar.');
     },
-    []
+    [],
   );
 
   const reorderPrograms = useCallback(
     async (activeId: string, overIndex: number) => {
-      const oldIndex = projects.findIndex((p) => p.id === activeId);
+      const oldIndex = projects.findIndex(p => p.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
       const reordered = arrayMove(projects, oldIndex, overIndex).map((p: ProjectRow, i) => ({
         ...p,
@@ -841,19 +944,19 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       try {
         await batchUpdateSortOrder(
           'projects',
-          reordered.map((p) => ({ id: p.id, sort_order: p.sort_order }))
+          reordered.map(p => ({ id: p.id, sort_order: p.sort_order })),
         );
       } catch (err) {
         await loadProjects();
         toast(err instanceof Error ? err.message : 'Erro ao reordenar programas.', 'error');
       }
     },
-    [projects, batchUpdateSortOrder, loadProjects, toast]
+    [projects, batchUpdateSortOrder, loadProjects, toast],
   );
 
   const reorderDeliveries = useCallback(
     async (activeId: string, overIndex: number) => {
-      const oldIndex = deliveries.findIndex((d) => d.id === activeId);
+      const oldIndex = deliveries.findIndex(d => d.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
       const reordered = arrayMove(deliveries, oldIndex, overIndex).map((d: DeliveryRow, i) => ({
         ...d,
@@ -863,46 +966,48 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       try {
         await batchUpdateSortOrder(
           'deliveries',
-          reordered.map((d) => ({ id: d.id, sort_order: d.sort_order }))
+          reordered.map(d => ({ id: d.id, sort_order: d.sort_order })),
         );
       } catch (err) {
         if (selectedProgramId) await loadDeliveriesForProject(selectedProgramId);
         toast(err instanceof Error ? err.message : 'Erro ao reordenar entregas.', 'error');
       }
     },
-    [deliveries, batchUpdateSortOrder, selectedProgramId, loadDeliveriesForProject, toast]
+    [deliveries, batchUpdateSortOrder, selectedProgramId, loadDeliveriesForProject, toast],
   );
 
   const reorderActivities = useCallback(
     async (activeId: string, overIndex: number) => {
-      const oldIndex = selectedDeliveryActivities.findIndex((a) => a.id === activeId);
+      const oldIndex = selectedDeliveryActivities.findIndex(a => a.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
-      const reordered = arrayMove(selectedDeliveryActivities, oldIndex, overIndex).map((a: InitiativeWithProgress, i) => ({
-        ...a,
-        sort_order: i,
-      }));
-      setInitiatives((prev) =>
-        prev.map((init) => {
-          const updated = reordered.find((r) => r.id === init.id);
+      const reordered = arrayMove(selectedDeliveryActivities, oldIndex, overIndex).map(
+        (a: InitiativeWithProgress, i) => ({
+          ...a,
+          sort_order: i,
+        }),
+      );
+      setInitiatives(prev =>
+        prev.map(init => {
+          const updated = reordered.find(r => r.id === init.id);
           return updated ? { ...init, sort_order: updated.sort_order } : init;
-        })
+        }),
       );
       try {
         await batchUpdateSortOrder(
           'initiatives',
-          reordered.map((a) => ({ id: a.id, sort_order: a.sort_order ?? 0 }))
+          reordered.map(a => ({ id: a.id, sort_order: a.sort_order ?? 0 })),
         );
       } catch (err) {
         if (selectedDeliveryId) await loadActivitiesForDelivery(selectedDeliveryId);
         toast(err instanceof Error ? err.message : 'Erro ao reordenar atividades.', 'error');
       }
     },
-    [selectedDeliveryActivities, batchUpdateSortOrder, selectedDeliveryId, loadActivitiesForDelivery, toast]
+    [selectedDeliveryActivities, batchUpdateSortOrder, selectedDeliveryId, loadActivitiesForDelivery, toast],
   );
 
   const reorderTasks = useCallback(
     async (activeId: string, overIndex: number) => {
-      const oldIndex = tasks.findIndex((t) => t.id === activeId);
+      const oldIndex = tasks.findIndex(t => t.id === activeId);
       if (oldIndex < 0 || oldIndex === overIndex) return;
       const reordered = arrayMove(tasks, oldIndex, overIndex).map((t: WorkbenchTask, i) => ({
         ...t,
@@ -912,14 +1017,14 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       try {
         await batchUpdateSortOrder(
           'initiative_tasks',
-          reordered.map((t) => ({ id: t.id, sort_order: t.sort_order }))
+          reordered.map(t => ({ id: t.id, sort_order: t.sort_order })),
         );
       } catch (err) {
         await refreshTasks();
         toast(err instanceof Error ? err.message : 'Erro ao reordenar tarefas.', 'error');
       }
     },
-    [tasks, batchUpdateSortOrder, refreshTasks, toast]
+    [tasks, batchUpdateSortOrder, refreshTasks, toast],
   );
 
   // ── Render ────────────────────────────────────────────────────────────
@@ -969,8 +1074,8 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           onSelect={selectProgram}
           onEdit={openEditProgram}
           onDelete={deleteProgramById}
-          onMoveUp={(id) => moveProgram(id, -1)}
-          onMoveDown={(id) => moveProgram(id, 1)}
+          onMoveUp={id => moveProgram(id, -1)}
+          onMoveDown={id => moveProgram(id, 1)}
           onReorder={reorderPrograms}
         />
 
@@ -988,8 +1093,8 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           onSelect={selectDelivery}
           onEdit={openEditDelivery}
           onDelete={deleteDeliveryById}
-          onMoveUp={(id) => moveDelivery(id, -1)}
-          onMoveDown={(id) => moveDelivery(id, 1)}
+          onMoveUp={id => moveDelivery(id, -1)}
+          onMoveDown={id => moveDelivery(id, 1)}
           onReorder={reorderDeliveries}
         />
 
@@ -1007,8 +1112,8 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           onSelect={selectActivity}
           onEdit={openEditActivity}
           onDelete={deleteActivityById}
-          onMoveUp={(id) => moveActivity(id, -1)}
-          onMoveDown={(id) => moveActivity(id, 1)}
+          onMoveUp={id => moveActivity(id, -1)}
+          onMoveDown={id => moveActivity(id, 1)}
           onReorder={reorderActivities}
         />
 
@@ -1025,8 +1130,8 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           onSelect={noopSelect}
           onEdit={openEditTask}
           onDelete={deleteTaskById}
-          onMoveUp={(id) => moveTask(id, -1)}
-          onMoveDown={(id) => moveTask(id, 1)}
+          onMoveUp={id => moveTask(id, -1)}
+          onMoveDown={id => moveTask(id, 1)}
           onReorder={reorderTasks}
         />
       </div>

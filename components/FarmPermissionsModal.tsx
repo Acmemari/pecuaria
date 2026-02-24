@@ -57,11 +57,7 @@ interface AnalystOption {
   email: string;
 }
 
-function PermissionSummary({
-  editedPermissions,
-}: {
-  editedPermissions: Record<string, PermissionLevel>;
-}) {
+function PermissionSummary({ editedPermissions }: { editedPermissions: Record<string, PermissionLevel> }) {
   const hidden = PERMISSION_KEYS.filter(pk => editedPermissions[pk.key] === 'hidden').length;
   const view = PERMISSION_KEYS.filter(pk => editedPermissions[pk.key] === 'view').length;
   const edit = PERMISSION_KEYS.filter(pk => editedPermissions[pk.key] === 'edit').length;
@@ -99,14 +95,7 @@ const PermissionCategorySection: React.FC<{
   editedPermissions: Record<string, PermissionLevel>;
   setPermissionFor: (key: string, level: PermissionLevel) => void;
   iconMap: Record<string, LucideIcon>;
-}> = ({
-  category,
-  label,
-  items,
-  editedPermissions,
-  setPermissionFor,
-  iconMap,
-}) => {
+}> = ({ category, label, items, editedPermissions, setPermissionFor, iconMap }) => {
   return (
     <section>
       <h4 className="text-xs font-semibold text-ai-subtext uppercase tracking-wide mb-2 pb-1 border-b border-ai-border">
@@ -235,15 +224,17 @@ export default function FarmPermissionsModal({
       setAnalystsWithAccess([]);
       return;
     }
-    const rows = ((data || []) as {
-      id: string;
-      analyst_id: string;
-      farm_id: string;
-      is_responsible: boolean;
-      permissions: Record<string, string>;
-      analyst_name: string | null;
-      analyst_email: string | null;
-    }[]).map((r) => ({
+    const rows = (
+      (data || []) as {
+        id: string;
+        analyst_id: string;
+        farm_id: string;
+        is_responsible: boolean;
+        permissions: Record<string, string>;
+        analyst_name: string | null;
+        analyst_email: string | null;
+      }[]
+    ).map(r => ({
       id: r.id,
       analyst_id: r.analyst_id,
       farm_id: r.farm_id,
@@ -343,9 +334,7 @@ export default function FarmPermissionsModal({
 
   if (!open) return null;
 
-  const availableToAdd = analystsToAdd.filter(
-    a => !analystsWithAccess.some(r => r.analyst_id === a.id)
-  );
+  const availableToAdd = analystsToAdd.filter(a => !analystsWithAccess.some(r => r.analyst_id === a.id));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -353,9 +342,7 @@ export default function FarmPermissionsModal({
         <div className="flex items-center justify-between p-4 border-b border-ai-border">
           <div className="flex items-center gap-2">
             <Users size={20} className="text-ai-accent" />
-            <h2 className="text-lg font-semibold text-ai-text">
-              Gerenciar permissões — {farmName}
-            </h2>
+            <h2 className="text-lg font-semibold text-ai-text">Gerenciar permissões — {farmName}</h2>
           </div>
           <button
             onClick={onClose}
@@ -376,9 +363,7 @@ export default function FarmPermissionsModal({
                 </p>
               ) : (
                 <div className="space-y-2">
-                  <label className="block text-sm font-medium text-ai-text">
-                    Adicionar analista (mesma empresa)
-                  </label>
+                  <label className="block text-sm font-medium text-ai-text">Adicionar analista (mesma empresa)</label>
                   <div className="flex gap-2">
                     <select
                       value={selectedAnalystToAdd}
@@ -405,9 +390,7 @@ export default function FarmPermissionsModal({
               )}
 
               <div>
-                <label className="block text-sm font-medium text-ai-text mb-2">
-                  Analistas com acesso
-                </label>
+                <label className="block text-sm font-medium text-ai-text mb-2">Analistas com acesso</label>
                 <ul className="space-y-2">
                   {analystsWithAccess.map(row => (
                     <li
@@ -421,17 +404,13 @@ export default function FarmPermissionsModal({
                       <button
                         type="button"
                         onClick={() =>
-                          setSelectedAnalystId(
-                            selectedAnalystId === row.analyst_id ? null : row.analyst_id
-                          )
+                          setSelectedAnalystId(selectedAnalystId === row.analyst_id ? null : row.analyst_id)
                         }
                         className="flex-1 flex items-center justify-between text-left"
                       >
                         <span className="text-sm font-medium text-ai-text">
                           {row.analyst?.name || row.analyst?.email || row.analyst_id}
-                          {row.is_responsible && (
-                            <span className="ml-2 text-xs text-ai-subtext">(responsável)</span>
-                          )}
+                          {row.is_responsible && <span className="ml-2 text-xs text-ai-subtext">(responsável)</span>}
                         </span>
                         <ChevronRight
                           size={16}
@@ -456,32 +435,26 @@ export default function FarmPermissionsModal({
 
               {selectedAnalystId && (
                 <div className="border border-ai-border rounded-lg p-4 space-y-4">
-                  <h3 className="text-sm font-semibold text-ai-text">
-                    Permissões por tela
-                  </h3>
+                  <h3 className="text-sm font-semibold text-ai-text">Permissões por tela</h3>
                   <PermissionSummary editedPermissions={editedPermissions} />
                   <div className="space-y-4">
-                    {(['cadastros', 'gerenciamento', 'documentos', 'assistentes'] as const).map(
-                      cat => {
-                        const items = PERMISSION_KEYS.filter(pk => pk.category === cat);
-                        if (items.length === 0) return null;
-                        return (
-                          <PermissionCategorySection
-                            key={cat}
-                            category={cat}
-                            label={PERMISSION_CATEGORY_LABELS[cat]}
-                            items={items}
-                            editedPermissions={editedPermissions}
-                            setPermissionFor={setPermissionFor}
-                            iconMap={ICON_MAP}
-                          />
-                        );
-                      }
-                    )}
+                    {(['cadastros', 'gerenciamento', 'documentos', 'assistentes'] as const).map(cat => {
+                      const items = PERMISSION_KEYS.filter(pk => pk.category === cat);
+                      if (items.length === 0) return null;
+                      return (
+                        <PermissionCategorySection
+                          key={cat}
+                          category={cat}
+                          label={PERMISSION_CATEGORY_LABELS[cat]}
+                          items={items}
+                          editedPermissions={editedPermissions}
+                          setPermissionFor={setPermissionFor}
+                          iconMap={ICON_MAP}
+                        />
+                      );
+                    })}
                   </div>
-                  <p className="text-xs text-ai-subtext">
-                    Entidades sem definição explícita usam valor padrão.
-                  </p>
+                  <p className="text-xs text-ai-subtext">Entidades sem definição explícita usam valor padrão.</p>
                   <div className="flex justify-end">
                     <button
                       onClick={handleSavePermissions}

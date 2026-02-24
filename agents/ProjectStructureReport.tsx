@@ -21,10 +21,7 @@ import { useClient } from '../contexts/ClientContext';
 import { fetchProjects, type ProjectRow } from '../lib/projects';
 import { fetchDeliveries, type DeliveryRow } from '../lib/deliveries';
 import { fetchInitiativesWithTeams, type InitiativeWithTeam } from '../lib/initiatives';
-import {
-  generateProjectStructurePdf,
-  generateProjectStructurePdfAsBase64,
-} from '../lib/generateProjectStructurePdf';
+import { generateProjectStructurePdf, generateProjectStructurePdfAsBase64 } from '../lib/generateProjectStructurePdf';
 import { saveReportPdf } from '../lib/scenarios';
 import { supabase } from '../lib/supabase';
 
@@ -94,7 +91,7 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
   const deliveryItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const toggleDelivery = useCallback((id: string) => {
-    setExpandedDeliveryIds((prev) => {
+    setExpandedDeliveryIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -104,7 +101,7 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
 
   const openDeliveryDetail = useCallback((deliveryId: string) => {
     setActiveTab('deliveries');
-    setExpandedDeliveryIds((prev) => {
+    setExpandedDeliveryIds(prev => {
       if (prev.has(deliveryId)) return prev;
       const next = new Set(prev);
       next.add(deliveryId);
@@ -117,31 +114,33 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
     async (delivery: DeliveryRow) => {
       const trimmed = editDraft.trim();
       if (!trimmed) return;
-      const { error: upsertError } = await supabase.from('delivery_ai_summaries').upsert(
-        { delivery_id: delivery.id, summary: trimmed, source_hash: computeSourceHash(delivery) },
-        { onConflict: 'delivery_id' }
-      );
+      const { error: upsertError } = await supabase
+        .from('delivery_ai_summaries')
+        .upsert(
+          { delivery_id: delivery.id, summary: trimmed, source_hash: computeSourceHash(delivery) },
+          { onConflict: 'delivery_id' },
+        );
       if (upsertError) {
         console.error('[handleSaveSummary]', upsertError.message);
         onToast?.('Erro ao salvar resumo.', 'error');
         return;
       }
-      setDeliverySummaries((prev) => ({ ...prev, [delivery.id]: trimmed }));
+      setDeliverySummaries(prev => ({ ...prev, [delivery.id]: trimmed }));
       setEditingDeliveryId(null);
       onToast?.('Resumo salvo.', 'success');
     },
-    [editDraft, onToast]
+    [editDraft, onToast],
   );
 
   const isAdmin = user?.role === 'admin';
   const effectiveUserId = useMemo(
     () => (isAdmin && selectedAnalyst ? selectedAnalyst.id : user?.id),
-    [isAdmin, selectedAnalyst, user?.id]
+    [isAdmin, selectedAnalyst, user?.id],
   );
 
   const clientFilter = useMemo(
     () => (selectedClient?.id ? { clientId: selectedClient.id } : undefined),
-    [selectedClient?.id]
+    [selectedClient?.id],
   );
 
   const loadData = useCallback(async () => {
@@ -165,8 +164,8 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
       setProjects(projectRows);
       setDeliveries(deliveryRows);
       setInitiatives(initiativeRows);
-      setSelectedProjectId((prev) => {
-        if (prev && projectRows.some((p) => p.id === prev)) return prev;
+      setSelectedProjectId(prev => {
+        if (prev && projectRows.some(p => p.id === prev)) return prev;
         return projectRows[0]?.id || '';
       });
     } catch (e) {
@@ -181,14 +180,14 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
   }, [loadData]);
 
   const selectedProject = useMemo(
-    () => projects.find((p) => p.id === selectedProjectId) || null,
-    [projects, selectedProjectId]
+    () => projects.find(p => p.id === selectedProjectId) || null,
+    [projects, selectedProjectId],
   );
 
   const projectDeliveries = useMemo(() => {
     if (!selectedProject) return [];
     return deliveries
-      .filter((d) => d.project_id === selectedProject.id)
+      .filter(d => d.project_id === selectedProject.id)
       .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, 'pt-BR'));
   }, [deliveries, selectedProject]);
 
@@ -209,7 +208,7 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
 
   const initiativesByDeliveryIdRecord = useMemo(
     () => Object.fromEntries(initiativesByDelivery),
-    [initiativesByDelivery]
+    [initiativesByDelivery],
   );
 
   const handleGeneratePdf = useCallback(async () => {
@@ -260,7 +259,10 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    const ids = projectDeliveries.map((d) => d.id).sort().join(',');
+    const ids = projectDeliveries
+      .map(d => d.id)
+      .sort()
+      .join(',');
     const runKey = `${selectedProjectId}::${ids}`;
     if (summaryRunRef.current === runKey) return;
     summaryRunRef.current = runKey;
@@ -275,16 +277,18 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
 
     if (!projectDeliveries.length) return;
 
-    const deliveryIds = projectDeliveries.map((d) => d.id);
+    const deliveryIds = projectDeliveries.map(d => d.id);
     const hashMap: Record<string, string> = {};
-    projectDeliveries.forEach((d) => { hashMap[d.id] = computeSourceHash(d); });
+    projectDeliveries.forEach(d => {
+      hashMap[d.id] = computeSourceHash(d);
+    });
 
     const generateOne = async (
       d: DeliveryRow,
       fnUrl: string,
       accessToken: string,
       anonKey: string,
-      signal: AbortSignal
+      signal: AbortSignal,
     ) => {
       try {
         const res = await fetch(fnUrl, {
@@ -308,21 +312,20 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
         const summary = typeof json?.summary === 'string' ? json.summary.trim() : '';
         if (!summary) throw new Error('Resumo vazio.');
 
-        await supabase.from('delivery_ai_summaries').upsert(
-          { delivery_id: d.id, summary, source_hash: hashMap[d.id] },
-          { onConflict: 'delivery_id' }
-        );
+        await supabase
+          .from('delivery_ai_summaries')
+          .upsert({ delivery_id: d.id, summary, source_hash: hashMap[d.id] }, { onConflict: 'delivery_id' });
 
         if (!signal.aborted) {
-          setDeliverySummaries((prev) => ({ ...prev, [d.id]: summary }));
+          setDeliverySummaries(prev => ({ ...prev, [d.id]: summary }));
         }
       } catch (err) {
         if (signal.aborted) return;
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        setDeliverySummaryErrors((prev) => ({ ...prev, [d.id]: 'Resumo indisponível.' }));
+        setDeliverySummaryErrors(prev => ({ ...prev, [d.id]: 'Resumo indisponível.' }));
       } finally {
         if (!signal.aborted) {
-          setDeliverySummaryLoading((prev) => {
+          setDeliverySummaryLoading(prev => {
             const next = new Set(prev);
             next.delete(d.id);
             return next;
@@ -351,7 +354,7 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
         const cached: Record<string, string> = {};
         const toGenerate: DeliveryRow[] = [];
 
-        projectDeliveries.forEach((d) => {
+        projectDeliveries.forEach(d => {
           const existing = savedMap.get(d.id);
           if (existing && existing.source_hash === hashMap[d.id]) {
             cached[d.id] = existing.summary;
@@ -366,13 +369,15 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
 
         if (!toGenerate.length) return;
 
-        setDeliverySummaryLoading(new Set(toGenerate.map((d) => d.id)));
+        setDeliverySummaryLoading(new Set(toGenerate.map(d => d.id)));
 
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData?.session?.access_token;
         if (!accessToken) {
           const errMap: Record<string, string> = {};
-          toGenerate.forEach((d) => { errMap[d.id] = 'Sessão expirada.'; });
+          toGenerate.forEach(d => {
+            errMap[d.id] = 'Sessão expirada.';
+          });
           setDeliverySummaryErrors(errMap);
           setDeliverySummaryLoading(new Set());
           return;
@@ -386,20 +391,20 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
           if (controller.signal.aborted) return;
           const batch = toGenerate.slice(i, i + CONCURRENCY);
           await Promise.allSettled(
-            batch.map((d) => generateOne(d, fnUrl, accessToken || '', anonKey || '', controller.signal))
-          )
+            batch.map(d => generateOne(d, fnUrl, accessToken || '', anonKey || '', controller.signal)),
+          );
         }
       } catch (err) {
         if (controller.signal.aborted) return;
         console.error('[summaries] Erro inesperado:', err);
         // Set error state for ALL deliveries so the UI doesn't stay stuck on "Resumo em breve."
         const errMap: Record<string, string> = {};
-        projectDeliveries.forEach((d) => {
+        projectDeliveries.forEach(d => {
           if (!deliverySummaries[d.id]) {
             errMap[d.id] = 'Resumo indisponível.';
           }
         });
-        setDeliverySummaryErrors((prev) => ({ ...prev, ...errMap }));
+        setDeliverySummaryErrors(prev => ({ ...prev, ...errMap }));
         setDeliverySummaryLoading(new Set());
       }
     };
@@ -410,7 +415,7 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
       controller.abort();
       summaryRunRef.current = '';
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectDeliveries, selectedProjectId]);
 
   useEffect(() => {
@@ -438,7 +443,11 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
     return (
       <div className="flex flex-col h-full min-h-0 items-center justify-center text-red-500">
         <p className="text-sm">{error}</p>
-        <button type="button" onClick={loadData} className="mt-3 px-4 py-2 rounded-lg bg-ai-accent text-white text-sm hover:opacity-90">
+        <button
+          type="button"
+          onClick={loadData}
+          className="mt-3 px-4 py-2 rounded-lg bg-ai-accent text-white text-sm hover:opacity-90"
+        >
           Tentar novamente
         </button>
       </div>
@@ -449,7 +458,9 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
     return (
       <div className="flex flex-col h-full min-h-0 overflow-auto">
         <div className="p-4 md:p-6">
-          <nav className="text-xs text-ai-subtext uppercase tracking-widest mb-0.5">Gestão do Projeto &gt; Estrutura</nav>
+          <nav className="text-xs text-ai-subtext uppercase tracking-widest mb-0.5">
+            Gestão do Projeto &gt; Estrutura
+          </nav>
           <h1 className="text-xl font-bold text-ai-text tracking-tight">Estrutura do Projeto</h1>
           <div className="bg-ai-surface/50 border border-ai-border rounded-xl p-12 flex flex-col items-center justify-center text-center min-h-[280px] mt-6">
             <FolderOpen size={56} className="text-ai-subtext/40 mb-4" />
@@ -488,11 +499,11 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
           <div className="min-w-0 flex-1">
             <select
               value={selectedProject.id}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
+              onChange={e => setSelectedProjectId(e.target.value)}
               className="mb-2 block w-full max-w-xs px-3 py-2 rounded-md border border-slate-200 bg-white text-slate-900 text-sm"
               aria-label="Selecionar projeto"
             >
-              {projects.map((project) => (
+              {projects.map(project => (
                 <option key={project.id} value={project.id}>
                   {project.name}
                 </option>
@@ -614,20 +625,22 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
             <button
               type="button"
               onClick={() => setActiveTab('overview')}
-              className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${activeTab === 'overview'
-                ? 'border-b-2 border-indigo-600 text-indigo-600 -mb-px'
-                : 'text-slate-400 hover:text-slate-600'
-                }`}
+              className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${
+                activeTab === 'overview'
+                  ? 'border-b-2 border-indigo-600 text-indigo-600 -mb-px'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
             >
               Visão Geral
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('deliveries')}
-              className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${activeTab === 'deliveries'
-                ? 'border-b-2 border-indigo-600 text-indigo-600 -mb-px'
-                : 'text-slate-400 hover:text-slate-600'
-                }`}
+              className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${
+                activeTab === 'deliveries'
+                  ? 'border-b-2 border-indigo-600 text-indigo-600 -mb-px'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
             >
               Detalhamento
             </button>
@@ -653,12 +666,12 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                           role="button"
                           tabIndex={0}
                           aria-label={`Abrir detalhamento da entrega ${d.name}`}
-                          onClick={(event) => {
+                          onClick={event => {
                             const target = event.target as HTMLElement;
                             if (target.closest('button,textarea,input,a')) return;
                             openDeliveryDetail(d.id);
                           }}
-                          onKeyDown={(event) => {
+                          onKeyDown={event => {
                             if (event.key !== 'Enter' && event.key !== ' ') return;
                             event.preventDefault();
                             openDeliveryDetail(d.id);
@@ -681,7 +694,7 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                                 <>
                                   <textarea
                                     value={editDraft}
-                                    onChange={(e) => setEditDraft(e.target.value)}
+                                    onChange={e => setEditDraft(e.target.value)}
                                     rows={2}
                                     className="w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-slate-800 text-sm resize-none"
                                     placeholder="Editar resumo…"
@@ -699,7 +712,10 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => { setEditingDeliveryId(null); setEditDraft(''); }}
+                                      onClick={() => {
+                                        setEditingDeliveryId(null);
+                                        setEditDraft('');
+                                      }}
                                       className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-slate-200 bg-white text-slate-600 text-xs font-medium hover:bg-slate-50"
                                     >
                                       <X size={14} />
@@ -717,9 +733,7 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                                       </span>
                                     )}
                                     {!isLoading && summary && (
-                                      <span className="block break-words">
-                                        {summary.replace(/\s*\n+\s*/g, ' ')}
-                                      </span>
+                                      <span className="block break-words">{summary.replace(/\s*\n+\s*/g, ' ')}</span>
                                     )}
                                     {!isLoading && errorMsg && (
                                       <span className="text-slate-400 italic">{errorMsg}</span>
@@ -731,7 +745,10 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                                   {canEdit && (
                                     <button
                                       type="button"
-                                      onClick={() => { setEditingDeliveryId(d.id); setEditDraft(summary || ''); }}
+                                      onClick={() => {
+                                        setEditingDeliveryId(d.id);
+                                        setEditDraft(summary || '');
+                                      }}
                                       className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                                       title="Editar resumo"
                                       aria-label="Editar resumo"
@@ -764,7 +781,9 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                           {getInitials(row.name || '')}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{row.name || 'Stakeholder não informado'}</p>
+                          <p className="text-sm font-medium text-slate-800">
+                            {row.name || 'Stakeholder não informado'}
+                          </p>
                           <p className="text-xs text-slate-500">{row.activity || 'Atividade não informada'}</p>
                         </div>
                       </div>
@@ -781,13 +800,13 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                 <p className="text-sm text-slate-500">Este projeto ainda não possui entregas vinculadas.</p>
               ) : (
                 <div className="space-y-2">
-                  {projectDeliveries.map((delivery) => {
+                  {projectDeliveries.map(delivery => {
                     const initiativesList = initiativesByDelivery.get(delivery.id) || [];
                     const isExpanded = expandedDeliveryIds.has(delivery.id);
                     return (
                       <div
                         key={delivery.id}
-                        ref={(node) => {
+                        ref={node => {
                           deliveryItemRefs.current[delivery.id] = node;
                         }}
                         className="rounded-lg border border-slate-100 bg-white overflow-hidden"
@@ -799,11 +818,14 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                         >
                           <ChevronRight
                             size={18}
-                            className={`text-slate-500 shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''
-                              }`}
+                            className={`text-slate-500 shrink-0 transition-transform duration-200 ${
+                              isExpanded ? 'rotate-90' : ''
+                            }`}
                           />
                           <span className="font-semibold text-slate-800 flex-1 min-w-0">{delivery.name}</span>
-                          <span className="text-xs text-slate-400 shrink-0">{formatDate(delivery.due_date ?? null)}</span>
+                          <span className="text-xs text-slate-400 shrink-0">
+                            {formatDate(delivery.due_date ?? null)}
+                          </span>
                           <span className="rounded-full bg-slate-100 text-slate-600 text-xs font-medium px-2 py-0.5">
                             {initiativesList.length} atividade(s)
                           </span>
@@ -811,28 +833,26 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                         {isExpanded && (
                           <div className="border-t border-slate-100 px-4 py-4 bg-slate-50/30">
                             {delivery.description?.trim() && (
-                              <p className="text-sm text-slate-600 whitespace-pre-wrap mb-3">
-                                {delivery.description}
-                              </p>
+                              <p className="text-sm text-slate-600 whitespace-pre-wrap mb-3">{delivery.description}</p>
                             )}
                             {initiativesList.length === 0 ? (
                               <p className="text-sm text-slate-500">Nenhuma atividade vinculada.</p>
                             ) : (
                               <div className="relative pl-6 border-l-2 border-indigo-200 space-y-4">
-                                {initiativesList.map((initiative) => {
+                                {initiativesList.map(initiative => {
                                   const milestones = initiative.milestones || [];
                                   const totalM = milestones.length;
-                                  const completedM = milestones.filter((m) => m.completed).length;
+                                  const completedM = milestones.filter(m => m.completed).length;
                                   const pct = totalM > 0 ? Math.round((completedM / totalM) * 100) : 0;
                                   return (
                                     <div key={initiative.id} className="relative">
-                                      <div className={`absolute -left-6 top-2 w-3 h-3 rounded-full border-2 border-white ${pct === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+                                      <div
+                                        className={`absolute -left-6 top-2 w-3 h-3 rounded-full border-2 border-white ${pct === 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                                      />
                                       <div className="pb-2">
                                         <p className="font-medium text-slate-800">{initiative.name}</p>
                                         {initiative.description?.trim() && (
-                                          <p className="text-sm text-slate-500 mt-0.5">
-                                            {initiative.description}
-                                          </p>
+                                          <p className="text-sm text-slate-500 mt-0.5">{initiative.description}</p>
                                         )}
                                         <p className="text-xs text-slate-400 mt-1">
                                           {formatDate(initiative.start_date)} — {formatDate(initiative.end_date)}
@@ -846,10 +866,11 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                                             )}
                                             {initiative.progress > 0 && (
                                               <span
-                                                className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${initiative.progress === 100
-                                                  ? 'bg-emerald-50 text-emerald-700'
-                                                  : 'bg-indigo-50 text-indigo-700'
-                                                  }`}
+                                                className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                                                  initiative.progress === 100
+                                                    ? 'bg-emerald-50 text-emerald-700'
+                                                    : 'bg-indigo-50 text-indigo-700'
+                                                }`}
                                               >
                                                 {initiative.progress}%
                                               </span>
@@ -886,17 +907,23 @@ const ProjectStructureReport: React.FC<ProjectStructureReportProps> = ({ onToast
                                       )}
                                       {milestones.length > 0 && (
                                         <div className="mt-3 space-y-1.5 pl-2">
-                                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Marcos</p>
-                                          {milestones.map((m) => (
+                                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                                            Marcos
+                                          </p>
+                                          {milestones.map(m => (
                                             <div key={m.id} className="flex items-center gap-2 text-xs text-slate-600">
                                               {m.completed ? (
                                                 <CheckCircle2 size={12} className="text-emerald-500 shrink-0" />
                                               ) : (
                                                 <div className="w-3 h-3 rounded-full border-2 border-slate-300 shrink-0" />
                                               )}
-                                              <span className={m.completed ? 'line-through text-slate-400' : ''}>{m.title}</span>
+                                              <span className={m.completed ? 'line-through text-slate-400' : ''}>
+                                                {m.title}
+                                              </span>
                                               {m.due_date && (
-                                                <span className="text-slate-400 ml-auto shrink-0">{formatDate(m.due_date)}</span>
+                                                <span className="text-slate-400 ml-auto shrink-0">
+                                                  {formatDate(m.due_date)}
+                                                </span>
                                               )}
                                             </div>
                                           ))}

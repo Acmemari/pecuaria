@@ -166,7 +166,7 @@ export default function TaskCreateModal({
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40" onClick={handleClose}>
       <div
         className="bg-white dark:bg-ai-bg border border-ai-border rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
@@ -190,7 +190,7 @@ export default function TaskCreateModal({
               <input
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={e => setTitle(e.target.value)}
                 className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                 placeholder="Ex: Revisar relatório..."
               />
@@ -202,11 +202,13 @@ export default function TaskCreateModal({
               </div>
               <select
                 value={responsiblePersonId}
-                onChange={(e) => setResponsiblePersonId(e.target.value)}
+                onChange={e => setResponsiblePersonId(e.target.value)}
                 className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
               >
-                <option value="" disabled>Selecione</option>
-                {people.map((p) => (
+                <option value="" disabled>
+                  Selecione
+                </option>
+                {people.map(p => (
                   <option key={p.id} value={p.id}>
                     {p.preferred_name?.trim() || p.full_name}
                     {p.job_role?.trim() ? ` — ${p.job_role.trim()}` : ''}
@@ -215,7 +217,8 @@ export default function TaskCreateModal({
               </select>
               {responsiblePersonId && (
                 <div className="mt-1 text-[11px] text-ai-subtext">
-                  Selecionado: <span className="font-medium text-ai-text">{getResponsibleLabel(responsiblePersonId)}</span>
+                  Selecionado:{' '}
+                  <span className="font-medium text-ai-text">{getResponsibleLabel(responsiblePersonId)}</span>
                 </div>
               )}
             </div>
@@ -232,7 +235,7 @@ export default function TaskCreateModal({
                 inputMode="numeric"
                 min={1}
                 value={days}
-                onChange={(e) => setDays(e.target.value)}
+                onChange={e => setDays(e.target.value)}
                 className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
               />
             </div>
@@ -247,10 +250,12 @@ export default function TaskCreateModal({
 
           {/* Linha intermediária: Descrição da tarefa */}
           <div>
-            <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">Descrição da tarefa</div>
+            <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">
+              Descrição da tarefa
+            </div>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={e => setDescription(e.target.value)}
               className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm resize-none"
               rows={5}
               placeholder="Descreva detalhes importantes..."
@@ -260,10 +265,12 @@ export default function TaskCreateModal({
           {/* Linha inferior: Projeto, Atividade, Marco */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">Projeto (opcional)</div>
+              <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">
+                Projeto (opcional)
+              </div>
               <select
                 value={selectedDeliveryId}
-                onChange={(e) => {
+                onChange={e => {
                   setSelectedDeliveryId(e.target.value);
                   setSelectedInitiativeId('');
                   setSelectedMilestoneId('');
@@ -271,39 +278,49 @@ export default function TaskCreateModal({
                 className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
               >
                 <option value="">—</option>
-                {deliveries.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                {deliveries.map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">Atividade (opcional)</div>
+              <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">
+                Atividade (opcional)
+              </div>
               <select
                 value={selectedInitiativeId}
-                onChange={(e) => {
+                onChange={e => {
                   setSelectedInitiativeId(e.target.value);
                   setSelectedMilestoneId('');
                 }}
                 className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
               >
                 <option value="">—</option>
-                {initiatives.map((i) => (
-                  <option key={i.id} value={i.id}>{i.name}</option>
+                {initiatives.map(i => (
+                  <option key={i.id} value={i.id}>
+                    {i.name}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">Marco (opcional)</div>
+              <div className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1">
+                Marco (opcional)
+              </div>
               <select
                 value={selectedMilestoneId}
-                onChange={(e) => setSelectedMilestoneId(e.target.value)}
+                onChange={e => setSelectedMilestoneId(e.target.value)}
                 className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
               >
                 <option value="">— (usar 1º marco)</option>
-                {milestones.map((m) => (
-                  <option key={m.id} value={m.id}>{m.title}</option>
+                {milestones.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.title}
+                  </option>
                 ))}
               </select>
               {!selectedMilestoneId && milestones[0]?.id && (
@@ -338,4 +355,3 @@ export default function TaskCreateModal({
     </div>
   );
 }
-

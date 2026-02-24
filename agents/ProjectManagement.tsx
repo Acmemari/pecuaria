@@ -24,7 +24,7 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
   const isAdmin = user?.role === 'admin';
   const effectiveUserId = useMemo(
     () => (isAdmin && selectedAnalyst ? selectedAnalyst.id : user?.id),
-    [isAdmin, selectedAnalyst, user?.id]
+    [isAdmin, selectedAnalyst, user?.id],
   );
 
   if (isAdmin && !selectedAnalyst) {
@@ -66,9 +66,7 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
             type="button"
             onClick={() => setViewMode('columns')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'columns'
-                ? 'bg-ai-accent text-white shadow-sm'
-                : 'text-ai-subtext hover:text-ai-text'
+              viewMode === 'columns' ? 'bg-ai-accent text-white shadow-sm' : 'text-ai-subtext hover:text-ai-text'
             }`}
           >
             <Columns3 size={16} />
@@ -78,9 +76,7 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
             type="button"
             onClick={() => setViewMode('mindmap')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'mindmap'
-                ? 'bg-ai-accent text-white shadow-sm'
-                : 'text-ai-subtext hover:text-ai-text'
+              viewMode === 'mindmap' ? 'bg-ai-accent text-white shadow-sm' : 'text-ai-subtext hover:text-ai-text'
             }`}
           >
             <Network size={16} />
@@ -90,9 +86,7 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
             type="button"
             onClick={() => setViewMode('document')}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              viewMode === 'document'
-                ? 'bg-ai-accent text-white shadow-sm'
-                : 'text-ai-subtext hover:text-ai-text'
+              viewMode === 'document' ? 'bg-ai-accent text-white shadow-sm' : 'text-ai-subtext hover:text-ai-text'
             }`}
           >
             <FileText size={16} />

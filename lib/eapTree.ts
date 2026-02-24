@@ -55,10 +55,7 @@ function formatDateBR(raw: string | null): string {
 /**
  * Carrega a árvore completa EAP para um analista.
  */
-export async function loadFullEAPTree(
-  effectiveUserId: string,
-  clientId?: string | null
-): Promise<WBSNode[]> {
+export async function loadFullEAPTree(effectiveUserId: string, clientId?: string | null): Promise<WBSNode[]> {
   const filters = clientId ? { clientId } : undefined;
   const projects = await fetchProjects(effectiveUserId, filters);
   const rootNodes: WBSNode[] = [];
@@ -74,7 +71,7 @@ export async function loadFullEAPTree(
       for (const initiative of initiatives) {
         await ensureDefaultMilestone(initiative.id);
         const tasks = await fetchTasksByInitiative(initiative.id);
-        const taskChildren: WBSNode[] = tasks.map((t) => ({
+        const taskChildren: WBSNode[] = tasks.map(t => ({
           id: `task-${t.id}`,
           level: 'task' as const,
           parentId: `activity-${initiative.id}`,
@@ -150,7 +147,7 @@ export async function loadFullEAPTree(
 export function wbsTreeToFlowData(
   tree: WBSNode[],
   nodeWidth = 220,
-  nodeHeight = 72
+  nodeHeight = 72,
 ): { nodes: Node<WBSNodeData>[]; edges: Edge[] } {
   const nodes: Node<WBSNodeData>[] = [];
   const edges: Edge[] = [];

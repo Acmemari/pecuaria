@@ -1,8 +1,31 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Loader2, Trash2, Eye, Edit, Calendar, AlertCircle, Save, Download, FileCheck, X, FileText, Building2, Filter, FileBarChart, Calculator, GitCompare } from 'lucide-react';
+import {
+  Loader2,
+  Trash2,
+  Eye,
+  Edit,
+  Calendar,
+  AlertCircle,
+  Save,
+  Download,
+  FileCheck,
+  X,
+  FileText,
+  Building2,
+  Filter,
+  FileBarChart,
+  Calculator,
+  GitCompare,
+} from 'lucide-react';
 import { CattleScenario, ComparatorResult, CalculationResults, SavedQuestionnaire } from '../types';
 import { getSavedScenarios, deleteScenario, getScenario } from '../lib/scenarios';
-import { getSavedQuestionnaires, getSavedQuestionnaire, deleteSavedQuestionnaire, updateSavedQuestionnaireName, updateSavedQuestionnaire } from '../lib/savedQuestionnaires';
+import {
+  getSavedQuestionnaires,
+  getSavedQuestionnaire,
+  deleteSavedQuestionnaire,
+  updateSavedQuestionnaireName,
+  updateSavedQuestionnaire,
+} from '../lib/savedQuestionnaires';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
 import { useClient } from '../contexts/ClientContext';
@@ -31,7 +54,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   onLoadComparator,
   onNavigateToComparator,
   onEditQuestionnaire,
-  onToast
+  onToast,
 }) => {
   const { user } = useAuth();
   const { selectedAnalyst } = useAnalyst();
@@ -40,11 +63,11 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   const { country, currencySymbol } = useLocation();
 
   // Determine target user ID (admin viewing analyst's data or regular user)
-  const targetUserId = (user?.role === 'admin' && selectedAnalyst) ? selectedAnalyst.id : user?.id;
-  
+  const targetUserId = user?.role === 'admin' && selectedAnalyst ? selectedAnalyst.id : user?.id;
+
   // Verificar se o usuário é analista ou admin
   const isAnalystOrAdmin = user?.qualification === 'analista' || user?.role === 'admin';
-  
+
   const [scenarios, setScenarios] = useState<CattleScenario[]>([]);
   const [questionnaires, setQuestionnaires] = useState<SavedQuestionnaire[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,7 +82,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   const [isAutoDownloadPdf, setIsAutoDownloadPdf] = useState(false);
   const [downloadModalQuestionnaire, setDownloadModalQuestionnaire] = useState<SavedQuestionnaire | null>(null);
   const [includeInsightsInDownload, setIncludeInsightsInDownload] = useState(false);
-  
+
   // Filtro local para mostrar todos ou apenas da fazenda selecionada
   const [filterMode, setFilterMode] = useState<'all' | 'farm'>('farm');
 
@@ -69,10 +92,10 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
   const [filterComparador, setFilterComparador] = useState(true);
 
   const savedItems: SavedItem[] = useMemo(() => {
-    const scenarioItems: SavedItem[] = scenarios.map((s) => ({ type: 'scenario' as const, data: s }));
-    const questionnaireItems: SavedItem[] = questionnaires.map((q) => ({ type: 'questionnaire' as const, data: q }));
+    const scenarioItems: SavedItem[] = scenarios.map(s => ({ type: 'scenario' as const, data: s }));
+    const questionnaireItems: SavedItem[] = questionnaires.map(q => ({ type: 'questionnaire' as const, data: q }));
     return [...scenarioItems, ...questionnaireItems].sort(
-      (a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime()
+      (a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime(),
     );
   }, [scenarios, questionnaires]);
 
@@ -84,7 +107,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     s.results && 'type' in s.results && s.results.type === 'project_structure_pdf';
 
   const filteredSavedItems: SavedItem[] = useMemo(() => {
-    return savedItems.filter((item) => {
+    return savedItems.filter(item => {
       if (item.type === 'questionnaire') return filterQuestionnaires;
       const isComparador = isScenarioComparador(item.data);
       const isOverviewReport = isScenarioOverviewReport(item.data);
@@ -123,20 +146,20 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     try {
       // Construir filtros baseado no contexto
       const filters: { clientId?: string; farmId?: string } = {};
-      
+
       // Para analistas/admins com cliente selecionado
       if (isAnalystOrAdmin && selectedClient) {
         filters.clientId = selectedClient.id;
-        
+
         // Se tiver fazenda selecionada e filtro por fazenda ativo
         if (selectedFarm && filterMode === 'farm') {
           filters.farmId = selectedFarm.id;
         }
       }
-      
+
       const [scenariosData, questionnairesData] = await Promise.all([
         getSavedScenarios(targetUserId, Object.keys(filters).length > 0 ? filters : undefined),
-        getSavedQuestionnaires(targetUserId, Object.keys(filters).length > 0 ? filters : undefined).catch(() => [])
+        getSavedQuestionnaires(targetUserId, Object.keys(filters).length > 0 ? filters : undefined).catch(() => []),
       ]);
       setScenarios(scenariosData);
       setQuestionnaires(questionnairesData);
@@ -158,17 +181,17 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     setDeletingId(scenarioId);
     try {
       await deleteScenario(scenarioId, targetUserId);
-      setScenarios((prev) => prev.filter((s) => s.id !== scenarioId));
+      setScenarios(prev => prev.filter(s => s.id !== scenarioId));
       onToast?.({
         id: Date.now().toString(),
         message: 'Cenário excluído com sucesso',
-        type: 'success'
+        type: 'success',
       });
     } catch (err: any) {
       onToast?.({
         id: Date.now().toString(),
         message: err.message || 'Erro ao excluir cenário',
-        type: 'error'
+        type: 'error',
       });
     } finally {
       setDeletingId(null);
@@ -193,7 +216,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
             onToast?.({
               id: Date.now().toString(),
               message: 'Funcionalidade de carregar comparativos não está disponível nesta visualização',
-              type: 'info'
+              type: 'info',
             });
           }
         } else if (
@@ -214,7 +237,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       onToast?.({
         id: Date.now().toString(),
         message: err.message || 'Erro ao carregar cenário',
-        type: 'error'
+        type: 'error',
       });
     }
   };
@@ -223,7 +246,8 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     if (item.type === 'scenario') {
       setEditingScenario(item.data);
       setEditingQuestionnaire(null); // Clear questionnaire editing state
-    } else { // item.type === 'questionnaire'
+    } else {
+      // item.type === 'questionnaire'
       // If we have an edit handler for questionnaire content, use it.
       // Otherwise, fallback to renaming (which was the default behavior before).
       if (onEditQuestionnaire) {
@@ -276,7 +300,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     setDeletingQuestionnaireId(id);
     try {
       await deleteSavedQuestionnaire(id, targetUserId!);
-      setQuestionnaires((prev) => prev.filter((q) => q.id !== id));
+      setQuestionnaires(prev => prev.filter(q => q.id !== id));
       onToast?.({ id: Date.now().toString(), message: 'Questionário excluído com sucesso', type: 'success' });
     } catch (err: any) {
       onToast?.({ id: Date.now().toString(), message: err.message || 'Erro ao excluir', type: 'error' });
@@ -310,7 +334,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       onToast?.({
         id: Date.now().toString(),
         message: 'Este cenário não possui resultados para gerar o relatório',
-        type: 'error'
+        type: 'error',
       });
       return;
     }
@@ -322,11 +346,9 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       if (
         results &&
         'type' in results &&
-        (
-          results.type === 'comparator_pdf' ||
+        (results.type === 'comparator_pdf' ||
           results.type === 'initiatives_overview_pdf' ||
-          results.type === 'project_structure_pdf'
-        ) &&
+          results.type === 'project_structure_pdf') &&
         results.pdf_base64
       ) {
         // É um relatório salvo (comparativo ou visão geral) - baixar o PDF armazenado
@@ -338,7 +360,8 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
         }
 
         // Validação de segurança: verificar tamanho (máx 10MB em base64)
-        if (pdfBase64.length > 14000000) { // ~10MB em base64
+        if (pdfBase64.length > 14000000) {
+          // ~10MB em base64
           throw new Error('PDF muito grande para download');
         }
 
@@ -362,11 +385,12 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
           .replace(/\s+/g, '-')
           .toLowerCase()
           .substring(0, 50); // Limitar tamanho
-        const filePrefix = results.type === 'initiatives_overview_pdf'
-          ? 'relatorio-visao-geral'
-          : results.type === 'project_structure_pdf'
-            ? 'estrutura-projeto'
-            : 'comparativo';
+        const filePrefix =
+          results.type === 'initiatives_overview_pdf'
+            ? 'relatorio-visao-geral'
+            : results.type === 'project_structure_pdf'
+              ? 'estrutura-projeto'
+              : 'comparativo';
         const fileName = `${filePrefix}-${safeName}.pdf`;
         link.download = fileName;
         document.body.appendChild(link);
@@ -383,7 +407,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
           results: calcResults,
           scenarioName: scenario.name,
           createdAt: scenario.created_at,
-          userName: user?.name
+          userName: user?.name,
         });
       }
     } catch (err: any) {
@@ -391,7 +415,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       onToast?.({
         id: Date.now().toString(),
         message: 'Erro ao gerar relatório PDF: ' + (err.message || 'Erro desconhecido'),
-        type: 'error'
+        type: 'error',
       });
     }
   };
@@ -403,7 +427,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
@@ -478,16 +502,14 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
             <Save size={20} className="text-ai-accent" />
             <h1 className="text-xl font-bold text-ai-text">Meus Salvos</h1>
           </div>
-          
+
           {/* Filtros para analistas/admins */}
           {isAnalystOrAdmin && selectedClient && selectedFarm && (
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setFilterMode('farm')}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
-                  filterMode === 'farm'
-                    ? 'bg-ai-accent text-white'
-                    : 'bg-ai-surface text-ai-subtext hover:bg-ai-border'
+                  filterMode === 'farm' ? 'bg-ai-accent text-white' : 'bg-ai-surface text-ai-subtext hover:bg-ai-border'
                 }`}
               >
                 <Building2 size={14} />
@@ -496,9 +518,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
               <button
                 onClick={() => setFilterMode('all')}
                 className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
-                  filterMode === 'all'
-                    ? 'bg-ai-accent text-white'
-                    : 'bg-ai-surface text-ai-subtext hover:bg-ai-border'
+                  filterMode === 'all' ? 'bg-ai-accent text-white' : 'bg-ai-surface text-ai-subtext hover:bg-ai-border'
                 }`}
               >
                 <Filter size={14} />
@@ -507,7 +527,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
             </div>
           )}
         </div>
-        
+
         {/* Contexto atual */}
         {isAnalystOrAdmin && (
           <div className="flex items-center gap-2 mb-2">
@@ -527,7 +547,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
             )}
           </div>
         )}
-        
+
         {/* Filtro por tipo: Questionários, Calculadora, Comparador */}
         <div className="flex flex-wrap items-center gap-4 mt-3 p-3 bg-ai-surface/50 rounded-lg border border-ai-border/60">
           <span className="text-xs font-semibold text-ai-subtext">Exibir:</span>
@@ -535,7 +555,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
             <input
               type="checkbox"
               checked={filterQuestionnaires}
-              onChange={(e) => setFilterQuestionnaires(e.target.checked)}
+              onChange={e => setFilterQuestionnaires(e.target.checked)}
               className="rounded border-ai-border text-ai-accent focus:ring-ai-accent"
             />
             <FileBarChart size={14} className="text-ai-subtext" />
@@ -545,7 +565,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
             <input
               type="checkbox"
               checked={filterCalculadora}
-              onChange={(e) => setFilterCalculadora(e.target.checked)}
+              onChange={e => setFilterCalculadora(e.target.checked)}
               className="rounded border-ai-border text-ai-accent focus:ring-ai-accent"
             />
             <Calculator size={14} className="text-ai-subtext" />
@@ -555,7 +575,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
             <input
               type="checkbox"
               checked={filterComparador}
-              onChange={(e) => setFilterComparador(e.target.checked)}
+              onChange={e => setFilterComparador(e.target.checked)}
               className="rounded border-ai-border text-ai-accent focus:ring-ai-accent"
             />
             <GitCompare size={14} className="text-ai-subtext" />
@@ -568,8 +588,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
             ? isAnalystOrAdmin && !selectedClient
               ? 'Selecione um cliente para ver os itens salvos.'
               : 'Nenhum item salvo encontrado.'
-            : `${filteredSavedItems.length} de ${savedItems.length} item${savedItems.length !== 1 ? 'ns' : ''} (${scenarios.length} cenário${scenarios.length !== 1 ? 's' : ''}, ${questionnaires.length} questionário${questionnaires.length !== 1 ? 's' : ''})`
-          }
+            : `${filteredSavedItems.length} de ${savedItems.length} item${savedItems.length !== 1 ? 'ns' : ''} (${scenarios.length} cenário${scenarios.length !== 1 ? 's' : ''}, ${questionnaires.length} questionário${questionnaires.length !== 1 ? 's' : ''})`}
         </p>
       </div>
 
@@ -579,16 +598,16 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
           <div className="text-center">
             <Save size={48} className="mx-auto mb-4 text-ai-subtext opacity-30" />
             <h3 className="text-lg font-medium text-ai-text mb-2">
-              {isAnalystOrAdmin && !selectedClient 
-                ? 'Selecione um cliente' 
-                : savedItems.length > 0 
-                  ? 'Nenhum item nos filtros' 
+              {isAnalystOrAdmin && !selectedClient
+                ? 'Selecione um cliente'
+                : savedItems.length > 0
+                  ? 'Nenhum item nos filtros'
                   : 'Nenhum item salvo'}
             </h3>
             <p className="text-sm text-ai-subtext mb-4">
-              {isAnalystOrAdmin && !selectedClient 
+              {isAnalystOrAdmin && !selectedClient
                 ? 'Use o seletor no cabeçalho para escolher um cliente e visualizar seus itens salvos.'
-                : savedItems.length > 0 
+                : savedItems.length > 0
                   ? 'Marque ao menos um tipo (Questionários, Calculadora ou Comparador) acima para exibir itens.'
                   : isAnalystOrAdmin && selectedFarm && filterMode === 'farm'
                     ? `Nenhum item encontrado para a fazenda "${selectedFarm.name}". Tente ver todos os itens do cliente.`
@@ -614,7 +633,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       ) : (
         <div className="flex-1 overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredSavedItems.map((item) => (
+            {filteredSavedItems.map(item =>
               item.type === 'scenario' ? (
                 <div
                   key={`s-${item.data.id}`}
@@ -668,7 +687,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                     <Calendar size={12} />
                     <span>{formatDate(item.data.created_at)}</span>
                   </div>
-                  
+
                   {/* Farm name - mostrar quando filtro é "all" ou quando cenário tem farm_name */}
                   {item.data.farm_name && filterMode === 'all' && (
                     <div className="flex items-center gap-1.5 text-xs text-ai-subtext mb-3 bg-ai-surface px-2 py-1 rounded">
@@ -682,8 +701,10 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                     const scenario = item.data;
                     const results = scenario.results;
                     const isComparatorPDF = results && 'type' in results && results.type === 'comparator_pdf';
-                    const isOverviewReportPDF = results && 'type' in results && results.type === 'initiatives_overview_pdf';
-                    const isProjectStructureReportPDF = results && 'type' in results && results.type === 'project_structure_pdf';
+                    const isOverviewReportPDF =
+                      results && 'type' in results && results.type === 'initiatives_overview_pdf';
+                    const isProjectStructureReportPDF =
+                      results && 'type' in results && results.type === 'project_structure_pdf';
 
                     if (isComparatorPDF) {
                       return (
@@ -694,8 +715,8 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                             </div>
                           </div>
                           <p className="text-xs text-ai-subtext">
-                            Comparação de 3 cenários com relatório PDF completo.
-                            Clique no ícone de download para visualizar o relatório.
+                            Comparação de 3 cenários com relatório PDF completo. Clique no ícone de download para
+                            visualizar o relatório.
                           </p>
                         </div>
                       );
@@ -708,8 +729,8 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                             </div>
                           </div>
                           <p className="text-xs text-ai-subtext">
-                            PDF da Visão Geral de iniciativas salvo em Meus Salvos.
-                            Clique no ícone de download para baixar o relatório.
+                            PDF da Visão Geral de iniciativas salvo em Meus Salvos. Clique no ícone de download para
+                            baixar o relatório.
                           </p>
                         </div>
                       );
@@ -722,8 +743,8 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                             </div>
                           </div>
                           <p className="text-xs text-ai-subtext">
-                            PDF da Estrutura do Projeto salvo em Meus Salvos.
-                            Clique no ícone de download para baixar o relatório.
+                            PDF da Estrutura do Projeto salvo em Meus Salvos. Clique no ícone de download para baixar o
+                            relatório.
                           </p>
                         </div>
                       );
@@ -734,23 +755,34 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                           <div className="grid grid-cols-2 gap-2 text-xs">
                             <div>
                               <span className="text-ai-subtext">Resultado:</span>
-                              <span className={`ml-1 font-medium ${(calcResults.resultadoPorBoi || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                {currencySymbol} {(calcResults.resultadoPorBoi || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              <span
+                                className={`ml-1 font-medium ${(calcResults.resultadoPorBoi || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                              >
+                                {currencySymbol}{' '}
+                                {(calcResults.resultadoPorBoi || 0).toLocaleString('pt-BR', {
+                                  minimumFractionDigits: 2,
+                                })}
                               </span>
                             </div>
                             <div>
                               <span className="text-ai-subtext">Margem:</span>
-                              <span className={`ml-1 font-medium ${(calcResults.margemVenda || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              <span
+                                className={`ml-1 font-medium ${(calcResults.margemVenda || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                              >
                                 {(calcResults.margemVenda || 0).toFixed(2)}%
                               </span>
                             </div>
                             <div>
                               <span className="text-ai-subtext">Permanência:</span>
-                              <span className="ml-1 font-medium text-ai-text">{(calcResults.diasPermanencia || 0).toFixed(0)} dias</span>
+                              <span className="ml-1 font-medium text-ai-text">
+                                {(calcResults.diasPermanencia || 0).toFixed(0)} dias
+                              </span>
                             </div>
                             <div>
                               <span className="text-ai-subtext">Arrobas:</span>
-                              <span className="ml-1 font-medium text-ai-text">{(calcResults.arrobasProduzidas || 0).toFixed(2)} @</span>
+                              <span className="ml-1 font-medium text-ai-text">
+                                {(calcResults.arrobasProduzidas || 0).toFixed(2)} @
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -768,7 +800,8 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                             <div>
                               <span className="text-ai-subtext">Valor Compra:</span>
                               <span className="ml-1 font-medium text-ai-text">
-                                {currencySymbol} {(inp?.valorCompra != null ? Number(inp.valorCompra).toFixed(2) : '-')}/kg
+                                {currencySymbol} {inp?.valorCompra != null ? Number(inp.valorCompra).toFixed(2) : '-'}
+                                /kg
                               </span>
                             </div>
                             <div>
@@ -777,7 +810,10 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                             </div>
                             <div>
                               <span className="text-ai-subtext">Valor Venda:</span>
-                              <span className="ml-1 font-medium text-ai-text">{currencySymbol} {inp?.valorVenda != null ? Number(inp.valorVenda) : '-'}{country === 'PY' ? '/kg' : '/@'}</span>
+                              <span className="ml-1 font-medium text-ai-text">
+                                {currencySymbol} {inp?.valorVenda != null ? Number(inp.valorVenda) : '-'}
+                                {country === 'PY' ? '/kg' : '/@'}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -812,7 +848,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                       <button
                         onClick={() => handleEdit({ type: 'questionnaire', data: item.data })}
                         className="p-1.5 text-ai-subtext hover:text-blue-600 hover:bg-ai-surface rounded transition-colors"
-                        title={onEditQuestionnaire ? "Editar questionário" : "Editar nome"}
+                        title={onEditQuestionnaire ? 'Editar questionário' : 'Editar nome'}
                       >
                         <Edit size={16} />
                       </button>
@@ -838,13 +874,12 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                     <div className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium inline-block mb-2">
                       Questionário
                     </div>
-                    {item.data.farm_name && (
-                      <p className="text-xs text-ai-subtext">Fazenda: {item.data.farm_name}</p>
-                    )}
+                    {item.data.farm_name && <p className="text-xs text-ai-subtext">Fazenda: {item.data.farm_name}</p>}
                     <p className="text-xs text-ai-subtext">{item.data.answers?.length || 0} respostas</p>
                   </div>
                 </div>
-              )))}
+              ),
+            )}
           </div>
         </div>
       )}
@@ -853,7 +888,10 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
       {(editingScenario || editingQuestionnaire) && (
         <EditScenarioNameModal
           isOpen={true}
-          onClose={() => { setEditingScenario(null); setEditingQuestionnaire(null); }}
+          onClose={() => {
+            setEditingScenario(null);
+            setEditingQuestionnaire(null);
+          }}
           onSave={handleSaveEdit}
           currentName={editingScenario?.name ?? editingQuestionnaire?.name ?? ''}
           isLoading={isUpdating}
@@ -862,28 +900,32 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
 
       {/* Download Configuration Modal */}
       {downloadModalQuestionnaire && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setDownloadModalQuestionnaire(null)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setDownloadModalQuestionnaire(null)}
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-ai-border">
               <div className="flex items-center gap-2">
                 <FileText size={20} className="text-ai-accent" />
                 <h3 className="font-semibold text-ai-text">Configurar Download</h3>
               </div>
-              <button onClick={() => setDownloadModalQuestionnaire(null)} className="p-1.5 text-ai-subtext hover:bg-ai-surface rounded">
+              <button
+                onClick={() => setDownloadModalQuestionnaire(null)}
+                className="p-1.5 text-ai-subtext hover:bg-ai-surface rounded"
+              >
                 <X size={20} />
               </button>
             </div>
             <div className="p-6 space-y-4">
-              <p className="text-sm text-ai-subtext">
-                Configure as opções do relatório PDF antes de baixar.
-              </p>
+              <p className="text-sm text-ai-subtext">Configure as opções do relatório PDF antes de baixar.</p>
 
               <label className="flex items-start gap-3 p-3 border border-ai-border rounded-lg hover:bg-ai-surface cursor-pointer transition-colors">
                 <input
                   type="checkbox"
                   className="mt-0.5 rounded border-ai-border text-ai-accent focus:ring-ai-accent"
                   checked={includeInsightsInDownload}
-                  onChange={(e) => setIncludeInsightsInDownload(e.target.checked)}
+                  onChange={e => setIncludeInsightsInDownload(e.target.checked)}
                 />
                 <div className="flex-1">
                   <div className="text-sm font-medium text-ai-text">Incluir Insights da IA</div>
@@ -916,4 +958,3 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
 };
 
 export default SavedScenarios;
-

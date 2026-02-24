@@ -10,6 +10,7 @@
 O **Pecuária** é uma aplicação SaaS (Software as a Service) voltada para o setor pecuário, oferecendo ferramentas de análise econômica, consultoria virtual e gestão de rebanho. A aplicação utiliza React, TypeScript, Supabase para backend e OpenAI Assistant para o chat.
 
 ### Propósito Principal
+
 - **Calculadoras:** Análise econômica completa de investimentos em gado
 - **Chat Consultivo:** Assistente virtual "Antonio" para consultoria especializada
 - **Tendências de Mercado:** Análise de ciclo pecuário e reposição
@@ -22,6 +23,7 @@ O **Pecuária** é uma aplicação SaaS (Software as a Service) voltada para o s
 ### Stack Tecnológico
 
 #### Frontend
+
 - **React 19.2.0** - Framework principal
 - **TypeScript 5.8.2** - Tipagem estática
 - **Vite 6.2.0** - Build tool e dev server
@@ -30,6 +32,7 @@ O **Pecuária** é uma aplicação SaaS (Software as a Service) voltada para o s
 - **Recharts 3.5.1** - Gráficos e visualizações
 
 #### Backend & Infraestrutura
+
 - **Supabase** - BaaS (Backend as a Service)
   - Autenticação (email/password, OAuth Google)
   - Banco de dados PostgreSQL
@@ -40,11 +43,13 @@ O **Pecuária** é uma aplicação SaaS (Software as a Service) voltada para o s
 - **Google Gemini API** - Mantida para compatibilidade (opcional)
 
 #### Testes
+
 - **Vitest 4.0.15** - Testes unitários
 - **Playwright 1.57.0** - Testes E2E
 - **Testing Library** - Testes de componentes React
 
 #### DevOps
+
 - **Vercel** - Deploy e hosting
 - **Service Worker** - Cache de recursos estáticos
 - **Concurrently** - Execução paralela de scripts
@@ -92,6 +97,7 @@ pecuaria/
 ## 🔐 Sistema de Autenticação e Autorização
 
 ### Autenticação (Supabase Auth)
+
 - **Email/Password:** Login tradicional
 - **OAuth Google:** Login social (implementado, não totalmente ativo)
 - **Recuperação de Senha:** Fluxo completo com email
@@ -122,11 +128,13 @@ pecuaria/
    - 99 agentes, 10 usuários
 
 ### Permissões
+
 - **Admins:** Acesso total, sem limites
 - **Clientes:** Baseado no plano contratado
 - **Features bloqueadas:** Mostradas como "locked" na UI
 
 ### Implementação
+
 - `lib/auth/permissions.ts` - Lógica de verificação
 - `lib/auth/loadUserProfile.ts` - Carregamento de perfil
 - `contexts/AuthContext.tsx` - Contexto React global
@@ -136,6 +144,7 @@ pecuaria/
 ## 💬 Sistema de Chat
 
 ### Arquitetura
+
 1. **Frontend:** `agents/ChatAgent.tsx`
    - Interface de chat
    - Histórico de mensagens
@@ -155,12 +164,14 @@ pecuaria/
    - Retorna resposta formatada
 
 ### Limites de Mensagens
+
 - **Básico:** 10 mensagens/dia (contagem diária)
 - **Pro/Enterprise:** Ilimitado
 - **Admin:** Ilimitado
 - **Fallback:** Em caso de erro de conexão, permite envio (permissivo)
 
 ### Persistência
+
 - Mensagens salvas em `chat_messages` (Supabase)
 - RLS garante privacidade (usuários só veem próprias mensagens)
 - Histórico recuperado ao abrir o chat
@@ -172,26 +183,31 @@ pecuaria/
 ### Tabelas Principais
 
 #### `user_profiles`
+
 - Perfil estendido do usuário
 - Campos: `id`, `name`, `email`, `role`, `plan`, `phone`, `organization_id`
 - Criado via trigger após signup
 
 #### `chat_messages`
+
 - Histórico de mensagens do chat
 - Campos: `id`, `user_id`, `role`, `text`, `attachment_name`, `created_at`
 - RLS: Usuários só veem próprias mensagens
 
 #### `cattle_scenarios`
+
 - Cenários salvos da calculadora
 - Campos: `id`, `user_id`, `name`, `inputs`, `results`, `created_at`
 - Permite salvar e recuperar simulações
 
 ### Migrations
+
 - `001_chat_messages.sql` - Tabela de mensagens
 - `002_cattle_scenarios.sql` - Tabela de cenários
 - `003_add_phone_to_user_profiles.sql` - Campo telefone
 
 ### Segurança
+
 - **Row Level Security (RLS):** Ativado em todas as tabelas
 - **Policies:** Usuários só acessam próprios dados
 - **Admins:** Podem ver todos os dados (políticas especiais)
@@ -201,18 +217,21 @@ pecuaria/
 ## 🎨 Interface e UX
 
 ### Design System
+
 - **Tema:** Escuro (dark mode)
 - **Cores customizadas:** Prefixo `ai-*` (ai-bg, ai-text, ai-subtext, etc.)
 - **Tipografia:** Font sans-serif
 - **Responsivo:** Mobile-first, sidebar adaptável
 
 ### Componentes Principais
+
 - **Sidebar:** Navegação entre agentes, responsiva
 - **Toast:** Notificações de feedback
 - **ErrorBoundary:** Tratamento de erros React
 - **Loading States:** Spinners e skeletons
 
 ### Code Splitting
+
 - **Lazy Loading:** Todos os agents carregados sob demanda
 - **Suspense:** Fallbacks de loading
 - **Otimização:** Reduz bundle inicial
@@ -222,11 +241,13 @@ pecuaria/
 ## 🧪 Testes
 
 ### Cobertura Atual
+
 - **Unitários:** Componentes, contextos, utilitários
 - **E2E:** Carregamento, inicialização, funcionalidades básicas
 - **Cobertura:** Relatórios em `coverage/`
 
 ### Estrutura de Testes
+
 ```
 src/test/
 ├── agents/          # Testes dos agentes
@@ -237,6 +258,7 @@ src/test/
 ```
 
 ### Scripts Disponíveis
+
 - `npm test` - Executar todos os testes
 - `npm run test:watch` - Modo watch
 - `npm run test:coverage` - Com cobertura
@@ -248,6 +270,7 @@ src/test/
 ## 🚀 Deploy e Configuração
 
 ### Ambiente de Desenvolvimento
+
 - **Node.js:** >=20 <25 (testado com Node 24)
 - **Porta Dev:** 3000 (frontend), 3001 (API)
 - **Proxy:** Vite proxy para API local
@@ -255,6 +278,7 @@ src/test/
 ### Variáveis de Ambiente
 
 #### Frontend (`.env.local`)
+
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
@@ -262,18 +286,21 @@ GEMINI_API_KEY=optional-key
 ```
 
 #### Backend (Vercel)
+
 ```env
 N8N_WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 ```
 
 ### Build de Produção
+
 - **Comando:** `npm run build`
 - **Output:** `dist/` com assets otimizados
 - **Service Worker:** Registrado automaticamente
 - **Code Splitting:** Automático via Vite
 
 ### Vercel
+
 - **Configuração:** `vercel.json` com rewrites
 - **Serverless Functions:** `/api/*` roteado para functions
 - **SPA Routing:** Todas as rotas redirecionam para `index.html`
@@ -283,6 +310,7 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 ## ⚡ Performance
 
 ### Otimizações Implementadas
+
 1. **Code Splitting:** Lazy loading de agents
 2. **Service Worker:** Cache de recursos estáticos
 3. **Tailwind Build Local:** CSS otimizado (~11KB gzip)
@@ -290,6 +318,7 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 5. **Image Optimization:** (se aplicável)
 
 ### Métricas
+
 - **CSS:** ~11KB (gzip: ~2.5KB)
 - **JS:** Code-splitted por rota
 - **Cache:** Service Worker com estratégia cache-first
@@ -299,30 +328,36 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 ## 🔧 Funcionalidades Principais
 
 ### 1. Calculadoras
+
 - **Inputs:** Peso compra/venda, valor, GMD, custos
 - **Outputs:** Lucro, margem, ROI, custos por arroba
 - **Salvamento:** Cenários podem ser salvos
 - **Navegação:** Integrada com "Meus Salvos"
 
 ### 2. Chat "Pergunte p/ Antonio"
+
 - **IA:** OpenAI Assistant especializado
 - **Histórico:** Persistente no Supabase
 - **Limites:** Baseado no plano
 - **Anexos:** Preparado para upload (em desenvolvimento)
 
 ### 3. Tendências de Mercado
+
 - **Feature:** Bloqueada para plano Básico
 - **Funcionalidade:** Análise de ciclo pecuário
 
 ### 4. Meus Salvos
+
 - **Cenários:** Lista de simulações salvas
 - **Ações:** Editar nome, deletar, carregar no calculador
 
 ### 5. Admin Dashboard
+
 - **Acesso:** Apenas role 'admin'
 - **Funcionalidades:** Gestão de usuários, uso de tokens
 
 ### 6. Treinar Antonio
+
 - **Acesso:** Apenas role 'admin'
 - **Funcionalidade:** Configuração do assistente
 
@@ -331,6 +366,7 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 ## 🐛 Problemas Conhecidos e Soluções
 
 ### Resolvidos
+
 1. ✅ **Erro 404 index.css** - Arquivo criado
 2. ✅ **Tailwind CDN** - Migrado para build local
 3. ✅ **Loading infinito** - Timeouts de segurança adicionados
@@ -338,6 +374,7 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 5. ✅ **Limite de mensagens bloqueando incorretamente** - Fallback permissivo
 
 ### Em Monitoramento
+
 - **Profile creation delay:** Retry logic implementado
 - **Network errors:** Tratamento com retry e cache
 
@@ -346,11 +383,13 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 ## 📊 Métricas e Monitoramento
 
 ### Logs
+
 - **Frontend:** Console logs para debug
 - **Backend:** Logs estruturados em serverless functions
 - **Erros:** Tratamento centralizado com códigos de erro
 
 ### Rastreamento
+
 - **Uso de tokens:** Preparado para salvar em `ai_token_usage` (opcional)
 - **Mensagens:** Contagem diária para plano Básico
 
@@ -359,6 +398,7 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 ## 🔒 Segurança
 
 ### Implementações
+
 1. **RLS:** Row Level Security no Supabase
 2. **Validação de Input:** Sanitização de dados
 3. **API Keys:** Nunca expostas no frontend
@@ -366,6 +406,7 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 5. **CORS:** Configurado corretamente
 
 ### Melhorias Sugeridas
+
 - Rate limiting mais agressivo
 - Validação de senha mais forte
 - 2FA (autenticação de dois fatores)
@@ -376,12 +417,14 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 ## 📈 Escalabilidade
 
 ### Pontos Fortes
+
 - **Serverless:** Escala automaticamente (Vercel)
 - **Supabase:** Banco gerenciado, escala horizontal
 - **Code Splitting:** Reduz bundle inicial
 - **Cache:** Service Worker reduz requisições
 
 ### Pontos de Atenção
+
 - **OpenAI API:** Limites de quota e rate limit
 - **Supabase:** Limites de conexões simultâneas
 - **Custo:** Monitorar uso de tokens OpenAI
@@ -391,18 +434,21 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 ## 🎯 Próximos Passos Sugeridos
 
 ### Curto Prazo
+
 1. **Testes:** Expandir cobertura E2E
 2. **Documentação:** API pública (se necessário)
 3. **Performance:** Otimizar queries N+1
 4. **UX:** Melhorar feedback de loading
 
 ### Médio Prazo
+
 1. **Features:** Implementar upload de anexos no chat
 2. **Analytics:** Dashboard de uso e métricas
 3. **Notificações:** Sistema de notificações push
 4. **Multi-tenant:** Melhorar suporte a organizações
 
 ### Longo Prazo
+
 1. **Mobile App:** Versão nativa (React Native)
 2. **API Pública:** Para integrações externas
 3. **Marketplace:** Extensões e plugins
@@ -415,6 +461,7 @@ SUPABASE_SERVICE_ROLE_KEY=service-role-key (opcional)
 O projeto **Pecuária** está bem estruturado, com arquitetura moderna e escalável. A base técnica é sólida, utilizando tecnologias atuais e boas práticas. O sistema de planos está implementado e funcional, com autenticação robusta e segurança adequada.
 
 ### Pontos Fortes
+
 - ✅ Arquitetura limpa e organizada
 - ✅ TypeScript para type safety
 - ✅ Testes implementados
@@ -423,16 +470,17 @@ O projeto **Pecuária** está bem estruturado, com arquitetura moderna e escalá
 - ✅ Performance otimizada
 
 ### Áreas de Melhoria
+
 - ⚠️ Expandir testes E2E
 - ⚠️ Melhorar tratamento de erros de rede
 - ⚠️ Implementar analytics
 - ⚠️ Adicionar mais validações de segurança
 
 ### Recomendação Geral
+
 O projeto está em **bom estado** para continuar o desenvolvimento. A base está sólida e permite evolução incremental sem grandes refatorações.
 
 ---
 
 **Documentado por:** Auto (AI Assistant)  
 **Última atualização:** 2025-01-27
-

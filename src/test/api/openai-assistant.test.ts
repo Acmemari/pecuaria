@@ -83,4 +83,3 @@ describe.skipIf(!hasApiKey)('OpenAI Assistant API Integration', () => {
     console.log(`✅ Tempo de resposta: ${elapsed}ms`);
   }, 90000);
 });
-

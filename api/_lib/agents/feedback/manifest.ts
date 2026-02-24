@@ -50,4 +50,3 @@ export const feedbackManifest: AgentManifest = {
   },
   estimatedTokensPerCall: 1500,
 };
-

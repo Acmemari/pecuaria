@@ -31,6 +31,7 @@ npm run build
 ```
 
 O build gera os arquivos otimizados na pasta `dist/`, incluindo:
+
 - CSS do Tailwind processado e otimizado
 - JavaScript minificado e code-splitted
 - Service Worker para cache de recursos
@@ -72,6 +73,7 @@ npm run test:e2e:headed
 ```
 
 **Nota:** Na primeira execução, é necessário instalar os navegadores do Playwright:
+
 ```bash
 npx playwright install --with-deps chromium
 ```
@@ -79,12 +81,14 @@ npx playwright install --with-deps chromium
 ### Testes de Carregamento
 
 Foram criados testes específicos para verificar:
+
 - Carregamento de recursos CSS e JS
 - Inicialização do React
 - Estrutura HTML correta
 - Detecção de erros 404
 
 Arquivos de teste:
+
 - `src/test/loading.test.tsx` - Testes de carregamento de recursos
 - `src/test/index.test.tsx` - Testes de inicialização do React
 - `src/test/resources.test.ts` - Testes de validação de recursos estáticos
@@ -103,17 +107,19 @@ O projeto utiliza as seguintes variáveis de ambiente:
 
 - **Backend (Vercel Serverless Functions):**
   - `N8N_WEBHOOK_URL` - URL do webhook n8n para processamento do chat (obrigatória)
-  
+
 **Importante:** Configure `N8N_WEBHOOK_URL` nas variáveis de ambiente do Vercel para que o chat funcione em produção.
 
 ### Integração n8n Webhook
 
 O chat utiliza uma automação n8n através de um webhook:
+
 - **Webhook URL:** `https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio`
 - `api/ask-assistant.ts` - Endpoint serverless do Vercel que chama o webhook
 - `agents/ChatAgent.tsx` - Componente React que consome a API
 
 **Fluxo de processamento:**
+
 1. Usuário envia mensagem no chat
 2. Frontend chama `/api/ask-assistant`
 3. Serverless function envia pergunta para webhook n8n
@@ -124,6 +130,7 @@ O chat utiliza uma automação n8n através de um webhook:
 ### Tailwind CSS
 
 O projeto usa Tailwind CSS com build local via PostCSS. A configuração está em:
+
 - `tailwind.config.js` - Configuração do Tailwind (cores customizadas, fontes)
 - `postcss.config.js` - Configuração do PostCSS
 - `index.css` - Arquivo principal com diretivas Tailwind e estilos customizados
@@ -131,6 +138,7 @@ O projeto usa Tailwind CSS com build local via PostCSS. A configuração está e
 ### Service Worker
 
 O projeto inclui um Service Worker para cache de recursos estáticos:
+
 - `public/sw.js` - Service Worker com estratégia cache-first
 - `src/lib/sw-register.ts` - Utilitário de registro do SW
 
@@ -139,11 +147,13 @@ O Service Worker é registrado automaticamente em produção.
 ## Correções de Erros
 
 ### Erro 404 - index.css
+
 **Problema:** O arquivo `index.css` estava sendo referenciado no `index.html` mas não existia.
 
 **Solução:** Criado o arquivo `index.css` na raiz do projeto com estilos básicos e reset CSS.
 
 ### Aviso Tailwind CDN
+
 **Problema:** Uso do CDN do Tailwind CSS em produção (não recomendado).
 
 **Solução:** Migrado para build local do Tailwind CSS usando PostCSS. O CSS é gerado durante o build e otimizado automaticamente.

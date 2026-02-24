@@ -14,9 +14,7 @@ Arquivo `vercel.json` na raiz do projeto (já criado):
 
 ```json
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
 ```
 
@@ -70,4 +68,3 @@ Após configurar, teste:
 - Os arquivos de configuração já foram criados no projeto
 - Certifique-se de que o arquivo correto está no lugar certo para seu provedor
 - Após fazer deploy, teste todas as rotas principais da aplicação
-

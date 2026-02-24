@@ -48,7 +48,7 @@ describe('Sidebar', () => {
           user={mockUser}
           onLogout={mockOnLogout}
         />
-      </LocationProvider>
+      </LocationProvider>,
     );
 
     expect(screen.getByText(/pecuarIA/i)).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('Sidebar', () => {
           user={mockUser}
           onLogout={mockOnLogout}
         />
-      </LocationProvider>
+      </LocationProvider>,
     );
 
     expect(screen.getByText('Test User')).toBeInTheDocument();
@@ -86,11 +86,10 @@ describe('Sidebar', () => {
           user={mockUser}
           onLogout={mockOnLogout}
         />
-      </LocationProvider>
+      </LocationProvider>,
     );
 
     const lockedAgent = screen.getByText('Pergunte p/ Antonio').closest('button');
     expect(lockedAgent).toHaveAttribute('disabled');
   });
 });
-

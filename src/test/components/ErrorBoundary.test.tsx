@@ -10,4 +10,3 @@ describe('ErrorBoundary Component', () => {
   // Error boundary testing requires throwing errors in React components
   // which is complex in test environment. The component structure is validated.
 });
-

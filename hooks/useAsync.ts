@@ -7,23 +7,23 @@ import { useState, useCallback } from 'react';
 import { logger } from '../lib/logger';
 
 export interface UseAsyncOptions<T> {
-    onSuccess?: (data: T) => void;
-    onError?: (error: Error) => void;
-    initialData?: T | null;
+  onSuccess?: (data: T) => void;
+  onError?: (error: Error) => void;
+  initialData?: T | null;
 }
 
 export interface UseAsyncReturn<T, Args extends any[] = []> {
-    loading: boolean;
-    error: Error | null;
-    data: T | null;
-    execute: (...args: Args) => Promise<T>;
-    reset: () => void;
-    setData: (data: T | null) => void;
+  loading: boolean;
+  error: Error | null;
+  data: T | null;
+  execute: (...args: Args) => Promise<T>;
+  reset: () => void;
+  setData: (data: T | null) => void;
 }
 
 /**
  * Hook para gerenciar operações assíncronas
- * 
+ *
  * @example
  * ```typescript
  * const { loading, error, data, execute } = useAsync(
@@ -35,65 +35,65 @@ export interface UseAsyncReturn<T, Args extends any[] = []> {
  *     onError: (error) => console.error('Failed:', error),
  *   }
  * );
- * 
+ *
  * // Executar a operação
  * await execute('user-123');
  * ```
  */
 export function useAsync<T, Args extends any[] = []>(
-    asyncFunction: (...args: Args) => Promise<T>,
-    options: UseAsyncOptions<T> = {}
+  asyncFunction: (...args: Args) => Promise<T>,
+  options: UseAsyncOptions<T> = {},
 ): UseAsyncReturn<T, Args> {
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<Error | null>(null);
-    const [data, setData] = useState<T | null>(options.initialData ?? null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [data, setData] = useState<T | null>(options.initialData ?? null);
 
-    const execute = useCallback(
-        async (...args: Args): Promise<T> => {
-            setLoading(true);
-            setError(null);
+  const execute = useCallback(
+    async (...args: Args): Promise<T> => {
+      setLoading(true);
+      setError(null);
 
-            try {
-                const result = await asyncFunction(...args);
-                setData(result);
-                options.onSuccess?.(result);
-                return result;
-            } catch (err) {
-                const error = err instanceof Error ? err : new Error(String(err));
-                setError(error);
-                options.onError?.(error);
+      try {
+        const result = await asyncFunction(...args);
+        setData(result);
+        options.onSuccess?.(result);
+        return result;
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        options.onError?.(error);
 
-                logger.error('Async operation failed', error, {
-                    component: 'useAsync',
-                });
+        logger.error('Async operation failed', error, {
+          component: 'useAsync',
+        });
 
-                throw error;
-            } finally {
-                setLoading(false);
-            }
-        },
-        [asyncFunction, options]
-    );
-
-    const reset = useCallback(() => {
+        throw error;
+      } finally {
         setLoading(false);
-        setError(null);
-        setData(options.initialData ?? null);
-    }, [options.initialData]);
+      }
+    },
+    [asyncFunction, options],
+  );
 
-    return {
-        loading,
-        error,
-        data,
-        execute,
-        reset,
-        setData,
-    };
+  const reset = useCallback(() => {
+    setLoading(false);
+    setError(null);
+    setData(options.initialData ?? null);
+  }, [options.initialData]);
+
+  return {
+    loading,
+    error,
+    data,
+    execute,
+    reset,
+    setData,
+  };
 }
 
 /**
  * Hook para operações assíncronas com execução imediata
- * 
+ *
  * @example
  * ```typescript
  * const { loading, error, data, reload } = useAsyncImmediate(
@@ -102,23 +102,23 @@ export function useAsync<T, Args extends any[] = []>(
  * ```
  */
 export function useAsyncImmediate<T>(
-    asyncFunction: () => Promise<T>,
-    options: UseAsyncOptions<T> = {}
+  asyncFunction: () => Promise<T>,
+  options: UseAsyncOptions<T> = {},
 ): Omit<UseAsyncReturn<T, []>, 'execute'> & { reload: () => Promise<T> } {
-    const { execute, ...rest } = useAsync(asyncFunction, options);
+  const { execute, ...rest } = useAsync(asyncFunction, options);
 
-    // Executar imediatamente na montagem
-    const [hasExecuted, setHasExecuted] = useState(false);
+  // Executar imediatamente na montagem
+  const [hasExecuted, setHasExecuted] = useState(false);
 
-    if (!hasExecuted && !rest.loading) {
-        setHasExecuted(true);
-        execute().catch(() => {
-            // Erro já tratado pelo useAsync
-        });
-    }
+  if (!hasExecuted && !rest.loading) {
+    setHasExecuted(true);
+    execute().catch(() => {
+      // Erro já tratado pelo useAsync
+    });
+  }
 
-    return {
-        ...rest,
-        reload: execute,
-    };
+  return {
+    ...rest,
+    reload: execute,
+  };
 }

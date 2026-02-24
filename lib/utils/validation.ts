@@ -15,14 +15,14 @@ export function clampNumber(value: number, min: number, max: number): number {
  */
 export function sanitizeString(value: string, maxLength: number = 255): string {
   if (typeof value !== 'string') return '';
-  
+
   // Remove caracteres perigosos
   const sanitized = value
     .replace(/<script[^>]*>.*?<\/script>/gi, '')
     .replace(/<[^>]+>/g, '')
     .replace(/javascript:/gi, '')
     .replace(/on\w+=/gi, '');
-  
+
   return sanitized.slice(0, maxLength).trim();
 }
 
@@ -38,10 +38,10 @@ export function isValidNumber(value: unknown): value is number {
  */
 export function parseValidNumber(value: string, defaultValue: number = 0): number {
   if (!value || typeof value !== 'string') return defaultValue;
-  
+
   const cleaned = value.replace(/\./g, '').replace(',', '.');
   const num = parseFloat(cleaned);
-  
+
   return isValidNumber(num) ? num : defaultValue;
 }
 
@@ -57,7 +57,7 @@ export interface Farm {
 
 export function validateFarmsData(data: unknown): Farm[] {
   if (!Array.isArray(data)) return [];
-  
+
   return data.filter((item): item is Farm => {
     return (
       typeof item === 'object' &&

@@ -90,7 +90,7 @@ function safeUUID(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
@@ -119,7 +119,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   /** ID do analista cujas iniciativas são exibidas */
   const effectiveUserId = useMemo(
     () => (isAdmin && selectedAnalyst ? selectedAnalyst.id : user?.id),
-    [isAdmin, selectedAnalyst, user?.id]
+    [isAdmin, selectedAnalyst, user?.id],
   );
 
   /** Admin sem analista selecionado = bloqueio parcial (não pode criar) */
@@ -135,9 +135,9 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   const [showNewModal, setShowNewModal] = useState(false);
   const [editingInitiative, setEditingInitiative] = useState<InitiativeWithProgress | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(false);
-  const [viewingInitiative, setViewingInitiative] = useState<
-    Awaited<ReturnType<typeof fetchInitiativeDetail>> | null
-  >(null);
+  const [viewingInitiative, setViewingInitiative] = useState<Awaited<ReturnType<typeof fetchInitiativeDetail>> | null>(
+    null,
+  );
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [activeTab, setActiveTab] = useState<'geral' | 'time'>('geral');
   const [togglingMilestone, setTogglingMilestone] = useState<string | null>(null);
@@ -204,7 +204,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         isAdmin
           ? 'Selecione um Analista e um Cliente antes de criar uma iniciativa.'
           : 'Selecione um Cliente antes de criar uma iniciativa.',
-        'warning'
+        'warning',
       );
       return;
     }
@@ -258,11 +258,11 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         durationDays: '1',
         dueDate: '',
       },
-    [taskDrafts]
+    [taskDrafts],
   );
 
   const updateTaskDraft = (milestoneId: string, field: keyof TaskDraftRow, value: string) => {
-    setTaskDrafts((prev) => ({
+    setTaskDrafts(prev => ({
       ...prev,
       [milestoneId]: {
         ...(prev[milestoneId] || {
@@ -305,7 +305,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         due_date: computedDueDate || null,
         sort_order: (milestone.tasks || []).length,
       });
-      setTaskDrafts((prev) => ({
+      setTaskDrafts(prev => ({
         ...prev,
         [milestone.id]: {
           title: '',
@@ -414,15 +414,15 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     }
   };
 
-  const personDisplayName = (p: Person | null | undefined): string =>
-    p?.preferred_name?.trim() || p?.full_name || '—';
+  const personDisplayName = (p: Person | null | undefined): string => p?.preferred_name?.trim() || p?.full_name || '—';
 
   const peopleById = useMemo(
-    () => people.reduce<Record<string, Person>>((acc, p) => {
-      acc[p.id] = p;
-      return acc;
-    }, {}),
-    [people]
+    () =>
+      people.reduce<Record<string, Person>>((acc, p) => {
+        acc[p.id] = p;
+        return acc;
+      }, {}),
+    [people],
   );
 
   const openEditModal = async (init: InitiativeWithProgress) => {
@@ -435,12 +435,11 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         effectiveUserId ? fetchPeople(effectiveUserId) : Promise.resolve([]),
       ]);
       const { initiative, team, milestones } = editData;
-      const leaderId =
-        peopleList.find((p) => personDisplayName(p) === (initiative.leader || '').trim())?.id || '';
+      const leaderId = peopleList.find(p => personDisplayName(p) === (initiative.leader || '').trim())?.id || '';
       const leaderNameTrim = (initiative.leader || '').trim();
       const teamIds = (team || [])
-        .filter((n) => n?.trim() && n.trim() !== leaderNameTrim)
-        .map((name) => peopleList.find((p) => personDisplayName(p) === name.trim())?.id)
+        .filter(n => n?.trim() && n.trim() !== leaderNameTrim)
+        .map(name => peopleList.find(p => personDisplayName(p) === name.trim())?.id)
         .filter((id): id is string => !!id)
         .slice(0, 5);
       setFormData({
@@ -455,13 +454,13 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         teamIds: teamIds.length > 0 ? teamIds : [],
         milestones:
           milestones.length > 0
-            ? milestones.map((m) => ({
-              id: m.id,
-              title: m.title,
-              percent: m.percent,
-              dueDate: m.due_date ? m.due_date.slice(0, 10) : '',
-              completed: m.completed,
-            }))
+            ? milestones.map(m => ({
+                id: m.id,
+                title: m.title,
+                percent: m.percent,
+                dueDate: m.due_date ? m.due_date.slice(0, 10) : '',
+                completed: m.completed,
+              }))
             : [{ id: safeUUID(), title: '', percent: 0, dueDate: '' }],
       });
     } catch (e) {
@@ -492,37 +491,35 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   };
 
   const addMilestone = () => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       milestones: [...prev.milestones, { id: safeUUID(), title: '', percent: 0, dueDate: '' }],
     }));
   };
 
   const updateMilestone = (id: string, field: 'title' | 'percent' | 'dueDate', value: string | number) => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      milestones: prev.milestones.map((m) =>
-        m.id === id ? { ...m, [field]: field === 'percent' ? Number(value) || 0 : String(value) } : m
+      milestones: prev.milestones.map(m =>
+        m.id === id ? { ...m, [field]: field === 'percent' ? Number(value) || 0 : String(value) } : m,
       ),
     }));
   };
 
   const removeMilestone = (id: string) => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
-      milestones: prev.milestones.filter((m) => m.id !== id),
+      milestones: prev.milestones.filter(m => m.id !== id),
     }));
   };
 
   // ─── Time (máx. 5 pessoas do cadastro) ────────────────────────────
   const addTeamMember = () => {
-    setFormData((prev) =>
-      prev.teamIds.length < 5 ? { ...prev, teamIds: [...prev.teamIds, ''] } : prev
-    );
+    setFormData(prev => (prev.teamIds.length < 5 ? { ...prev, teamIds: [...prev.teamIds, ''] } : prev));
   };
 
   const updateTeamMember = (index: number, personId: string) => {
-    setFormData((prev) => {
+    setFormData(prev => {
       const next = [...prev.teamIds];
       next[index] = personId;
       return { ...prev, teamIds: next };
@@ -530,7 +527,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   };
 
   const removeTeamMember = (index: number) => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       teamIds: prev.teamIds.filter((_, i) => i !== index),
     }));
@@ -538,10 +535,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
 
   // Ao mudar o líder, removê-lo do time se estiver como membro
   const handleLeaderChange = (leaderId: string) => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       leaderId,
-      teamIds: prev.teamIds.filter((id) => id !== leaderId),
+      teamIds: prev.teamIds.filter(id => id !== leaderId),
     }));
   };
 
@@ -569,10 +566,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       if (selectedClient?.id) filters.clientId = selectedClient.id;
       if (selectedFarm?.id) filters.farmId = selectedFarm.id;
 
-      const list = await fetchInitiatives(
-        effectiveUserId,
-        Object.keys(filters).length > 0 ? filters : undefined
-      );
+      const list = await fetchInitiatives(effectiveUserId, Object.keys(filters).length > 0 ? filters : undefined);
       setInitiatives(list);
     } catch (e) {
       onToast?.(e instanceof Error ? e.message : 'Erro ao carregar iniciativas', 'error');
@@ -594,7 +588,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     const filters = selectedFarm?.id ? { farmId: selectedFarm.id } : undefined;
     fetchPeople(effectiveUserId, filters)
       .then(setPeople)
-      .catch((err) => {
+      .catch(err => {
         console.error('[InitiativesActivities] Erro ao carregar pessoas:', err);
         setPeople([]);
       });
@@ -608,7 +602,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     const filters = selectedClient?.id ? { clientId: selectedClient.id } : undefined;
     fetchProjects(effectiveUserId, filters)
       .then(setProjects)
-      .catch((err) => {
+      .catch(err => {
         console.error('[InitiativesActivities] Erro ao carregar programas:', err);
         setProjects([]);
       });
@@ -621,37 +615,36 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     }
     fetchDeliveries(effectiveUserId)
       .then(setDeliveries)
-      .catch((err) => {
+      .catch(err => {
         console.error('[InitiativesActivities] Erro ao carregar entregas:', err);
         setDeliveries([]);
       });
   }, [effectiveUserId]);
 
   const deliveriesById = useMemo(
-    () => deliveries.reduce<Record<string, string>>((acc, d) => {
-      acc[d.id] = d.name;
-      return acc;
-    }, {}),
-    [deliveries]
+    () =>
+      deliveries.reduce<Record<string, string>>((acc, d) => {
+        acc[d.id] = d.name;
+        return acc;
+      }, {}),
+    [deliveries],
   );
 
   // ─── Filtros da lista ──────────────────────────────────────────
   const uniqueLeaders = useMemo(() => {
     const leaders = initiatives
-      .map((i) => i.leader)
+      .map(i => i.leader)
       .filter((l): l is string => typeof l === 'string' && l.trim().length > 0);
     return [...new Set(leaders)].sort((a: string, b: string) => a.localeCompare(b, 'pt-BR'));
   }, [initiatives]);
 
   const uniqueTags = useMemo(() => {
-    const tags = initiatives
-      .flatMap((i) => (i.tags || '').split(/\s+/))
-      .filter((t) => t.startsWith('#') && t.length > 1);
+    const tags = initiatives.flatMap(i => (i.tags || '').split(/\s+/)).filter(t => t.startsWith('#') && t.length > 1);
     return [...new Set(tags)].sort((a: string, b: string) => a.localeCompare(b, 'pt-BR'));
   }, [initiatives]);
 
   const filteredInitiatives = useMemo(() => {
-    return initiatives.filter((init) => {
+    return initiatives.filter(init => {
       if (filterStatus.length > 0 && !filterStatus.includes(init.status ?? 'Não Iniciado')) return false;
       if (filterLeader.length > 0 && !filterLeader.includes(init.leader ?? '')) return false;
       if (filterTag && !(init.tags || '').toLowerCase().includes(filterTag.toLowerCase())) return false;
@@ -662,20 +655,16 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
   const hasActiveFilters = filterStatus.length > 0 || filterLeader.length > 0 || !!filterTag;
 
   const toggleFilterValue = useCallback(
-    (
-      current: string[],
-      setter: React.Dispatch<React.SetStateAction<string[]>>,
-      value: string
-    ) => {
-      setter(current.includes(value) ? current.filter((v) => v !== value) : [...current, value]);
+    (current: string[], setter: React.Dispatch<React.SetStateAction<string[]>>, value: string) => {
+      setter(current.includes(value) ? current.filter(v => v !== value) : [...current, value]);
     },
-    []
+    [],
   );
 
   // Limpar filtros de valores que não existem mais após recarregar dados
   useEffect(() => {
     if (filterLeader.length > 0) {
-      const valid = filterLeader.filter((l) => uniqueLeaders.includes(l));
+      const valid = filterLeader.filter(l => uniqueLeaders.includes(l));
       if (valid.length !== filterLeader.length) setFilterLeader(valid);
     }
   }, [uniqueLeaders]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -753,7 +742,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       return;
     }
     // Validar due_date dos marcos dentro do intervalo
-    for (const m of formData.milestones.filter((mil) => mil.title?.trim() && mil.dueDate)) {
+    for (const m of formData.milestones.filter(mil => mil.title?.trim() && mil.dueDate)) {
       if (formData.startDate && m.dueDate < formData.startDate) {
         onToast?.(`Data limite do marco "${m.title}" é anterior ao início da iniciativa.`, 'warning');
         return;
@@ -773,7 +762,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
 
     setSaving(true);
     try {
-      const leaderPerson = people.find((p) => p.id === formData.leaderId);
+      const leaderPerson = people.find(p => p.id === formData.leaderId);
       const leaderName = leaderPerson ? personDisplayName(leaderPerson) : undefined;
       if (!leaderName?.trim()) {
         setFormErrorMessage('Responsável inválido. Selecione novamente o líder.');
@@ -782,8 +771,8 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         return;
       }
       const teamNames = formData.teamIds
-        .filter((id) => id?.trim() && id !== formData.leaderId)
-        .map((id) => people.find((p) => p.id === id))
+        .filter(id => id?.trim() && id !== formData.leaderId)
+        .map(id => people.find(p => p.id === id))
         .filter((p): p is Person => !!p)
         .map(personDisplayName);
       const payload = {
@@ -799,8 +788,8 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         farm_id: selectedFarm?.id ?? null,
         team: teamNames,
         milestones: formData.milestones
-          .filter((m) => m.title?.trim())
-          .map((m) => ({
+          .filter(m => m.title?.trim())
+          .map(m => ({
             title: m.title,
             percent: m.percent || 0,
             due_date: m.dueDate?.trim() || undefined,
@@ -819,7 +808,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       await loadInitiatives();
     } catch (e) {
       setFormErrorMessage(
-        e instanceof Error ? `Não foi possível salvar: ${e.message}` : 'Não foi possível salvar a iniciativa.'
+        e instanceof Error ? `Não foi possível salvar: ${e.message}` : 'Não foi possível salvar a iniciativa.',
       );
       onToast?.(e instanceof Error ? e.message : 'Erro ao salvar iniciativa', 'error');
     } finally {
@@ -956,9 +945,9 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
     const deliveryName = v.delivery_id ? deliveriesById[v.delivery_id] : '';
     const tagsList = (v.tags || '')
       .split(/[#,]/)
-      .map((t) => t.trim().toUpperCase())
+      .map(t => t.trim().toUpperCase())
       .filter(Boolean);
-    const completedCount = (v.milestones || []).filter((m) => m.completed).length;
+    const completedCount = (v.milestones || []).filter(m => m.completed).length;
     const totalMilestones = (v.milestones || []).length;
 
     return (
@@ -999,20 +988,22 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
             <button
               type="button"
               onClick={() => setActiveTab('geral')}
-              className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'geral'
-                ? 'text-ai-accent border-b-2 border-ai-accent'
-                : 'text-ai-subtext hover:text-ai-text'
-                }`}
+              className={`pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'geral'
+                  ? 'text-ai-accent border-b-2 border-ai-accent'
+                  : 'text-ai-subtext hover:text-ai-text'
+              }`}
             >
               Geral & Atividades
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('time')}
-              className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'time'
-                ? 'text-ai-accent border-b-2 border-ai-accent'
-                : 'text-ai-subtext hover:text-ai-text'
-                }`}
+              className={`pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'time'
+                  ? 'text-ai-accent border-b-2 border-ai-accent'
+                  : 'text-ai-subtext hover:text-ai-text'
+              }`}
             >
               Time do Projeto
             </button>
@@ -1069,18 +1060,17 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                   </span>
                 </div>
                 <div className="space-y-3">
-                  {(v.milestones || []).map((m) => (
+                  {(v.milestones || []).map(m => (
                     <div
                       key={m.id}
-                      className={`w-full p-4 rounded-lg border transition-colors ${m.completed
-                        ? 'bg-ai-accent/5 border-ai-accent/30'
-                        : 'bg-ai-surface border-ai-border'
-                        }`}
+                      className={`w-full p-4 rounded-lg border transition-colors ${
+                        m.completed ? 'bg-ai-accent/5 border-ai-accent/30' : 'bg-ai-surface border-ai-border'
+                      }`}
                     >
                       <div className="flex items-center gap-4">
                         <button
                           type="button"
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
                             handleToggleMilestone(m.id);
                           }}
@@ -1098,7 +1088,9 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                         <div
                           className="flex-1 min-w-0 cursor-pointer"
                           onClick={() => setViewingEvidenceMilestone({ milestone: m, initiativeName: v.name })}
-                          onKeyDown={(e) => e.key === 'Enter' && setViewingEvidenceMilestone({ milestone: m, initiativeName: v.name })}
+                          onKeyDown={e =>
+                            e.key === 'Enter' && setViewingEvidenceMilestone({ milestone: m, initiativeName: v.name })
+                          }
                           role="button"
                           tabIndex={0}
                         >
@@ -1123,7 +1115,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                         </div>
 
                         <div className="space-y-2">
-                          {(m.tasks || []).map((task) => {
+                          {(m.tasks || []).map(task => {
                             const isEditingTask = editingTaskId === task.id;
                             return (
                               <div key={task.id} className="rounded-md border border-ai-border bg-ai-bg/50 p-2">
@@ -1132,13 +1124,15 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                                     <input
                                       type="text"
                                       value={taskEditDraft.title}
-                                      onChange={(e) => setTaskEditDraft((prev) => ({ ...prev, title: e.target.value }))}
+                                      onChange={e => setTaskEditDraft(prev => ({ ...prev, title: e.target.value }))}
                                       className="w-full px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
                                       placeholder="Título da tarefa"
                                     />
                                     <textarea
                                       value={taskEditDraft.description}
-                                      onChange={(e) => setTaskEditDraft((prev) => ({ ...prev, description: e.target.value }))}
+                                      onChange={e =>
+                                        setTaskEditDraft(prev => ({ ...prev, description: e.target.value }))
+                                      }
                                       className="w-full px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs resize-none"
                                       rows={2}
                                       placeholder="Descrição (opcional)"
@@ -1146,11 +1140,13 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                                       <select
                                         value={taskEditDraft.responsiblePersonId}
-                                        onChange={(e) => setTaskEditDraft((prev) => ({ ...prev, responsiblePersonId: e.target.value }))}
+                                        onChange={e =>
+                                          setTaskEditDraft(prev => ({ ...prev, responsiblePersonId: e.target.value }))
+                                        }
                                         className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
                                       >
                                         <option value="">Responsável...</option>
-                                        {people.map((p) => (
+                                        {people.map(p => (
                                           <option key={p.id} value={p.id}>
                                             {personDisplayName(p)}
                                           </option>
@@ -1158,19 +1154,28 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                                       </select>
                                       <DateInputBR
                                         value={taskEditDraft.activityDate}
-                                        onChange={(v) => setTaskEditDraft((prev) => ({ ...prev, activityDate: v }))}
+                                        onChange={v => setTaskEditDraft(prev => ({ ...prev, activityDate: v }))}
                                         className="max-w-[180px]"
                                       />
                                       <input
                                         type="number"
                                         min={1}
                                         value={taskEditDraft.durationDays}
-                                        onChange={(e) => setTaskEditDraft((prev) => ({ ...prev, durationDays: e.target.value }))}
+                                        onChange={e =>
+                                          setTaskEditDraft(prev => ({ ...prev, durationDays: e.target.value }))
+                                        }
                                         className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
                                         placeholder="Duração (dias)"
                                       />
                                       <div className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs">
-                                        Prazo: {formatDate(addDaysIso(taskEditDraft.activityDate || toLocalIso(new Date()), Math.max(1, Number.parseInt(taskEditDraft.durationDays || '1', 10) || 1) - 1))}
+                                        Prazo:{' '}
+                                        {formatDate(
+                                          addDaysIso(
+                                            taskEditDraft.activityDate || toLocalIso(new Date()),
+                                            Math.max(1, Number.parseInt(taskEditDraft.durationDays || '1', 10) || 1) -
+                                              1,
+                                          ),
+                                        )}
                                       </div>
                                     </div>
                                     <div className="flex items-center justify-end gap-2">
@@ -1209,17 +1214,30 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                                       )}
                                     </button>
                                     <div className="flex-1 min-w-0">
-                                      <p className={`text-xs font-medium ${task.completed ? 'line-through text-ai-subtext' : 'text-ai-text'}`}>
+                                      <p
+                                        className={`text-xs font-medium ${task.completed ? 'line-through text-ai-subtext' : 'text-ai-text'}`}
+                                      >
                                         {task.title}
                                       </p>
-                                      {(task.description || task.due_date || task.activity_date || task.responsible_person_id || typeof task.duration_days === 'number') && (
+                                      {(task.description ||
+                                        task.due_date ||
+                                        task.activity_date ||
+                                        task.responsible_person_id ||
+                                        typeof task.duration_days === 'number') && (
                                         <div className="text-[11px] text-ai-subtext mt-0.5">
-                                          {task.description && <p className="whitespace-pre-wrap">{task.description}</p>}
+                                          {task.description && (
+                                            <p className="whitespace-pre-wrap">{task.description}</p>
+                                          )}
                                           <p>
-                                            Resp.: {task.responsible_person_id ? personDisplayName(peopleById[task.responsible_person_id]) : '—'}
+                                            Resp.:{' '}
+                                            {task.responsible_person_id
+                                              ? personDisplayName(peopleById[task.responsible_person_id])
+                                              : '—'}
                                           </p>
                                           {task.activity_date && <p>Início: {formatDate(task.activity_date)}</p>}
-                                          {typeof task.duration_days === 'number' && <p>Duração: {task.duration_days} dia(s)</p>}
+                                          {typeof task.duration_days === 'number' && (
+                                            <p>Duração: {task.duration_days} dia(s)</p>
+                                          )}
                                           {task.due_date && <p>Prazo: {formatDate(task.due_date)}</p>}
                                         </div>
                                       )}
@@ -1259,17 +1277,17 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                             <input
                               type="text"
                               value={getTaskDraft(m.id).title}
-                              onChange={(e) => updateTaskDraft(m.id, 'title', e.target.value)}
+                              onChange={e => updateTaskDraft(m.id, 'title', e.target.value)}
                               className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
                               placeholder="Nova tarefa (obrigatório)"
                             />
                             <select
                               value={getTaskDraft(m.id).responsiblePersonId}
-                              onChange={(e) => updateTaskDraft(m.id, 'responsiblePersonId', e.target.value)}
+                              onChange={e => updateTaskDraft(m.id, 'responsiblePersonId', e.target.value)}
                               className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
                             >
                               <option value="">Responsável...</option>
-                              {people.map((p) => (
+                              {people.map(p => (
                                 <option key={p.id} value={p.id}>
                                   {personDisplayName(p)}
                                 </option>
@@ -1277,19 +1295,25 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                             </select>
                             <DateInputBR
                               value={getTaskDraft(m.id).activityDate}
-                              onChange={(v) => updateTaskDraft(m.id, 'activityDate', v)}
+                              onChange={v => updateTaskDraft(m.id, 'activityDate', v)}
                               className="max-w-[180px]"
                             />
                             <input
                               type="number"
                               min={1}
                               value={getTaskDraft(m.id).durationDays}
-                              onChange={(e) => updateTaskDraft(m.id, 'durationDays', e.target.value)}
+                              onChange={e => updateTaskDraft(m.id, 'durationDays', e.target.value)}
                               className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs"
                               placeholder="Duração (dias)"
                             />
                             <div className="px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs">
-                              Prazo: {formatDate(addDaysIso(getTaskDraft(m.id).activityDate || toLocalIso(new Date()), Math.max(1, Number.parseInt(getTaskDraft(m.id).durationDays || '1', 10) || 1) - 1))}
+                              Prazo:{' '}
+                              {formatDate(
+                                addDaysIso(
+                                  getTaskDraft(m.id).activityDate || toLocalIso(new Date()),
+                                  Math.max(1, Number.parseInt(getTaskDraft(m.id).durationDays || '1', 10) || 1) - 1,
+                                ),
+                              )}
                             </div>
                             <button
                               type="button"
@@ -1307,7 +1331,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                           </div>
                           <textarea
                             value={getTaskDraft(m.id).description}
-                            onChange={(e) => updateTaskDraft(m.id, 'description', e.target.value)}
+                            onChange={e => updateTaskDraft(m.id, 'description', e.target.value)}
                             className="mt-2 w-full px-2 py-1.5 border border-ai-border rounded bg-ai-surface text-ai-text text-xs resize-none"
                             rows={2}
                             placeholder="Descrição da tarefa (opcional)"
@@ -1349,7 +1373,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         {viewingEvidenceMilestone && (
           <EvidenciaEntregaModal
             milestone={
-              viewingInitiative?.milestones?.find((m) => m.id === viewingEvidenceMilestone.milestone.id) ??
+              viewingInitiative?.milestones?.find(m => m.id === viewingEvidenceMilestone.milestone.id) ??
               viewingEvidenceMilestone.milestone
             }
             initiativeName={viewingEvidenceMilestone.initiativeName}
@@ -1379,9 +1403,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
               <nav className="text-xs text-ai-subtext uppercase tracking-widest mb-0.5">
                 INICIATIVAS &gt; ATIVIDADES
               </nav>
-              <h1 className="text-xl font-bold text-ai-text tracking-tight whitespace-nowrap">
-                Atividades em Foco
-              </h1>
+              <h1 className="text-xl font-bold text-ai-text tracking-tight whitespace-nowrap">Atividades em Foco</h1>
             </div>
             {initiatives.length > 0 && (
               <div className="flex items-center gap-1.5 ml-auto">
@@ -1414,12 +1436,22 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     className={`px-2 py-1 text-xs border rounded-md flex items-center gap-1 ${filterStatus.length > 0 ? 'border-ai-accent bg-ai-accent/10 text-ai-accent' : 'border-ai-border bg-ai-surface text-ai-text'}`}
                   >
                     Status{filterStatus.length > 0 && ` (${filterStatus.length})`}
-                    <ChevronRight size={10} className={`transition-transform ${openFilterDropdown === 'status' ? 'rotate-90' : ''}`} />
+                    <ChevronRight
+                      size={10}
+                      className={`transition-transform ${openFilterDropdown === 'status' ? 'rotate-90' : ''}`}
+                    />
                   </button>
                   {openFilterDropdown === 'status' && (
-                    <div role="listbox" aria-label="Opções de status" className="absolute top-full left-0 mt-1 z-50 bg-white border border-ai-border rounded-lg shadow-lg py-1 min-w-[160px]">
-                      {STATUS_OPTIONS.map((s) => (
-                        <label key={s} className="flex items-center gap-2 px-3 py-1.5 text-xs text-ai-text hover:bg-ai-surface cursor-pointer">
+                    <div
+                      role="listbox"
+                      aria-label="Opções de status"
+                      className="absolute top-full left-0 mt-1 z-50 bg-white border border-ai-border rounded-lg shadow-lg py-1 min-w-[160px]"
+                    >
+                      {STATUS_OPTIONS.map(s => (
+                        <label
+                          key={s}
+                          className="flex items-center gap-2 px-3 py-1.5 text-xs text-ai-text hover:bg-ai-surface cursor-pointer"
+                        >
                           <input
                             type="checkbox"
                             checked={filterStatus.includes(s)}
@@ -1453,15 +1485,25 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     className={`px-2 py-1 text-xs border rounded-md flex items-center gap-1 ${filterLeader.length > 0 ? 'border-ai-accent bg-ai-accent/10 text-ai-accent' : 'border-ai-border bg-ai-surface text-ai-text'}`}
                   >
                     Líder{filterLeader.length > 0 && ` (${filterLeader.length})`}
-                    <ChevronRight size={10} className={`transition-transform ${openFilterDropdown === 'leader' ? 'rotate-90' : ''}`} />
+                    <ChevronRight
+                      size={10}
+                      className={`transition-transform ${openFilterDropdown === 'leader' ? 'rotate-90' : ''}`}
+                    />
                   </button>
                   {openFilterDropdown === 'leader' && (
-                    <div role="listbox" aria-label="Opções de líder" className="absolute top-full left-0 mt-1 z-50 bg-white border border-ai-border rounded-lg shadow-lg py-1 min-w-[180px]">
+                    <div
+                      role="listbox"
+                      aria-label="Opções de líder"
+                      className="absolute top-full left-0 mt-1 z-50 bg-white border border-ai-border rounded-lg shadow-lg py-1 min-w-[180px]"
+                    >
                       {uniqueLeaders.length === 0 ? (
                         <p className="px-3 py-1.5 text-xs text-ai-subtext italic">Nenhum líder</p>
                       ) : (
-                        uniqueLeaders.map((l) => (
-                          <label key={l} className="flex items-center gap-2 px-3 py-1.5 text-xs text-ai-text hover:bg-ai-surface cursor-pointer">
+                        uniqueLeaders.map(l => (
+                          <label
+                            key={l}
+                            className="flex items-center gap-2 px-3 py-1.5 text-xs text-ai-text hover:bg-ai-surface cursor-pointer"
+                          >
                             <input
                               type="checkbox"
                               checked={filterLeader.includes(l)}
@@ -1488,19 +1530,26 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                 {/* Hashtag — single select */}
                 <select
                   value={filterTag}
-                  onChange={(e) => setFilterTag(e.target.value)}
+                  onChange={e => setFilterTag(e.target.value)}
                   className={`px-2 py-1 text-xs border rounded-md ${filterTag ? 'border-ai-accent bg-ai-accent/10 text-ai-accent' : 'border-ai-border bg-ai-surface text-ai-text'}`}
                 >
                   <option value="">Hashtag</option>
-                  {uniqueTags.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                  {uniqueTags.map(t => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
                   ))}
                 </select>
 
                 {hasActiveFilters && (
                   <button
                     type="button"
-                    onClick={() => { setFilterStatus([]); setFilterLeader([]); setFilterTag(''); setOpenFilterDropdown(null); }}
+                    onClick={() => {
+                      setFilterStatus([]);
+                      setFilterLeader([]);
+                      setFilterTag('');
+                      setOpenFilterDropdown(null);
+                    }}
                     className="px-1.5 py-1 text-[10px] text-red-500 hover:text-red-700"
                     title="Limpar todos os filtros"
                   >
@@ -1583,7 +1632,13 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
             <p className="text-sm text-ai-subtext">Nenhuma atividade encontrada com os filtros selecionados.</p>
           </div>
         ) : viewMode === 'gantt' ? (
-          <Suspense fallback={<div className="flex items-center justify-center py-16"><Loader2 size={32} className="animate-spin text-ai-accent" /></div>}>
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center py-16">
+                <Loader2 size={32} className="animate-spin text-ai-accent" />
+              </div>
+            }
+          >
             <ErrorBoundary
               fallback={
                 <div className="flex flex-col items-center justify-center py-16 px-4 rounded-lg border border-ai-border bg-ai-surface/50">
@@ -1602,22 +1657,23 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                 </div>
               }
             >
-              <InitiativesGantt
-                projects={projects}
-                deliveries={deliveries}
-                initiatives={filteredInitiatives}
-              />
+              <InitiativesGantt projects={projects} deliveries={deliveries} initiatives={filteredInitiatives} />
             </ErrorBoundary>
           </Suspense>
         ) : (
           <ul className="grid grid-cols-2 gap-1.5">
-            {filteredInitiatives.map((init) => (
+            {filteredInitiatives.map(init => (
               <li
                 key={init.id}
                 role="button"
                 tabIndex={0}
                 onClick={() => openGestaoView(init)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openGestaoView(init); } }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openGestaoView(init);
+                  }
+                }}
                 aria-label={`${init.name} — ${init.progress ?? 0}% — ${init.status ?? 'Não iniciado'}`}
                 className="flex flex-col gap-1 py-1.5 px-2 bg-white border border-ai-border rounded-lg hover:shadow-md transition-shadow cursor-pointer focus:outline-none focus:ring-2 focus:ring-ai-accent/40"
               >
@@ -1629,8 +1685,13 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                   >
                     {init.progress ?? 0}%
                   </span>
-                  <h3 className="text-xs font-bold text-ai-text truncate flex-1 min-w-0" title={init.name}>{init.name}</h3>
-                  <span className="text-[9px] text-ai-subtext shrink-0 whitespace-nowrap" title={`Cronograma: ${formatDate(init.start_date)} → ${formatDate(init.end_date)}`}>
+                  <h3 className="text-xs font-bold text-ai-text truncate flex-1 min-w-0" title={init.name}>
+                    {init.name}
+                  </h3>
+                  <span
+                    className="text-[9px] text-ai-subtext shrink-0 whitespace-nowrap"
+                    title={`Cronograma: ${formatDate(init.start_date)} → ${formatDate(init.end_date)}`}
+                  >
                     {formatDate(init.start_date)} → {formatDate(init.end_date)}
                   </span>
                 </div>
@@ -1645,10 +1706,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     {(() => {
                       const indicator = getScheduleIndicator(init.start_date, init.end_date);
                       return (
-                        <span
-                          className="inline-flex items-center text-[11px] text-ai-subtext"
-                          title={indicator.label}
-                        >
+                        <span className="inline-flex items-center text-[11px] text-ai-subtext" title={indicator.label}>
                           <span className={`w-1.5 h-1.5 rounded-full ${indicator.colorClass}`} />
                         </span>
                       );
@@ -1665,7 +1723,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                   <div className="flex items-center gap-0.5 shrink-0">
                     <button
                       type="button"
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation();
                         handleDeleteInitiative(init);
                       }}
@@ -1695,7 +1753,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={closeModal}>
           <div
             className="bg-ai-bg border border-ai-border rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
           >
             <div className="sticky top-0 bg-ai-bg border-b border-ai-border px-6 py-4 flex items-center justify-between z-10">
               <h2 className="text-lg font-semibold text-ai-text">
@@ -1743,9 +1801,9 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     <input
                       type="text"
                       value={formData.name}
-                      onChange={(e) => {
+                      onChange={e => {
                         setFormErrorMessage(null);
-                        setFormData((p) => ({ ...p, name: e.target.value }));
+                        setFormData(p => ({ ...p, name: e.target.value }));
                       }}
                       placeholder="Ex: Reestruturação Organizacional"
                       className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
@@ -1756,7 +1814,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     <input
                       type="text"
                       value={formData.tags}
-                      onChange={(e) => setFormData((p) => ({ ...p, tags: e.target.value }))}
+                      onChange={e => setFormData(p => ({ ...p, tags: e.target.value }))}
                       placeholder="#Financeiro, #Digital"
                       className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                     />
@@ -1765,7 +1823,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     <label className="block text-sm font-medium text-ai-text mb-1">Descrição</label>
                     <textarea
                       value={formData.description}
-                      onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                      onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
                       rows={3}
                       className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm resize-none"
                     />
@@ -1777,9 +1835,9 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                       </label>
                       <DateInputBR
                         value={formData.startDate}
-                        onChange={(v) => {
+                        onChange={v => {
                           setFormErrorMessage(null);
-                          setFormData((p) => ({ ...p, startDate: v }));
+                          setFormData(p => ({ ...p, startDate: v }));
                         }}
                         placeholder="dd/mm/aaaa"
                         required
@@ -1792,9 +1850,9 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                       </label>
                       <DateInputBR
                         value={formData.endDate}
-                        onChange={(v) => {
+                        onChange={v => {
                           setFormErrorMessage(null);
-                          setFormData((p) => ({ ...p, endDate: v }));
+                          setFormData(p => ({ ...p, endDate: v }));
                         }}
                         placeholder="dd/mm/aaaa"
                         required
@@ -1808,15 +1866,15 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     </label>
                     <select
                       value={formData.deliveryId}
-                      onChange={(e) => {
+                      onChange={e => {
                         setFormErrorMessage(null);
-                        setFormData((p) => ({ ...p, deliveryId: e.target.value }));
+                        setFormData(p => ({ ...p, deliveryId: e.target.value }));
                       }}
                       className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                       required
                     >
                       <option value="">Selecione a entrega</option>
-                      {deliveries.map((d) => (
+                      {deliveries.map(d => (
                         <option key={d.id} value={d.id}>
                           {d.name}
                         </option>
@@ -1827,10 +1885,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     <label className="block text-sm font-medium text-ai-text mb-1">Status</label>
                     <select
                       value={formData.status}
-                      onChange={(e) => setFormData((p) => ({ ...p, status: e.target.value }))}
+                      onChange={e => setFormData(p => ({ ...p, status: e.target.value }))}
                       className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                     >
-                      {STATUS_OPTIONS.map((s) => (
+                      {STATUS_OPTIONS.map(s => (
                         <option key={s} value={s}>
                           {s}
                         </option>
@@ -1843,7 +1901,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                     </label>
                     <select
                       value={formData.leaderId}
-                      onChange={(e) => {
+                      onChange={e => {
                         setFormErrorMessage(null);
                         handleLeaderChange(e.target.value);
                       }}
@@ -1851,7 +1909,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                       required
                     >
                       <option value="">Selecione o responsável</option>
-                      {people.map((p) => (
+                      {people.map(p => (
                         <option key={p.id} value={p.id}>
                           {personDisplayName(p)}
                           {p.job_role ? ` — ${p.job_role}` : ''}
@@ -1871,17 +1929,16 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                       <div key={i} className="flex gap-2 mb-2">
                         <select
                           value={personId}
-                          onChange={(e) => updateTeamMember(i, e.target.value)}
+                          onChange={e => updateTeamMember(i, e.target.value)}
                           className="flex-1 px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                         >
                           <option value="">Selecione...</option>
                           {people
                             .filter(
-                              (p) =>
-                                p.id !== formData.leaderId &&
-                                (!formData.teamIds.includes(p.id) || p.id === personId)
+                              p =>
+                                p.id !== formData.leaderId && (!formData.teamIds.includes(p.id) || p.id === personId),
                             )
-                            .map((p) => (
+                            .map(p => (
                               <option key={p.id} value={p.id}>
                                 {personDisplayName(p)}
                                 {p.job_role ? ` — ${p.job_role}` : ''}
@@ -1920,12 +1977,12 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                         Total: {totalPercent}%
                       </span>
                     </div>
-                    {formData.milestones.map((m) => (
+                    {formData.milestones.map(m => (
                       <div key={m.id} className="flex flex-wrap gap-2 mb-2 items-center">
                         <input
                           type="text"
                           value={m.title}
-                          onChange={(e) => updateMilestone(m.id, 'title', e.target.value)}
+                          onChange={e => updateMilestone(m.id, 'title', e.target.value)}
                           placeholder="Título da atividade..."
                           className="flex-1 min-w-[140px] px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
                         />
@@ -1934,14 +1991,17 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                           min={0}
                           max={100}
                           value={m.percent || ''}
-                          onChange={(e) => updateMilestone(m.id, 'percent', e.target.value)}
+                          onChange={e => updateMilestone(m.id, 'percent', e.target.value)}
                           className="w-16 px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm text-right"
                         />
                         <span className="text-ai-subtext text-sm">%</span>
-                        <div className="flex items-center gap-1.5" title="Data limite (entre início e fim da iniciativa) - dd/mm/aaaa">
+                        <div
+                          className="flex items-center gap-1.5"
+                          title="Data limite (entre início e fim da iniciativa) - dd/mm/aaaa"
+                        >
                           <DateInputBR
                             value={m.dueDate}
-                            onChange={(v) => updateMilestone(m.id, 'dueDate', v)}
+                            onChange={v => updateMilestone(m.id, 'dueDate', v)}
                             placeholder="dd/mm/aaaa"
                             min={formData.startDate || undefined}
                             max={formData.endDate || undefined}
@@ -1994,10 +2054,13 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       )}
       {/* Modal de Confirmação de Exclusão */}
       {initiativeToDelete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => !isDeletingLoading && setInitiativeToDelete(null)}>
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => !isDeletingLoading && setInitiativeToDelete(null)}
+        >
           <div
             className="bg-white dark:bg-ai-bg border border-ai-border rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200"
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
           >
             <div className="p-6">
               <div className="flex items-center gap-3 mb-4 text-red-600">
@@ -2013,7 +2076,8 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                 </p>
                 <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20">
                   <p className="text-red-700 dark:text-red-400 text-sm leading-relaxed">
-                    <strong>AVISO IMPORTANTE:</strong> Esta ação é irreversível. Todos os marcos, evidências e históricos vinculados a esta iniciativa serão permanentemente removidos.
+                    <strong>AVISO IMPORTANTE:</strong> Esta ação é irreversível. Todos os marcos, evidências e
+                    históricos vinculados a esta iniciativa serão permanentemente removidos.
                   </p>
                 </div>
               </div>
@@ -2034,11 +2098,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                 onClick={confirmDelete}
                 className="flex items-center gap-2 px-6 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50"
               >
-                {isDeletingLoading ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <Trash2 size={18} />
-                )}
+                {isDeletingLoading ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
                 Excluir Agora
               </button>
             </div>
@@ -2050,8 +2110,3 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
 };
 
 export default InitiativesActivities;
-
-
-
-
-

@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Shield, Users, Activity, Search, MoreHorizontal, CheckCircle2, XCircle, Loader2, AlertCircle, Edit2, Save, X, Trash2 } from 'lucide-react';
+import {
+  User,
+  Shield,
+  Users,
+  Activity,
+  Search,
+  MoreHorizontal,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  AlertCircle,
+  Edit2,
+  Save,
+  X,
+  Trash2,
+} from 'lucide-react';
 import { User as UserType } from '../types';
 import { supabase } from '../lib/supabase';
 import { mapUserProfile } from '../lib/auth/mapUserProfile';
@@ -55,8 +70,11 @@ const AdminDashboard: React.FC = () => {
 
       // Remove duplicates by name (case-insensitive) - keep the first occurrence
       if (data && data.length > 0) {
-        const uniqueOrgs = data.filter((org, index, self) =>
-          org && org.name && index === self.findIndex((o) => o && o.name && o.name.toLowerCase() === org.name.toLowerCase())
+        const uniqueOrgs = data.filter(
+          (org, index, self) =>
+            org &&
+            org.name &&
+            index === self.findIndex(o => o && o.name && o.name.toLowerCase() === org.name.toLowerCase()),
         );
         console.log('[AdminDashboard] Loaded organizations:', uniqueOrgs.length, 'unique organizations');
         setOrganizations(uniqueOrgs);
@@ -88,7 +106,9 @@ const AdminDashboard: React.FC = () => {
 
         const { data, error: queryError } = await supabase
           .from('user_profiles')
-          .select('id, name, email, role, avatar, plan, status, last_login, organization_id, phone, qualification, created_at, updated_at')
+          .select(
+            'id, name, email, role, avatar, plan, status, last_login, organization_id, phone, qualification, created_at, updated_at',
+          )
           .eq('role', 'client')
           .order('created_at', { ascending: false });
 
@@ -97,12 +117,18 @@ const AdminDashboard: React.FC = () => {
             code: queryError.code,
             message: queryError.message,
             details: queryError.details,
-            hint: queryError.hint
+            hint: queryError.hint,
           });
 
           // If it's a permission/RLS error, don't retry
-          if (queryError.code === 'PGRST301' || queryError.message?.includes('permission') || queryError.message?.includes('RLS')) {
-            setError('Erro de permissão. Verifique se você tem permissão de administrador e se as políticas RLS estão configuradas corretamente.');
+          if (
+            queryError.code === 'PGRST301' ||
+            queryError.message?.includes('permission') ||
+            queryError.message?.includes('RLS')
+          ) {
+            setError(
+              'Erro de permissão. Verifique se você tem permissão de administrador e se as políticas RLS estão configuradas corretamente.',
+            );
             setIsLoading(false);
             return;
           }
@@ -128,7 +154,7 @@ const AdminDashboard: React.FC = () => {
               id: data[0].id,
               name: data[0].name,
               qualification: data[0].qualification,
-              qualificationType: typeof data[0].qualification
+              qualificationType: typeof data[0].qualification,
             });
           }
 
@@ -140,7 +166,7 @@ const AdminDashboard: React.FC = () => {
             console.log('[AdminDashboard] Sample mapped client:', {
               id: mappedClients[0].id,
               name: mappedClients[0].name,
-              qualification: mappedClients[0].qualification
+              qualification: mappedClients[0].qualification,
             });
           }
 
@@ -179,9 +205,10 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredClients = clients.filter(
+    client =>
+      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.email.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const formatLastLogin = (lastLogin?: string) => {
@@ -230,13 +257,13 @@ const AdminDashboard: React.FC = () => {
       console.log('[AdminDashboard] Saving client:', {
         id: editingClientId,
         qualification: editingClientData.qualification,
-        status: editingClientData.status
+        status: editingClientData.status,
       });
 
       const updatePayload: any = {
         qualification: editingClientData.qualification,
         status: editingClientData.status,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       // Se for visitante, remover vínculo com empresa
@@ -310,7 +337,7 @@ const AdminDashboard: React.FC = () => {
       // Use the database function to delete user completely
       // This function deletes all related data including auth.users
       const { error } = await supabase.rpc('delete_user_completely', {
-        user_id_to_delete: userId
+        user_id_to_delete: userId,
       });
 
       if (error) {
@@ -324,10 +351,7 @@ const AdminDashboard: React.FC = () => {
         await supabase.from('chat_messages').delete().eq('user_id', userId);
         await supabase.from('organizations').delete().eq('owner_id', userId);
 
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .delete()
-          .eq('id', userId);
+        const { error: profileError } = await supabase.from('user_profiles').delete().eq('id', userId);
 
         if (profileError) throw profileError;
       }
@@ -338,7 +362,7 @@ const AdminDashboard: React.FC = () => {
       // Update stats
       setStats(prev => ({
         total: prev.total - 1,
-        active: prev.active - (clients.find(c => c.id === userId)?.status === 'active' ? 1 : 0)
+        active: prev.active - (clients.find(c => c.id === userId)?.status === 'active' ? 1 : 0),
       }));
 
       alert('Usuário e todos os dados relacionados foram excluídos com sucesso!');
@@ -431,15 +455,24 @@ const AdminDashboard: React.FC = () => {
                 </label>
                 <select
                   value={editingClientData.qualification || 'visitante'}
-                  onChange={(e) => {
+                  onChange={e => {
                     const newQualification = e.target.value as 'visitante' | 'cliente' | 'analista';
-                    setEditingClientData(prev => prev ? {
-                      ...prev,
-                      qualification: newQualification,
-                      // Limpar organizationId se mudar para visitante
-                      // Para cliente e analista, manter o valor atual (será definido na tela de cadastro)
-                      organizationId: newQualification === 'visitante' ? null : (newQualification === 'analista' ? prev.organizationId : prev.organizationId)
-                    } : null);
+                    setEditingClientData(prev =>
+                      prev
+                        ? {
+                            ...prev,
+                            qualification: newQualification,
+                            // Limpar organizationId se mudar para visitante
+                            // Para cliente e analista, manter o valor atual (será definido na tela de cadastro)
+                            organizationId:
+                              newQualification === 'visitante'
+                                ? null
+                                : newQualification === 'analista'
+                                  ? prev.organizationId
+                                  : prev.organizationId,
+                          }
+                        : null,
+                    );
                   }}
                   className="w-full px-3 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                   disabled={isSaving}
@@ -455,10 +488,16 @@ const AdminDashboard: React.FC = () => {
                 <label className="block text-sm font-medium text-ai-text mb-1">Status</label>
                 <select
                   value={editingClientData.status || 'active'}
-                  onChange={(e) => setEditingClientData(prev => prev ? {
-                    ...prev,
-                    status: e.target.value as 'active' | 'inactive'
-                  } : null)}
+                  onChange={e =>
+                    setEditingClientData(prev =>
+                      prev
+                        ? {
+                            ...prev,
+                            status: e.target.value as 'active' | 'inactive',
+                          }
+                        : null,
+                    )
+                  }
                   className="w-full px-3 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                   disabled={isSaving}
                 >
@@ -470,28 +509,30 @@ const AdminDashboard: React.FC = () => {
               {/* Empresa (apenas para analistas) */}
               {editingClientData.qualification === 'analista' && (
                 <div>
-                  <label className="block text-sm font-medium text-ai-text mb-1">
-                    Empresa Vinculada
-                  </label>
+                  <label className="block text-sm font-medium text-ai-text mb-1">Empresa Vinculada</label>
                   <select
                     value={editingClientData.organizationId || ''}
-                    onChange={(e) => setEditingClientData(prev => prev ? {
-                      ...prev,
-                      organizationId: e.target.value || null
-                    } : null)}
+                    onChange={e =>
+                      setEditingClientData(prev =>
+                        prev
+                          ? {
+                              ...prev,
+                              organizationId: e.target.value || null,
+                            }
+                          : null,
+                      )
+                    }
                     className="w-full px-3 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                     disabled={isSaving || isLoadingOrganizations}
                   >
                     <option value="">Nenhuma empresa (sem vínculo)</option>
-                    {organizations.map((org) => (
+                    {organizations.map(org => (
                       <option key={org.id} value={org.id}>
                         {org.name}
                       </option>
                     ))}
                   </select>
-                  {isLoadingOrganizations && (
-                    <p className="text-xs text-ai-subtext mt-1">Carregando empresas...</p>
-                  )}
+                  {isLoadingOrganizations && <p className="text-xs text-ai-subtext mt-1">Carregando empresas...</p>}
                   {!isLoadingOrganizations && organizations.length === 0 && (
                     <p className="text-xs text-ai-subtext mt-1">
                       Nenhuma empresa cadastrada. Cadastre empresas em Configurações → Cadastro de Empresa.
@@ -504,9 +545,9 @@ const AdminDashboard: React.FC = () => {
               {editingClientData.qualification === 'visitante' && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <p className="text-xs text-blue-800">
-                    <strong>Visitantes</strong> não precisam ter vínculo com empresa ou analista.
-                    Quando convertido para <strong>Cliente</strong> ou <strong>Analista</strong>,
-                    o vínculo será feito na tela de cadastro correspondente.
+                    <strong>Visitantes</strong> não precisam ter vínculo com empresa ou analista. Quando convertido para{' '}
+                    <strong>Cliente</strong> ou <strong>Analista</strong>, o vínculo será feito na tela de cadastro
+                    correspondente.
                   </p>
                 </div>
               )}
@@ -608,7 +649,9 @@ const AdminDashboard: React.FC = () => {
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white p-4 rounded-xl border border-ai-border shadow-sm">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Users size={18} /></div>
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+              <Users size={18} />
+            </div>
             <span className="text-xs font-bold text-ai-subtext uppercase">Total Usuários</span>
           </div>
           <div className="text-2xl font-mono font-bold text-ai-text">{stats.total}</div>
@@ -616,7 +659,9 @@ const AdminDashboard: React.FC = () => {
         </div>
         <div className="bg-white p-4 rounded-xl border border-ai-border shadow-sm">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Activity size={18} /></div>
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+              <Activity size={18} />
+            </div>
             <span className="text-xs font-bold text-ai-subtext uppercase">Ativos</span>
           </div>
           <div className="text-2xl font-mono font-bold text-ai-text">{stats.active}</div>
@@ -626,7 +671,6 @@ const AdminDashboard: React.FC = () => {
 
       {/* Main Table Area */}
       <div className="flex-1 bg-white rounded-xl border border-ai-border shadow-sm flex flex-col overflow-hidden">
-
         {/* Table Header / Toolbar */}
         <div className="p-4 border-b border-ai-border flex justify-between items-center">
           <h2 className="text-sm font-bold text-ai-text">Base de Usuários</h2>
@@ -636,7 +680,7 @@ const AdminDashboard: React.FC = () => {
               type="text"
               placeholder="Buscar usuário..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={e => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs border border-ai-border rounded-md bg-ai-surface focus:outline-none focus:border-ai-text transition-colors"
             />
           </div>
@@ -647,11 +691,21 @@ const AdminDashboard: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead className="bg-ai-surface sticky top-0 z-10">
               <tr>
-                <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Usuário</th>
-                <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Qualificação</th>
-                <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Status</th>
-                <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">Último Acesso</th>
-                <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border text-right">Ações</th>
+                <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">
+                  Usuário
+                </th>
+                <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">
+                  Qualificação
+                </th>
+                <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border">
+                  Último Acesso
+                </th>
+                <th className="px-6 py-3 text-[10px] font-bold text-ai-subtext uppercase tracking-wider border-b border-ai-border text-right">
+                  Ações
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ai-border">
@@ -662,7 +716,7 @@ const AdminDashboard: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredClients.map((client) => (
+                filteredClients.map(client => (
                   <tr key={client.id} className="hover:bg-ai-surface/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
@@ -682,20 +736,26 @@ const AdminDashboard: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        {client.status === 'active'
-                          ? <CheckCircle2 size={14} className="text-emerald-500 mr-1.5" />
-                          : <XCircle size={14} className="text-rose-500 mr-1.5" />
-                        }
-                        <span className={`text-xs ${client.status === 'active' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {client.status === 'active' ? (
+                          <CheckCircle2 size={14} className="text-emerald-500 mr-1.5" />
+                        ) : (
+                          <XCircle size={14} className="text-rose-500 mr-1.5" />
+                        )}
+                        <span
+                          className={`text-xs ${client.status === 'active' ? 'text-emerald-700' : 'text-rose-700'}`}
+                        >
                           {client.status === 'active' ? 'Ativo' : 'Inativo'}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-xs text-ai-subtext">
-                      {formatLastLogin(client.lastLogin)}
-                    </td>
+                    <td className="px-6 py-4 text-xs text-ai-subtext">{formatLastLogin(client.lastLogin)}</td>
                     <td className="px-6 py-4 text-right">
-                      <div className="relative inline-block" ref={(el) => { menuRefs.current[client.id] = el; }}>
+                      <div
+                        className="relative inline-block"
+                        ref={el => {
+                          menuRefs.current[client.id] = el;
+                        }}
+                      >
                         <button
                           onClick={() => setOpenMenuId(openMenuId === client.id ? null : client.id)}
                           className="text-ai-subtext hover:text-ai-text p-1 rounded hover:bg-ai-border/50 transition-colors"
@@ -719,7 +779,7 @@ const AdminDashboard: React.FC = () => {
                                     email: client.email,
                                     qualification: client.qualification || 'visitante',
                                     status: client.status || 'active',
-                                    organizationId: client.organizationId || null
+                                    organizationId: client.organizationId || null,
                                   });
                                   setOpenMenuId(null);
                                 }}

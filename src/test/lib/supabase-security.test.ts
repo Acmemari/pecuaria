@@ -5,7 +5,7 @@ import { join } from 'path';
 describe('Security - Supabase Configuration', () => {
   it('should not have hardcoded Supabase URL in lib/supabase.ts', () => {
     const supabaseFile = readFileSync(join(process.cwd(), 'lib/supabase.ts'), 'utf-8');
-    
+
     // Verifica que não há URLs hardcoded do Supabase
     expect(supabaseFile).not.toContain('gtfjaggtgyoldovcmyqh.supabase.co');
     expect(supabaseFile).not.toMatch(/https:\/\/[a-z0-9]+\.supabase\.co/);
@@ -13,7 +13,7 @@ describe('Security - Supabase Configuration', () => {
 
   it('should not have hardcoded Supabase anon key in lib/supabase.ts', () => {
     const supabaseFile = readFileSync(join(process.cwd(), 'lib/supabase.ts'), 'utf-8');
-    
+
     // Verifica que não há chaves JWT hardcoded (começam com eyJ)
     const jwtPattern = /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/;
     expect(supabaseFile).not.toMatch(jwtPattern);
@@ -21,7 +21,7 @@ describe('Security - Supabase Configuration', () => {
 
   it('should use env validation from lib/env', () => {
     const supabaseFile = readFileSync(join(process.cwd(), 'lib/supabase.ts'), 'utf-8');
-    
+
     // Verifica que está usando getEnv do lib/env
     expect(supabaseFile).toContain("from './env'");
     expect(supabaseFile).toContain('getEnv');
@@ -35,4 +35,3 @@ describe('Security - Supabase Configuration', () => {
     expect(supabaseFile).not.toContain('gtfjaggtgyoldovcmyqh');
   });
 });
-

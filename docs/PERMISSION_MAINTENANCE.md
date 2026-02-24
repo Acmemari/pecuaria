@@ -11,6 +11,7 @@ As permissões são armazenadas em `analyst_farms.permissions` (JSONB) como mapa
 **Arquivo:** `lib/permissions/permissionKeys.ts`
 
 Contém:
+
 - `PERMISSION_KEYS`: array de todas as chaves com `key`, `label`, `description`, `location`, `icon` e `category`
 - `DEFAULT_PERMISSIONS`: valor padrão para novos analistas adicionados
 - Categorias: `cadastros`, `gerenciamento`, `documentos`, `assistentes` (espelham o sidebar)
@@ -18,6 +19,7 @@ Contém:
 ## Checklist ao adicionar nova tela/card/modal
 
 1. **Adicionar nova chave em `permissionKeys.ts`:**
+
    ```ts
    {
      key: 'nova_feature:form',
@@ -28,6 +30,7 @@ Contém:
      category: 'cadastros', // ou gerenciamento, documentos, assistentes
    }
    ```
+
    Inclua em `PERMISSION_KEYS` e em `DEFAULT_PERMISSIONS` (ex.: `'nova_feature:form': 'view'`).
 
 2. **Integrar o componente:**
@@ -44,6 +47,7 @@ Contém:
 ## Migração de dados
 
 Ao adicionar novas chaves:
+
 - Novos analistas recebem `DEFAULT_PERMISSIONS` ao serem adicionados
 - Analistas existentes: o `useFarmPermissions` faz merge com `DEFAULT_PERMISSIONS` para chaves ausentes. Se quiser valor explícito para todos, rode uma migration SQL atualizando `analyst_farms.permissions` (ex.: `permissions = permissions || '{"nova_chave": "view"}'::jsonb`)
 
@@ -72,6 +76,7 @@ analyst_farms (
 ```
 
 Exemplo de `permissions`:
+
 ```json
 {
   "farms:form": "edit",

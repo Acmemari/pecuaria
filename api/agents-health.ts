@@ -32,8 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // 1. Supabase env vars (read directly — no imports that could crash)
-    const supabaseUrl = trimOrNull(process.env.SUPABASE_URL)
-      ?? trimOrNull(process.env.VITE_SUPABASE_URL);
+    const supabaseUrl = trimOrNull(process.env.SUPABASE_URL) ?? trimOrNull(process.env.VITE_SUPABASE_URL);
     const serviceRoleKey = trimOrNull(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
     checks.supabase_url = {
@@ -70,15 +69,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (hasAnyProvider) {
       checks.ai_fallback = {
         ok: providerCount >= 2,
-        message: providerCount >= 2
-          ? `ok (${providerCount} providers available for fallback)`
-          : `warn: only 1 provider, no fallback if it fails`,
+        message:
+          providerCount >= 2
+            ? `ok (${providerCount} providers available for fallback)`
+            : `warn: only 1 provider, no fallback if it fails`,
       };
     }
 
     // 4. n8n webhook
-    const webhookUrl = trimOrNull(process.env.N8N_WEBHOOK_URL)
-      ?? trimOrNull(process.env.WEBHOOK_URL);
+    const webhookUrl = trimOrNull(process.env.N8N_WEBHOOK_URL) ?? trimOrNull(process.env.WEBHOOK_URL);
     checks.n8n_webhook = {
       ok: !!webhookUrl,
       message: webhookUrl ? 'ok' : 'N8N_WEBHOOK_URL not configured (chat will not work)',
@@ -91,10 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const client = createClient(supabaseUrl, serviceRoleKey, {
           auth: { autoRefreshToken: false, persistSession: false },
         });
-        const { data, error } = await client
-          .from('plan_limits')
-          .select('plan_id')
-          .limit(1);
+        const { data, error } = await client.from('plan_limits').select('plan_id').limit(1);
 
         checks.plan_limits = {
           ok: !error && Array.isArray(data) && data.length > 0,

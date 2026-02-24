@@ -128,7 +128,7 @@ const SCREEN_ICON_MAP: Record<string, LucideIcon> = {
 
 function getScreenLabelFromKey(key: string | null): string | null {
   if (!key) return null;
-  const def = PERMISSION_KEYS.find((pk) => pk.key === key);
+  const def = PERMISSION_KEYS.find(pk => pk.key === key);
   return def ? `${def.label} (${def.location})` : key;
 }
 
@@ -141,7 +141,13 @@ const ErrorIcon = () => (
 
 const SuggestionIcon = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="shrink-0">
-    <path d="M10 3v14M5 10l5-5 5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M10 3v14M5 10l5-5 5 5"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
@@ -238,7 +244,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     setAiSuggestionLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const screenDef = selectedScreenKey ? PERMISSION_KEYS.find((pk) => pk.key === selectedScreenKey) : null;
+        const screenDef = selectedScreenKey ? PERMISSION_KEYS.find(pk => pk.key === selectedScreenKey) : null;
         const res = await fetch('/api/support-suggest', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -266,7 +272,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
 
   const attachmentByMessage = useMemo(() => {
     const map = new Map<string, SupportTicketAttachment[]>();
-    chat.attachments.forEach((att) => {
+    chat.attachments.forEach(att => {
       if (!att.message_id) return;
       const current = map.get(att.message_id) || [];
       current.push(att);
@@ -279,7 +285,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     if (!searchQuery.trim()) return tickets;
     const q = searchQuery.toLowerCase();
     return tickets.filter(
-      (t) => t.subject.toLowerCase().includes(q) || ticketTypeLabel[t.ticket_type].toLowerCase().includes(q)
+      t => t.subject.toLowerCase().includes(q) || ticketTypeLabel[t.ticket_type].toLowerCase().includes(q),
     );
   }, [tickets, searchQuery]);
 
@@ -316,7 +322,9 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, loadTickets]);
 
   useEffect(() => {
@@ -340,7 +348,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
         subject,
         currentUrl: window.location.href,
         locationArea: newTicketType === 'erro_tecnico' && selectedScreenKey ? 'main' : undefined,
-        specificScreen: newTicketType === 'erro_tecnico' ? (selectedScreenKey || undefined) : undefined,
+        specificScreen: newTicketType === 'erro_tecnico' ? selectedScreenKey || undefined : undefined,
         initialMessage: subject.trim() || undefined,
       });
       setShowNewForm(false);
@@ -364,7 +372,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     const file = imageItem.getAsFile();
     if (!file) return;
     const err = validateImageFile(file);
-    if (err) { setError(err); return; }
+    if (err) {
+      setError(err);
+      return;
+    }
     if (pastedImagePreview) URL.revokeObjectURL(pastedImagePreview);
     setPastedImage(file);
     setPastedImagePreview(URL.createObjectURL(file));
@@ -375,7 +386,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
     const file = e.target.files?.[0];
     if (!file) return;
     const err = validateImageFile(file);
-    if (err) { setError(err); return; }
+    if (err) {
+      setError(err);
+      return;
+    }
     if (pastedImagePreview) URL.revokeObjectURL(pastedImagePreview);
     setPastedImage(file);
     setPastedImagePreview(URL.createObjectURL(file));
@@ -438,7 +452,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
         await updateTicketStatus(activeTicketId, 'open');
         await sendAIMessage(
           activeTicketId,
-          'O usuário recusou a solução proposta. Por favor, forneça mais detalhes sobre o que não funcionou para que possamos ajudá-lo melhor.'
+          'O usuário recusou a solução proposta. Por favor, forneça mais detalhes sobre o que não funcionou para que possamos ajudá-lo melhor.',
         );
       }
       await chat.reloadDetail();
@@ -490,22 +504,29 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
   return (
     <div
       className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-3"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={e => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       role="dialog"
       aria-modal="true"
       aria-label="Suporte Pro"
     >
       <div className="bg-white rounded-2xl w-full max-w-5xl h-[85vh] flex overflow-hidden shadow-2xl animate-fade-in">
-
         {/* ===== LEFT SIDEBAR ===== */}
-        <aside className={`w-56 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 ${showMobileDetail ? 'hidden lg:flex' : 'flex'}`}>
+        <aside
+          className={`w-56 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 ${showMobileDetail ? 'hidden lg:flex' : 'flex'}`}
+        >
           <div className="p-4 border-b border-slate-200">
             <h2 className="text-base font-bold text-slate-800">Suporte Pro</h2>
           </div>
 
           <button
             type="button"
-            onClick={() => { setShowNewForm(true); setActiveTicketId(null); setHeader(null); }}
+            onClick={() => {
+              setShowNewForm(true);
+              setActiveTicketId(null);
+              setHeader(null);
+            }}
             className="mx-3 mt-3 px-3 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-all active:scale-95 duration-150"
           >
             + Novo chamado
@@ -514,20 +535,23 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
           <div className="px-3 mt-3">
             <input
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
               placeholder="Buscar chamados..."
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
             />
           </div>
 
           <div className="flex-1 overflow-y-auto mt-2 px-2 pb-2 space-y-1">
-            {filteredTickets.map((ticket) => {
+            {filteredTickets.map(ticket => {
               const cfg = statusConfig[ticket.status];
               return (
                 <button
                   key={ticket.id}
                   type="button"
-                  onClick={() => { setActiveTicketId(ticket.id); setShowNewForm(false); }}
+                  onClick={() => {
+                    setActiveTicketId(ticket.id);
+                    setShowNewForm(false);
+                  }}
                   className={`w-full text-left p-2.5 rounded-lg transition-colors text-xs group ${
                     activeTicketId === ticket.id
                       ? 'bg-blue-50 border border-blue-200'
@@ -535,21 +559,28 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1 mb-1">
-                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
-                      ticket.ticket_type === 'erro_tecnico' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-                    }`}>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide ${
+                        ticket.ticket_type === 'erro_tecnico' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                      }`}
+                    >
                       {ticket.ticket_type === 'erro_tecnico' ? 'ERRO TÉCNICO' : 'SUGESTÃO'}
                     </span>
                     <span className="text-[10px] text-slate-400">
-                      {new Date(ticket.last_message_at || ticket.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(ticket.last_message_at || ticket.created_at).toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </span>
                   </div>
-                  <p className="font-medium text-slate-700 truncate">{ticket.subject || ticketTypeLabel[ticket.ticket_type]}</p>
+                  <p className="font-medium text-slate-700 truncate">
+                    {ticket.subject || ticketTypeLabel[ticket.ticket_type]}
+                  </p>
                   {(ticket.specific_screen || ticket.location_area) && (
                     <p className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-400" />
                       {getScreenLabelFromKey(ticket.specific_screen) ||
-                        LOCATION_OPTIONS.find((o) => o.value === ticket.location_area)?.label ||
+                        LOCATION_OPTIONS.find(o => o.value === ticket.location_area)?.label ||
                         ticket.location_area ||
                         ticket.specific_screen}
                     </p>
@@ -616,46 +647,44 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                     Onde está o problema? Clique na tela ou funcionalidade
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                    {(Object.keys(PERMISSION_CATEGORY_LABELS) as PermissionCategory[]).map(
-                      (cat) => {
-                        const items = PERMISSION_KEYS.filter((pk) => pk.category === cat);
-                        if (items.length === 0) return null;
-                        return (
-                          <div key={cat}>
-                            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
-                              {PERMISSION_CATEGORY_LABELS[cat]}
-                            </p>
-                            <div className="space-y-1">
-                              {items.map((pk) => {
-                                const Icon = SCREEN_ICON_MAP[pk.icon] ?? FileText;
-                                const selected = selectedScreenKey === pk.key;
-                                return (
-                                  <button
-                                    key={pk.key}
-                                    type="button"
-                                    onClick={() => setSelectedScreenKey(selected ? null : pk.key)}
-                                    className={`w-full text-left flex items-start gap-2 p-2.5 rounded-lg border transition-all ${
-                                      selected
-                                        ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-200'
-                                        : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300'
-                                    }`}
-                                  >
-                                    <Icon size={16} className="shrink-0 mt-0.5 text-slate-500" />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm font-medium text-slate-800 truncate">{pk.label}</p>
-                                      <p className="text-[11px] text-slate-500 truncate">{pk.location}</p>
-                                    </div>
-                                    {selected && (
-                                      <span className="shrink-0 text-[10px] font-semibold text-blue-600">✓</span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                    {(Object.keys(PERMISSION_CATEGORY_LABELS) as PermissionCategory[]).map(cat => {
+                      const items = PERMISSION_KEYS.filter(pk => pk.category === cat);
+                      if (items.length === 0) return null;
+                      return (
+                        <div key={cat}>
+                          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                            {PERMISSION_CATEGORY_LABELS[cat]}
+                          </p>
+                          <div className="space-y-1">
+                            {items.map(pk => {
+                              const Icon = SCREEN_ICON_MAP[pk.icon] ?? FileText;
+                              const selected = selectedScreenKey === pk.key;
+                              return (
+                                <button
+                                  key={pk.key}
+                                  type="button"
+                                  onClick={() => setSelectedScreenKey(selected ? null : pk.key)}
+                                  className={`w-full text-left flex items-start gap-2 p-2.5 rounded-lg border transition-all ${
+                                    selected
+                                      ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-200'
+                                      : 'border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <Icon size={16} className="shrink-0 mt-0.5 text-slate-500" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-slate-800 truncate">{pk.label}</p>
+                                    <p className="text-[11px] text-slate-500 truncate">{pk.location}</p>
+                                  </div>
+                                  {selected && (
+                                    <span className="shrink-0 text-[10px] font-semibold text-blue-600">✓</span>
+                                  )}
+                                </button>
+                              );
+                            })}
                           </div>
-                        );
-                      }
-                    )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -666,7 +695,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                 <input
                   type="text"
                   value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
+                  onChange={e => setSubject(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   placeholder="Ex: O botão de salvar não funciona"
                   maxLength={200}
@@ -702,7 +731,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setShowNewForm(false); if (tickets.length > 0) setActiveTicketId(tickets[0].id); }}
+                  onClick={() => {
+                    setShowNewForm(false);
+                    if (tickets.length > 0) setActiveTicketId(tickets[0].id);
+                  }}
                   className="px-6 py-3 rounded-xl bg-slate-100 text-slate-600 text-sm font-semibold hover:bg-slate-200 transition-all active:scale-95 duration-150"
                 >
                   Voltar
@@ -719,7 +751,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                 <div className="min-w-0 flex-1">
                   <button
                     type="button"
-                    onClick={() => { setActiveTicketId(null); setHeader(null); }}
+                    onClick={() => {
+                      setActiveTicketId(null);
+                      setHeader(null);
+                    }}
                     className="lg:hidden text-xs text-blue-600 hover:underline mb-1"
                   >
                     ← Voltar
@@ -748,14 +783,20 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                   <p className="text-xs text-slate-500 mt-0.5">
                     {ticketTypeLabel[header.ticket.ticket_type]}
                     {(header.ticket.specific_screen || header.ticket.location_area) && (
-                      <> · {getScreenLabelFromKey(header.ticket.specific_screen) ||
-                        LOCATION_OPTIONS.find((o) => o.value === header.ticket.location_area)?.label ||
-                        header.ticket.location_area ||
-                        header.ticket.specific_screen}</>
+                      <>
+                        {' '}
+                        ·{' '}
+                        {getScreenLabelFromKey(header.ticket.specific_screen) ||
+                          LOCATION_OPTIONS.find(o => o.value === header.ticket.location_area)?.label ||
+                          header.ticket.location_area ||
+                          header.ticket.specific_screen}
+                      </>
                     )}
                   </p>
                 </div>
-                <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold ${statusConfig[header.ticket.status].className}`}>
+                <span
+                  className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold ${statusConfig[header.ticket.status].className}`}
+                >
                   {statusConfig[header.ticket.status].label}
                 </span>
               </div>
@@ -789,18 +830,16 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-                {chat.messages.map((msg) => {
+                {chat.messages.map(msg => {
                   const mine = msg.author_type === 'user' && msg.author_id === user.id;
                   const isAI = msg.author_type === 'ai';
                   const isAgent = msg.author_type === 'agent';
                   const linkedAttachments = attachmentByMessage.get(msg.id) || [];
-                  const repliedMsg = msg.reply_to_id
-                    ? chat.messages.find((m) => m.id === msg.reply_to_id)
-                    : null;
+                  const repliedMsg = msg.reply_to_id ? chat.messages.find(m => m.id === msg.reply_to_id) : null;
                   const quotedText = repliedMsg
-                    ? (repliedMsg.message.length > 60
-                        ? repliedMsg.message.slice(0, 60).trim() + '...'
-                        : repliedMsg.message)
+                    ? repliedMsg.message.length > 60
+                      ? repliedMsg.message.slice(0, 60).trim() + '...'
+                      : repliedMsg.message
                     : null;
 
                   if (isAI) {
@@ -839,7 +878,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                   const isTemp = msg.id?.startsWith('temp-');
 
                   return (
-                    <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'} animate-fade-in group`}>
+                    <div
+                      key={msg.id}
+                      className={`flex ${mine ? 'justify-end' : 'justify-start'} animate-fade-in group`}
+                    >
                       <div
                         className={`max-w-[70%] rounded-xl px-4 py-3 text-sm shadow-sm relative ${
                           mine
@@ -861,7 +903,11 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                             </button>
                             <button
                               type="button"
-                              onClick={() => { setEditingMessageId(msg.id); setEditingText(msg.message); setDeletingMessageId(null); }}
+                              onClick={() => {
+                                setEditingMessageId(msg.id);
+                                setEditingText(msg.message);
+                                setDeletingMessageId(null);
+                              }}
                               className="p-1 rounded hover:bg-slate-200"
                               title="Editar"
                             >
@@ -869,7 +915,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                             </button>
                             <button
                               type="button"
-                              onClick={() => { setDeletingMessageId(msg.id); setEditingMessageId(null); }}
+                              onClick={() => {
+                                setDeletingMessageId(msg.id);
+                                setEditingMessageId(null);
+                              }}
                               className="p-1 rounded hover:bg-red-100"
                               title="Excluir"
                             >
@@ -910,18 +959,26 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                           </div>
                         )}
                         {!mine && (
-                          <p className={`text-[10px] font-semibold mb-1 ${isAgent ? 'text-amber-600' : 'text-slate-400'}`}>
-                            {isAgent ? 'Agente Técnico' : (msg.author_name || 'Usuário')}
+                          <p
+                            className={`text-[10px] font-semibold mb-1 ${isAgent ? 'text-amber-600' : 'text-slate-400'}`}
+                          >
+                            {isAgent ? 'Agente Técnico' : msg.author_name || 'Usuário'}
                           </p>
                         )}
                         {isEditing ? (
                           <div className="space-y-2">
                             <textarea
                               value={editingText}
-                              onChange={(e) => setEditingText(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleEditMessage(); }
-                                if (e.key === 'Escape') { setEditingMessageId(null); setEditingText(''); }
+                              onChange={e => setEditingText(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  void handleEditMessage();
+                                }
+                                if (e.key === 'Escape') {
+                                  setEditingMessageId(null);
+                                  setEditingText('');
+                                }
                               }}
                               className="w-full rounded-lg border border-white/30 bg-blue-500/50 px-3 py-2 text-sm text-white placeholder:text-white/50 resize-none outline-none focus:border-white/50"
                               rows={2}
@@ -930,7 +987,10 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                             <div className="flex justify-end gap-1">
                               <button
                                 type="button"
-                                onClick={() => { setEditingMessageId(null); setEditingText(''); }}
+                                onClick={() => {
+                                  setEditingMessageId(null);
+                                  setEditingText('');
+                                }}
                                 className="p-1 rounded hover:bg-blue-500 transition-colors"
                                 title="Cancelar"
                               >
@@ -973,7 +1033,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                         ) : (
                           <p className="whitespace-pre-wrap break-words">{msg.message}</p>
                         )}
-                        {linkedAttachments.map((att) => (
+                        {linkedAttachments.map(att => (
                           <a key={att.id} href={att.signed_url} target="_blank" rel="noreferrer" className="block mt-2">
                             {att.signed_url ? (
                               <img
@@ -989,9 +1049,7 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                         ))}
                         {mine && (
                           <div className="flex items-center justify-end gap-1 mt-1">
-                            {msg.edited_at && (
-                              <span className="text-[10px] text-white/50 italic">editado</span>
-                            )}
+                            {msg.edited_at && <span className="text-[10px] text-white/50 italic">editado</span>}
                             <span title={msg.read_at ? 'Lido' : isTemp ? 'Enviado' : 'Recebido'}>
                               {msg.read_at ? (
                                 <CheckCheck size={14} className="text-cyan-300" />
@@ -1004,7 +1062,9 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                           </div>
                         )}
                         {!mine && msg.edited_at && (
-                          <p className={`text-[10px] italic mt-1 ${isAgent ? 'text-amber-500' : 'text-slate-400'}`}>editado</p>
+                          <p className={`text-[10px] italic mt-1 ${isAgent ? 'text-amber-500' : 'text-slate-400'}`}>
+                            editado
+                          </p>
                         )}
                       </div>
                     </div>
@@ -1022,9 +1082,18 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                   <div className="flex justify-start animate-fade-in">
                     <div className="px-4 py-2 rounded-xl bg-slate-100 text-slate-500 text-xs flex items-center gap-2">
                       <span className="flex gap-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce"
+                          style={{ animationDelay: '0ms' }}
+                        />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce"
+                          style={{ animationDelay: '150ms' }}
+                        />
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce"
+                          style={{ animationDelay: '300ms' }}
+                        />
                       </span>
                       {chat.typingUsers.join(', ')} está digitando...
                     </div>
@@ -1064,7 +1133,11 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
                 )}
                 {pastedImagePreview && (
                   <div className="mb-2 relative inline-block">
-                    <img src={pastedImagePreview} alt="Preview" className="max-h-20 rounded-lg border border-slate-200" />
+                    <img
+                      src={pastedImagePreview}
+                      alt="Preview"
+                      className="max-h-20 rounded-lg border border-slate-200"
+                    />
                     <button
                       type="button"
                       onClick={resetComposer}
@@ -1122,7 +1195,11 @@ const SupportTicketModal: React.FC<SupportTicketModalProps> = ({ isOpen, onClose
             <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3 p-6">
               <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </div>
               <p className="text-sm font-medium">Selecione um chamado ou crie um novo</p>

@@ -9,6 +9,7 @@ O erro `Cannot find module '/var/task/lib/server/openai/assistantClient'` ocorri
 Movemos o arquivo `assistantClient.ts` para dentro da pasta `api/` para garantir que o Vercel o inclua no bundle.
 
 ### Antes:
+
 ```
 lib/
   └── server/
@@ -19,6 +20,7 @@ api/
 ```
 
 ### Depois:
+
 ```
 api/
   ├── ask-assistant.ts
@@ -33,6 +35,7 @@ api/
 ## Próximos Passos
 
 1. **Commit e Push:**
+
    ```bash
    git add .
    git commit -m "Fix: Move assistantClient to api folder for Vercel bundle"
@@ -55,4 +58,3 @@ O Vercel inclui automaticamente todos os arquivos dentro da pasta `api/` no bund
 ## Nota
 
 O arquivo original `lib/server/openai/assistantClient.ts` ainda existe e pode ser usado em desenvolvimento local. Em produção, o Vercel usará o arquivo em `api/assistantClient.ts`.
-

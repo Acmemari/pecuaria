@@ -27,17 +27,24 @@ export function generateReportPDF(data: PDFReportData): void {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: 'a4'
+    format: 'a4',
   });
 
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
   const margin = 10;
-  const contentWidth = pageWidth - (margin * 2);
+  const contentWidth = pageWidth - margin * 2;
   let yPos = margin;
 
   // Helper function to add text with automatic wrapping
-  const addText = (text: string, x: number, y: number, fontSize: number = 10, isBold: boolean = false, maxWidth?: number) => {
+  const addText = (
+    text: string,
+    x: number,
+    y: number,
+    fontSize: number = 10,
+    isBold: boolean = false,
+    maxWidth?: number,
+  ) => {
     doc.setFontSize(fontSize);
     doc.setFont('helvetica', isBold ? 'bold' : 'normal');
     if (maxWidth) {
@@ -89,7 +96,7 @@ export function generateReportPDF(data: PDFReportData): void {
 
   // PREMISSAS Section - Two columns
   yPos = addSectionHeader('PREMISSAS', yPos);
-  
+
   const premissasData = [
     ['Peso de Compra:', `${inputs.pesoCompra} kg`],
     ['Valor de Compra:', `R$ ${inputs.valorCompra.toFixed(2)}/kg`],
@@ -98,7 +105,7 @@ export function generateReportPDF(data: PDFReportData): void {
     ['Valor Venda:', `R$ ${inputs.valorVenda}/@`],
     ['GMD (Ganho Médio Diário):', `${inputs.gmd} kg/dia`],
     ['Desembolso/cab/mês:', `R$ ${inputs.custoMensal}/mês`],
-    ['Lotação:', `${inputs.lotacao} UA/HA`]
+    ['Lotação:', `${inputs.lotacao} UA/HA`],
   ];
 
   // Split into two columns
@@ -107,27 +114,27 @@ export function generateReportPDF(data: PDFReportData): void {
   const rightColumn = premissasData.slice(midPoint);
   const columnWidth = (contentWidth - 10) / 2;
   const lineHeight = 5;
-  
+
   let startY = yPos;
   const maxRows = Math.max(leftColumn.length, rightColumn.length);
-  
+
   for (let i = 0; i < maxRows; i++) {
     // Left column
     if (i < leftColumn.length) {
       const [label, value] = leftColumn[i];
-      addText(label, margin + 5, startY + (i * lineHeight), 9);
-      addText(value, margin + 45, startY + (i * lineHeight), 9, true);
+      addText(label, margin + 5, startY + i * lineHeight, 9);
+      addText(value, margin + 45, startY + i * lineHeight, 9, true);
     }
-    
+
     // Right column
     if (i < rightColumn.length) {
       const [label, value] = rightColumn[i];
-      addText(label, margin + columnWidth + 5, startY + (i * lineHeight), 9);
-      addText(value, margin + columnWidth + 45, startY + (i * lineHeight), 9, true);
+      addText(label, margin + columnWidth + 5, startY + i * lineHeight, 9);
+      addText(value, margin + columnWidth + 45, startY + i * lineHeight, 9, true);
     }
   }
-  
-  yPos = startY + (maxRows * lineHeight) + 3;
+
+  yPos = startY + maxRows * lineHeight + 3;
 
   // INDICADORES CHAVE Section (4 cards in a single row)
   if (yPos > pageHeight - 50) {
@@ -137,10 +144,26 @@ export function generateReportPDF(data: PDFReportData): void {
   yPos = addSectionHeader('INDICADORES CHAVE', yPos);
 
   const keyIndicators = [
-    { label: 'Resultado por cabeça', value: formatCurrency(results.resultadoPorBoi), color: results.resultadoPorBoi >= 0 ? [34, 139, 34] : [220, 20, 60] },
-    { label: 'TIR MENSAL', value: `${formatPercent(results.resultadoMensal)} a.m.`, color: results.resultadoMensal >= 0 ? [34, 139, 34] : [220, 20, 60] },
-    { label: 'MARGEM %', value: formatPercent(results.margemVenda), color: results.margemVenda >= 0 ? [34, 139, 34] : [220, 20, 60] },
-    { label: 'RESULTADO POR HECTARE', value: formatCurrency(results.resultadoPorHectareAno), color: results.resultadoPorHectareAno >= 0 ? [34, 139, 34] : [220, 20, 60] }
+    {
+      label: 'Resultado por cabeça',
+      value: formatCurrency(results.resultadoPorBoi),
+      color: results.resultadoPorBoi >= 0 ? [34, 139, 34] : [220, 20, 60],
+    },
+    {
+      label: 'TIR MENSAL',
+      value: `${formatPercent(results.resultadoMensal)} a.m.`,
+      color: results.resultadoMensal >= 0 ? [34, 139, 34] : [220, 20, 60],
+    },
+    {
+      label: 'MARGEM %',
+      value: formatPercent(results.margemVenda),
+      color: results.margemVenda >= 0 ? [34, 139, 34] : [220, 20, 60],
+    },
+    {
+      label: 'RESULTADO POR HECTARE',
+      value: formatCurrency(results.resultadoPorHectareAno),
+      color: results.resultadoPorHectareAno >= 0 ? [34, 139, 34] : [220, 20, 60],
+    },
   ];
 
   // 4 blocks in a single row
@@ -149,7 +172,7 @@ export function generateReportPDF(data: PDFReportData): void {
   const cardSpacing = 5;
 
   keyIndicators.forEach((indicator, index) => {
-    const x = margin + (index * (cardWidth + cardSpacing));
+    const x = margin + index * (cardWidth + cardSpacing);
     const y = yPos;
 
     // Card background
@@ -159,13 +182,13 @@ export function generateReportPDF(data: PDFReportData): void {
 
     // Label
     addText(indicator.label, x + 3, y + 6, 7, false, cardWidth - 6);
-    
+
     // Value
     doc.setTextColor(indicator.color[0], indicator.color[1], indicator.color[2]);
     addText(indicator.value, x + 3, y + 14, 10, true, cardWidth - 6);
     doc.setTextColor(0, 0, 0);
   });
-  
+
   yPos += cardHeight + 5;
 
   // ANÁLISE DETALHADA Section
@@ -187,7 +210,7 @@ export function generateReportPDF(data: PDFReportData): void {
     ['Giro de Estoque:', formatPercent(results.giroEstoque)],
     ['Produção @/ha:', `${results.producaoArrobaPorHa.toFixed(2)} @/ha`],
     ['Resultado por @ Final:', formatCurrency(results.resultadoPorArrobaFinal)],
-    ['Resultado/Ano:', `${formatPercent(results.resultadoAnual)} a.a.`]
+    ['Resultado/Ano:', `${formatPercent(results.resultadoAnual)} a.a.`],
   ];
 
   detalhadaData.forEach(([label, value]) => {
@@ -205,18 +228,18 @@ export function generateReportPDF(data: PDFReportData): void {
   yPos = addSectionHeader('MATRIZ DE SENSIBILIDADE (Resultado/Boi R$)', yPos);
 
   // Generate sensitivity matrix data (using same logic as calculator)
-  const variations = [-0.10, -0.05, 0, 0.05, 0.10];
-  
+  const variations = [-0.1, -0.05, 0, 0.05, 0.1];
+
   const matrixCols = variations.map(v => ({
     label: v === 0 ? 'Base' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(0)}%`,
     valorVenda: inputs.valorVenda * (1 + v),
-    variation: v
+    variation: v,
   }));
 
   const matrixRows = variations.map(v => ({
     label: v === 0 ? 'Base' : `${v > 0 ? '+' : ''}${(v * 100).toFixed(0)}%`,
     valorCompra: inputs.valorCompra * (1 + v),
-    variation: v
+    variation: v,
   }));
 
   // Calculate matrix cells using the same logic as the calculator
@@ -251,21 +274,21 @@ export function generateReportPDF(data: PDFReportData): void {
   addText('Vl. Compra ↓', margin + 2, tableStartY + 10, 7);
 
   matrixCols.forEach((col, colIndex) => {
-      const x = margin + cellWidth + (colIndex * cellWidth);
-      const isBase = colIndex === 2;
-      if (isBase) {
-        doc.setFillColor(230, 240, 255);
-      } else {
-        doc.setFillColor(240, 240, 240);
-      }
-      doc.rect(x, tableStartY, cellWidth, headerHeight, 'F');
+    const x = margin + cellWidth + colIndex * cellWidth;
+    const isBase = colIndex === 2;
+    if (isBase) {
+      doc.setFillColor(230, 240, 255);
+    } else {
+      doc.setFillColor(240, 240, 240);
+    }
+    doc.rect(x, tableStartY, cellWidth, headerHeight, 'F');
     addText(col.label, x + 2, tableStartY + 5, 7);
     addText(`R$ ${col.valorVenda.toFixed(0)}`, x + 2, tableStartY + 10, 7, true);
   });
 
   // Data rows
   matrixRows.forEach((row, rowIndex) => {
-    const y = tableStartY + headerHeight + (rowIndex * cellHeight);
+    const y = tableStartY + headerHeight + rowIndex * cellHeight;
     const isBase = rowIndex === 2;
 
     // Row header
@@ -280,9 +303,9 @@ export function generateReportPDF(data: PDFReportData): void {
 
     // Matrix cells
     matrixCells[rowIndex].forEach((cell, colIndex) => {
-      const x = margin + cellWidth + (colIndex * cellWidth);
+      const x = margin + cellWidth + colIndex * cellWidth;
       const isBaseCell = rowIndex === 2 && colIndex === 2;
-      
+
       // Color coding
       if (isBaseCell) {
         doc.setFillColor(230, 240, 255);
@@ -292,11 +315,11 @@ export function generateReportPDF(data: PDFReportData): void {
         const intensity = (cell - minValue) / (maxValue - minValue);
         if (cell >= 0) {
           // Green gradient
-          const green = Math.floor(200 + (55 * intensity));
+          const green = Math.floor(200 + 55 * intensity);
           doc.setFillColor(240, green, 240);
         } else {
           // Red gradient
-          const red = Math.floor(255 - (55 * Math.abs(intensity)));
+          const red = Math.floor(255 - 55 * Math.abs(intensity));
           doc.setFillColor(red + 15, 200, 200);
         }
         doc.setDrawColor(200, 200, 200);
@@ -319,7 +342,7 @@ export function generateReportPDF(data: PDFReportData): void {
   doc.text('Gerado por PecuarIA - Calculadora de Resultado Pecuário', pageWidth / 2, footerY, { align: 'center' });
 
   // Save PDF
-  const fileName = scenarioName 
+  const fileName = scenarioName
     ? `relatorio-${scenarioName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.pdf`
     : `relatorio-${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(fileName);
@@ -330,7 +353,7 @@ export function generateReportPDF(data: PDFReportData): void {
  */
 export function generateComparatorPDF(data: ComparatorPDFData): void {
   const { scenarios, userName, createdAt } = data;
-  
+
   if (scenarios.length !== 3) {
     throw new Error('É necessário ter exatamente 3 cenários para gerar o relatório comparativo');
   }
@@ -344,24 +367,32 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
   }
 
   // Determine winning scenario (based on resultadoPorHectareAno)
-  const winningScenario = [scenarioA, scenarioB, scenarioC].reduce((prev, curr) => 
-    curr.results.resultadoPorHectareAno > prev.results.resultadoPorHectareAno ? curr : prev
+  const winningScenario = [scenarioA, scenarioB, scenarioC].reduce((prev, curr) =>
+    curr.results.resultadoPorHectareAno > prev.results.resultadoPorHectareAno ? curr : prev,
   );
 
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: 'a4'
+    format: 'a4',
   });
 
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
   const margin = 10;
-  const contentWidth = pageWidth - (margin * 2);
+  const contentWidth = pageWidth - margin * 2;
   let yPos = margin;
 
   // Helper functions
-  const addText = (text: string, x: number, y: number, fontSize: number = 10, isBold: boolean = false, maxWidth?: number, align: 'left' | 'center' | 'right' = 'left') => {
+  const addText = (
+    text: string,
+    x: number,
+    y: number,
+    fontSize: number = 10,
+    isBold: boolean = false,
+    maxWidth?: number,
+    align: 'left' | 'center' | 'right' = 'left',
+  ) => {
     doc.setFontSize(fontSize);
     doc.setFont('helvetica', isBold ? 'bold' : 'normal');
     if (maxWidth) {
@@ -383,7 +414,15 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
   };
 
   // 1. Header
-  addText('Calculadora de Resultado Pecuário - Análise de Cenários', pageWidth / 2, yPos, 14, true, contentWidth, 'center');
+  addText(
+    'Calculadora de Resultado Pecuário - Análise de Cenários',
+    pageWidth / 2,
+    yPos,
+    14,
+    true,
+    contentWidth,
+    'center',
+  );
   yPos += 8;
 
   if (userName) {
@@ -391,9 +430,21 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
     yPos += 5;
   }
 
-  const dateStr = createdAt 
-    ? new Date(createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-    : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const dateStr = createdAt
+    ? new Date(createdAt).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : new Date().toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
   addText(`Data: ${dateStr}`, margin, yPos, 10);
   yPos += 8;
 
@@ -415,32 +466,30 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
   // Calculate percentage increase compared to base scenario (A)
   const baseValue = scenarioA.results.resultadoPorHectareAno;
   const winningValue = winningScenario.results.resultadoPorHectareAno;
-  const percentIncrease = baseValue > 0 
-    ? ((winningValue / baseValue - 1) * 100).toFixed(0)
-    : '0';
+  const percentIncrease = baseValue > 0 ? ((winningValue / baseValue - 1) * 100).toFixed(0) : '0';
 
   const winningCards = [
-    { 
-      label: 'LUCRO/HA', 
+    {
+      label: 'LUCRO/HA',
       value: formatCurrency(winningScenario.results.resultadoPorHectareAno),
-      subValue: `+${percentIncrease}%`
+      subValue: `+${percentIncrease}%`,
     },
-    { 
-      label: 'MARGEM LÍQUIDA', 
-      value: formatPercent(winningScenario.results.margemVenda)
+    {
+      label: 'MARGEM LÍQUIDA',
+      value: formatPercent(winningScenario.results.margemVenda),
     },
-    { 
-      label: 'ROI MENSAL', 
-      value: formatPercent(winningScenario.results.resultadoMensal)
+    {
+      label: 'ROI MENSAL',
+      value: formatPercent(winningScenario.results.resultadoMensal),
     },
-    { 
-      label: 'GMD (GANHO)', 
-      value: `${winningScenario.inputs.gmd.toFixed(2)} kg/dia`
-    }
+    {
+      label: 'GMD (GANHO)',
+      value: `${winningScenario.inputs.gmd.toFixed(2)} kg/dia`,
+    },
   ];
 
   winningCards.forEach((card, index) => {
-    const x = margin + (index * (cardWidth + cardSpacing));
+    const x = margin + index * (cardWidth + cardSpacing);
     const y = yPos;
 
     // Card background
@@ -450,17 +499,17 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
 
     // Label - centered
     addText(card.label, x + cardWidth / 2, y + 7, 8, false, cardWidth - 6, 'center');
-    
+
     // Value - centered and larger
     doc.setTextColor(34, 139, 34);
     addText(card.value, x + cardWidth / 2, y + 16, 11, true, cardWidth - 6, 'center');
-    
+
     // Sub value (if exists) - centered
     if (card.subValue) {
       doc.setTextColor(0, 100, 0);
       addText(card.subValue, x + cardWidth / 2, y + 23, 8, false, cardWidth - 6, 'center');
     }
-    
+
     doc.setTextColor(0, 0, 0);
   });
 
@@ -487,27 +536,27 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
   doc.rect(margin, tableStartY, colWidth, headerHeight);
   doc.setTextColor(0, 0, 0);
   addText('ITEM', margin + colWidth / 2, tableStartY + 7, 8, true, colWidth - 4, 'center');
-  
+
   doc.setFillColor(240, 240, 240);
   doc.rect(margin + colWidth, tableStartY, colWidth, headerHeight, 'F');
   doc.setDrawColor(200, 200, 200);
   doc.rect(margin + colWidth, tableStartY, colWidth, headerHeight);
   doc.setTextColor(0, 0, 0);
   addText(scenarioA.name, margin + colWidth + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
-  
+
   doc.setFillColor(240, 240, 240);
-  doc.rect(margin + (colWidth * 2), tableStartY, colWidth, headerHeight, 'F');
+  doc.rect(margin + colWidth * 2, tableStartY, colWidth, headerHeight, 'F');
   doc.setDrawColor(200, 200, 200);
-  doc.rect(margin + (colWidth * 2), tableStartY, colWidth, headerHeight);
+  doc.rect(margin + colWidth * 2, tableStartY, colWidth, headerHeight);
   doc.setTextColor(0, 0, 0);
-  addText(scenarioB.name, margin + (colWidth * 2) + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
-  
+  addText(scenarioB.name, margin + colWidth * 2 + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
+
   doc.setFillColor(240, 240, 240);
-  doc.rect(margin + (colWidth * 3), tableStartY, colWidth, headerHeight, 'F');
+  doc.rect(margin + colWidth * 3, tableStartY, colWidth, headerHeight, 'F');
   doc.setDrawColor(200, 200, 200);
-  doc.rect(margin + (colWidth * 3), tableStartY, colWidth, headerHeight);
+  doc.rect(margin + colWidth * 3, tableStartY, colWidth, headerHeight);
   doc.setTextColor(0, 0, 0);
-  addText(scenarioC.name, margin + (colWidth * 3) + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
+  addText(scenarioC.name, margin + colWidth * 3 + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
 
   yPos = tableStartY + headerHeight;
 
@@ -520,7 +569,7 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
     { label: 'Valor Venda (R$/@)', getValue: (s: ComparatorScenario) => `${s.inputs.valorVenda}` },
     { label: 'GMD (kg/dia)', getValue: (s: ComparatorScenario) => s.inputs.gmd.toFixed(2) },
     { label: 'Desembolso/Mês (R$)', getValue: (s: ComparatorScenario) => `${s.inputs.custoMensal}` },
-    { label: 'Lotação (UA/ha)', getValue: (s: ComparatorScenario) => s.inputs.lotacao.toFixed(2) }
+    { label: 'Lotação (UA/ha)', getValue: (s: ComparatorScenario) => s.inputs.lotacao.toFixed(2) },
   ];
 
   // Results rows
@@ -528,7 +577,10 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
     { label: 'Lucro/Boi (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorBoi) },
     { label: 'Retorno Mensal (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.resultadoMensal) },
     { label: 'Margem Líquida (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.margemVenda) },
-    { label: 'Resultado/Ha (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorHectareAno) }
+    {
+      label: 'Resultado/Ha (R$)',
+      getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorHectareAno),
+    },
   ];
 
   // Draw premises table
@@ -558,17 +610,33 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
 
     // Scenario B - with background
     doc.setFillColor(255, 255, 255);
-    doc.rect(margin + (colWidth * 2), rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin + (colWidth * 2), rowY, colWidth, rowHeight);
+    doc.rect(margin + colWidth * 2, rowY, colWidth, rowHeight, 'F');
+    doc.rect(margin + colWidth * 2, rowY, colWidth, rowHeight);
     doc.setTextColor(0, 0, 0);
-    addText(item.getValue(scenarioB), margin + (colWidth * 2) + colWidth / 2, rowY + 4.5, 7, true, colWidth - 4, 'center');
+    addText(
+      item.getValue(scenarioB),
+      margin + colWidth * 2 + colWidth / 2,
+      rowY + 4.5,
+      7,
+      true,
+      colWidth - 4,
+      'center',
+    );
 
     // Scenario C - with background
     doc.setFillColor(255, 255, 255);
-    doc.rect(margin + (colWidth * 3), rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin + (colWidth * 3), rowY, colWidth, rowHeight);
+    doc.rect(margin + colWidth * 3, rowY, colWidth, rowHeight, 'F');
+    doc.rect(margin + colWidth * 3, rowY, colWidth, rowHeight);
     doc.setTextColor(0, 0, 0);
-    addText(item.getValue(scenarioC), margin + (colWidth * 3) + colWidth / 2, rowY + 4.5, 7, true, colWidth - 4, 'center');
+    addText(
+      item.getValue(scenarioC),
+      margin + colWidth * 3 + colWidth / 2,
+      rowY + 4.5,
+      7,
+      true,
+      colWidth - 4,
+      'center',
+    );
 
     yPos += rowHeight;
   });
@@ -581,30 +649,46 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
   const chartSpacing = 8;
 
   const charts = [
-    { 
-      title: 'MARGEM LÍQUIDA (%)', 
+    {
+      title: 'MARGEM LÍQUIDA (%)',
       getValue: (s: ComparatorScenario) => s.results.margemVenda,
       format: (v: number) => formatPercent(v),
-      maxValue: Math.max(scenarioA.results.margemVenda, scenarioB.results.margemVenda, scenarioC.results.margemVenda) * 1.1
+      maxValue:
+        Math.max(scenarioA.results.margemVenda, scenarioB.results.margemVenda, scenarioC.results.margemVenda) * 1.1,
     },
-    { 
-      title: 'RESULTADO POR HECTARE (R$)', 
+    {
+      title: 'RESULTADO POR HECTARE (R$)',
       getValue: (s: ComparatorScenario) => s.results.resultadoPorHectareAno,
       format: (v: number) => formatCurrency(v),
-      maxValue: Math.max(scenarioA.results.resultadoPorHectareAno, scenarioB.results.resultadoPorHectareAno, scenarioC.results.resultadoPorHectareAno) * 1.1
+      maxValue:
+        Math.max(
+          scenarioA.results.resultadoPorHectareAno,
+          scenarioB.results.resultadoPorHectareAno,
+          scenarioC.results.resultadoPorHectareAno,
+        ) * 1.1,
     },
-    { 
-      title: 'LUCRO POR BOI (R$)', 
+    {
+      title: 'LUCRO POR BOI (R$)',
       getValue: (s: ComparatorScenario) => s.results.resultadoPorBoi,
       format: (v: number) => formatCurrency(v),
-      maxValue: Math.max(scenarioA.results.resultadoPorBoi, scenarioB.results.resultadoPorBoi, scenarioC.results.resultadoPorBoi) * 1.1
+      maxValue:
+        Math.max(
+          scenarioA.results.resultadoPorBoi,
+          scenarioB.results.resultadoPorBoi,
+          scenarioC.results.resultadoPorBoi,
+        ) * 1.1,
     },
-    { 
-      title: 'RETORNO MENSAL (%)', 
+    {
+      title: 'RETORNO MENSAL (%)',
       getValue: (s: ComparatorScenario) => s.results.resultadoMensal,
       format: (v: number) => formatPercent(v),
-      maxValue: Math.max(scenarioA.results.resultadoMensal, scenarioB.results.resultadoMensal, scenarioC.results.resultadoMensal) * 1.1
-    }
+      maxValue:
+        Math.max(
+          scenarioA.results.resultadoMensal,
+          scenarioB.results.resultadoMensal,
+          scenarioC.results.resultadoMensal,
+        ) * 1.1,
+    },
   ];
 
   // Draw charts in 2x2 grid
@@ -621,7 +705,7 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
   charts.forEach((chart, chartIndex) => {
     const isSecondRow = chartIndex >= 2;
     const chartY = isSecondRow ? secondRowY : firstRowY;
-    const chartX = margin + ((chartIndex % 2) * (chartWidth + chartSpacing));
+    const chartX = margin + (chartIndex % 2) * (chartWidth + chartSpacing);
 
     // Chart title
     addText(chart.title, chartX + chartWidth / 2, chartY, 8, true, chartWidth, 'center');
@@ -638,11 +722,11 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
     // Y-axis with intermediate values - closer to the chart
     const yAxisX = chartAreaX - 2; // Very close to the chart
     const numYLabels = 5; // 0, 25%, 50%, 75%, 100%
-    
+
     for (let i = 0; i <= numYLabels; i++) {
       const ratio = i / numYLabels;
       const value = chart.maxValue * ratio;
-      const labelY = chartAreaY + chartAreaHeight - (ratio * chartAreaHeight);
+      const labelY = chartAreaY + chartAreaHeight - ratio * chartAreaHeight;
       const valueStr = i === 0 ? '0' : chart.format(value);
       addText(valueStr, yAxisX, labelY + 1.5, 5, false, 12, 'right');
     }
@@ -654,12 +738,16 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
 
     // Bars
     const chartScenarios = [scenarioA, scenarioB, scenarioC];
-    const colors = [[59, 130, 246], [34, 197, 94], [249, 115, 22]]; // Blue, Green, Orange
+    const colors = [
+      [59, 130, 246],
+      [34, 197, 94],
+      [249, 115, 22],
+    ]; // Blue, Green, Orange
 
     chartScenarios.forEach((scenario, barIndex) => {
       const value = chart.getValue(scenario);
       const barHeight = (value / chart.maxValue) * chartAreaHeight;
-      const barX = chartAreaX + 2 + (barIndex * (barWidth + barSpacing));
+      const barX = chartAreaX + 2 + barIndex * (barWidth + barSpacing);
       const barY = chartAreaY + chartAreaHeight - barHeight;
 
       // Draw bar
@@ -676,17 +764,17 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
     doc.setDrawColor(150, 150, 150);
     doc.setLineWidth(0.3);
     const xAxisStartX = chartAreaX + 2;
-    const xAxisEndX = xAxisStartX + (3 * (barWidth + barSpacing)) - barSpacing;
+    const xAxisEndX = xAxisStartX + 3 * (barWidth + barSpacing) - barSpacing;
     doc.line(xAxisStartX, chartAreaY + chartAreaHeight, xAxisEndX, chartAreaY + chartAreaHeight);
 
     // X-axis labels - scenario names only (values are shown above bars)
     chartScenarios.forEach((scenario, barIndex) => {
-      const barX = chartAreaX + 2 + (barIndex * (barWidth + barSpacing));
-      
-      const scenarioLabel = scenario.name.includes('(') 
+      const barX = chartAreaX + 2 + barIndex * (barWidth + barSpacing);
+
+      const scenarioLabel = scenario.name.includes('(')
         ? scenario.name.split('(')[1]?.replace(')', '') || scenario.id
         : scenario.name.split(' ')[1] || scenario.id;
-      
+
       // Show scenario name below x-axis line
       const labelY = chartAreaY + chartAreaHeight + 5;
       addText(scenarioLabel, barX + barWidth / 2, labelY, 5, false, barWidth, 'center');
@@ -710,7 +798,7 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
  */
 export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
   const { scenarios, userName, createdAt } = data;
-  
+
   if (scenarios.length !== 3) {
     throw new Error('É necessário ter exatamente 3 cenários para gerar o relatório comparativo');
   }
@@ -724,24 +812,32 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
   }
 
   // Determine winning scenario (based on resultadoPorHectareAno)
-  const winningScenario = [scenarioA, scenarioB, scenarioC].reduce((prev, curr) => 
-    curr.results.resultadoPorHectareAno > prev.results.resultadoPorHectareAno ? curr : prev
+  const winningScenario = [scenarioA, scenarioB, scenarioC].reduce((prev, curr) =>
+    curr.results.resultadoPorHectareAno > prev.results.resultadoPorHectareAno ? curr : prev,
   );
 
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: 'a4'
+    format: 'a4',
   });
 
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
   const margin = 10;
-  const contentWidth = pageWidth - (margin * 2);
+  const contentWidth = pageWidth - margin * 2;
   let yPos = margin;
 
   // Helper functions
-  const addText = (text: string, x: number, y: number, fontSize: number = 10, isBold: boolean = false, maxWidth?: number, align: 'left' | 'center' | 'right' = 'left') => {
+  const addText = (
+    text: string,
+    x: number,
+    y: number,
+    fontSize: number = 10,
+    isBold: boolean = false,
+    maxWidth?: number,
+    align: 'left' | 'center' | 'right' = 'left',
+  ) => {
     doc.setFontSize(fontSize);
     doc.setFont('helvetica', isBold ? 'bold' : 'normal');
     if (maxWidth) {
@@ -763,7 +859,15 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
   };
 
   // 1. Header
-  addText('Calculadora de Resultado Pecuário - Análise de Cenários', pageWidth / 2, yPos, 14, true, contentWidth, 'center');
+  addText(
+    'Calculadora de Resultado Pecuário - Análise de Cenários',
+    pageWidth / 2,
+    yPos,
+    14,
+    true,
+    contentWidth,
+    'center',
+  );
   yPos += 8;
 
   if (userName) {
@@ -771,9 +875,21 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
     yPos += 5;
   }
 
-  const dateStr = createdAt 
-    ? new Date(createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-    : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const dateStr = createdAt
+    ? new Date(createdAt).toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : new Date().toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
   addText(`Data: ${dateStr}`, margin, yPos, 10);
   yPos += 8;
 
@@ -795,32 +911,30 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
   // Calculate percentage increase compared to base scenario (A)
   const baseValue = scenarioA.results.resultadoPorHectareAno;
   const winningValue = winningScenario.results.resultadoPorHectareAno;
-  const percentIncrease = baseValue > 0 
-    ? ((winningValue / baseValue - 1) * 100).toFixed(0)
-    : '0';
+  const percentIncrease = baseValue > 0 ? ((winningValue / baseValue - 1) * 100).toFixed(0) : '0';
 
   const winningCards = [
-    { 
-      label: 'LUCRO/HA', 
+    {
+      label: 'LUCRO/HA',
       value: formatCurrency(winningScenario.results.resultadoPorHectareAno),
-      subValue: `+${percentIncrease}%`
+      subValue: `+${percentIncrease}%`,
     },
-    { 
-      label: 'MARGEM LÍQUIDA', 
-      value: formatPercent(winningScenario.results.margemVenda)
+    {
+      label: 'MARGEM LÍQUIDA',
+      value: formatPercent(winningScenario.results.margemVenda),
     },
-    { 
-      label: 'ROI MENSAL', 
-      value: formatPercent(winningScenario.results.resultadoMensal)
+    {
+      label: 'ROI MENSAL',
+      value: formatPercent(winningScenario.results.resultadoMensal),
     },
-    { 
-      label: 'GMD (GANHO)', 
-      value: `${winningScenario.inputs.gmd.toFixed(2)} kg/dia`
-    }
+    {
+      label: 'GMD (GANHO)',
+      value: `${winningScenario.inputs.gmd.toFixed(2)} kg/dia`,
+    },
   ];
 
   winningCards.forEach((card, index) => {
-    const x = margin + (index * (cardWidth + cardSpacing));
+    const x = margin + index * (cardWidth + cardSpacing);
     const y = yPos;
 
     // Card background
@@ -830,17 +944,17 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
 
     // Label - centered
     addText(card.label, x + cardWidth / 2, y + 7, 8, false, cardWidth - 6, 'center');
-    
+
     // Value - centered and larger
     doc.setTextColor(34, 139, 34);
     addText(card.value, x + cardWidth / 2, y + 16, 11, true, cardWidth - 6, 'center');
-    
+
     // Sub value (if exists) - centered
     if (card.subValue) {
       doc.setTextColor(0, 100, 0);
       addText(card.subValue, x + cardWidth / 2, y + 23, 8, false, cardWidth - 6, 'center');
     }
-    
+
     doc.setTextColor(0, 0, 0);
   });
 
@@ -867,27 +981,27 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
   doc.rect(margin, tableStartY, colWidth, headerHeight);
   doc.setTextColor(0, 0, 0);
   addText('ITEM', margin + colWidth / 2, tableStartY + 7, 8, true, colWidth - 4, 'center');
-  
+
   doc.setFillColor(240, 240, 240);
   doc.rect(margin + colWidth, tableStartY, colWidth, headerHeight, 'F');
   doc.setDrawColor(200, 200, 200);
   doc.rect(margin + colWidth, tableStartY, colWidth, headerHeight);
   doc.setTextColor(0, 0, 0);
   addText(scenarioA.name, margin + colWidth + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
-  
+
   doc.setFillColor(240, 240, 240);
-  doc.rect(margin + (colWidth * 2), tableStartY, colWidth, headerHeight, 'F');
+  doc.rect(margin + colWidth * 2, tableStartY, colWidth, headerHeight, 'F');
   doc.setDrawColor(200, 200, 200);
-  doc.rect(margin + (colWidth * 2), tableStartY, colWidth, headerHeight);
+  doc.rect(margin + colWidth * 2, tableStartY, colWidth, headerHeight);
   doc.setTextColor(0, 0, 0);
-  addText(scenarioB.name, margin + (colWidth * 2) + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
-  
+  addText(scenarioB.name, margin + colWidth * 2 + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
+
   doc.setFillColor(240, 240, 240);
-  doc.rect(margin + (colWidth * 3), tableStartY, colWidth, headerHeight, 'F');
+  doc.rect(margin + colWidth * 3, tableStartY, colWidth, headerHeight, 'F');
   doc.setDrawColor(200, 200, 200);
-  doc.rect(margin + (colWidth * 3), tableStartY, colWidth, headerHeight);
+  doc.rect(margin + colWidth * 3, tableStartY, colWidth, headerHeight);
   doc.setTextColor(0, 0, 0);
-  addText(scenarioC.name, margin + (colWidth * 3) + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
+  addText(scenarioC.name, margin + colWidth * 3 + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
 
   yPos = tableStartY + headerHeight;
 
@@ -900,7 +1014,7 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
     { label: 'Valor Venda (R$/@)', getValue: (s: ComparatorScenario) => `${s.inputs.valorVenda}` },
     { label: 'GMD (kg/dia)', getValue: (s: ComparatorScenario) => s.inputs.gmd.toFixed(2) },
     { label: 'Desembolso/Mês (R$)', getValue: (s: ComparatorScenario) => `${s.inputs.custoMensal}` },
-    { label: 'Lotação (UA/ha)', getValue: (s: ComparatorScenario) => s.inputs.lotacao.toFixed(2) }
+    { label: 'Lotação (UA/ha)', getValue: (s: ComparatorScenario) => s.inputs.lotacao.toFixed(2) },
   ];
 
   // Results rows
@@ -908,7 +1022,10 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
     { label: 'Lucro/Boi (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorBoi) },
     { label: 'Retorno Mensal (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.resultadoMensal) },
     { label: 'Margem Líquida (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.margemVenda) },
-    { label: 'Resultado/Ha (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorHectareAno) }
+    {
+      label: 'Resultado/Ha (R$)',
+      getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorHectareAno),
+    },
   ];
 
   // Draw premises table
@@ -938,17 +1055,33 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
 
     // Scenario B - with background
     doc.setFillColor(255, 255, 255);
-    doc.rect(margin + (colWidth * 2), rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin + (colWidth * 2), rowY, colWidth, rowHeight);
+    doc.rect(margin + colWidth * 2, rowY, colWidth, rowHeight, 'F');
+    doc.rect(margin + colWidth * 2, rowY, colWidth, rowHeight);
     doc.setTextColor(0, 0, 0);
-    addText(item.getValue(scenarioB), margin + (colWidth * 2) + colWidth / 2, rowY + 4.5, 7, true, colWidth - 4, 'center');
+    addText(
+      item.getValue(scenarioB),
+      margin + colWidth * 2 + colWidth / 2,
+      rowY + 4.5,
+      7,
+      true,
+      colWidth - 4,
+      'center',
+    );
 
     // Scenario C - with background
     doc.setFillColor(255, 255, 255);
-    doc.rect(margin + (colWidth * 3), rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin + (colWidth * 3), rowY, colWidth, rowHeight);
+    doc.rect(margin + colWidth * 3, rowY, colWidth, rowHeight, 'F');
+    doc.rect(margin + colWidth * 3, rowY, colWidth, rowHeight);
     doc.setTextColor(0, 0, 0);
-    addText(item.getValue(scenarioC), margin + (colWidth * 3) + colWidth / 2, rowY + 4.5, 7, true, colWidth - 4, 'center');
+    addText(
+      item.getValue(scenarioC),
+      margin + colWidth * 3 + colWidth / 2,
+      rowY + 4.5,
+      7,
+      true,
+      colWidth - 4,
+      'center',
+    );
 
     yPos += rowHeight;
   });
@@ -961,30 +1094,46 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
   const chartSpacing = 8;
 
   const charts = [
-    { 
-      title: 'MARGEM LÍQUIDA (%)', 
+    {
+      title: 'MARGEM LÍQUIDA (%)',
       getValue: (s: ComparatorScenario) => s.results.margemVenda,
       format: (v: number) => formatPercent(v),
-      maxValue: Math.max(scenarioA.results.margemVenda, scenarioB.results.margemVenda, scenarioC.results.margemVenda) * 1.1
+      maxValue:
+        Math.max(scenarioA.results.margemVenda, scenarioB.results.margemVenda, scenarioC.results.margemVenda) * 1.1,
     },
-    { 
-      title: 'RESULTADO POR HECTARE (R$)', 
+    {
+      title: 'RESULTADO POR HECTARE (R$)',
       getValue: (s: ComparatorScenario) => s.results.resultadoPorHectareAno,
       format: (v: number) => formatCurrency(v),
-      maxValue: Math.max(scenarioA.results.resultadoPorHectareAno, scenarioB.results.resultadoPorHectareAno, scenarioC.results.resultadoPorHectareAno) * 1.1
+      maxValue:
+        Math.max(
+          scenarioA.results.resultadoPorHectareAno,
+          scenarioB.results.resultadoPorHectareAno,
+          scenarioC.results.resultadoPorHectareAno,
+        ) * 1.1,
     },
-    { 
-      title: 'LUCRO POR BOI (R$)', 
+    {
+      title: 'LUCRO POR BOI (R$)',
       getValue: (s: ComparatorScenario) => s.results.resultadoPorBoi,
       format: (v: number) => formatCurrency(v),
-      maxValue: Math.max(scenarioA.results.resultadoPorBoi, scenarioB.results.resultadoPorBoi, scenarioC.results.resultadoPorBoi) * 1.1
+      maxValue:
+        Math.max(
+          scenarioA.results.resultadoPorBoi,
+          scenarioB.results.resultadoPorBoi,
+          scenarioC.results.resultadoPorBoi,
+        ) * 1.1,
     },
-    { 
-      title: 'RETORNO MENSAL (%)', 
+    {
+      title: 'RETORNO MENSAL (%)',
       getValue: (s: ComparatorScenario) => s.results.resultadoMensal,
       format: (v: number) => formatPercent(v),
-      maxValue: Math.max(scenarioA.results.resultadoMensal, scenarioB.results.resultadoMensal, scenarioC.results.resultadoMensal) * 1.1
-    }
+      maxValue:
+        Math.max(
+          scenarioA.results.resultadoMensal,
+          scenarioB.results.resultadoMensal,
+          scenarioC.results.resultadoMensal,
+        ) * 1.1,
+    },
   ];
 
   // Draw charts in 2x2 grid
@@ -1001,7 +1150,7 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
   charts.forEach((chart, chartIndex) => {
     const isSecondRow = chartIndex >= 2;
     const chartY = isSecondRow ? secondRowY : firstRowY;
-    const chartX = margin + ((chartIndex % 2) * (chartWidth + chartSpacing));
+    const chartX = margin + (chartIndex % 2) * (chartWidth + chartSpacing);
 
     // Chart title
     addText(chart.title, chartX + chartWidth / 2, chartY, 8, true, chartWidth, 'center');
@@ -1018,11 +1167,11 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
     // Y-axis with intermediate values - closer to the chart
     const yAxisX = chartAreaX - 2; // Very close to the chart
     const numYLabels = 5; // 0, 25%, 50%, 75%, 100%
-    
+
     for (let i = 0; i <= numYLabels; i++) {
       const ratio = i / numYLabels;
       const value = chart.maxValue * ratio;
-      const labelY = chartAreaY + chartAreaHeight - (ratio * chartAreaHeight);
+      const labelY = chartAreaY + chartAreaHeight - ratio * chartAreaHeight;
       const valueStr = i === 0 ? '0' : chart.format(value);
       addText(valueStr, yAxisX, labelY + 1.5, 5, false, 12, 'right');
     }
@@ -1034,12 +1183,16 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
 
     // Bars
     const chartScenarios = [scenarioA, scenarioB, scenarioC];
-    const colors = [[59, 130, 246], [34, 197, 94], [249, 115, 22]]; // Blue, Green, Orange
+    const colors = [
+      [59, 130, 246],
+      [34, 197, 94],
+      [249, 115, 22],
+    ]; // Blue, Green, Orange
 
     chartScenarios.forEach((scenario, barIndex) => {
       const value = chart.getValue(scenario);
       const barHeight = (value / chart.maxValue) * chartAreaHeight;
-      const barX = chartAreaX + 2 + (barIndex * (barWidth + barSpacing));
+      const barX = chartAreaX + 2 + barIndex * (barWidth + barSpacing);
       const barY = chartAreaY + chartAreaHeight - barHeight;
 
       // Draw bar
@@ -1056,17 +1209,17 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
     doc.setDrawColor(150, 150, 150);
     doc.setLineWidth(0.3);
     const xAxisStartX = chartAreaX + 2;
-    const xAxisEndX = xAxisStartX + (3 * (barWidth + barSpacing)) - barSpacing;
+    const xAxisEndX = xAxisStartX + 3 * (barWidth + barSpacing) - barSpacing;
     doc.line(xAxisStartX, chartAreaY + chartAreaHeight, xAxisEndX, chartAreaY + chartAreaHeight);
 
     // X-axis labels - scenario names only (values are shown above bars)
     chartScenarios.forEach((scenario, barIndex) => {
-      const barX = chartAreaX + 2 + (barIndex * (barWidth + barSpacing));
-      
-      const scenarioLabel = scenario.name.includes('(') 
+      const barX = chartAreaX + 2 + barIndex * (barWidth + barSpacing);
+
+      const scenarioLabel = scenario.name.includes('(')
         ? scenario.name.split('(')[1]?.replace(')', '') || scenario.id
         : scenario.name.split(' ')[1] || scenario.id;
-      
+
       // Show scenario name below x-axis line
       const labelY = chartAreaY + chartAreaHeight + 5;
       addText(scenarioLabel, barX + barWidth / 2, labelY, 5, false, barWidth, 'center');
@@ -1082,4 +1235,3 @@ export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
   // Return PDF as base64 string
   return doc.output('datauristring').split(',')[1]; // Remove data:application/pdf;base64, prefix
 }
-

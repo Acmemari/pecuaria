@@ -42,6 +42,7 @@ O Supabase fornece as seguintes variáveis que podem ser usadas no template:
 - `{{ .Token }}` - Token de recuperação (geralmente não necessário, pois já está na URL)
 
 **Exemplo de uso:**
+
 ```html
 <a href="{{ .ConfirmationURL }}">Redefinir Senha</a>
 ```
@@ -171,4 +172,3 @@ Após configurar:
 2. Configure URLs de produção no Supabase
 3. Teste em produção
 4. Monitore logs de autenticação no Supabase Dashboard
-

@@ -2,11 +2,7 @@ import type { AIProvider } from '../../ai/types.js';
 import { safeJsonParseWithRepair } from '../../ai/json-repair.js';
 import { helloOutputSchema, type HelloInput, type HelloOutput } from './manifest.js';
 
-export async function runHelloAgent(args: {
-  input: HelloInput;
-  provider: AIProvider;
-  model: string;
-}): Promise<{
+export async function runHelloAgent(args: { input: HelloInput; provider: AIProvider; model: string }): Promise<{
   data: HelloOutput;
   rawContent: string;
   usage: { inputTokens: number; outputTokens: number; totalTokens: number };
@@ -42,4 +38,3 @@ export async function runHelloAgent(args: {
     latencyMs: response.latencyMs,
   };
 }
-

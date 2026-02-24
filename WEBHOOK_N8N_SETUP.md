@@ -5,6 +5,7 @@
 O chat "Pergunte p/ Antonio" agora utiliza o webhook n8n para processar mensagens.
 
 ### Webhook URL
+
 ```
 https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 ```
@@ -22,6 +23,7 @@ N8N_WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 ```
 
 **Como fazer:**
+
 1. Acesse [Vercel Dashboard](https://vercel.com/dashboard)
 2. Selecione seu projeto
 3. Vá em **Settings** → **Environment Variables**
@@ -73,6 +75,7 @@ curl -X POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio \
 ```
 
 **Resposta esperada:**
+
 ```json
 {
   "answer": "GMD (Ganho Médio Diário)..."
@@ -90,11 +93,13 @@ curl -X POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio \
 ### 3. Verifique os Logs
 
 **Vercel:**
+
 - Acesse **Deployments** → selecione o deploy → **Functions**
 - Clique na função `/api/ask-assistant`
 - Veja os logs de execução
 
 **n8n:**
+
 - Acesse o painel do n8n
 - Veja as execuções do workflow "fala-antonio"
 
@@ -121,6 +126,7 @@ curl -X POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio \
 ```
 
 **Formatos alternativos suportados:**
+
 - `{ "response": "..." }`
 - `{ "message": "..." }`
 - `{ "text": "..." }`
@@ -134,6 +140,7 @@ curl -X POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio \
 **Causa:** Variável `N8N_WEBHOOK_URL` não configurada
 
 **Solução:**
+
 1. Configure a variável no Vercel (veja passo 1)
 2. Faça um redeploy
 
@@ -142,6 +149,7 @@ curl -X POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio \
 **Causa:** Webhook não respondeu em 60 segundos
 
 **Solução:**
+
 1. Verifique se o n8n está online
 2. Otimize o workflow no n8n
 3. Considere aumentar o timeout (edite `api/ask-assistant.ts`)
@@ -151,6 +159,7 @@ curl -X POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio \
 **Causa:** Webhook retornou erro (4xx/5xx)
 
 **Solução:**
+
 1. Verifique logs do n8n
 2. Teste o webhook diretamente (curl)
 3. Verifique formato da resposta
@@ -160,6 +169,7 @@ curl -X POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio \
 **Causa:** Erro de conexão com o webhook
 
 **Solução:**
+
 1. Verifique se o webhook está acessível
 2. Teste com `curl` ou Postman
 3. Verifique firewall/DNS
@@ -168,15 +178,15 @@ curl -X POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio \
 
 ## 📁 Arquivos Modificados
 
-| Arquivo | Mudança |
-|---------|---------|
-| `api/ask-assistant.ts` | Refatorado para chamar webhook n8n |
-| `docs/ENVIRONMENT.md` | Atualizada documentação de variáveis |
-| `README.md` | Atualizada seção de integração |
-| `CHANGELOG.md` | Adicionadas mudanças da versão |
-| `ANALISE_PROJETO.md` | Atualizada arquitetura do chat |
-| `docs/N8N_WEBHOOK_INTEGRATION.md` | **NOVO** - Documentação completa |
-| `WEBHOOK_N8N_SETUP.md` | **NOVO** - Guia rápido de setup |
+| Arquivo                           | Mudança                              |
+| --------------------------------- | ------------------------------------ |
+| `api/ask-assistant.ts`            | Refatorado para chamar webhook n8n   |
+| `docs/ENVIRONMENT.md`             | Atualizada documentação de variáveis |
+| `README.md`                       | Atualizada seção de integração       |
+| `CHANGELOG.md`                    | Adicionadas mudanças da versão       |
+| `ANALISE_PROJETO.md`              | Atualizada arquitetura do chat       |
+| `docs/N8N_WEBHOOK_INTEGRATION.md` | **NOVO** - Documentação completa     |
+| `WEBHOOK_N8N_SETUP.md`            | **NOVO** - Guia rápido de setup      |
 
 ---
 
@@ -193,6 +203,7 @@ curl -X POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio \
 ## 📞 Suporte
 
 **Problemas com:**
+
 - Frontend/Backend: Verifique logs do Vercel
 - n8n: Acesse painel do n8n
 - Configuração: Revise `docs/ENVIRONMENT.md`
@@ -202,4 +213,3 @@ curl -X POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio \
 
 **Criado em:** 2025-01-27  
 **Status:** ✅ Pronto para produção
-

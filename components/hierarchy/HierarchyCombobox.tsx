@@ -121,12 +121,12 @@ function HierarchyCombobox<T>({
     if (!isOpen) return;
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setActiveIndex((prev) => Math.min(prev + 1, items.length - 1));
+      setActiveIndex(prev => Math.min(prev + 1, items.length - 1));
       return;
     }
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActiveIndex((prev) => Math.max(prev - 1, 0));
+      setActiveIndex(prev => Math.max(prev - 1, 0));
       return;
     }
     if (event.key === 'Enter' && activeItem) {
@@ -147,7 +147,7 @@ function HierarchyCombobox<T>({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setIsOpen((prev) => !prev)}
+        onClick={() => !disabled && setIsOpen(prev => !prev)}
         onKeyDown={handleKeyDown}
         className={`flex items-center gap-2 px-3 py-1.5 bg-ai-surface2 border border-ai-border rounded-md text-sm text-ai-text transition-colors min-w-[200px] ${
           disabled ? 'opacity-60 cursor-not-allowed' : 'hover:bg-ai-surface3'
@@ -170,7 +170,7 @@ function HierarchyCombobox<T>({
               <Search className="w-4 h-4 text-ai-subtext absolute left-2 top-1/2 -translate-y-1/2" />
               <input
                 value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
+                onChange={event => setSearchTerm(event.target.value)}
                 onKeyDown={handleKeyDown}
                 className="w-full pl-8 pr-2 py-2 rounded border border-ai-border text-sm focus:outline-none focus:ring-1 focus:ring-ai-accent"
                 placeholder={`Buscar ${label.toLowerCase()}...`}
@@ -180,15 +180,9 @@ function HierarchyCombobox<T>({
           </div>
 
           <div ref={listRef} onScroll={handleScroll} className="max-h-80 overflow-y-auto py-1">
-            {error && (
-              <div className="px-3 py-2 text-xs text-red-600">
-                {error}
-              </div>
-            )}
+            {error && <div className="px-3 py-2 text-xs text-red-600">{error}</div>}
             {!error && items.length === 0 && !isLoading && (
-              <div className="px-3 py-4 text-center text-xs text-ai-subtext">
-                {emptyLabel}
-              </div>
+              <div className="px-3 py-4 text-center text-xs text-ai-subtext">{emptyLabel}</div>
             )}
             {items.map((item, index) => {
               const itemId = getItemId(item);

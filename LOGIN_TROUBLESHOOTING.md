@@ -37,6 +37,7 @@
 ### Como Testar
 
 1. **Login com Email/Senha:**
+
    ```javascript
    // O login deve:
    // 1. Autenticar no Supabase
@@ -62,20 +63,26 @@
 ### Problemas Comuns
 
 #### 1. Perfil não é criado automaticamente
+
 **Solução:** Verifique se o trigger está ativo:
+
 ```sql
-SELECT * FROM information_schema.triggers 
+SELECT * FROM information_schema.triggers
 WHERE trigger_name = 'on_auth_user_created';
 ```
 
 #### 2. Erro "Profile not found"
+
 **Solução:** O código agora tenta múltiplas vezes. Se persistir:
+
 - Verifique se a função `handle_new_user()` tem permissões corretas
 - Confirme que o schema `public` está acessível
 - Verifique os logs do Supabase em Database > Logs
 
 #### 3. Redirecionamento não acontece
-**Solução:** 
+
+**Solução:**
+
 - O App component verifica `if (!user)` e mostra LoginPage
 - Quando `user` é definido, automaticamente mostra o dashboard
 - Não há redirecionamento explícito - é baseado em estado React
@@ -102,4 +109,3 @@ Se o problema persistir:
 2. Verifique os logs do Supabase (Database > Logs)
 3. Teste criar um usuário manualmente no Supabase Dashboard
 4. Verifique se o perfil é criado quando você faz login manualmente
-

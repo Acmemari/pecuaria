@@ -40,7 +40,7 @@ import {
   Plus,
   Edit,
   Search,
-  FileCheck
+  FileCheck,
 } from 'lucide-react';
 
 interface SettingsPageProps {
@@ -69,19 +69,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     name: user.name || '',
     email: user.email || '',
     phone: '',
-    avatar: user.avatar || user.name?.charAt(0).toUpperCase() || 'U'
+    avatar: user.avatar || user.name?.charAt(0).toUpperCase() || 'U',
   });
 
   // Account state
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
   const [showPasswords, setShowPasswords] = useState({
     current: false,
     new: false,
-    confirm: false
+    confirm: false,
   });
   const [emailVerified, setEmailVerified] = useState(false);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
@@ -102,7 +102,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     zip_code: '',
     description: '',
     plan: 'basic' as 'basic' | 'pro' | 'enterprise',
-    status: 'active' as 'active' | 'inactive' | 'pending'
+    status: 'active' as 'active' | 'inactive' | 'pending',
   });
 
   // Appearance state
@@ -110,13 +110,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     theme: 'system' as 'light' | 'dark' | 'system',
     language: 'pt-BR',
     dateFormat: 'DD/MM/YYYY',
-    currency: 'BRL'
+    currency: 'BRL',
   });
 
   // Privacy state
   const [privacy, setPrivacy] = useState({
     profileVisibility: 'private',
-    dataSharing: false
+    dataSharing: false,
   });
 
   // Questions state (apenas para admin)
@@ -130,7 +130,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     group: '',
     question: '',
     positiveAnswer: 'Sim' as 'Sim' | 'Não',
-    applicableTypes: [] as ('Cria' | 'Recria-Engorda' | 'Ciclo Completo')[]
+    applicableTypes: [] as ('Cria' | 'Recria-Engorda' | 'Ciclo Completo')[],
   });
 
   // Filtros na listagem de perguntas (apenas visualização; não altera ordem de preenchimento)
@@ -139,25 +139,33 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
 
   // Estrutura de categorias e grupos
   const categoriesAndGroups = {
-    'Gente': ['Liderança', 'Valores', 'Autonomia', 'Domínio', 'Propósito'],
-    'Gestão': ['Projeto', 'Execução', 'Gerenciamento'],
-    'Produção': ['Cuidados com Solo', 'Manejo de Pastagens', 'Estratégia de Entressafra', 'Layout', 'Suplementação de Precisão', 'Genética Melhoradora', 'Reprodução', 'Sanidade Forte', 'Bem estar animal']
+    Gente: ['Liderança', 'Valores', 'Autonomia', 'Domínio', 'Propósito'],
+    Gestão: ['Projeto', 'Execução', 'Gerenciamento'],
+    Produção: [
+      'Cuidados com Solo',
+      'Manejo de Pastagens',
+      'Estratégia de Entressafra',
+      'Layout',
+      'Suplementação de Precisão',
+      'Genética Melhoradora',
+      'Reprodução',
+      'Sanidade Forte',
+      'Bem estar animal',
+    ],
   };
 
   // Perguntas filtradas por categoria/grupo (só na gestão; preenchimento continua randomizado)
   const filteredQuestionsForList = useMemo(() => {
     return questions.filter(
-      (q) =>
+      q =>
         (!filterQuestionCategory || q.category === filterQuestionCategory) &&
-        (!filterQuestionGroup || q.group === filterQuestionGroup)
+        (!filterQuestionGroup || q.group === filterQuestionGroup),
     );
   }, [questions, filterQuestionCategory, filterQuestionGroup]);
 
   const filterGroupOptions = useMemo(() => {
-    const subset = filterQuestionCategory
-      ? questions.filter((q) => q.category === filterQuestionCategory)
-      : questions;
-    const groups = [...new Set(subset.map((q) => q.group).filter(Boolean))].sort();
+    const subset = filterQuestionCategory ? questions.filter(q => q.category === filterQuestionCategory) : questions;
+    const groups = [...new Set(subset.map(q => q.group).filter(Boolean))].sort();
     return groups;
   }, [questions, filterQuestionCategory]);
 
@@ -168,13 +176,17 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     { id: 'appearance', label: 'Aparência', icon: <Palette size={18} /> },
     { id: 'privacy', label: 'Privacidade', icon: <Shield size={18} /> },
     { id: 'support', label: 'Suporte', icon: <HelpCircle size={18} /> },
-    ...(user.role === 'admin' ? [{ id: 'questionnaires' as TabId, label: 'Questionários', icon: <FileCheck size={18} /> }] : [])
+    ...(user.role === 'admin'
+      ? [{ id: 'questionnaires' as TabId, label: 'Questionários', icon: <FileCheck size={18} /> }]
+      : []),
   ];
 
   useEffect(() => {
     // Check email verification status
     const checkEmailVerification = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
       if (authUser) {
         setEmailVerified(authUser.email_confirmed_at !== null);
       }
@@ -183,12 +195,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
 
     // Load user profile data
     loadUserProfile();
-    
+
     // Load companies if on company tab
     if (activeTab === 'company') {
       loadCompanies();
     }
-    
+
     // Load questions if on questionnaires tab
     if (activeTab === 'questionnaires' && user.role === 'admin') {
       loadQuestions();
@@ -203,7 +215,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     positiveAnswer: row.positive_answer,
     applicableTypes: row.applicable_types || [],
     created_at: row.created_at,
-    updated_at: row.updated_at
+    updated_at: row.updated_at,
   });
 
   const loadQuestions = async () => {
@@ -257,7 +269,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
             question: questionForm.question,
             positive_answer: questionForm.positiveAnswer,
             applicable_types: questionForm.applicableTypes,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
           .eq('id', editingQuestion.id);
 
@@ -271,7 +283,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
             group: questionForm.group,
             question: questionForm.question,
             positive_answer: questionForm.positiveAnswer,
-            applicable_types: questionForm.applicableTypes
+            applicable_types: questionForm.applicableTypes,
           })
           .select()
           .single();
@@ -288,7 +300,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         group: '',
         question: '',
         positiveAnswer: 'Sim' as 'Sim' | 'Não',
-        applicableTypes: []
+        applicableTypes: [],
       });
     } catch (error) {
       console.error('Erro ao salvar pergunta:', error);
@@ -299,10 +311,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const handleDeleteQuestion = async (questionId: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta pergunta?')) {
       try {
-        const { error } = await supabase
-          .from('questionnaire_questions')
-          .delete()
-          .eq('id', questionId);
+        const { error } = await supabase.from('questionnaire_questions').delete().eq('id', questionId);
 
         if (error) throw error;
         setQuestions(questions.filter(q => q.id !== questionId));
@@ -319,17 +328,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       ...prev,
       applicableTypes: prev.applicableTypes.includes(type)
         ? prev.applicableTypes.filter(t => t !== type)
-        : [...prev.applicableTypes, type]
+        : [...prev.applicableTypes, type],
     }));
   };
 
   const loadUserProfile = async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+      const { data, error } = await supabase.from('user_profiles').select('*').eq('id', user.id).maybeSingle();
 
       // If profile is missing, try creating it once and keep UI defaults.
       if (!data && !error) {
@@ -341,7 +346,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           name: data.name || user.name || '',
           email: data.email || user.email || '',
           phone: data.phone || '',
-          avatar: data.avatar || user.avatar || user.name?.charAt(0).toUpperCase() || 'U'
+          avatar: data.avatar || user.avatar || user.name?.charAt(0).toUpperCase() || 'U',
         });
       }
     } catch (error) {
@@ -374,7 +379,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           name: trimmedName,
           phone: profileData.phone || null,
           avatar: profileData.avatar,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', user.id)
         .select('id')
@@ -395,7 +400,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
             name: trimmedName,
             phone: profileData.phone || null,
             avatar: profileData.avatar,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
           .eq('id', user.id)
           .select('id')
@@ -414,8 +419,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         data: {
           name: trimmedName,
           full_name: trimmedName,
-          avatar: profileData.avatar
-        }
+          avatar: profileData.avatar,
+        },
       };
 
       // Keep auth metadata in sync to avoid stale name after reload/login.
@@ -430,7 +435,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       setProfileData(prev => ({
         ...prev,
         name: trimmedName,
-        email: trimmedEmail
+        email: trimmedEmail,
       }));
       onToast('Perfil atualizado com sucesso!', 'success');
       setHasUnsavedChanges(false);
@@ -456,7 +461,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     setIsSaving(true);
     try {
       const { error } = await supabase.auth.updateUser({
-        password: passwordData.newPassword
+        password: passwordData.newPassword,
       });
 
       if (error) throw error;
@@ -465,7 +470,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       setPasswordData({
         currentPassword: '',
         newPassword: '',
-        confirmPassword: ''
+        confirmPassword: '',
       });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Erro ao alterar senha';
@@ -494,7 +499,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         onLogout();
       }, 1500);
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Erro ao excluir conta. Tente novamente ou entre em contato com o suporte.';
+      const msg =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao excluir conta. Tente novamente ou entre em contato com o suporte.';
       onToast(msg, 'error');
       setIsSaving(false);
       setShowDeleteConfirm(false);
@@ -507,14 +515,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       const [profileData, messagesData, scenariosData] = await Promise.all([
         supabase.from('user_profiles').select('*').eq('id', user.id).single(),
         supabase.from('chat_messages').select('*').eq('user_id', user.id),
-        supabase.from('cattle_scenarios').select('*').eq('user_id', user.id)
+        supabase.from('cattle_scenarios').select('*').eq('user_id', user.id),
       ]);
 
       const exportData = {
         profile: profileData.data,
         messages: messagesData.data,
         scenarios: scenariosData.data,
-        exportedAt: new Date().toISOString()
+        exportedAt: new Date().toISOString(),
       };
 
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -562,7 +570,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           <input
             type="text"
             value={profileData.name}
-            onChange={(e) => handleProfileChange('name', e.target.value)}
+            onChange={e => handleProfileChange('name', e.target.value)}
             className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
             placeholder="Seu nome completo"
           />
@@ -575,7 +583,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
             <input
               type="email"
               value={profileData.email}
-              onChange={(e) => handleProfileChange('email', e.target.value)}
+              onChange={e => handleProfileChange('email', e.target.value)}
               className="flex-1 px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
               placeholder="seu@email.com"
             />
@@ -594,7 +602,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           <input
             type="tel"
             value={profileData.phone}
-            onChange={(e) => handleProfileChange('phone', e.target.value)}
+            onChange={e => handleProfileChange('phone', e.target.value)}
             className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
             placeholder="(00) 00000-0000"
           />
@@ -625,7 +633,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
               <input
                 type={showPasswords.current ? 'text' : 'password'}
                 value={passwordData.currentPassword}
-                onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                onChange={e => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
                 className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent pr-10"
                 placeholder="Digite sua senha atual"
               />
@@ -644,7 +652,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
               <input
                 type={showPasswords.new ? 'text' : 'password'}
                 value={passwordData.newPassword}
-                onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                onChange={e => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
                 className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent pr-10"
                 placeholder="Digite sua nova senha"
               />
@@ -663,7 +671,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
               <input
                 type={showPasswords.confirm ? 'text' : 'password'}
                 value={passwordData.confirmPassword}
-                onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                onChange={e => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
                 className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent pr-10"
                 placeholder="Confirme sua nova senha"
               />
@@ -727,9 +735,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     setIsLoadingCompanies(true);
     try {
       // Admins can see all companies, regular users see only their own
-      let query = supabase
-        .from('organizations')
-        .select('*');
+      let query = supabase.from('organizations').select('*');
 
       if (user.role !== 'admin') {
         query = query.eq('owner_id', user.id);
@@ -738,17 +744,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       // Remove duplicates by name (case-insensitive) - keep the most recent one
       if (data && data.length > 0) {
         const uniqueCompanies = data.filter((company, index, self) => {
-          const firstIndex = self.findIndex((c) => 
-            c.name.toLowerCase().trim() === company.name.toLowerCase().trim()
-          );
+          const firstIndex = self.findIndex(c => c.name.toLowerCase().trim() === company.name.toLowerCase().trim());
           // Keep only the first occurrence (most recent due to order by created_at desc)
           return index === firstIndex;
         });
-        
+
         setCompanies(uniqueCompanies);
       } else {
         setCompanies([]);
@@ -798,16 +802,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     setIsSaving(true);
     try {
       const companyName = companyForm.name.trim();
-      
+
       // Check for duplicate name (case-insensitive) when creating new company
       if (!editingCompany) {
         const { data: existingCompanies, error: checkError } = await supabase
           .from('organizations')
           .select('id, name')
           .ilike('name', companyName);
-        
+
         if (checkError) throw checkError;
-        
+
         if (existingCompanies && existingCompanies.length > 0) {
           onToast('Já existe uma empresa com este nome', 'error');
           setIsSaving(false);
@@ -826,23 +830,18 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         plan: companyForm.plan,
         status: companyForm.status,
         owner_id: user.id,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       if (editingCompany) {
         // Update existing company
-        const { error } = await supabase
-          .from('organizations')
-          .update(companyData)
-          .eq('id', editingCompany.id);
+        const { error } = await supabase.from('organizations').update(companyData).eq('id', editingCompany.id);
 
         if (error) throw error;
         onToast('Empresa atualizada com sucesso!', 'success');
       } else {
         // Create new company
-        const { error } = await supabase
-          .from('organizations')
-          .insert(companyData);
+        const { error } = await supabase.from('organizations').insert(companyData);
 
         if (error) throw error;
         onToast('Empresa cadastrada com sucesso!', 'success');
@@ -876,7 +875,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       zip_code: company.zip_code ? formatCEP(company.zip_code) : '',
       description: company.description || '',
       plan: company.plan || 'basic',
-      status: company.status || 'active'
+      status: company.status || 'active',
     });
     setShowCompanyForm(true);
   };
@@ -894,10 +893,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
 
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('organizations')
-        .delete()
-        .eq('id', companyId);
+      const { error } = await supabase.from('organizations').delete().eq('id', companyId);
 
       if (error) throw error;
       onToast('Empresa excluída com sucesso!', 'success');
@@ -920,14 +916,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       zip_code: '',
       description: '',
       plan: 'basic',
-      status: 'active'
+      status: 'active',
     });
     setEditingCompany(null);
   };
 
-  const filteredCompanies = companies.filter(company =>
-    company.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCompanies = companies.filter(company => company.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const renderCompanyTab = () => (
     <div className="space-y-6">
@@ -968,19 +962,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
 
             <div className="space-y-4">
               {/* Name */}
-          <div>
+              <div>
                 <label className="block text-sm font-medium text-ai-text mb-2">
                   Nome da Empresa <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={companyForm.name}
-                  onChange={(e) => handleCompanyFormChange('name', e.target.value)}
+                  onChange={e => handleCompanyFormChange('name', e.target.value)}
                   className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                   placeholder="Nome da empresa"
                   required
                 />
-          </div>
+              </div>
 
               {/* Phone */}
               <div>
@@ -988,7 +982,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                 <input
                   type="text"
                   value={companyForm.phone}
-                  onChange={(e) => {
+                  onChange={e => {
                     const formatted = formatPhone(e.target.value);
                     handleCompanyFormChange('phone', formatted);
                   }}
@@ -1004,7 +998,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                 <input
                   type="text"
                   value={companyForm.address}
-                  onChange={(e) => handleCompanyFormChange('address', e.target.value)}
+                  onChange={e => handleCompanyFormChange('address', e.target.value)}
                   className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                   placeholder="Rua, número, complemento"
                 />
@@ -1017,7 +1011,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                   <input
                     type="text"
                     value={companyForm.city}
-                    onChange={(e) => handleCompanyFormChange('city', e.target.value)}
+                    onChange={e => handleCompanyFormChange('city', e.target.value)}
                     className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                     placeholder="Cidade"
                   />
@@ -1027,7 +1021,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                   <input
                     type="text"
                     value={companyForm.state}
-                    onChange={(e) => handleCompanyFormChange('state', e.target.value.toUpperCase())}
+                    onChange={e => handleCompanyFormChange('state', e.target.value.toUpperCase())}
                     className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                     placeholder="UF"
                     maxLength={2}
@@ -1040,7 +1034,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                 <input
                   type="text"
                   value={companyForm.zip_code}
-                  onChange={(e) => {
+                  onChange={e => {
                     const formatted = formatCEP(e.target.value);
                     handleCompanyFormChange('zip_code', formatted);
                   }}
@@ -1056,7 +1050,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                   <label className="block text-sm font-medium text-ai-text mb-2">Plano</label>
                   <select
                     value={companyForm.plan}
-                    onChange={(e) => handleCompanyFormChange('plan', e.target.value)}
+                    onChange={e => handleCompanyFormChange('plan', e.target.value)}
                     className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                   >
                     <option value="basic">Básico</option>
@@ -1068,7 +1062,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                   <label className="block text-sm font-medium text-ai-text mb-2">Status</label>
                   <select
                     value={companyForm.status}
-                    onChange={(e) => handleCompanyFormChange('status', e.target.value)}
+                    onChange={e => handleCompanyFormChange('status', e.target.value)}
                     className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                   >
                     <option value="active">Ativo</option>
@@ -1083,7 +1077,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                 <label className="block text-sm font-medium text-ai-text mb-2">Descrição</label>
                 <textarea
                   value={companyForm.description}
-                  onChange={(e) => handleCompanyFormChange('description', e.target.value)}
+                  onChange={e => handleCompanyFormChange('description', e.target.value)}
                   className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                   placeholder="Descrição da empresa ou atividade principal"
                   rows={3}
@@ -1092,7 +1086,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
             </div>
 
             <div className="flex gap-3 mt-6">
-          <button
+              <button
                 onClick={() => {
                   setShowCompanyForm(false);
                   resetCompanyForm();
@@ -1120,7 +1114,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         <input
           type="text"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={e => setSearchTerm(e.target.value)}
           className="w-full pl-10 pr-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
           placeholder="Buscar empresas por nome..."
         />
@@ -1131,9 +1125,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         <div className="text-center py-8 text-ai-subtext">Carregando empresas...</div>
       ) : filteredCompanies.length === 0 ? (
         <div className="text-center py-8 text-ai-subtext">
-          {searchTerm ? 'Nenhuma empresa encontrada' : user.role === 'admin' 
-            ? 'Nenhuma empresa cadastrada. Clique em "Nova Empresa" para começar.'
-            : 'Nenhuma empresa cadastrada.'}
+          {searchTerm
+            ? 'Nenhuma empresa encontrada'
+            : user.role === 'admin'
+              ? 'Nenhuma empresa cadastrada. Clique em "Nova Empresa" para começar.'
+              : 'Nenhuma empresa cadastrada.'}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -1147,27 +1143,37 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
               </tr>
             </thead>
             <tbody>
-              {filteredCompanies.map((company) => (
+              {filteredCompanies.map(company => (
                 <tr key={company.id} className="border-b border-ai-border hover:bg-ai-surface/50">
                   <td className="px-4 py-3 text-sm text-ai-text">{company.name}</td>
                   <td className="px-4 py-3 text-sm text-ai-subtext">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      company.plan === 'enterprise' ? 'bg-purple-100 text-purple-700' :
-                      company.plan === 'pro' ? 'bg-blue-100 text-blue-700' :
-                      'bg-gray-100 text-gray-700'
-                    }`}>
-                      {company.plan === 'enterprise' ? 'Enterprise' :
-                       company.plan === 'pro' ? 'Profissional' : 'Básico'}
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${
+                        company.plan === 'enterprise'
+                          ? 'bg-purple-100 text-purple-700'
+                          : company.plan === 'pro'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {company.plan === 'enterprise'
+                        ? 'Enterprise'
+                        : company.plan === 'pro'
+                          ? 'Profissional'
+                          : 'Básico'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-ai-subtext">
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      company.status === 'active' ? 'bg-green-100 text-green-700' :
-                      company.status === 'inactive' ? 'bg-red-100 text-red-700' :
-                      'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {company.status === 'active' ? 'Ativo' :
-                       company.status === 'inactive' ? 'Inativo' : 'Pendente'}
+                    <span
+                      className={`px-2 py-1 rounded text-xs ${
+                        company.status === 'active'
+                          ? 'bg-green-100 text-green-700'
+                          : company.status === 'inactive'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                      }`}
+                    >
+                      {company.status === 'active' ? 'Ativo' : company.status === 'inactive' ? 'Inativo' : 'Pendente'}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -1180,7 +1186,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                             title="Editar"
                           >
                             <Edit size={16} />
-          </button>
+                          </button>
                           <button
                             onClick={() => handleDeleteCompany(company.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -1190,10 +1196,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                           </button>
                         </>
                       )}
-        </div>
+                    </div>
                   </td>
                 </tr>
-      ))}
+              ))}
             </tbody>
           </table>
         </div>
@@ -1212,15 +1218,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           {[
             { value: 'light', label: 'Claro', icon: <Sun size={20} /> },
             { value: 'dark', label: 'Escuro', icon: <Moon size={20} /> },
-            { value: 'system', label: 'Automático', icon: <Monitor size={20} /> }
-          ].map((theme) => (
+            { value: 'system', label: 'Automático', icon: <Monitor size={20} /> },
+          ].map(theme => (
             <button
               key={theme.value}
               onClick={() => setAppearance(prev => ({ ...prev, theme: theme.value as any }))}
-              className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${appearance.theme === theme.value
-                ? 'border-ai-accent bg-ai-accent/10'
-                : 'border-ai-border bg-white hover:border-ai-subtext'
-                }`}
+              className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
+                appearance.theme === theme.value
+                  ? 'border-ai-accent bg-ai-accent/10'
+                  : 'border-ai-border bg-white hover:border-ai-subtext'
+              }`}
             >
               {theme.icon}
               <span className="text-sm font-medium text-ai-text">{theme.label}</span>
@@ -1234,7 +1241,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         <label className="block text-sm font-medium text-ai-text mb-2">Idioma</label>
         <select
           value={appearance.language}
-          onChange={(e) => setAppearance(prev => ({ ...prev, language: e.target.value }))}
+          onChange={e => setAppearance(prev => ({ ...prev, language: e.target.value }))}
           className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
         >
           <option value="pt-BR">Português (Brasil)</option>
@@ -1248,7 +1255,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         <label className="block text-sm font-medium text-ai-text mb-2">Formato de Data</label>
         <select
           value={appearance.dateFormat}
-          onChange={(e) => setAppearance(prev => ({ ...prev, dateFormat: e.target.value }))}
+          onChange={e => setAppearance(prev => ({ ...prev, dateFormat: e.target.value }))}
           className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
         >
           <option value="DD/MM/YYYY">DD/MM/YYYY</option>
@@ -1262,7 +1269,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         <label className="block text-sm font-medium text-ai-text mb-2">Moeda Padrão</label>
         <select
           value={appearance.currency}
-          onChange={(e) => setAppearance(prev => ({ ...prev, currency: e.target.value }))}
+          onChange={e => setAppearance(prev => ({ ...prev, currency: e.target.value }))}
           className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
         >
           <option value="BRL">R$ (Real Brasileiro)</option>
@@ -1282,7 +1289,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         <label className="block text-sm font-medium text-ai-text mb-2">Visibilidade do Perfil</label>
         <select
           value={privacy.profileVisibility}
-          onChange={(e) => setPrivacy(prev => ({ ...prev, profileVisibility: e.target.value }))}
+          onChange={e => setPrivacy(prev => ({ ...prev, profileVisibility: e.target.value }))}
           className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
         >
           <option value="private">Privado</option>
@@ -1299,12 +1306,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         </div>
         <button
           onClick={() => setPrivacy(prev => ({ ...prev, dataSharing: !prev.dataSharing }))}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${privacy.dataSharing ? 'bg-ai-accent' : 'bg-gray-300'
-            }`}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            privacy.dataSharing ? 'bg-ai-accent' : 'bg-gray-300'
+          }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${privacy.dataSharing ? 'translate-x-6' : 'translate-x-1'
-              }`}
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              privacy.dataSharing ? 'translate-x-6' : 'translate-x-1'
+            }`}
           />
         </button>
       </div>
@@ -1377,8 +1386,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           <Globe size={24} className="text-ai-accent mb-3" />
           <h4 className="font-medium text-ai-text mb-2">Documentação Legal</h4>
           <div className="space-y-2 mt-3">
-            <a href="#" className="text-sm text-ai-accent hover:underline block">Termos de Uso</a>
-            <a href="#" className="text-sm text-ai-accent hover:underline block">Política de Privacidade</a>
+            <a href="#" className="text-sm text-ai-accent hover:underline block">
+              Termos de Uso
+            </a>
+            <a href="#" className="text-sm text-ai-accent hover:underline block">
+              Política de Privacidade
+            </a>
           </div>
         </div>
       </div>
@@ -1472,12 +1485,30 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     const header = rows[0].map(h => h.trim());
     const pergIdx = header.findIndex(h => {
       const lower = h.toLowerCase().trim();
-      return lower === 'per' || lower === 'per.' || lower === 'perg' || lower === 'perg.' || (lower.startsWith('perg') && !lower.includes('pergunta'));
+      return (
+        lower === 'per' ||
+        lower === 'per.' ||
+        lower === 'perg' ||
+        lower === 'perg.' ||
+        (lower.startsWith('perg') && !lower.includes('pergunta'))
+      );
     });
-    const categoryIdx = header.findIndex(h => h.toLowerCase().includes('categoria') || h.toLowerCase().includes('category'));
+    const categoryIdx = header.findIndex(
+      h => h.toLowerCase().includes('categoria') || h.toLowerCase().includes('category'),
+    );
     const groupIdx = header.findIndex(h => h.toLowerCase().includes('grupo') || h.toLowerCase().includes('group'));
-    const questionIdx = header.findIndex(h => (h.toLowerCase().includes('pergunta') || h.toLowerCase().includes('question')) && !/^per\.?$/i.test(h.trim()) && !/^perg\.?$/i.test(h.trim()));
-    const positiveAnswerIdx = header.findIndex(h => h.toLowerCase().includes('resposta') || h.toLowerCase().includes('positive') || h.toLowerCase().includes('resp'));
+    const questionIdx = header.findIndex(
+      h =>
+        (h.toLowerCase().includes('pergunta') || h.toLowerCase().includes('question')) &&
+        !/^per\.?$/i.test(h.trim()) &&
+        !/^perg\.?$/i.test(h.trim()),
+    );
+    const positiveAnswerIdx = header.findIndex(
+      h =>
+        h.toLowerCase().includes('resposta') ||
+        h.toLowerCase().includes('positive') ||
+        h.toLowerCase().includes('resp'),
+    );
     const systemIdx = header.findIndex(h => h.toLowerCase().includes('sistema') || h.toLowerCase().includes('system'));
 
     if (categoryIdx === -1 || groupIdx === -1 || questionIdx === -1 || positiveAnswerIdx === -1 || systemIdx === -1) {
@@ -1497,7 +1528,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       const question = values[questionIdx]?.trim() || '';
       const positiveAnswerRaw = values[positiveAnswerIdx]?.trim() || '';
       const systemCode = values[systemIdx]?.trim() || '';
-      const pergNum = pergIdx >= 0 ? (values[pergIdx]?.trim() || '') : '';
+      const pergNum = pergIdx >= 0 ? values[pergIdx]?.trim() || '' : '';
 
       if (!group || !question || !systemCode) continue;
 
@@ -1517,7 +1548,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         positiveAnswer,
         applicableTypes,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       });
     }
     return importedQuestions;
@@ -1544,7 +1575,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       if (importedQuestions.length === 0) {
         onToast(
           'Nenhuma pergunta válida. Colunas esperadas: Categoria, Grupo, Pergunta, Resposta positiva, Sistema. Categoria = Gente/Gestão/Produção; Resposta = Sim/Não; Sistema = CC, CR ou RE (ou CC;CR;RE).',
-          'error'
+          'error',
         );
         return;
       }
@@ -1554,7 +1585,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         const { error: deleteError } = await supabase
           .from('questionnaire_questions')
           .delete()
-          .in('id', existing.map(r => r.id));
+          .in(
+            'id',
+            existing.map(r => r.id),
+          );
         if (deleteError) throw deleteError;
       }
 
@@ -1564,7 +1598,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         group: q.group,
         question: q.question,
         positive_answer: q.positiveAnswer,
-        applicable_types: q.applicableTypes
+        applicable_types: q.applicableTypes,
       }));
 
       const { data: inserted, error: insertError } = await supabase
@@ -1591,20 +1625,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-ai-text">Configurar Perguntas</h3>
-            <p className="text-sm text-ai-subtext mt-1">
-              Cadastre e gerencie as perguntas do banco de dados.
-            </p>
+            <p className="text-sm text-ai-subtext mt-1">Cadastre e gerencie as perguntas do banco de dados.</p>
           </div>
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors cursor-pointer">
               <Upload size={18} />
               Importar CSV / Excel
-              <input
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                onChange={handleImportFile}
-                className="hidden"
-              />
+              <input type="file" accept=".csv,.xlsx,.xls" onChange={handleImportFile} className="hidden" />
             </label>
             <button
               onClick={() => {
@@ -1614,7 +1641,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                   group: '',
                   question: '',
                   positiveAnswer: 'Sim' as 'Sim' | 'Não',
-                  applicableTypes: []
+                  applicableTypes: [],
                 });
                 setShowQuestionForm(true);
               }}
@@ -1632,7 +1659,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
             <span className="text-sm font-medium text-ai-text">Classificar / Filtrar:</span>
             <select
               value={filterQuestionCategory}
-              onChange={(e) => {
+              onChange={e => {
                 setFilterQuestionCategory(e.target.value);
                 setFilterQuestionGroup('');
               }}
@@ -1645,12 +1672,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
             </select>
             <select
               value={filterQuestionGroup}
-              onChange={(e) => setFilterQuestionGroup(e.target.value)}
+              onChange={e => setFilterQuestionGroup(e.target.value)}
               className="px-3 py-2 text-sm border border-ai-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-ai-accent min-w-[180px]"
             >
               <option value="">Todos os grupos</option>
-              {filterGroupOptions.map((g) => (
-                <option key={g} value={g}>{g}</option>
+              {filterGroupOptions.map(g => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
               ))}
             </select>
             {(filterQuestionCategory || filterQuestionGroup) && (
@@ -1678,18 +1707,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
               No Supabase: <strong>SQL Editor</strong> → New query → copie todo o conteúdo do arquivo{' '}
               <code className="bg-amber-100 px-1 rounded">lib/supabase/run_questionnaire_table.sql</code> → Run.
             </p>
-            <p className="mt-1 text-amber-700">
-              Depois recarregue esta página. O aviso some quando a tabela existir.
-            </p>
+            <p className="mt-1 text-amber-700">Depois recarregue esta página. O aviso some quando a tabela existir.</p>
           </div>
         )}
 
         {showQuestionForm && (
           <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold text-ai-text">
-                {editingQuestion ? 'Editar Pergunta' : 'Nova Pergunta'}
-              </h4>
+              <h4 className="font-semibold text-ai-text">{editingQuestion ? 'Editar Pergunta' : 'Nova Pergunta'}</h4>
               <button
                 onClick={() => {
                   setShowQuestionForm(false);
@@ -1707,11 +1732,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                 </label>
                 <select
                   value={questionForm.category}
-                  onChange={(e) => {
+                  onChange={e => {
                     setQuestionForm({
                       ...questionForm,
                       category: e.target.value as 'Gente' | 'Gestão' | 'Produção',
-                      group: '' // Reset group when category changes
+                      group: '', // Reset group when category changes
                     });
                   }}
                   className="w-full px-3 py-2 text-sm border border-green-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
@@ -1729,13 +1754,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                 </label>
                 <select
                   value={questionForm.group}
-                  onChange={(e) => setQuestionForm({ ...questionForm, group: e.target.value })}
+                  onChange={e => setQuestionForm({ ...questionForm, group: e.target.value })}
                   disabled={!questionForm.category}
                   className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
                   <option value="">Selecione o grupo</option>
-                  {availableGroups.map((group) => (
-                    <option key={group} value={group}>{group}</option>
+                  {availableGroups.map(group => (
+                    <option key={group} value={group}>
+                      {group}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -1746,7 +1773,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                 </label>
                 <textarea
                   value={questionForm.question}
-                  onChange={(e) => setQuestionForm({ ...questionForm, question: e.target.value })}
+                  onChange={e => setQuestionForm({ ...questionForm, question: e.target.value })}
                   placeholder="Descreva a pergunta de Sim ou Não..."
                   rows={4}
                   className="w-full px-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white resize-none"
@@ -1791,7 +1818,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                   Tipos de Questionário Aplicáveis <span className="text-red-500">*</span>
                 </label>
                 <div className="flex gap-2 flex-wrap">
-                  {(['Cria', 'Recria-Engorda', 'Ciclo Completo'] as const).map((type) => (
+                  {(['Cria', 'Recria-Engorda', 'Ciclo Completo'] as const).map(type => (
                     <button
                       key={type}
                       type="button"
@@ -1835,7 +1862,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
               <table className="w-full">
                 <thead className="bg-ai-surface border-b border-ai-border">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-ai-text uppercase">Categoria / Grupo</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-ai-text uppercase">
+                      Categoria / Grupo
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-ai-text uppercase">Pergunta</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-ai-text uppercase">Resp. Positiva</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-ai-text uppercase">Tipos</th>
@@ -1846,68 +1875,67 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                   {filteredQuestionsForList.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-sm text-ai-subtext">
-                        Nenhuma pergunta encontrada com esses filtros. Tente outra categoria ou grupo, ou limpe os filtros.
+                        Nenhuma pergunta encontrada com esses filtros. Tente outra categoria ou grupo, ou limpe os
+                        filtros.
                       </td>
                     </tr>
                   ) : (
-                  filteredQuestionsForList.map((question) => (
-                    <tr key={question.id} className="hover:bg-ai-surface/50 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-green-600">{question.category}</span>
-                          <span className="text-xs text-ai-subtext">{question.group}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-ai-text max-w-md">
-                        {question.question}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                          {question.positiveAnswer}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {question.applicableTypes.map((type: string) => (
-                            <span
-                              key={type}
-                              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
+                    filteredQuestionsForList.map(question => (
+                      <tr key={question.id} className="hover:bg-ai-surface/50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-green-600">{question.category}</span>
+                            <span className="text-xs text-ai-subtext">{question.group}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-ai-text max-w-md">{question.question}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            {question.positiveAnswer}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {question.applicableTypes.map((type: string) => (
+                              <span
+                                key={type}
+                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
+                              >
+                                {type.toUpperCase()}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingQuestion(question);
+                                setQuestionForm({
+                                  category: question.category,
+                                  group: question.group,
+                                  question: question.question,
+                                  positiveAnswer: question.positiveAnswer,
+                                  applicableTypes: question.applicableTypes,
+                                });
+                                setShowQuestionForm(true);
+                              }}
+                              className="p-1.5 text-ai-subtext hover:text-ai-accent hover:bg-ai-surface2 rounded transition-colors"
+                              title="Editar"
                             >
-                              {type.toUpperCase()}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setEditingQuestion(question);
-                              setQuestionForm({
-                                category: question.category,
-                                group: question.group,
-                                question: question.question,
-                                positiveAnswer: question.positiveAnswer,
-                                applicableTypes: question.applicableTypes
-                              });
-                              setShowQuestionForm(true);
-                            }}
-                            className="p-1.5 text-ai-subtext hover:text-ai-accent hover:bg-ai-surface2 rounded transition-colors"
-                            title="Editar"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteQuestion(question.id)}
-                            className="p-1.5 text-ai-subtext hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Excluir"
-                          >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  ))
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteQuestion(question.id)}
+                              className="p-1.5 text-ai-subtext hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
@@ -1953,8 +1981,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-red-600 mb-2">Confirmar Exclusão</h3>
             <p className="text-sm text-ai-subtext mb-6">
-              Tem certeza que deseja excluir sua conta? Esta ação é permanente e não pode ser desfeita.
-              Todos os seus dados serão perdidos.
+              Tem certeza que deseja excluir sua conta? Esta ação é permanente e não pode ser desfeita. Todos os seus
+              dados serão perdidos.
             </p>
             <div className="flex gap-3">
               <button
@@ -1980,14 +2008,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         <div className="w-full md:w-64 shrink-0">
           <div className="bg-white rounded-lg border border-ai-border p-2 sticky top-4">
             <nav className="space-y-1">
-              {tabs.map((tab) => (
+              {tabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id
-                    ? 'bg-ai-accent text-white'
-                    : 'text-ai-text hover:bg-ai-surface2'
-                    }`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === tab.id ? 'bg-ai-accent text-white' : 'text-ai-text hover:bg-ai-surface2'
+                  }`}
                 >
                   {tab.icon}
                   {tab.label}
@@ -2009,4 +2036,3 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
 };
 
 export default SettingsPage;
-

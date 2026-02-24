@@ -111,7 +111,18 @@ export default function TaskEditModal({
     } finally {
       setSaving(false);
     }
-  }, [task, title, description, responsiblePersonId, activityDate, days, computedDueDateIso, onToast, onSaved, onClose]);
+  }, [
+    task,
+    title,
+    description,
+    responsiblePersonId,
+    activityDate,
+    days,
+    computedDueDateIso,
+    onToast,
+    onSaved,
+    onClose,
+  ]);
 
   if (!open || !task) return null;
 
@@ -119,7 +130,7 @@ export default function TaskEditModal({
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40" onClick={handleClose}>
       <div
         className="bg-white dark:bg-ai-bg border border-ai-border rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
@@ -137,21 +148,25 @@ export default function TaskEditModal({
 
         <div className="px-6 py-5 space-y-5">
           <div>
-            <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">Tarefa</label>
+            <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">
+              Tarefa
+            </label>
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={e => setTitle(e.target.value)}
               className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
               placeholder="Ex: Revisar relatório..."
             />
           </div>
 
           <div>
-            <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">Descrição da tarefa</label>
+            <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">
+              Descrição da tarefa
+            </label>
             <textarea
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={e => setDescription(e.target.value)}
               className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm resize-none"
               rows={4}
               placeholder="Descreva detalhes importantes..."
@@ -165,11 +180,13 @@ export default function TaskEditModal({
               </label>
               <select
                 value={responsiblePersonId}
-                onChange={(e) => setResponsiblePersonId(e.target.value)}
+                onChange={e => setResponsiblePersonId(e.target.value)}
                 className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
               >
-                <option value="" disabled>Selecione</option>
-                {people.map((p) => (
+                <option value="" disabled>
+                  Selecione
+                </option>
+                {people.map(p => (
                   <option key={p.id} value={p.id}>
                     {p.preferred_name?.trim() || p.full_name}
                     {p.job_role?.trim() ? ` — ${p.job_role.trim()}` : ''}
@@ -178,27 +195,34 @@ export default function TaskEditModal({
               </select>
               {responsiblePersonId && (
                 <div className="mt-1 text-[11px] text-ai-subtext">
-                  Selecionado: <span className="font-medium text-ai-text">{getResponsibleLabel(responsiblePersonId)}</span>
+                  Selecionado:{' '}
+                  <span className="font-medium text-ai-text">{getResponsibleLabel(responsiblePersonId)}</span>
                 </div>
               )}
             </div>
             <div>
-              <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">Início</label>
+              <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">
+                Início
+              </label>
               <DateInputBR value={activityDate} onChange={setActivityDate} placeholder="dd/mm/aaaa" />
             </div>
             <div>
-              <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">Duração</label>
+              <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">
+                Duração
+              </label>
               <input
                 type="number"
                 inputMode="numeric"
                 min={1}
                 value={days}
-                onChange={(e) => setDays(e.target.value)}
+                onChange={e => setDays(e.target.value)}
                 className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm"
               />
             </div>
             <div>
-              <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">Prazo final</label>
+              <label className="text-[10px] text-ai-subtext font-semibold uppercase tracking-wide mb-1 block">
+                Prazo final
+              </label>
               <div className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm tabular-nums">
                 {formatDateBR(computedDueDateIso || null)}
               </div>

@@ -25,14 +25,11 @@ export const ModalShell: React.FC<ModalShellProps> = ({ title, subtitle, onClose
         onClose();
       }
     },
-    [onClose]
+    [onClose],
   );
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4"
-      onClick={handleBackdrop}
-    >
+    <div className="fixed inset-0 z-[1000] bg-black/40 flex items-center justify-center p-4" onClick={handleBackdrop}>
       <div
         ref={contentRef}
         className="w-full max-w-2xl rounded-xl border border-ai-border bg-ai-bg shadow-xl max-h-[88vh] flex flex-col"
@@ -42,11 +39,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({ title, subtitle, onClose
             <h3 className="text-lg font-semibold text-ai-text">{title}</h3>
             {subtitle && <p className="text-sm text-ai-subtext mt-0.5">{subtitle}</p>}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-1 text-ai-subtext hover:text-ai-text transition-colors"
-          >
+          <button type="button" onClick={onClose} className="mt-1 text-ai-subtext hover:text-ai-text transition-colors">
             <X size={18} />
           </button>
         </header>

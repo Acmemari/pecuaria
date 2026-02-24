@@ -18,23 +18,17 @@ export function useFarmOperations() {
     try {
       // Buscar IDs das fazendas vinculadas ao cliente através de ambas as tabelas
       const [clientFarmsResult, directFarmsResult] = await Promise.all([
-        supabase
-          .from('client_farms')
-          .select('farm_id')
-          .eq('client_id', clientId),
-        supabase
-          .from('farms')
-          .select('id')
-          .eq('client_id', clientId)
+        supabase.from('client_farms').select('farm_id').eq('client_id', clientId),
+        supabase.from('farms').select('id').eq('client_id', clientId),
       ]);
 
       const farmIds = new Set<string>();
-      
+
       // Adicionar IDs da tabela client_farms
       if (clientFarmsResult.data) {
         clientFarmsResult.data.forEach(cf => farmIds.add(cf.farm_id));
       }
-      
+
       // Adicionar IDs da busca direta
       if (directFarmsResult.data) {
         directFarmsResult.data.forEach(f => farmIds.add(f.id));
@@ -45,10 +39,7 @@ export function useFarmOperations() {
       }
 
       // Buscar detalhes das fazendas
-      const { data, error } = await supabase
-        .from('farms')
-        .select('*')
-        .in('id', Array.from(farmIds));
+      const { data, error } = await supabase.from('farms').select('*').in('id', Array.from(farmIds));
 
       if (error) {
         log.error('Error loading farms', new Error(error.message));
@@ -70,7 +61,7 @@ export function useFarmOperations() {
       // Deletar vínculos primeiro
       await Promise.all([
         supabase.from('client_farms').delete().eq('farm_id', farmId),
-        supabase.from('analyst_farms').delete().eq('farm_id', farmId)
+        supabase.from('analyst_farms').delete().eq('farm_id', farmId),
       ]);
 
       // Deletar fazenda
@@ -121,6 +112,6 @@ export function useFarmOperations() {
   return {
     getClientFarms,
     deleteFarm,
-    countClientFarms
+    countClientFarms,
   };
 }

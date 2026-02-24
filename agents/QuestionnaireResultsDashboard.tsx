@@ -27,17 +27,19 @@ import {
   Tooltip,
 } from 'recharts';
 import { SavedQuestionnaire } from '../types';
-import {
-  computeQuestionnaireResults,
-  QuestionnaireResultsData,
-} from '../lib/questionnaireResults';
+import { computeQuestionnaireResults, QuestionnaireResultsData } from '../lib/questionnaireResults';
 import { generatePerformancePdf } from '../lib/generatePerformancePdf';
 import './QuestionnaireResultsDashboard.css';
 import { QuestionnaireResultsPrintView } from '../components/questionnaire/QuestionnaireResultsPrintView';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuestions } from '../hooks/useQuestions';
 import { useRateLimiter } from '../hooks/useRateLimiter';
-import { GROUP_COLORS, STATUS_STYLES, QUESTIONNAIRE_CONSTANTS, VALIDATION_RULES } from '../constants/questionnaireConstants';
+import {
+  GROUP_COLORS,
+  STATUS_STYLES,
+  QUESTIONNAIRE_CONSTANTS,
+  VALIDATION_RULES,
+} from '../constants/questionnaireConstants';
 import { formatShortDate } from '../lib/dateUtils';
 
 interface QuestionnaireResultsDashboardProps {
@@ -111,7 +113,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
         questionnaire,
         insightsText || null,
         { operational: opImg, categorical: catImg },
-        user?.name || 'Usuário'
+        user?.name || 'Usuário',
       );
 
       onToast?.('PDF salvo com sucesso!', 'success');
@@ -141,9 +143,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
     }
   }, [autoGenerateInsights, loadingQuestions, questionsMap]);
 
-  const diagnosisDate = questionnaire.created_at
-    ? formatShortDate(questionnaire.created_at)
-    : '—';
+  const diagnosisDate = questionnaire.created_at ? formatShortDate(questionnaire.created_at) : '—';
 
   const requestInsights = async (): Promise<string> => {
     if (!results) return '';
@@ -153,9 +153,9 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
       porGrupo: Object.entries(results.byGroup).map(([nome, g]) => ({
         grupo: nome,
         media: g.score,
-        categorias: g.categories.map((c) => ({ categoria: c.category, score: c.score, status: c.status })),
+        categorias: g.categories.map(c => ({ categoria: c.category, score: c.score, status: c.status })),
       })),
-      categorias: results.byCategory.map((c) => ({
+      categorias: results.byCategory.map(c => ({
         grupo: c.group,
         categoria: c.category,
         score: c.score,
@@ -195,7 +195,6 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
       setTimeout(() => {
         insightsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, QUESTIONNAIRE_CONSTANTS.INSIGHTS_SCROLL_DELAY);
-
     } catch (e: any) {
       onToast?.(e.message || 'Erro ao gerar insights com IA.', 'error');
     } finally {
@@ -228,11 +227,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
 
   return (
     <>
-      <QuestionnaireResultsPrintView
-        questionnaire={questionnaire}
-        results={results}
-        insightsText={insightsText}
-      />
+      <QuestionnaireResultsPrintView questionnaire={questionnaire} results={results} insightsText={insightsText} />
 
       {/* Loading Overlay for PDF Generation */}
       {isGeneratingPdf && (
@@ -247,11 +242,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
         <div className="max-w-6xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Voltar"
-              >
+              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Voltar">
                 <ArrowLeft size={20} className="text-ai-subtext" />
               </button>
               <h1 className="text-xl font-bold text-ai-text">Diagnóstico de Performance</h1>
@@ -268,7 +259,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
                   Salvar
                 </button>
               )}
-              
+
               {/* Botão Atualizar - aparece apenas para questionários já salvos */}
               {onUpdate && (
                 <button
@@ -280,7 +271,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
                   Atualizar
                 </button>
               )}
-              
+
               {/* Botão Download */}
               <button
                 onClick={handleDownloadPdf}
@@ -334,15 +325,12 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
           </header>
 
           <section id="section-kpi-cards" className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(['Gente', 'Gestão', 'Produção'] as const).map((groupName) => {
+            {(['Gente', 'Gestão', 'Produção'] as const).map(groupName => {
               const g = results.byGroup[groupName];
               if (!g) return null;
               const colors = GROUP_COLORS[groupName];
               return (
-                <div
-                  key={groupName}
-                  className={`bg-white rounded-xl border ${colors.border} p-4 ${colors.bg}`}
-                >
+                <div key={groupName} className={`bg-white rounded-xl border ${colors.border} p-4 ${colors.bg}`}>
                   <h3 className="font-semibold text-ai-text uppercase text-sm">{groupName}</h3>
                   <div className={`text-2xl font-bold mt-1 ${colors.text}`}>{g.score}%</div>
                   <div className="mt-2 h-2 bg-white/60 rounded-full overflow-hidden">
@@ -360,10 +348,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
           </section>
 
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-            <div
-              id="radar-operational"
-              className="bg-white rounded-xl border border-ai-border p-4"
-            >
+            <div id="radar-operational" className="bg-white rounded-xl border border-ai-border p-4">
               <h3 className="font-semibold text-ai-text mb-3 flex items-center gap-2">
                 <Target size={18} className="text-green-600" />
                 Equilíbrio Operacional
@@ -388,10 +373,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
               </div>
             </div>
 
-            <div
-              id="radar-categorical"
-              className="bg-white rounded-xl border border-ai-border p-4"
-            >
+            <div id="radar-categorical" className="bg-white rounded-xl border border-ai-border p-4">
               <h3 className="font-semibold text-ai-text mb-3 flex items-center gap-2">
                 <Target size={18} className="text-ai-accent" />
                 Desempenho por Categoria
@@ -407,7 +389,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
                         if (ia !== ib) return ia - ib;
                         return a.category.localeCompare(b.category);
                       })
-                      .map((c) => ({
+                      .map(c => ({
                         subject: c.category.length > 18 ? `${c.category.slice(0, 16)}…` : c.category,
                         fullSubject: `${c.group}: ${c.category}`,
                         score: c.score,
@@ -416,11 +398,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
                     margin={{ top: 5, right: 10, bottom: 5, left: 10 }}
                   >
                     <PolarGrid stroke="#e5e7eb" />
-                    <PolarAngleAxis
-                      dataKey="subject"
-                      tick={{ fontSize: 10 }}
-                      tickLine={false}
-                    />
+                    <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} tickLine={false} />
                     <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9 }} />
                     <Radar
                       name="Score"
@@ -431,7 +409,11 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
                       strokeWidth={1.5}
                     />
                     <Tooltip
-                      formatter={(v: number, _name: string, props: { payload?: Array<{ payload?: { fullSubject?: string } }> }) => {
+                      formatter={(
+                        v: number,
+                        _name: string,
+                        props: { payload?: Array<{ payload?: { fullSubject?: string } }> },
+                      ) => {
                         const label = props.payload?.[0]?.payload?.fullSubject ?? 'Score';
                         return [`${v}%`, label];
                       }}
@@ -467,7 +449,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
           </div>
 
           <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {(['Gente', 'Gestão', 'Produção'] as const).map((groupName) => {
+            {(['Gente', 'Gestão', 'Produção'] as const).map(groupName => {
               const g = results.byGroup[groupName];
               if (!g) return null;
               const statusToBarColor: Record<string, string> = {
@@ -479,17 +461,14 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
               };
               const barData = [...g.categories]
                 .sort((a, b) => b.score - a.score)
-                .map((c) => ({
+                .map(c => ({
                   name: c.category,
                   score: c.score,
                   fill: statusToBarColor[c.status] ?? '#94a3b8',
                 }));
               const colors = GROUP_COLORS[groupName];
               return (
-                <div
-                  key={groupName}
-                  className="bg-white rounded-xl border border-ai-border p-4"
-                >
+                <div key={groupName} className="bg-white rounded-xl border border-ai-border p-4">
                   <div className="flex justify-between items-center mb-3">
                     <div>
                       <h3 className="font-semibold text-ai-text">Distribuição: {groupName}</h3>
@@ -532,7 +511,7 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ai-border">
-                  {results.byCategory.map((row) => {
+                  {results.byCategory.map(row => {
                     const style = STATUS_STYLES[row.status] ?? STATUS_STYLES.Crítico;
                     return (
                       <tr key={`${row.group}-${row.category}`} className="hover:bg-ai-surface/50">
@@ -546,17 +525,16 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
                         <td className="px-4 py-3 text-ai-text">{row.category}</td>
                         <td className="px-4 py-3 font-medium text-ai-text">{row.score}%</td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${style.bg} ${style.text}`}>
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${style.bg} ${style.text}`}
+                          >
                             <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
                             {row.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 w-32">
                           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${style.bar}`}
-                              style={{ width: `${row.score}%` }}
-                            />
+                            <div className={`h-full rounded-full ${style.bar}`} style={{ width: `${row.score}%` }} />
                           </div>
                         </td>
                       </tr>
@@ -574,20 +552,13 @@ const QuestionnaireResultsDashboard: React.FC<QuestionnaireResultsDashboardProps
               disabled={insightsLoading}
               className="inline-flex items-center gap-2 px-4 py-2 bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover disabled:opacity-50 transition-colors"
             >
-              {insightsLoading ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <Sparkles size={18} />
-              )}
+              {insightsLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
               Gerar Insights com IA
             </button>
           </div>
 
           {insightsText && (
-            <section
-              ref={insightsRef}
-              className="bg-white rounded-xl border border-ai-border p-4"
-            >
+            <section ref={insightsRef} className="bg-white rounded-xl border border-ai-border p-4">
               <h3 className="font-semibold text-ai-text mb-3 flex items-center gap-2">
                 <Sparkles size={18} className="text-ai-accent" />
                 Análise e Recomendações (IA)

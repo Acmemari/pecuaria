@@ -24,11 +24,13 @@
 ### 1. Carregamento Duplicado de Perguntas do Banco
 
 **Localização:**
+
 - `QuestionnaireFiller.tsx` (linhas 85-109)
 - `QuestionnaireResultsDashboard.tsx` (linhas 168-196)
 
 **Problema:**
 Ambos os componentes fazem a mesma query ao Supabase para carregar perguntas, resultando em:
+
 - Chamadas duplicadas ao banco de dados
 - Aumento de custos de API
 - Tempo de carregamento desnecessário
@@ -50,9 +52,7 @@ let loadingPromise: Promise<void> | null = null;
 
 export const useQuestions = () => {
   const [questions, setQuestions] = useState<Question[]>(questionsCache || []);
-  const [questionsMap, setQuestionsMap] = useState<Map<string, QuestionMeta>>(
-    questionsMapCache || new Map()
-  );
+  const [questionsMap, setQuestionsMap] = useState<Map<string, QuestionMeta>>(questionsMapCache || new Map());
   const [loading, setLoading] = useState(!questionsCache);
   const [error, setError] = useState<Error | null>(null);
 
@@ -101,7 +101,7 @@ async function loadQuestions() {
       group: row.group,
       question: row.question,
       positiveAnswer: row.positive_answer,
-      applicableTypes: row.applicable_types || []
+      applicableTypes: row.applicable_types || [],
     }));
 
     questionsMapCache = new Map();
@@ -130,6 +130,7 @@ export const clearQuestionsCache = () => {
 ```
 
 **Uso:**
+
 ```typescript
 // Em QuestionnaireFiller.tsx e QuestionnaireResultsDashboard.tsx
 const { questions, questionsMap, loading, error } = useQuestions();
@@ -140,6 +141,7 @@ const { questions, questionsMap, loading, error } = useQuestions();
 ### 2. Formatação de Data Duplicada
 
 **Localização:**
+
 - `QuestionnaireIntro.tsx` (linhas 39-51)
 - `QuestionnaireHistory.tsx` (linhas 29-41)
 - Potencialmente em outros lugares
@@ -185,6 +187,7 @@ export const formatShortDate = (dateString: string): string => {
 
 **Problema:**
 O componente `QuestionnaireFiller` tem muitas responsabilidades:
+
 - Gerenciamento de fazendas
 - Gerenciamento de questionários
 - Navegação entre views
@@ -192,6 +195,7 @@ O componente `QuestionnaireFiller` tem muitas responsabilidades:
 - Carregamento de dados
 
 **Métricas:**
+
 - 15+ estados diferentes
 - 459 linhas de código
 - Múltiplas responsabilidades (viola SRP)
@@ -223,7 +227,7 @@ export const useQuestionnaireState = (selectedFarm: Farm | null) => {
     setAnswers,
     showSuccess,
     setShowSuccess,
-    resetState
+    resetState,
   };
 };
 
@@ -242,9 +246,7 @@ export const useSavedQuestionnaires = (userId: string | undefined, farmId: strin
     setLoading(true);
     try {
       const all = await getSavedQuestionnaires(userId);
-      const forFarm = all.filter(
-        (q) => q.farm_id === farmId || q.farm_name === farmId
-      );
+      const forFarm = all.filter(q => q.farm_id === farmId || q.farm_name === farmId);
       setSavedQuestionnaires(forFarm);
     } catch (err) {
       setError(err as Error);
@@ -269,6 +271,7 @@ export const useSavedQuestionnaires = (userId: string | undefined, farmId: strin
 ### 4. Falta de Memoização em Operações Custosas
 
 **Localização:**
+
 - `QuestionnaireResultsDashboard.tsx` - cálculo de `results` (linha 82)
 - Filtragem e embaralhamento de perguntas (linhas 112-136 em QuestionnaireFiller)
 
@@ -285,10 +288,9 @@ const filteredQuestions = useMemo(() => {
   }
 
   // Filter by farm type
-  const filtered = questions.filter(q =>
-    !q.applicableTypes || 
-    q.applicableTypes.length === 0 || 
-    q.applicableTypes.includes(selectedFarm.productionSystem)
+  const filtered = questions.filter(
+    q =>
+      !q.applicableTypes || q.applicableTypes.length === 0 || q.applicableTypes.includes(selectedFarm.productionSystem),
   );
 
   // Shuffle (Fisher-Yates)
@@ -327,7 +329,7 @@ Carregamento síncrono do localStorage pode bloquear a UI.
 // lib/farmStorage.ts
 export const farmStorage = {
   async getFarms(): Promise<Farm[]> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       // Usar requestIdleCallback para não bloquear a UI
       if ('requestIdleCallback' in window) {
         requestIdleCallback(() => {
@@ -362,7 +364,7 @@ export const farmStorage = {
         reject(error);
       }
     });
-  }
+  },
 };
 ```
 
@@ -373,6 +375,7 @@ export const farmStorage = {
 ### 6. Validação Insuficiente de Entrada do Usuário
 
 **Localização:**
+
 - `handleUpdateName` em QuestionnaireFiller (linha 231)
 - `handleSaveEdit` em QuestionnaireIntro (linha 58)
 
@@ -385,48 +388,51 @@ Validação mínima de entrada do usuário.
 // lib/validation.ts
 export const validateQuestionnaireName = (name: string): { valid: boolean; error?: string } => {
   const trimmed = name.trim();
-  
+
   if (!trimmed) {
     return { valid: false, error: 'Nome não pode estar vazio' };
   }
-  
+
   if (trimmed.length < 3) {
     return { valid: false, error: 'Nome deve ter pelo menos 3 caracteres' };
   }
-  
+
   if (trimmed.length > 100) {
     return { valid: false, error: 'Nome não pode exceder 100 caracteres' };
   }
-  
+
   // Prevenir XSS básico
   if (/<script|javascript:|onerror=/i.test(trimmed)) {
     return { valid: false, error: 'Nome contém caracteres inválidos' };
   }
-  
+
   return { valid: true };
 };
 
 // Uso:
-const handleUpdateName = useCallback(async (id: string, newName: string) => {
-  if (!user?.id) return;
-  
-  const validation = validateQuestionnaireName(newName);
-  if (!validation.valid) {
-    onToast?.(validation.error!, 'error');
-    return;
-  }
-  
-  setIsUpdating(true);
-  try {
-    await updateSavedQuestionnaireName(id, user.id, newName);
-    loadSavedForFarm();
-    onToast?.('Nome atualizado.', 'success');
-  } catch (err: any) {
-    onToast?.(err.message || 'Erro ao atualizar nome.', 'error');
-  } finally {
-    setIsUpdating(false);
-  }
-}, [user?.id, loadSavedForFarm, onToast]);
+const handleUpdateName = useCallback(
+  async (id: string, newName: string) => {
+    if (!user?.id) return;
+
+    const validation = validateQuestionnaireName(newName);
+    if (!validation.valid) {
+      onToast?.(validation.error!, 'error');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      await updateSavedQuestionnaireName(id, user.id, newName);
+      loadSavedForFarm();
+      onToast?.('Nome atualizado.', 'success');
+    } catch (err: any) {
+      onToast?.(err.message || 'Erro ao atualizar nome.', 'error');
+    } finally {
+      setIsUpdating(false);
+    }
+  },
+  [user?.id, loadSavedForFarm, onToast],
+);
 ```
 
 ---
@@ -434,10 +440,12 @@ const handleUpdateName = useCallback(async (id: string, newName: string) => {
 ### 7. Falta de Rate Limiting para Geração de Insights
 
 **Localização:**
+
 - `handleGenerateInsights` em QuestionnaireResultsDashboard (linha 239)
 
 **Problema:**
 Usuário pode gerar insights repetidamente sem limite, causando:
+
 - Custos excessivos de API
 - Possível abuso do sistema
 
@@ -447,7 +455,7 @@ Usuário pode gerar insights repetidamente sem limite, causando:
 // hooks/useRateLimiter.ts
 export const useRateLimiter = (limitMs: number = 60000) => {
   const lastCallRef = useRef<number>(0);
-  
+
   const canCall = useCallback(() => {
     const now = Date.now();
     if (now - lastCallRef.current < limitMs) {
@@ -456,13 +464,13 @@ export const useRateLimiter = (limitMs: number = 60000) => {
     lastCallRef.current = now;
     return true;
   }, [limitMs]);
-  
+
   const getRemainingTime = useCallback(() => {
     const now = Date.now();
     const elapsed = now - lastCallRef.current;
     return Math.max(0, limitMs - elapsed);
   }, [limitMs]);
-  
+
   return { canCall, getRemainingTime };
 };
 
@@ -471,13 +479,13 @@ const { canCall, getRemainingTime } = useRateLimiter(60000); // 1 minuto
 
 const handleGenerateInsights = async () => {
   if (!results) return;
-  
+
   if (!canCall()) {
     const remaining = Math.ceil(getRemainingTime() / 1000);
     onToast?.(`Aguarde ${remaining} segundos antes de gerar novos insights.`, 'info');
     return;
   }
-  
+
   setInsightsLoading(true);
   // ... resto do código
 };
@@ -500,7 +508,7 @@ export class QuestionnaireError extends Error {
   constructor(
     message: string,
     public code: string,
-    public userMessage: string
+    public userMessage: string,
   ) {
     super(message);
     this.name = 'QuestionnaireError';
@@ -510,20 +518,20 @@ export class QuestionnaireError extends Error {
 export const handleQuestionnaireError = (
   error: unknown,
   context: string,
-  onToast?: (message: string, type: 'error') => void
+  onToast?: (message: string, type: 'error') => void,
 ): void => {
   console.error(`[${context}]`, error);
-  
+
   let userMessage = 'Ocorreu um erro inesperado.';
-  
+
   if (error instanceof QuestionnaireError) {
     userMessage = error.userMessage;
   } else if (error instanceof Error) {
     userMessage = error.message;
   }
-  
+
   onToast?.(userMessage, 'error');
-  
+
   // Aqui você pode adicionar logging para serviço externo
   // logToSentry(error, context);
 };
@@ -541,6 +549,7 @@ try {
 ### 9. Código Comentado e Não Utilizado
 
 **Localização:**
+
 - `QuestionnaireResultsDashboard.tsx` linha 602: `{/* Button Removed */}`
 - `QuestionnaireIntro.tsx` linhas 77-78: comentários inline extensos
 - `includeInsightsInReport` state não é mais usado consistentemente
@@ -631,14 +640,14 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
 }) => {
   const { user } = useAuth();
   const { questions, questionsMap, loading: loadingQuestions } = useQuestions();
-  
+
   const {
     selectedFarm,
     isControlled,
     handleFarmSelect,
     handleBackToFarms
   } = useFarmSelection(externalSelectedFarm);
-  
+
   const {
     showQuestionnaire,
     currentQuestionIndex,
@@ -648,7 +657,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
     viewResultsQuestionnaire,
     ...questionnaireActions
   } = useQuestionnaireState(selectedFarm, questions);
-  
+
   const {
     savedQuestionnaires,
     isUpdating,
@@ -656,14 +665,14 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
     editingQuestionnaireId,
     ...savedActions
   } = useSavedQuestionnaires(user?.id, selectedFarm?.id);
-  
+
   // Efeito para dados iniciais
   useInitialData(initialData, questions, onClearInitialData, questionnaireActions);
-  
+
   if (loadingQuestions) {
     return <LoadingView />;
   }
-  
+
   if (selectedFarm && viewResultsQuestionnaire) {
     return (
       <QuestionnaireResultsDashboard
@@ -674,7 +683,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
       />
     );
   }
-  
+
   if (selectedFarm && showQuestionnaire) {
     return (
       <QuestionnaireForm
@@ -692,7 +701,7 @@ const QuestionnaireFiller: React.FC<QuestionnaireFillerProps> = ({
       />
     );
   }
-  
+
   return (
     <QuestionnaireIntro
       selectedFarm={selectedFarm}
@@ -758,65 +767,64 @@ Criar camada de serviço para abstrair lógica de negócio:
 // services/questionnaireService.ts
 export class QuestionnaireService {
   private cache = new Map<string, any>();
-  
+
   async getQuestions(): Promise<Question[]> {
     const cacheKey = 'questions';
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey);
     }
-    
+
     const questions = await this.fetchQuestions();
     this.cache.set(cacheKey, questions);
     return questions;
   }
-  
+
   async getSavedQuestionnaires(userId: string, farmId?: string): Promise<SavedQuestionnaire[]> {
     const all = await getSavedQuestionnaires(userId);
-    
+
     if (!farmId) return all;
-    
-    return all.filter(q => 
-      q.farm_id === farmId || q.farm_name === farmId
-    );
+
+    return all.filter(q => q.farm_id === farmId || q.farm_name === farmId);
   }
-  
+
   async saveQuestionnaire(
     userId: string,
     farmId: string,
     farmName: string,
-    answers: SavedQuestionnaireAnswer[]
+    answers: SavedQuestionnaireAnswer[],
   ): Promise<SavedQuestionnaire> {
     const name = this.generateQuestionnaireName(farmName);
-    
+
     return saveQuestionnaire(userId, name, {
       farmId,
       farmName,
       productionSystem: 'Ciclo Completo', // Deve vir do farm
       questionnaireId: QUESTIONNAIRE_CONSTANTS.DEFAULT_QUESTIONNAIRE_ID,
-      answers
+      answers,
     });
   }
-  
+
   private generateQuestionnaireName(farmName: string): string {
     const now = new Date();
     return `Questionário - ${farmName} - ${formatQuestionnaireDate(now.toISOString())}`;
   }
-  
+
   private async fetchQuestions(): Promise<Question[]> {
     const { data, error } = await supabase
       .from('questionnaire_questions')
       .select('*')
       .order('perg_number', { ascending: true, nullsFirst: false });
-    
-    if (error) throw new QuestionnaireError(
-      error.message,
-      'FETCH_QUESTIONS_ERROR',
-      'Erro ao carregar perguntas do questionário'
-    );
-    
+
+    if (error)
+      throw new QuestionnaireError(
+        error.message,
+        'FETCH_QUESTIONS_ERROR',
+        'Erro ao carregar perguntas do questionário',
+      );
+
     return (data || []).map(this.mapQuestion);
   }
-  
+
   private mapQuestion(row: any): Question {
     return {
       id: row.id,
@@ -824,10 +832,10 @@ export class QuestionnaireService {
       group: row.group,
       question: row.question,
       positiveAnswer: row.positive_answer,
-      applicableTypes: row.applicable_types || []
+      applicableTypes: row.applicable_types || [],
     };
   }
-  
+
   clearCache(): void {
     this.cache.clear();
   }
@@ -856,16 +864,16 @@ export const QuestionnaireProvider: React.FC<{ children: React.ReactNode }> = ({
     error: null,
     reloadQuestions: async () => {}
   });
-  
+
   useEffect(() => {
     loadQuestions();
   }, []);
-  
+
   const loadQuestions = async () => {
     try {
       const questions = await questionnaireService.getQuestions();
       const questionsMap = createQuestionsMap(questions);
-      
+
       setState(prev => ({
         ...prev,
         questions,
@@ -880,7 +888,7 @@ export const QuestionnaireProvider: React.FC<{ children: React.ReactNode }> = ({
       }));
     }
   };
-  
+
   return (
     <QuestionnaireContext.Provider value={{ ...state, reloadQuestions: loadQuestions }}>
       {children}
@@ -895,37 +903,32 @@ export const QuestionnaireProvider: React.FC<{ children: React.ReactNode }> = ({
 // __tests__/questionnaireService.test.ts
 describe('QuestionnaireService', () => {
   let service: QuestionnaireService;
-  
+
   beforeEach(() => {
     service = new QuestionnaireService();
   });
-  
+
   afterEach(() => {
     service.clearCache();
   });
-  
+
   describe('getQuestions', () => {
     it('should fetch questions from database', async () => {
       const questions = await service.getQuestions();
       expect(questions).toBeInstanceOf(Array);
     });
-    
+
     it('should cache questions after first fetch', async () => {
       const first = await service.getQuestions();
       const second = await service.getQuestions();
       expect(first).toBe(second); // Same reference = cached
     });
   });
-  
+
   describe('saveQuestionnaire', () => {
     it('should generate proper name', async () => {
-      const result = await service.saveQuestionnaire(
-        'user-123',
-        'farm-456',
-        'Fazenda Teste',
-        []
-      );
-      
+      const result = await service.saveQuestionnaire('user-123', 'farm-456', 'Fazenda Teste', []);
+
       expect(result.name).toContain('Fazenda Teste');
       expect(result.name).toContain('Questionário');
     });
@@ -941,14 +944,14 @@ export const logPerformance = (operation: string, duration: number) => {
   if (duration > 1000) {
     console.warn(`[Performance] ${operation} took ${duration}ms`);
   }
-  
+
   // Enviar para serviço de monitoramento
   // analytics.track('performance', { operation, duration });
 };
 
 export const usePerformanceMonitor = (operationName: string) => {
   const startTime = useRef(Date.now());
-  
+
   useEffect(() => {
     return () => {
       const duration = Date.now() - startTime.current;
@@ -969,6 +972,7 @@ const MyComponent = () => {
 ## 📈 MÉTRICAS DE MELHORIA ESPERADAS
 
 ### Antes da Refatoração:
+
 - **Chamadas ao BD:** 2 por carregamento de questionário
 - **Tempo de carregamento:** ~2-3s
 - **Linhas de código (QuestionnaireFiller):** 459
@@ -976,6 +980,7 @@ const MyComponent = () => {
 - **Duplicação de código:** ~15%
 
 ### Depois da Refatoração:
+
 - **Chamadas ao BD:** 1 por carregamento (cache compartilhado)
 - **Tempo de carregamento:** ~1-1.5s (50% mais rápido)
 - **Linhas de código (QuestionnaireFiller):** ~150 (67% redução)
@@ -987,18 +992,21 @@ const MyComponent = () => {
 ## 🎯 PRIORIZAÇÃO DE IMPLEMENTAÇÃO
 
 ### Fase 1 - Crítico (Semana 1)
+
 1. ✅ Criar hook `useQuestions` com cache
 2. ✅ Extrair formatação de datas para utilitário
 3. ✅ Adicionar validação de entrada do usuário
 4. ✅ Implementar tratamento de erros consistente
 
 ### Fase 2 - Importante (Semana 2)
+
 5. ✅ Refatorar QuestionnaireFiller em hooks menores
 6. ✅ Adicionar memoização em operações custosas
 7. ✅ Implementar rate limiting para insights
 8. ✅ Criar camada de serviço
 
 ### Fase 3 - Melhoria Contínua (Semana 3-4)
+
 9. ✅ Implementar Context API para estado global
 10. ✅ Adicionar testes unitários
 11. ✅ Configurar monitoramento de performance
@@ -1009,6 +1017,7 @@ const MyComponent = () => {
 ## 📝 CONCLUSÃO
 
 O módulo de questionários está funcional mas apresenta oportunidades significativas de melhoria em:
+
 - **Performance:** Redução de 50% no tempo de carregamento
 - **Manutenibilidade:** Redução de 67% na complexidade
 - **Segurança:** Validação adequada e rate limiting

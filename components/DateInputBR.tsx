@@ -42,7 +42,7 @@ function mask(raw: string): string {
 /* ── componente ────────────────────────────────────────── */
 
 interface DateInputBRProps {
-  value?: string;          // YYYY-MM-DD
+  value?: string; // YYYY-MM-DD
   onChange: (v: string) => void;
   placeholder?: string;
   className?: string;
@@ -54,9 +54,15 @@ interface DateInputBRProps {
 }
 
 const DateInputBR: React.FC<DateInputBRProps> = ({
-  value, onChange, placeholder = 'dd/mm/aaaa',
-  className = '', disabled = false, required = false,
-  min, max, id,
+  value,
+  onChange,
+  placeholder = 'dd/mm/aaaa',
+  className = '',
+  disabled = false,
+  required = false,
+  min,
+  max,
+  id,
 }) => {
   const selected = useMemo(() => parseIso(value), [value]);
   const minD = useMemo(() => parseIso(min), [min]);
@@ -67,7 +73,9 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
   const wrapRef = useRef<HTMLDivElement>(null);
 
   // Sincroniza texto quando value externo muda
-  useEffect(() => { setText(fmtBR(selected)); }, [selected]);
+  useEffect(() => {
+    setText(fmtBR(selected));
+  }, [selected]);
 
   // Fecha calendário ao clicar fora
   useEffect(() => {
@@ -81,19 +89,25 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
     return () => document.removeEventListener('mousedown', handler);
   }, [showCal]);
 
-  const commitTyped = useCallback((s: string) => {
-    let d = parseBR(s);
-    if (d) {
-      // Restringir ao intervalo min/max
-      if (minD && d < minD) d = minD;
-      if (maxD && d > maxD) d = maxD;
-      onChange(toIso(d));
-      setText(fmtBR(d));
-    }
-  }, [onChange, minD, maxD]);
+  const commitTyped = useCallback(
+    (s: string) => {
+      let d = parseBR(s);
+      if (d) {
+        // Restringir ao intervalo min/max
+        if (minD && d < minD) d = minD;
+        if (maxD && d > maxD) d = maxD;
+        onChange(toIso(d));
+        setText(fmtBR(d));
+      }
+    },
+    [onChange, minD, maxD],
+  );
 
   const handleBlur = useCallback(() => {
-    if (!text.trim()) { onChange(''); return; }
+    if (!text.trim()) {
+      onChange('');
+      return;
+    }
     let d = parseBR(text);
     if (d) {
       // Restringir ao intervalo min/max
@@ -102,7 +116,7 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
       onChange(toIso(d));
       setText(fmtBR(d));
     } else {
-      setText(fmtBR(selected));   // reverte
+      setText(fmtBR(selected)); // reverte
     }
   }, [text, selected, onChange, minD, maxD]);
 
@@ -118,14 +132,17 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
         placeholder={placeholder}
         autoComplete="off"
         className="w-full pl-3 pr-10 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent/20 transition-all placeholder:text-ai-subtext/40"
-        onChange={(e) => {
+        onChange={e => {
           const m = mask(e.target.value);
           setText(m);
           if (m.length === 10) commitTyped(m);
         }}
         onBlur={handleBlur}
-        onKeyDown={(e) => {
-          if (!/[0-9/]/.test(e.key) && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'].includes(e.key)) {
+        onKeyDown={e => {
+          if (
+            !/[0-9/]/.test(e.key) &&
+            !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'].includes(e.key)
+          ) {
             e.preventDefault();
           }
         }}
@@ -137,7 +154,7 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
         disabled={disabled}
         className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-ai-subtext/60 hover:text-ai-accent hover:bg-ai-surface2 transition-colors"
         title="Abrir calendário"
-        onClick={() => setShowCal((p) => !p)}
+        onClick={() => setShowCal(p => !p)}
       >
         <CalendarIcon size={16} />
       </button>

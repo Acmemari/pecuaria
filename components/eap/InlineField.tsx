@@ -1,10 +1,8 @@
 import React from 'react';
 import DateInputBR from '../DateInputBR';
 
-const INLINE_BASE =
-  'text-ai-text text-sm transition-colors placeholder:text-ai-subtext/50 min-w-0';
-const INLINE_FOCUS =
-  'focus:outline-none focus:ring-0 focus:bg-ai-surface/80 focus:rounded focus:px-1 focus:-mx-1';
+const INLINE_BASE = 'text-ai-text text-sm transition-colors placeholder:text-ai-subtext/50 min-w-0';
+const INLINE_FOCUS = 'focus:outline-none focus:ring-0 focus:bg-ai-surface/80 focus:rounded focus:px-1 focus:-mx-1';
 
 interface InlineTextProps {
   value: string;
@@ -29,7 +27,7 @@ export const InlineText: React.FC<InlineTextProps> = ({
     id={id}
     type="text"
     value={value}
-    onChange={(e) => onChange(e.target.value)}
+    onChange={e => onChange(e.target.value)}
     onBlur={onBlur}
     disabled={disabled}
     placeholder={placeholder}
@@ -62,7 +60,7 @@ export const InlineTextarea: React.FC<InlineTextareaProps> = ({
   <textarea
     id={id}
     value={value}
-    onChange={(e) => onChange(e.target.value)}
+    onChange={e => onChange(e.target.value)}
     onBlur={onBlur}
     disabled={disabled}
     placeholder={placeholder}
@@ -137,7 +135,7 @@ export const InlineSelect: React.FC<InlineSelectProps> = ({
   <select
     id={id}
     value={value}
-    onChange={(e) => onChange(e.target.value)}
+    onChange={e => onChange(e.target.value)}
     onBlur={onBlur}
     disabled={disabled}
     className={`${INLINE_BASE} ${INLINE_FOCUS} border-none bg-transparent py-0.5 px-1 pr-6 rounded cursor-pointer appearance-none bg-no-repeat bg-[length:12px] bg-[right_2px_center] ${className}`}
@@ -146,7 +144,7 @@ export const InlineSelect: React.FC<InlineSelectProps> = ({
     }}
   >
     <option value="">{placeholder}</option>
-    {options.map((opt) => (
+    {options.map(opt => (
       <option key={opt.value} value={opt.value}>
         {opt.label}
       </option>
@@ -182,7 +180,7 @@ export const InlineNumber: React.FC<InlineNumberProps> = ({
     type="number"
     inputMode="numeric"
     value={value}
-    onChange={(e) => onChange(e.target.value)}
+    onChange={e => onChange(e.target.value)}
     onBlur={onBlur}
     disabled={disabled}
     placeholder={placeholder}

@@ -4,7 +4,7 @@ Este documento descreve os passos necessários para adicionar um novo agente ao 
 
 ## Pré-requisitos
 
-- Familiaridade com a estrutura em [api/_lib/agents/](api/_lib/agents/)
+- Familiaridade com a estrutura em [api/\_lib/agents/](api/_lib/agents/)
 - Variáveis de ambiente configuradas: [docs/ENVIRONMENT.md](ENVIRONMENT.md)
 
 ## Passos
@@ -36,7 +36,7 @@ api/_lib/agents/meu-agente/
 
 ### 2. Registrar no Registry
 
-Em [api/_lib/agents/registry.ts](api/_lib/agents/registry.ts):
+Em [api/\_lib/agents/registry.ts](api/_lib/agents/registry.ts):
 
 1. Importe o manifest: `import { meuAgenteManifest } from './meu-agente/manifest';`
 2. Adicione ao mapa: `manifestMap.set(\`${meuAgenteManifest.id}@${meuAgenteManifest.version}\`, meuAgenteManifest);`
@@ -50,9 +50,9 @@ Em [api/agents-run.ts](api/agents-run.ts):
 
 ```typescript
 const agentHandlers: Record<string, AgentHandler> = {
-  hello: (args) => runHelloAgent({ ...args, input: args.input as HelloInput }),
-  feedback: (args) => runFeedbackAgent({ ...args, input: args.input as FeedbackInput }),
-  'meu-agente': (args) => runMeuAgenteAgent({ ...args, input: args.input as MeuAgenteInput }),
+  hello: args => runHelloAgent({ ...args, input: args.input as HelloInput }),
+  feedback: args => runFeedbackAgent({ ...args, input: args.input as FeedbackInput }),
+  'meu-agente': args => runMeuAgenteAgent({ ...args, input: args.input as MeuAgenteInput }),
 };
 ```
 
@@ -60,12 +60,12 @@ const agentHandlers: Record<string, AgentHandler> = {
 
 No Vercel (produção) e em `.env.local` (desenvolvimento):
 
-| Variável | Obrigatória? | Uso |
-|----------|--------------|-----|
-| `GEMINI_API_KEY` | Provider Gemini | Sempre recomendada (provider padrão) |
-| `OPENAI_API_KEY` | Provider OpenAI | Necessária para fallback OpenAI |
-| `ANTHROPIC_API_KEY` | Provider Anthropic | Necessária para fallback Anthropic |
-| `SUPABASE_SERVICE_ROLE_KEY` | Rate limit, usage, auth | Obrigatória para `/api/agents-run` |
+| Variável                    | Obrigatória?            | Uso                                  |
+| --------------------------- | ----------------------- | ------------------------------------ |
+| `GEMINI_API_KEY`            | Provider Gemini         | Sempre recomendada (provider padrão) |
+| `OPENAI_API_KEY`            | Provider OpenAI         | Necessária para fallback OpenAI      |
+| `ANTHROPIC_API_KEY`         | Provider Anthropic      | Necessária para fallback Anthropic   |
+| `SUPABASE_SERVICE_ROLE_KEY` | Rate limit, usage, auth | Obrigatória para `/api/agents-run`   |
 
 ### 5. Registrar no Servidor de Desenvolvimento
 
@@ -95,7 +95,9 @@ const res = await fetch('/api/agents-run', {
   },
   body: JSON.stringify({
     agentId: 'meu-agente',
-    input: { /* dados validados pelo inputSchema */ },
+    input: {
+      /* dados validados pelo inputSchema */
+    },
   }),
 });
 ```
@@ -122,13 +124,13 @@ Consulte a migration [supabase/migrations/20260218100000_ai_agent_infrastructure
 
 ## Resumo de Arquivos a Alterar
 
-| Novo agente | Arquivos |
-|-------------|----------|
-| Manifest + Handler | `api/_lib/agents/<nome>/manifest.ts`, `handler.ts` |
-| Registry | `api/_lib/agents/registry.ts` |
-| Dispatch | `api/agents-run.ts` |
-| Endpoint dedicado (opcional) | `api/<nome>-assist.ts`, `server-dev.ts` |
-| Frontend | Componente que chama o agente |
+| Novo agente                  | Arquivos                                           |
+| ---------------------------- | -------------------------------------------------- |
+| Manifest + Handler           | `api/_lib/agents/<nome>/manifest.ts`, `handler.ts` |
+| Registry                     | `api/_lib/agents/registry.ts`                      |
+| Dispatch                     | `api/agents-run.ts`                                |
+| Endpoint dedicado (opcional) | `api/<nome>-assist.ts`, `server-dev.ts`            |
+| Frontend                     | Componente que chama o agente                      |
 
 ## Problemas Comuns
 

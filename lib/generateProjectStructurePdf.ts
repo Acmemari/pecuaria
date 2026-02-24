@@ -66,7 +66,7 @@ const buildProjectStructurePdfDoc = (data: ProjectStructurePdfData): jsPDF => {
     weight: 'bold' | 'normal' = 'normal',
     color: [number, number, number] = [0, 0, 0],
     align: 'left' | 'center' | 'right' = 'left',
-    maxW?: number
+    maxW?: number,
   ) => {
     const safeSize = Math.max(1, Math.min(72, safeNum(size, 8)));
     const safeT = typeof t === 'string' ? t : String(t ?? '');
@@ -75,7 +75,7 @@ const buildProjectStructurePdfDoc = (data: ProjectStructurePdfData): jsPDF => {
     doc.setTextColor(color[0], color[1], color[2]);
     if (maxW != null && maxW > 0) {
       const lines = doc.splitTextToSize(safeT, Math.max(1, maxW));
-      const safeLines = Array.isArray(lines) ? lines.filter((l) => typeof l === 'string') : [safeT];
+      const safeLines = Array.isArray(lines) ? lines.filter(l => typeof l === 'string') : [safeT];
       if (safeLines.length > 0) doc.text(safeLines, x, yy, { align });
       return safeLines;
     }
@@ -94,7 +94,7 @@ const buildProjectStructurePdfDoc = (data: ProjectStructurePdfData): jsPDF => {
 
   const splitLines = (value: string, maxWidth: number): string[] => {
     const lines = doc.splitTextToSize(value, Math.max(1, maxWidth));
-    return Array.isArray(lines) ? lines.filter((line) => typeof line === 'string') : [value];
+    return Array.isArray(lines) ? lines.filter(line => typeof line === 'string') : [value];
   };
 
   const sectionTitle = (title: string) => {
@@ -139,7 +139,9 @@ const buildProjectStructurePdfDoc = (data: ProjectStructurePdfData): jsPDF => {
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...COLORS.slate800);
-  const safeProjectNameLines = Array.isArray(projectNameLines) ? projectNameLines.filter((l) => typeof l === 'string') : [projectNameStr];
+  const safeProjectNameLines = Array.isArray(projectNameLines)
+    ? projectNameLines.filter(l => typeof l === 'string')
+    : [projectNameStr];
   if (safeProjectNameLines.length > 0) doc.text(safeProjectNameLines, m, y);
   y += safeProjectNameLines.length * 6.4 + 6;
 
@@ -166,7 +168,7 @@ const buildProjectStructurePdfDoc = (data: ProjectStructurePdfData): jsPDF => {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...COLORS.slate800);
-    const safeValLines = Array.isArray(valLines) ? valLines.filter((l) => typeof l === 'string') : [valStr];
+    const safeValLines = Array.isArray(valLines) ? valLines.filter(l => typeof l === 'string') : [valStr];
     if (safeValLines.length > 0) doc.text(safeValLines, x + 3, y + 10);
   });
   y += cardH + 5;
@@ -228,7 +230,7 @@ const buildProjectStructurePdfDoc = (data: ProjectStructurePdfData): jsPDF => {
     text('Atividade', m + nameColW + 2, y + 4.5, 7, 'bold', [...COLORS.slate500]);
     y += 7;
 
-    stakeholders.forEach((row) => {
+    stakeholders.forEach(row => {
       const name = normalizeText(row.name);
       const activity = normalizeText(row.activity);
       const safeNameLines = splitLines(name, nameColW - 4);
@@ -270,14 +272,7 @@ const buildProjectStructurePdfDoc = (data: ProjectStructurePdfData): jsPDF => {
       doc.setDrawColor(...COLORS.border);
       doc.setFillColor(...COLORS.softBg);
       doc.roundedRect(m, y, cw, 9, 2, 2, 'FD');
-      text(
-        `${deliveryIndex + 1}. ${normalizeText(delivery.name)}`,
-        m + 3,
-        y + 5.7,
-        8,
-        'bold',
-        [...COLORS.slate800]
-      );
+      text(`${deliveryIndex + 1}. ${normalizeText(delivery.name)}`, m + 3, y + 5.7, 8, 'bold', [...COLORS.slate800]);
       text(
         `Prazo: ${formatDateBR(delivery.due_date ?? null)}`,
         pw - m - 3,
@@ -285,7 +280,7 @@ const buildProjectStructurePdfDoc = (data: ProjectStructurePdfData): jsPDF => {
         7,
         'normal',
         [...COLORS.slate500],
-        'right'
+        'right',
       );
       y += 11;
 
@@ -322,7 +317,7 @@ const buildProjectStructurePdfDoc = (data: ProjectStructurePdfData): jsPDF => {
         text('Progresso', m + nameColW + periodColW + 2, y + 4.5, 7, 'bold', [...COLORS.slate500]);
         y += 7;
 
-        deliveryInitiatives.forEach((init) => {
+        deliveryInitiatives.forEach(init => {
           const initName = normalizeText(init.name);
           const initPeriod = `${formatDateBR(init.start_date)} — ${formatDateBR(init.end_date)}`;
           const initProgress = `${Math.round(safeNum(init.progress, 0))}%`;
@@ -355,7 +350,7 @@ const buildProjectStructurePdfDoc = (data: ProjectStructurePdfData): jsPDF => {
 
           const milestones = Array.isArray(init.milestones) ? init.milestones : [];
           if (milestones.length > 0) {
-            milestones.forEach((milestone) => {
+            milestones.forEach(milestone => {
               const milestoneLabel = `${normalizeText(milestone.title)} (${Math.round(safeNum(milestone.percent, 0))}%)${
                 milestone.due_date ? ` — prazo: ${formatDateBR(milestone.due_date)}` : ''
               }`;

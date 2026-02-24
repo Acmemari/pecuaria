@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Bot, 
-  Save, 
-  Upload, 
-  FileText, 
-  Image as ImageIcon, 
-  Trash2, 
+import {
+  Bot,
+  Save,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  Trash2,
   Plus,
   Loader2,
   AlertCircle,
   CheckCircle,
   Settings,
   BookOpen,
-  Brain
+  Brain,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -53,22 +53,9 @@ const AgentTrainingAdmin: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'config' | 'documents' | 'images'>('config');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-
-  // Check admin permission
-  if (!user || user.role !== 'admin') {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle size={48} className="mx-auto mb-4 text-rose-500" />
-          <h2 className="text-lg font-bold text-ai-text mb-2">Acesso Restrito</h2>
-          <p className="text-sm text-ai-subtext">Apenas administradores podem acessar esta página.</p>
-        </div>
-      </div>
-    );
-  }
 
   useEffect(() => {
     loadData();
@@ -80,6 +67,19 @@ const AgentTrainingAdmin: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  // Check admin permission (after all hooks)
+  if (!user || user.role !== 'admin') {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle size={48} className="mx-auto mb-4 text-rose-500" />
+          <h2 className="text-lg font-bold text-ai-text mb-2">Acesso Restrito</h2>
+          <p className="text-sm text-ai-subtext">Apenas administradores podem acessar esta página.</p>
+        </div>
+      </div>
+    );
+  }
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
@@ -118,7 +118,6 @@ const AgentTrainingAdmin: React.FC = () => {
 
       if (imagesError) throw imagesError;
       setImages(imagesData || []);
-
     } catch (error: any) {
       console.error('Error loading data:', error);
       showToast('Erro ao carregar dados', 'error');
@@ -139,7 +138,7 @@ const AgentTrainingAdmin: React.FC = () => {
           system_prompt: config.system_prompt,
           context_instructions: config.context_instructions,
           is_enabled: config.is_enabled,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', config.id);
 
@@ -160,18 +159,16 @@ const AgentTrainingAdmin: React.FC = () => {
 
     try {
       const reader = new FileReader();
-      reader.onload = async (event) => {
+      reader.onload = async event => {
         const content = event.target?.result as string;
-        
-        const { error } = await supabase
-          .from('agent_training_documents')
-          .insert({
-            agent_id: 'ask-antonio',
-            title: file.name,
-            content: content,
-            file_type: file.type,
-            metadata: { size: file.size }
-          });
+
+        const { error } = await supabase.from('agent_training_documents').insert({
+          agent_id: 'ask-antonio',
+          title: file.name,
+          content: content,
+          file_type: file.type,
+          metadata: { size: file.size },
+        });
 
         if (error) throw error;
 
@@ -198,27 +195,23 @@ const AgentTrainingAdmin: React.FC = () => {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `agent-training/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('public')
-        .upload(filePath, file);
+      const { error: uploadError } = await supabase.storage.from('public').upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('public')
-        .getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('public').getPublicUrl(filePath);
 
       // Save to database
-      const { error: dbError } = await supabase
-        .from('agent_training_images')
-        .insert({
-          agent_id: 'ask-antonio',
-          title: file.name,
-          description: '',
-          image_url: publicUrl,
-          metadata: { size: file.size }
-        });
+      const { error: dbError } = await supabase.from('agent_training_images').insert({
+        agent_id: 'ask-antonio',
+        title: file.name,
+        description: '',
+        image_url: publicUrl,
+        metadata: { size: file.size },
+      });
 
       if (dbError) throw dbError;
 
@@ -236,10 +229,7 @@ const AgentTrainingAdmin: React.FC = () => {
     if (!confirm('Tem certeza que deseja deletar este documento?')) return;
 
     try {
-      const { error } = await supabase
-        .from('agent_training_documents')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('agent_training_documents').delete().eq('id', id);
 
       if (error) throw error;
 
@@ -255,10 +245,7 @@ const AgentTrainingAdmin: React.FC = () => {
     if (!confirm('Tem certeza que deseja deletar esta imagem?')) return;
 
     try {
-      const { error } = await supabase
-        .from('agent_training_images')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('agent_training_images').delete().eq('id', id);
 
       if (error) throw error;
 
@@ -292,7 +279,6 @@ const AgentTrainingAdmin: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col bg-white rounded-lg border border-ai-border shadow-sm overflow-hidden">
-      
       {/* Header */}
       <div className="p-4 border-b border-ai-border bg-ai-surface/50">
         <div className="flex items-center justify-between">
@@ -305,7 +291,7 @@ const AgentTrainingAdmin: React.FC = () => {
               <p className="text-xs text-ai-subtext">Configure e treine o assistente virtual</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm">
               <span className="text-ai-subtext">Ativo:</span>
@@ -349,8 +335,8 @@ const AgentTrainingAdmin: React.FC = () => {
           {[
             { id: 'config', label: 'Configuração', icon: <Settings size={16} /> },
             { id: 'documents', label: 'Documentos', icon: <BookOpen size={16} />, count: documents.length },
-            { id: 'images', label: 'Imagens', icon: <ImageIcon size={16} />, count: images.length }
-          ].map((tab) => (
+            { id: 'images', label: 'Imagens', icon: <ImageIcon size={16} />, count: images.length },
+          ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
@@ -363,9 +349,7 @@ const AgentTrainingAdmin: React.FC = () => {
               {tab.icon}
               {tab.label}
               {tab.count !== undefined && (
-                <span className="ml-1 px-2 py-0.5 bg-ai-surface text-ai-subtext rounded-full text-xs">
-                  {tab.count}
-                </span>
+                <span className="ml-1 px-2 py-0.5 bg-ai-surface text-ai-subtext rounded-full text-xs">{tab.count}</span>
               )}
             </button>
           ))}
@@ -374,11 +358,9 @@ const AgentTrainingAdmin: React.FC = () => {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        
         {/* Configuration Tab */}
         {activeTab === 'config' && (
           <div className="space-y-6 max-w-3xl">
-            
             {/* System Prompt */}
             <div>
               <label className="block text-sm font-semibold text-ai-text mb-2 flex items-center gap-2">
@@ -386,11 +368,12 @@ const AgentTrainingAdmin: React.FC = () => {
                 System Prompt (Personalidade e Comportamento)
               </label>
               <p className="text-xs text-ai-subtext mb-3">
-                Define como o agente se comporta, seu tom de voz e expertise. Este prompt é enviado em todas as conversas.
+                Define como o agente se comporta, seu tom de voz e expertise. Este prompt é enviado em todas as
+                conversas.
               </p>
               <textarea
                 value={config.system_prompt}
-                onChange={(e) => setConfig({ ...config, system_prompt: e.target.value })}
+                onChange={e => setConfig({ ...config, system_prompt: e.target.value })}
                 className="w-full h-40 px-4 py-3 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent resize-none font-mono text-sm"
                 placeholder="Ex: Você é um especialista em pecuária..."
               />
@@ -398,15 +381,13 @@ const AgentTrainingAdmin: React.FC = () => {
 
             {/* Context Instructions */}
             <div>
-              <label className="block text-sm font-semibold text-ai-text mb-2">
-                Instruções de Contexto
-              </label>
+              <label className="block text-sm font-semibold text-ai-text mb-2">Instruções de Contexto</label>
               <p className="text-xs text-ai-subtext mb-3">
                 Instruções adicionais sobre como usar os documentos de treinamento e dados fornecidos.
               </p>
               <textarea
                 value={config.context_instructions || ''}
-                onChange={(e) => setConfig({ ...config, context_instructions: e.target.value })}
+                onChange={e => setConfig({ ...config, context_instructions: e.target.value })}
                 className="w-full h-32 px-4 py-3 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent resize-none font-mono text-sm"
                 placeholder="Ex: Use os documentos fornecidos para fundamentar suas respostas..."
               />
@@ -414,7 +395,8 @@ const AgentTrainingAdmin: React.FC = () => {
 
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>💡 Dica:</strong> Para melhor performance, seja específico sobre a especialidade do agente e forneça exemplos de como ele deve responder.
+                <strong>💡 Dica:</strong> Para melhor performance, seja específico sobre a especialidade do agente e
+                forneça exemplos de como ele deve responder.
               </p>
             </div>
           </div>
@@ -423,7 +405,6 @@ const AgentTrainingAdmin: React.FC = () => {
         {/* Documents Tab */}
         {activeTab === 'documents' && (
           <div className="space-y-4">
-            
             {/* Upload Section */}
             <div className="border-2 border-dashed border-ai-border rounded-lg p-8 text-center bg-ai-surface/30 hover:bg-ai-surface/50 transition-colors">
               <input
@@ -455,7 +436,7 @@ const AgentTrainingAdmin: React.FC = () => {
                   <p className="text-sm">Nenhum documento adicionado ainda.</p>
                 </div>
               ) : (
-                documents.map((doc) => (
+                documents.map(doc => (
                   <div
                     key={doc.id}
                     className="flex items-start gap-3 p-4 bg-white border border-ai-border rounded-lg hover:border-ai-accent/30 transition-colors group"
@@ -485,16 +466,9 @@ const AgentTrainingAdmin: React.FC = () => {
         {/* Images Tab */}
         {activeTab === 'images' && (
           <div className="space-y-4">
-            
             {/* Upload Section */}
             <div className="border-2 border-dashed border-ai-border rounded-lg p-8 text-center bg-ai-surface/30 hover:bg-ai-surface/50 transition-colors">
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
+              <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
               <ImageIcon size={48} className="mx-auto mb-4 text-ai-subtext" />
               <h3 className="text-sm font-semibold text-ai-text mb-2">Upload de Imagens</h3>
               <p className="text-xs text-ai-subtext mb-4">
@@ -517,16 +491,12 @@ const AgentTrainingAdmin: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {images.map((img) => (
+                {images.map(img => (
                   <div
                     key={img.id}
                     className="relative border border-ai-border rounded-lg overflow-hidden hover:border-ai-accent/30 transition-colors group"
                   >
-                    <img
-                      src={img.image_url}
-                      alt={img.title}
-                      className="w-full h-48 object-cover"
-                    />
+                    <img src={img.image_url} alt={img.title} className="w-full h-48 object-cover" />
                     <div className="p-3 bg-white border-t border-ai-border">
                       <h4 className="text-sm font-semibold text-ai-text truncate">{img.title}</h4>
                       <span className="text-xs text-ai-subtext">
@@ -551,16 +521,14 @@ const AgentTrainingAdmin: React.FC = () => {
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-bottom-5">
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
-            toast.type === 'success' 
-              ? 'bg-green-50 border border-green-200 text-green-800' 
-              : 'bg-rose-50 border border-rose-200 text-rose-800'
-          }`}>
-            {toast.type === 'success' ? (
-              <CheckCircle size={20} />
-            ) : (
-              <AlertCircle size={20} />
-            )}
+          <div
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${
+              toast.type === 'success'
+                ? 'bg-green-50 border border-green-200 text-green-800'
+                : 'bg-rose-50 border border-rose-200 text-rose-800'
+            }`}
+          >
+            {toast.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
             <span className="text-sm font-medium">{toast.message}</span>
           </div>
         </div>
@@ -570,4 +538,3 @@ const AgentTrainingAdmin: React.FC = () => {
 };
 
 export default AgentTrainingAdmin;
-

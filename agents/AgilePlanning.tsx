@@ -53,7 +53,7 @@ const formatCurrency = (value: number | undefined | null): string => {
   if (!isValidNumber(value) || value === 0) {
     return 'R$ 0,00';
   }
-  
+
   // Usa Intl.NumberFormat para formatação precisa e localizada
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -90,7 +90,7 @@ const safeDivide = (numerator: number, denominator: number): number => {
   // Validação rápida com early return
   if (denominator === 0) return 0;
   if (!isFinite(numerator) || !isFinite(denominator)) return 0;
-  
+
   const result = numerator / denominator;
   return isFinite(result) ? result : 0;
 };
@@ -192,7 +192,14 @@ const HERD_CONSTANTS = {
 } as const;
 
 /** Tipo para identificar categorias na tabela de rebanho médio */
-type WeightInfoCategory = 'matrizes' | 'bezerros' | 'novilhas8a12' | 'novilhas13a24' | 'touros' | 'cowSlaughter' | 'tempoMatrizes';
+type WeightInfoCategory =
+  | 'matrizes'
+  | 'bezerros'
+  | 'novilhas8a12'
+  | 'novilhas13a24'
+  | 'touros'
+  | 'cowSlaughter'
+  | 'tempoMatrizes';
 
 /** Interface para os dados da tabela de rebanho médio */
 interface AverageHerdData {
@@ -233,14 +240,14 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   const { user } = useAuth();
   const { selectedClient, setSelectedClient } = useClient();
   const { selectedFarm, setSelectedFarm } = useFarm();
-  
+
   // Cast para ExtendedFarm para acesso seguro ao operationPecuary
   const farm = selectedFarm as ExtendedFarm | null;
-  
+
   // ============================================================================
   // ESTADOS
   // ============================================================================
-  
+
   // Estados de UI
   const [isLoading, setIsLoading] = useState(true);
   const [showSelectionModal, setShowSelectionModal] = useState(false);
@@ -249,7 +256,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   const [isAverageHerdModalOpen, setIsAverageHerdModalOpen] = useState(false);
   const [editingCell, setEditingCell] = useState<{ id: string; field: keyof AnimalCategory } | null>(null);
   const [tempValue, setTempValue] = useState('');
-  
+
   // Estados de seleção
   const [clients, setClients] = useState<Client[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
@@ -272,20 +279,22 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   const [isWeaningAgeOpen, setIsWeaningAgeOpen] = useState(false);
   // Explicação do cálculo de peso individual
   const [weightCalculationInfoOpen, setWeightCalculationInfoOpen] = useState<WeightInfoCategory | null>(null);
-  const [popoverPositions, setPopoverPositions] = useState<Partial<Record<WeightInfoCategory, { top: number; left: number }>>>({});
+  const [popoverPositions, setPopoverPositions] = useState<
+    Partial<Record<WeightInfoCategory, { top: number; left: number }>>
+  >({});
   const weightInfoRefs = useRef<Partial<Record<WeightInfoCategory, HTMLDivElement | null>>>({});
   const weightButtonRefs = useRef<Partial<Record<WeightInfoCategory, HTMLButtonElement | null>>>({});
-  
+
   // Estados de índices de Recria-Engorda
   const [recriaGmd, setRecriaGmd] = useState(0.65); // Ganho Médio Diário: 0.4 a 1.1 kg/dia, default 0.65
   const [recriaMortalidade, setRecriaMortalidade] = useState(0.8); // Mortalidade: 0.2% a 2%, default 0.8%
   const [recriaRendimentoCarcaca, setRecriaRendimentoCarcaca] = useState(54.5); // Rendimento de Carcaça: 50% a 60%, default 54.5%
 
   // Estados de Compra e Venda - Recria-Engorda
-  const [recriaPesoCompra, setRecriaPesoCompra] = useState(220);       // Peso de Compra: 160 a 400 kg, default 220
-  const [recriaValorCompra, setRecriaValorCompra] = useState(15);       // Valor de Compra: R$ 10 a R$ 20/kg, default R$ 15
-  const [recriaPesoVenda, setRecriaPesoVenda] = useState(550);          // Peso de Venda: 360 a 600 kg, default 550
-  const [recriaValorVenda, setRecriaValorVenda] = useState(310);        // Valor de Venda: R$ 260 a R$ 360/@, default R$ 310
+  const [recriaPesoCompra, setRecriaPesoCompra] = useState(220); // Peso de Compra: 160 a 400 kg, default 220
+  const [recriaValorCompra, setRecriaValorCompra] = useState(15); // Valor de Compra: R$ 10 a R$ 20/kg, default R$ 15
+  const [recriaPesoVenda, setRecriaPesoVenda] = useState(550); // Peso de Venda: 360 a 600 kg, default 550
+  const [recriaValorVenda, setRecriaValorVenda] = useState(310); // Valor de Venda: R$ 260 a R$ 360/@, default R$ 310
 
   // Estados de índices reprodutivos
   const [fertility, setFertility] = useState(85);
@@ -297,7 +306,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   const [pesoPrimeiraMonta, setPesoPrimeiraMonta] = useState(300); // 270 a 360 kg, default 300
   const [matingPeriodDays, setMatingPeriodDays] = useState(90); // 40 a 120 dias, default 90
   const [cowSlaughterDays, setCowSlaughterDays] = useState(30); // 0 a 90 dias, default 30
-  
+
   // Estado de categorias
   const [animalCategories, setAnimalCategories] = useState<AnimalCategory[]>(getDefaultCategories);
   const [selectedIndicators, setSelectedIndicators] = useState<string[]>([
@@ -307,11 +316,11 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     'lotacaoCabHa',
     'producaoArrobaHa',
   ]);
-  
+
   // ============================================================================
   // VALORES DERIVADOS
   // ============================================================================
-  
+
   const showReproductiveIndices = productionSystem === 'Cria' || productionSystem === 'Ciclo Completo';
   const operationPecuaryValue = farm?.operationPecuary ?? 0;
 
@@ -327,7 +336,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       name: 'Nova Categoria',
       percentage: 0,
       weight: 0,
-      valuePerKg: 0
+      valuePerKg: 0,
     };
     setAnimalCategories(prev => [...prev, newCategory]);
   }, [animalCategories]);
@@ -337,9 +346,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   }, []);
 
   const updateCategory = useCallback((id: string, field: keyof AnimalCategory, value: number | string | undefined) => {
-    setAnimalCategories(prev =>
-      prev.map(cat => cat.id === id ? { ...cat, [field]: value } : cat)
-    );
+    setAnimalCategories(prev => prev.map(cat => (cat.id === id ? { ...cat, [field]: value } : cat)));
   }, []);
 
   // ============================================================================
@@ -361,16 +368,16 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
         }
       }
     };
-    
+
     const hasOpenModal = isModalOpen || isIndicatorsModalOpen || isAverageHerdModalOpen;
-    
+
     if (hasOpenModal) {
       document.body.style.overflow = 'hidden';
       document.addEventListener('keydown', handleEscape);
     } else {
       document.body.style.overflow = '';
     }
-    
+
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
@@ -380,15 +387,15 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   // Fechar popovers de peso ao clicar fora
   useEffect(() => {
     if (!weightCalculationInfoOpen) return;
-    
+
     const handleClickOutside = (event: MouseEvent) => {
       const containerRef = weightInfoRefs.current[weightCalculationInfoOpen];
       const buttonRef = weightButtonRefs.current[weightCalculationInfoOpen];
       const target = event.target as Node;
-      
+
       const isOutsideContainer = !containerRef?.contains(target);
       const isOutsideButton = !buttonRef?.contains(target);
-      
+
       if (isOutsideContainer && isOutsideButton) {
         setWeightCalculationInfoOpen(null);
       }
@@ -412,63 +419,65 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
         [category]: {
           top: rect.top - 110,
           left: Math.max(10, rect.left - 230),
-        }
+        },
       }));
     }
-    setWeightCalculationInfoOpen(prev => prev === category ? null : category);
+    setWeightCalculationInfoOpen(prev => (prev === category ? null : category));
   }, []);
 
   // ============================================================================
   // HANDLERS DE INPUT
   // ============================================================================
 
-  const handleInputFocus = useCallback((
-    _e: React.FocusEvent<HTMLInputElement>,
-    id: string,
-    field: keyof AnimalCategory
-  ) => {
-    setEditingCell({ id, field });
-    setTempValue('');
-  }, []);
+  const handleInputFocus = useCallback(
+    (_e: React.FocusEvent<HTMLInputElement>, id: string, field: keyof AnimalCategory) => {
+      setEditingCell({ id, field });
+      setTempValue('');
+    },
+    [],
+  );
 
   const handleInputBlur = useCallback(() => {
     setEditingCell(null);
     setTempValue('');
   }, []);
 
-  const handleNumericChange = useCallback((id: string, field: keyof AnimalCategory, rawValue: string) => {
-    // Permite ponto como vírgula
-    const treatedValue = rawValue.replace(/\./g, ',');
-    setTempValue(treatedValue);
+  const handleNumericChange = useCallback(
+    (id: string, field: keyof AnimalCategory, rawValue: string) => {
+      // Permite ponto como vírgula
+      const treatedValue = rawValue.replace(/\./g, ',');
+      setTempValue(treatedValue);
 
-    // Remove caracteres inválidos
-    let cleaned = treatedValue.replace(/[^\d,]/g, '');
+      // Remove caracteres inválidos
+      let cleaned = treatedValue.replace(/[^\d,]/g, '');
 
-    // Permite apenas uma vírgula
-    const parts = cleaned.split(',');
-    if (parts.length > 2) {
-      cleaned = parts[0] + ',' + parts.slice(1).join('');
-    }
+      // Permite apenas uma vírgula
+      const parts = cleaned.split(',');
+      if (parts.length > 2) {
+        cleaned = parts[0] + ',' + parts.slice(1).join('');
+      }
 
-    if (cleaned === '') {
-      updateCategory(id, field, 0);
+      if (cleaned === '') {
+        updateCategory(id, field, 0);
         return;
       }
 
-    const parsed = parseNumberFromComma(cleaned);
-    if (isFinite(parsed)) {
-      // Validação de limites por campo
-      let validValue = parsed;
-      if (field === 'percentage') {
-        validValue = Math.max(0, Math.min(100, parsed));
-      } else if (field === 'weight') {
-        validValue = Math.max(0, Math.min(9999, parsed));
-      } else if (field === 'valuePerKg') {
-        validValue = Math.max(0, Math.min(9999, parsed));
+      const parsed = parseNumberFromComma(cleaned);
+      if (isFinite(parsed)) {
+        // Validação de limites por campo
+        let validValue = parsed;
+        if (field === 'percentage') {
+          validValue = Math.max(0, Math.min(100, parsed));
+        } else if (field === 'weight') {
+          validValue = Math.max(0, Math.min(9999, parsed));
+        } else if (field === 'valuePerKg') {
+          validValue = Math.max(0, Math.min(9999, parsed));
+        }
+        updateCategory(id, field, validValue);
       }
-      updateCategory(id, field, validValue);
-    }
-  }, [updateCategory]);
+    },
+    [updateCategory],
+  );
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
@@ -557,47 +566,32 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     const pastureArea = selectedFarm?.pastureArea ?? 0;
     const herdValue = selectedFarm?.herdValue ?? 0;
     const propertyValue = selectedFarm?.propertyValue ?? 0;
-    
+
     // Receita: Valor médio por cabeça × Vendas necessárias
-    const revenue = (!isPercentageSumValid || averageValue <= 0 || requiredSales <= 0) 
-      ? 0 
-      : averageValue * requiredSales;
-    
+    const revenue = !isPercentageSumValid || averageValue <= 0 || requiredSales <= 0 ? 0 : averageValue * requiredSales;
+
     // Desembolso total: Receita - Valor calculado
     const totalDisbursement = revenue <= 0 ? 0 : revenue - calculatedValue;
-    
+
     // Resultado: Receita - Desembolso
     const result = revenue - totalDisbursement;
-    
+
     // Cálculos derivados
-    const resultPerHectare = (pastureArea <= 0 || result <= 0) 
-      ? 0 
-      : safeDivide(result, pastureArea);
-    
-    const marginOverSale = (revenue <= 0 || result <= 0) 
-      ? 0 
-      : safeDivide(result, revenue) * 100;
-    
-    const resultPerHead = (result <= 0 || requiredSales <= 0) 
-      ? 0 
-      : safeDivide(result, requiredSales);
-    
-    const resultOnLivestockAsset = (result <= 0 || herdValue <= 0) 
-      ? 0 
-      : safeDivide(result, herdValue) * 100;
-    
-    const resultOnLandValue = (result <= 0 || propertyValue <= 0) 
-      ? 0 
-      : safeDivide(result, propertyValue) * 100;
-    
-    const disbursementPerCalf = (totalDisbursement <= 0 || requiredSales <= 0) 
-      ? 0 
-      : safeDivide(totalDisbursement, requiredSales);
-    
-    const averageMonthlyDisbursement = totalDisbursement <= 0 
-      ? 0 
-      : safeDivide(totalDisbursement, 12);
-    
+    const resultPerHectare = pastureArea <= 0 || result <= 0 ? 0 : safeDivide(result, pastureArea);
+
+    const marginOverSale = revenue <= 0 || result <= 0 ? 0 : safeDivide(result, revenue) * 100;
+
+    const resultPerHead = result <= 0 || requiredSales <= 0 ? 0 : safeDivide(result, requiredSales);
+
+    const resultOnLivestockAsset = result <= 0 || herdValue <= 0 ? 0 : safeDivide(result, herdValue) * 100;
+
+    const resultOnLandValue = result <= 0 || propertyValue <= 0 ? 0 : safeDivide(result, propertyValue) * 100;
+
+    const disbursementPerCalf =
+      totalDisbursement <= 0 || requiredSales <= 0 ? 0 : safeDivide(totalDisbursement, requiredSales);
+
+    const averageMonthlyDisbursement = totalDisbursement <= 0 ? 0 : safeDivide(totalDisbursement, 12);
+
     return {
       revenue,
       totalDisbursement,
@@ -621,11 +615,11 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   ]);
 
   // Desestruturação para manter compatibilidade com código existente
-  const { 
-    revenue, 
-    totalDisbursement, 
-    result, 
-    resultPerHectare, 
+  const {
+    revenue,
+    totalDisbursement,
+    result,
+    resultPerHectare,
     marginOverSale,
     resultPerHead,
     resultOnLivestockAsset,
@@ -635,13 +629,16 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   } = financialCalculations;
 
   /** Calcula quantidade para uma categoria (otimizado com validação) */
-  const calculateQuantity = useCallback((categoryPercentage: number): number => {
-    // Validação rápida com early return
-    if (!isPercentageSumValid || requiredSales === 0 || categoryPercentage <= 0) return 0;
-    if (!isValidNumber(categoryPercentage)) return 0;
-    
-    return Math.round(safeDivide(requiredSales * categoryPercentage, 100));
-  }, [isPercentageSumValid, requiredSales]);
+  const calculateQuantity = useCallback(
+    (categoryPercentage: number): number => {
+      // Validação rápida com early return
+      if (!isPercentageSumValid || requiredSales === 0 || categoryPercentage <= 0) return 0;
+      if (!isValidNumber(categoryPercentage)) return 0;
+
+      return Math.round(safeDivide(requiredSales * categoryPercentage, 100));
+    },
+    [isPercentageSumValid, requiredSales],
+  );
 
   /** Calcula Index RB (quantidade × tempo) para cada categoria do rebanho médio */
   const calculateIndexRB = useMemo(() => {
@@ -652,7 +649,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
         novilhas8a12: 0,
         novilhas12a24: 0,
         touros: 0,
-        total: 0
+        total: 0,
       };
     }
 
@@ -672,10 +669,10 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     const totalNovilhas = novilhaCategory ? calculateQuantity(novilhaCategory.percentage) : 0;
     const novilhas8a12 = totalNovilhas / 2; // 50% das novilhas
     const novilhas12a24 = totalNovilhas / 2; // 50% das novilhas
-    
+
     const tempoNovilhas8a12 = 5; // Fixo: 5 meses
     const tempoNovilhas12a24 = Math.max(0, firstMatingAge - 12); // Idade primeira monta - 12
-    
+
     const indexRBNovilhas8a12 = novilhas8a12 * tempoNovilhas8a12;
     const indexRBNovilhas12a24 = novilhas12a24 * tempoNovilhas12a24;
 
@@ -694,9 +691,17 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       novilhas8a12: indexRBNovilhas8a12,
       novilhas12a24: indexRBNovilhas12a24,
       touros: indexRBTouros,
-      total: totalIndexRB
+      total: totalIndexRB,
     };
-  }, [showReproductiveIndices, isPercentageSumValid, requiredSales, requiredMatrixes, animalCategories, calculateQuantity, firstMatingAge]);
+  }, [
+    showReproductiveIndices,
+    isPercentageSumValid,
+    requiredSales,
+    requiredMatrixes,
+    animalCategories,
+    calculateQuantity,
+    firstMatingAge,
+  ]);
 
   /** Cálculos do índice de rebanho consolidados para melhor performance */
   const herdIndexCalculations = useMemo(() => {
@@ -712,22 +717,19 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
     // Passo 1: indice_tempo = idade_primeira_monta - 12
     const indiceTempo = Math.max(0, firstMatingAge - 12);
-    
+
     // Passo 2: indice_novilhas = (indice_tempo × 37.5) ÷ 12
     const indiceNovilhas = safeDivide(indiceTempo * 37.5, 12);
-    
+
     // Passo 3: index_valor_rebanho = indice_novilhas + 163.375
     const indexValorRebanho = indiceNovilhas + 163.375;
-    
+
     // Passo 4: matrizes_sobre_rebanho_medio = 100 / index_valor_rebanho
-    const matricesOverAverageHerd = indexValorRebanho <= 0 
-      ? 0 
-      : safeDivide(100, indexValorRebanho);
-    
+    const matricesOverAverageHerd = indexValorRebanho <= 0 ? 0 : safeDivide(100, indexValorRebanho);
+
     // Rebanho médio para exibição = Matrizes necessárias / Matrizes sobre rebanho médio
-    const averageHerd = (matricesOverAverageHerd <= 0 || requiredMatrixes <= 0) 
-      ? 0 
-      : safeDivide(requiredMatrixes, matricesOverAverageHerd);
+    const averageHerd =
+      matricesOverAverageHerd <= 0 || requiredMatrixes <= 0 ? 0 : safeDivide(requiredMatrixes, matricesOverAverageHerd);
 
     return {
       indiceTempo,
@@ -739,13 +741,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   }, [showReproductiveIndices, firstMatingAge, requiredMatrixes]);
 
   // Desestruturação para manter compatibilidade
-  const { 
-    indiceTempo, 
-    indiceNovilhas, 
-    indexValorRebanho, 
-    matricesOverAverageHerd, 
-    averageHerd 
-  } = herdIndexCalculations;
+  const { indiceTempo, indiceNovilhas, indexValorRebanho, matricesOverAverageHerd, averageHerd } =
+    herdIndexCalculations;
 
   /** Desembolso por cabeça mês: (Desembolso ÷ Rebanho médio) ÷ 12 */
   const disbursementPerHeadMonth = useMemo(() => {
@@ -768,19 +765,19 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   /** Total de arrobas produzidas: soma(quantidade × peso em @) (otimizado) */
   const totalArroba = useMemo(() => {
     if (!animalCategories.length) return 0;
-    
+
     return animalCategories.reduce((sum, category) => {
       const quantity = calculateQuantity(category.percentage);
       if (quantity <= 0) return sum;
-      
+
       // Converter peso para @ (arrobas) - otimizado
-      const weightArroba = isKgCategory(category.id) 
-        ? category.weight / HERD_CONSTANTS.ARROBA_TO_KG  // Usa constante
-        : category.weight;      // Já está em @
-      
+      const weightArroba = isKgCategory(category.id)
+        ? category.weight / HERD_CONSTANTS.ARROBA_TO_KG // Usa constante
+        : category.weight; // Já está em @
+
       if (!isValidNumber(weightArroba)) return sum;
-      
-      return sum + (quantity * weightArroba);
+
+      return sum + quantity * weightArroba;
     }, 0);
   }, [animalCategories, calculateQuantity]);
 
@@ -797,24 +794,46 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   }, [totalDisbursement, totalArroba]);
 
   // Função auxiliar para verificar se indicadores estão implementados
-  const formatIndicatorValue = useCallback((value: number | undefined, format: 'currency' | 'percentage', hasRequiredData: boolean): string => {
-    if (!hasRequiredData) return '!!!';
-    if (!isFinite(value) || value === 0) return '-';
-    return format === 'currency' ? formatCurrency(value) : `${value.toFixed(1)}%`;
-  }, []);
+  const formatIndicatorValue = useCallback(
+    (value: number | undefined, format: 'currency' | 'percentage', hasRequiredData: boolean): string => {
+      if (!hasRequiredData) return '!!!';
+      if (!isFinite(value) || value === 0) return '-';
+      return format === 'currency' ? formatCurrency(value) : `${value.toFixed(1)}%`;
+    },
+    [],
+  );
 
   // Verificações de disponibilidade de dados para cada indicador (usando useMemo para performance)
-  const hasDisbursementPerArrobaData = useMemo(() => totalDisbursement > 0 && totalArroba > 0, [totalDisbursement, totalArroba]);
-  const hasDisbursementPerCalfData = useMemo(() => totalDisbursement > 0 && requiredSales > 0, [totalDisbursement, requiredSales]);
+  const hasDisbursementPerArrobaData = useMemo(
+    () => totalDisbursement > 0 && totalArroba > 0,
+    [totalDisbursement, totalArroba],
+  );
+  const hasDisbursementPerCalfData = useMemo(
+    () => totalDisbursement > 0 && requiredSales > 0,
+    [totalDisbursement, requiredSales],
+  );
   const hasAverageMonthlyDisbursementData = useMemo(() => totalDisbursement > 0, [totalDisbursement]);
   const hasResultPerHeadData = useMemo(() => result > 0 && requiredSales > 0, [result, requiredSales]);
-  const hasResultOnLivestockAssetData = useMemo(() => result > 0 && (selectedFarm?.herdValue ?? 0) > 0, [result, selectedFarm?.herdValue]);
-  const hasResultOnLandValueData = useMemo(() => result > 0 && (selectedFarm?.propertyValue ?? 0) > 0, [result, selectedFarm?.propertyValue]);
+  const hasResultOnLivestockAssetData = useMemo(
+    () => result > 0 && (selectedFarm?.herdValue ?? 0) > 0,
+    [result, selectedFarm?.herdValue],
+  );
+  const hasResultOnLandValueData = useMemo(
+    () => result > 0 && (selectedFarm?.propertyValue ?? 0) > 0,
+    [result, selectedFarm?.propertyValue],
+  );
 
   /** Cálculos para tabela de Rebanho Médio */
   const averageHerdTable = useMemo((): AverageHerdData => {
-    const { ARROBA_TO_KG, MATRIZ_WEIGHT_FACTOR, TEMPO_MATRIZES, TEMPO_NOVILHAS_8_12, TEMPO_TOUROS, BEZERRO_WEIGHT_ADJUSTMENT } = HERD_CONSTANTS;
-    
+    const {
+      ARROBA_TO_KG,
+      MATRIZ_WEIGHT_FACTOR,
+      TEMPO_MATRIZES,
+      TEMPO_NOVILHAS_8_12,
+      TEMPO_TOUROS,
+      BEZERRO_WEIGHT_ADJUSTMENT,
+    } = HERD_CONSTANTS;
+
     // Valores padrão quando não há dados
     const emptyResult: AverageHerdData = {
       vacas: 0,
@@ -838,7 +857,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       pesoIndividualNovilha13a24: 0,
       pesoIndividualTouro: 0,
     };
-    
+
     if (!showReproductiveIndices || requiredMatrixes <= 0) {
       return emptyResult;
     }
@@ -872,7 +891,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     const novilhas8a12 = Math.round(bezerrosMamando / 2);
     const tempoNovilhas8a12 = TEMPO_NOVILHAS_8_12;
     const mesesAte12Meses = 12 - weaningAgeMonths;
-    const pesoAos12Meses = pesoInicialDesmame + (ganhoMensal * mesesAte12Meses);
+    const pesoAos12Meses = pesoInicialDesmame + ganhoMensal * mesesAte12Meses;
     const pesoMedioNovilha8a12 = (pesoInicialDesmame + pesoAos12Meses) / 2;
     const pesoVivoNovilhas8a12 = novilhas8a12 * pesoMedioNovilha8a12;
 
@@ -880,7 +899,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     const novilhas13a24 = novilhas8a12;
     const tempoNovilhas13a24 = Math.max(0, firstMatingAge - 12);
     const mesesAte13Meses = 13 - weaningAgeMonths;
-    const pesoAos13Meses = pesoInicialDesmame + (ganhoMensal * mesesAte13Meses);
+    const pesoAos13Meses = pesoInicialDesmame + ganhoMensal * mesesAte13Meses;
     const pesoMedioNovilha13a24 = (pesoAos13Meses + pesoPrimeiraMonta) / 2;
     const pesoVivoNovilhas13a24 = novilhas13a24 * pesoMedioNovilha13a24;
 
@@ -912,7 +931,21 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       pesoIndividualNovilha13a24: pesoMedioNovilha13a24,
       pesoIndividualTouro: pesoMedioTouro,
     };
-  }, [showReproductiveIndices, requiredMatrixes, weaningRate, bullCowRatioPercent, firstMatingAge, maleWeaningWeight, femaleWeaningWeight, animalCategories, weaningAgeMonths, pesoPrimeiraMonta, pesoMedioTouro, matingPeriodDays, cowSlaughterDays]);
+  }, [
+    showReproductiveIndices,
+    requiredMatrixes,
+    weaningRate,
+    bullCowRatioPercent,
+    firstMatingAge,
+    maleWeaningWeight,
+    femaleWeaningWeight,
+    animalCategories,
+    weaningAgeMonths,
+    pesoPrimeiraMonta,
+    pesoMedioTouro,
+    matingPeriodDays,
+    cowSlaughterDays,
+  ]);
 
   /** Rebanho Médio calculado: Σ(quantidade × tempo) / 12 */
   const rebanhoMedioCalculado = useMemo(() => {
@@ -924,7 +957,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       { quantidade: averageHerdTable.novilhas13a24, tempo: averageHerdTable.tempoNovilhas13a24 },
       { quantidade: averageHerdTable.touros, tempo: averageHerdTable.tempoTouros },
     ];
-    const somaQtdTempo = categorias.reduce((sum, c) => sum + (c.quantidade * c.tempo), 0);
+    const somaQtdTempo = categorias.reduce((sum, c) => sum + c.quantidade * c.tempo, 0);
     return somaQtdTempo / 12;
   }, [showReproductiveIndices, averageHerdTable]);
 
@@ -960,13 +993,33 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   const totalUAsCalculado = useMemo(() => {
     if (!showReproductiveIndices) return 0;
     const categorias = [
-      { quantidade: averageHerdTable.vacas, tempo: averageHerdTable.tempoVacas, peso: averageHerdTable.pesoIndividualVaca },
-      { quantidade: averageHerdTable.bezerrosMamando, tempo: averageHerdTable.tempoBezerros, peso: averageHerdTable.pesoIndividualBezerro },
-      { quantidade: averageHerdTable.novilhas8a12, tempo: averageHerdTable.tempoNovilhas8a12, peso: averageHerdTable.pesoIndividualNovilha8a12 },
-      { quantidade: averageHerdTable.novilhas13a24, tempo: averageHerdTable.tempoNovilhas13a24, peso: averageHerdTable.pesoIndividualNovilha13a24 },
-      { quantidade: averageHerdTable.touros, tempo: averageHerdTable.tempoTouros, peso: averageHerdTable.pesoIndividualTouro },
+      {
+        quantidade: averageHerdTable.vacas,
+        tempo: averageHerdTable.tempoVacas,
+        peso: averageHerdTable.pesoIndividualVaca,
+      },
+      {
+        quantidade: averageHerdTable.bezerrosMamando,
+        tempo: averageHerdTable.tempoBezerros,
+        peso: averageHerdTable.pesoIndividualBezerro,
+      },
+      {
+        quantidade: averageHerdTable.novilhas8a12,
+        tempo: averageHerdTable.tempoNovilhas8a12,
+        peso: averageHerdTable.pesoIndividualNovilha8a12,
+      },
+      {
+        quantidade: averageHerdTable.novilhas13a24,
+        tempo: averageHerdTable.tempoNovilhas13a24,
+        peso: averageHerdTable.pesoIndividualNovilha13a24,
+      },
+      {
+        quantidade: averageHerdTable.touros,
+        tempo: averageHerdTable.tempoTouros,
+        peso: averageHerdTable.pesoIndividualTouro,
+      },
     ];
-    const somaQtdTempoPeso = categorias.reduce((sum, c) => sum + (c.quantidade * c.tempo * c.peso), 0);
+    const somaQtdTempoPeso = categorias.reduce((sum, c) => sum + c.quantidade * c.tempo * c.peso, 0);
     return somaQtdTempoPeso / 12 / 450;
   }, [showReproductiveIndices, averageHerdTable]);
 
@@ -983,74 +1036,89 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   }, [showReproductiveIndices, rebanhoMedioCalculado, farm?.pastureArea]);
 
   const MAX_PERFORMANCE_INDICATORS = 5;
-  const performanceIndicators = useMemo(() => [
-    {
-      id: 'weaningRate',
-      label: 'Taxa de Desmame',
-      value: weaningRate * 100,
-      format: (value: number) => `${value.toFixed(2)}%`,
-    },
-    {
-      id: 'kgPerMatrix',
-      label: 'Kg desm./Matriz',
-      value: kgPerMatrix,
-      format: (value: number) => `${value.toFixed(1)} kg`,
-    },
-    {
-      id: 'matricesOverAverageHerd',
-      label: 'Matrizes s/ Rebanho',
-      value: matricesOverAverageHerd * 100,
-      format: (value: number) => `${value.toFixed(1)}%`,
-    },
-    {
-      id: 'salesPerHectare',
-      label: 'Vendas/ha',
-      value: salesPerHectare,
-      format: (value: number) => value.toFixed(2),
-    },
-    {
-      id: 'gmdGlobal',
-      label: 'GMD global',
-      value: gmdGlobal,
-      format: (value: number) => `${value.toFixed(2)} kg/dia`,
-    },
-    {
-      id: 'lotacaoCabHa',
-      label: 'Lotação UA/ha',
-      value: lotacaoCabHa,
-      format: (value: number) => value.toFixed(2),
-    },
-    {
-      id: 'producaoArrobaHa',
-      label: 'Produção de @/ha',
-      value: producaoArrobaHa,
-      format: (value: number) => `${value.toFixed(2)} @/ha`,
-    },
-    {
-      id: 'lotacaoCabecasHa',
-      label: 'Lotação Cab./ha',
-      value: lotacaoCabecasHa,
-      format: (value: number) => value.toFixed(2),
-    },
-  ], [weaningRate, kgPerMatrix, matricesOverAverageHerd, salesPerHectare, gmdGlobal, lotacaoCabHa, producaoArrobaHa, lotacaoCabecasHa]);
-
-  const visiblePerformanceIndicators = useMemo(
-    () => performanceIndicators.filter((indicator) => selectedIndicators.includes(indicator.id)),
-    [performanceIndicators, selectedIndicators]
+  const performanceIndicators = useMemo(
+    () => [
+      {
+        id: 'weaningRate',
+        label: 'Taxa de Desmame',
+        value: weaningRate * 100,
+        format: (value: number) => `${value.toFixed(2)}%`,
+      },
+      {
+        id: 'kgPerMatrix',
+        label: 'Kg desm./Matriz',
+        value: kgPerMatrix,
+        format: (value: number) => `${value.toFixed(1)} kg`,
+      },
+      {
+        id: 'matricesOverAverageHerd',
+        label: 'Matrizes s/ Rebanho',
+        value: matricesOverAverageHerd * 100,
+        format: (value: number) => `${value.toFixed(1)}%`,
+      },
+      {
+        id: 'salesPerHectare',
+        label: 'Vendas/ha',
+        value: salesPerHectare,
+        format: (value: number) => value.toFixed(2),
+      },
+      {
+        id: 'gmdGlobal',
+        label: 'GMD global',
+        value: gmdGlobal,
+        format: (value: number) => `${value.toFixed(2)} kg/dia`,
+      },
+      {
+        id: 'lotacaoCabHa',
+        label: 'Lotação UA/ha',
+        value: lotacaoCabHa,
+        format: (value: number) => value.toFixed(2),
+      },
+      {
+        id: 'producaoArrobaHa',
+        label: 'Produção de @/ha',
+        value: producaoArrobaHa,
+        format: (value: number) => `${value.toFixed(2)} @/ha`,
+      },
+      {
+        id: 'lotacaoCabecasHa',
+        label: 'Lotação Cab./ha',
+        value: lotacaoCabecasHa,
+        format: (value: number) => value.toFixed(2),
+      },
+    ],
+    [
+      weaningRate,
+      kgPerMatrix,
+      matricesOverAverageHerd,
+      salesPerHectare,
+      gmdGlobal,
+      lotacaoCabHa,
+      producaoArrobaHa,
+      lotacaoCabecasHa,
+    ],
   );
 
-  const toggleIndicatorSelection = useCallback((indicatorId: string) => {
-    setSelectedIndicators((prev) => {
-      if (prev.includes(indicatorId)) {
-        return prev.filter((id) => id !== indicatorId);
-      }
-      if (prev.length >= MAX_PERFORMANCE_INDICATORS) {
-        onToast?.('Selecione no máximo 5 indicadores.', 'warning');
-        return prev;
-      }
-      return [...prev, indicatorId];
-    });
-  }, [onToast]);
+  const visiblePerformanceIndicators = useMemo(
+    () => performanceIndicators.filter(indicator => selectedIndicators.includes(indicator.id)),
+    [performanceIndicators, selectedIndicators],
+  );
+
+  const toggleIndicatorSelection = useCallback(
+    (indicatorId: string) => {
+      setSelectedIndicators(prev => {
+        if (prev.includes(indicatorId)) {
+          return prev.filter(id => id !== indicatorId);
+        }
+        if (prev.length >= MAX_PERFORMANCE_INDICATORS) {
+          onToast?.('Selecione no máximo 5 indicadores.', 'warning');
+          return prev;
+        }
+        return [...prev, indicatorId];
+      });
+    },
+    [onToast],
+  );
 
   /** Configuração de margem para o sistema atual */
   const marginConfig = useMemo(() => getMarginConfig(productionSystem), [productionSystem]);
@@ -1059,70 +1127,73 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   // FUNÇÕES DE CARREGAMENTO
   // ============================================================================
 
-  const loadFarmsForClient = useCallback(async (clientId: string) => {
-    // Validação de entrada
-    if (!clientId || typeof clientId !== 'string' || clientId.trim() === '') {
-      setFarms([]);
-      return;
-    }
-    
-    try {
-      // Carregar fazendas do localStorage com tratamento de erros robusto
-      let allFarms: Farm[] = [];
-      
-      if (typeof window !== 'undefined' && window.localStorage) {
-        try {
-          const storedFarms = localStorage.getItem('agro-farms');
-          if (storedFarms) {
-            const parsed = JSON.parse(storedFarms);
-            // Validação de tipo
-            if (Array.isArray(parsed)) {
-              allFarms = parsed;
-            }
-          }
-        } catch (parseError) {
-          console.error('[AgilePlanning] Error parsing farms from localStorage:', parseError);
-          onToast?.('Erro ao carregar dados locais de fazendas.', 'warning');
-        }
-      }
-
-      // Buscar fazendas vinculadas ao cliente
-      const { data: clientFarmsData, error } = await supabase
-        .from('client_farms')
-        .select('farm_id')
-        .eq('client_id', clientId);
-
-      if (error) {
-        console.error('[AgilePlanning] Error loading client farms:', error);
-        onToast?.('Erro ao carregar fazendas do cliente.', 'error');
+  const loadFarmsForClient = useCallback(
+    async (clientId: string) => {
+      // Validação de entrada
+      if (!clientId || typeof clientId !== 'string' || clientId.trim() === '') {
         setFarms([]);
         return;
       }
 
-      // Processar e filtrar fazendas com validação
-      if (clientFarmsData && Array.isArray(clientFarmsData) && allFarms.length > 0) {
-        const farmIds = new Set(
-          clientFarmsData
-            .map(cf => cf?.farm_id)
-            .filter((id): id is string => typeof id === 'string' && id.length > 0)
-        );
-        
-        const farmsForClient = allFarms.filter(f => f?.id && farmIds.has(f.id));
-        setFarms(farmsForClient);
-        
-        if (farmsForClient.length > 0) {
-          setTempSelectedFarm(prev => prev || farmsForClient[0]);
+      try {
+        // Carregar fazendas do localStorage com tratamento de erros robusto
+        let allFarms: Farm[] = [];
+
+        if (typeof window !== 'undefined' && window.localStorage) {
+          try {
+            const storedFarms = localStorage.getItem('agro-farms');
+            if (storedFarms) {
+              const parsed = JSON.parse(storedFarms);
+              // Validação de tipo
+              if (Array.isArray(parsed)) {
+                allFarms = parsed;
+              }
+            }
+          } catch (parseError) {
+            console.error('[AgilePlanning] Error parsing farms from localStorage:', parseError);
+            onToast?.('Erro ao carregar dados locais de fazendas.', 'warning');
+          }
         }
-      } else {
+
+        // Buscar fazendas vinculadas ao cliente
+        const { data: clientFarmsData, error } = await supabase
+          .from('client_farms')
+          .select('farm_id')
+          .eq('client_id', clientId);
+
+        if (error) {
+          console.error('[AgilePlanning] Error loading client farms:', error);
+          onToast?.('Erro ao carregar fazendas do cliente.', 'error');
+          setFarms([]);
+          return;
+        }
+
+        // Processar e filtrar fazendas com validação
+        if (clientFarmsData && Array.isArray(clientFarmsData) && allFarms.length > 0) {
+          const farmIds = new Set(
+            clientFarmsData
+              .map(cf => cf?.farm_id)
+              .filter((id): id is string => typeof id === 'string' && id.length > 0),
+          );
+
+          const farmsForClient = allFarms.filter(f => f?.id && farmIds.has(f.id));
+          setFarms(farmsForClient);
+
+          if (farmsForClient.length > 0) {
+            setTempSelectedFarm(prev => prev || farmsForClient[0]);
+          }
+        } else {
+          setFarms([]);
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+        console.error('[AgilePlanning] Unexpected error:', errorMessage, err);
+        onToast?.('Erro inesperado ao carregar fazendas.', 'error');
         setFarms([]);
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      console.error('[AgilePlanning] Unexpected error:', errorMessage, err);
-      onToast?.('Erro inesperado ao carregar fazendas.', 'error');
-      setFarms([]);
-    }
-  }, [onToast]);
+    },
+    [onToast],
+  );
 
   // ============================================================================
   // EFFECTS
@@ -1149,12 +1220,12 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
             }
 
             let query = supabase.from('clients').select('*');
-            
+
             // Analista vê apenas seus clientes; admin vê todos
             if (user.qualification === 'analista' && user.role !== 'admin') {
               query = query.eq('analyst_id', user.id);
             }
-            
+
             query = query.order('name', { ascending: true });
             const { data, error } = await query;
 
@@ -1175,9 +1246,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                   email: client.email || '',
                   analystId: client.analyst_id || null,
                   createdAt: client.created_at || new Date().toISOString(),
-                  updatedAt: client.updated_at || new Date().toISOString()
+                  updatedAt: client.updated_at || new Date().toISOString(),
                 }));
-              
+
               setClients(mappedClients);
               if (mappedClients.length > 0) {
                 setTempSelectedClient(prev => prev || mappedClients[0]);
@@ -1207,8 +1278,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       setAnimalCategories(prev =>
         prev.map(cat => ({
           ...cat,
-          percentage: initialPercentages[cat.id] ?? cat.percentage
-        }))
+          percentage: initialPercentages[cat.id] ?? cat.percentage,
+        })),
       );
     }
   }, [productionSystem]);
@@ -1217,11 +1288,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   useEffect(() => {
     if (productionSystem === 'Recria-Engorda') {
       setAnimalCategories(prev =>
-        prev.map(cat =>
-          cat.id === CATEGORY_IDS.BOI_GORDO
-            ? { ...cat, valuePerKg: recriaValorVenda }
-            : cat
-        )
+        prev.map(cat => (cat.id === CATEGORY_IDS.BOI_GORDO ? { ...cat, valuePerKg: recriaValorVenda } : cat)),
       );
     }
   }, [productionSystem, recriaValorVenda]);
@@ -1244,7 +1311,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
           return { ...cat, weight: femaleWeaningWeight };
         }
         return cat;
-      })
+      }),
     );
   }, [maleWeaningWeight, femaleWeaningWeight]);
 
@@ -1314,7 +1381,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
               <div className="relative">
                 <select
                   value={tempSelectedClient?.id || ''}
-                  onChange={(e) => {
+                  onChange={e => {
                     const client = clients.find(c => c.id === e.target.value);
                     setTempSelectedClient(client || null);
                     setTempSelectedFarm(null);
@@ -1322,7 +1389,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                   className="w-full px-4 py-2 bg-ai-surface2 border border-ai-border rounded-md text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                 >
                   <option value="">Selecione um cliente</option>
-                  {clients.map((client) => (
+                  {clients.map(client => (
                     <option key={client.id} value={client.id}>
                       {client.name} - {client.email}
                     </option>
@@ -1345,14 +1412,14 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                   ) : (
                     <select
                       value={tempSelectedFarm?.id || ''}
-                      onChange={(e) => {
+                      onChange={e => {
                         const farm = farms.find(f => f.id === e.target.value);
                         setTempSelectedFarm(farm || null);
                       }}
                       className="w-full px-4 py-2 bg-ai-surface2 border border-ai-border rounded-md text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
                     >
                       <option value="">Selecione uma fazenda</option>
-                      {farms.map((farm) => (
+                      {farms.map(farm => (
                         <option key={farm.id} value={farm.id}>
                           {farm.name} - {farm.city}, {farm.state}
                         </option>
@@ -1429,9 +1496,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
               {farm?.propertyValue && isValidNumber(farm.propertyValue) && (
                 <div className="flex flex-col gap-0.5 whitespace-nowrap">
                   <span className="text-ai-subtext text-[10px]">Valor Total</span>
-                  <span className="font-semibold text-ai-text text-xs">
-                    {formatCurrency(farm.propertyValue)}
-                  </span>
+                  <span className="font-semibold text-ai-text text-xs">{formatCurrency(farm.propertyValue)}</span>
                 </div>
               )}
 
@@ -1441,9 +1506,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                   <div className="h-7 w-px bg-ai-border flex-shrink-0 self-stretch" />
                   <div className="flex flex-col gap-0.5 whitespace-nowrap">
                     <span className="text-ai-subtext text-[10px]">Op. Pecuária</span>
-                    <span className="font-semibold text-ai-text text-xs">
-                      {formatCurrency(farm.operationPecuary)}
-                    </span>
+                    <span className="font-semibold text-ai-text text-xs">{formatCurrency(farm.operationPecuary)}</span>
                   </div>
                 </>
               )}
@@ -1454,9 +1517,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                   <div className="h-7 w-px bg-ai-border flex-shrink-0 self-stretch" />
                   <div className="flex flex-col gap-0.5 whitespace-nowrap flex-shrink-0 min-w-fit">
                     <span className="text-ai-subtext text-[10px]">Área Pecuária</span>
-                    <span className="font-semibold text-ai-text text-xs">
-                      {formatArea(selectedFarm.pastureArea)}
-                    </span>
+                    <span className="font-semibold text-ai-text text-xs">{formatArea(selectedFarm.pastureArea)}</span>
                   </div>
                 </>
               )}
@@ -1474,9 +1535,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
               {/* Barra de Percentual de Investimento com Valor Calculado */}
               <div className="flex items-center gap-3">
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-ai-text mb-1">
-                    Percentual de Investimento
-                  </label>
+                  <label className="block text-xs font-medium text-ai-text mb-1">Percentual de Investimento</label>
                   <div className="relative pt-3 pb-1">
                     {/* Track */}
                     <div className="relative h-1.5 bg-gray-200 rounded-full overflow-visible">
@@ -1485,16 +1544,18 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                         className="absolute top-0 bottom-0 bg-blue-300/40 rounded-full border-l border-r border-blue-500"
                         style={{
                           left: `${((4 - 2) / (11 - 2)) * 100}%`,
-                          width: `${((9 - 4) / (11 - 2)) * 100}%`
+                          width: `${((9 - 4) / (11 - 2)) * 100}%`,
                         }}
                       />
 
                       {/* Marcadores reduzidos */}
                       <div className="absolute -top-3 left-0 right-0 flex justify-between px-0.5">
-                        {[2, 4, 6, 8, 10, 11].map((val) => (
+                        {[2, 4, 6, 8, 10, 11].map(val => (
                           <div key={val} className="flex flex-col items-center">
                             <div className={`w-0.5 h-0.5 ${val >= 4 && val <= 9 ? 'bg-blue-500' : 'bg-gray-400'}`} />
-                            <span className={`text-[8px] mt-0.5 ${val >= 4 && val <= 9 ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
+                            <span
+                              className={`text-[8px] mt-0.5 ${val >= 4 && val <= 9 ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}
+                            >
                               {val}%
                             </span>
                           </div>
@@ -1508,8 +1569,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                         max={11}
                         step={0.1}
                         value={percentage}
-                        onChange={(e) => setPercentage(parseFloat(e.target.value))}
-                        onInput={(e) => setPercentage(parseFloat((e.target as HTMLInputElement).value))}
+                        onChange={e => setPercentage(parseFloat(e.target.value))}
+                        onInput={e => setPercentage(parseFloat((e.target as HTMLInputElement).value))}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-40"
                         style={{ WebkitAppearance: 'none', appearance: 'none' }}
                       />
@@ -1532,9 +1593,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                 {/* Valor Calculado - Compacto */}
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-1.5 border border-blue-200 min-w-[140px]">
                   <div className="text-[8px] text-blue-700 mb-0 font-medium">Valor Calculado</div>
-                  <div className="text-sm font-bold text-blue-900">
-                    {formatCurrency(calculatedValue)}
-                  </div>
+                  <div className="text-sm font-bold text-blue-900">{formatCurrency(calculatedValue)}</div>
                   <div className="text-[7px] text-blue-600 bg-blue-50 rounded px-1 py-0.5 border border-blue-200 mt-0.5">
                     {percentage.toFixed(1)}% × {formatCurrency(operationPecuaryValue)}
                   </div>
@@ -1545,9 +1604,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
               {productionSystem && (
                 <div className="flex items-center gap-3">
                   <div className="flex-1">
-                    <label className="block text-xs font-medium text-ai-text mb-1">
-                      Margem Esperada
-                    </label>
+                    <label className="block text-xs font-medium text-ai-text mb-1">Margem Esperada</label>
                     {(() => {
                       const { min, max } = marginConfig;
                       const step = 0.5;
@@ -1569,12 +1626,10 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
                             {/* Marcadores reduzidos */}
                             <div className="absolute -top-3 left-0 right-0 flex justify-between px-0.5">
-                              {marks.map((val) => (
+                              {marks.map(val => (
                                 <div key={val} className="flex flex-col items-center">
                                   <div className="w-0.5 h-0.5 bg-green-500" />
-                                  <span className="text-[8px] mt-0.5 text-green-600 font-semibold">
-                                    {val}%
-                                  </span>
+                                  <span className="text-[8px] mt-0.5 text-green-600 font-semibold">{val}%</span>
                                 </div>
                               ))}
                             </div>
@@ -1586,8 +1641,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               max={max}
                               step={step}
                               value={expectedMargin}
-                              onChange={(e) => setExpectedMargin(parseFloat(e.target.value))}
-                              onInput={(e) => setExpectedMargin(parseFloat((e.target as HTMLInputElement).value))}
+                              onChange={e => setExpectedMargin(parseFloat(e.target.value))}
+                              onInput={e => setExpectedMargin(parseFloat((e.target as HTMLInputElement).value))}
                               className="absolute right-0 bottom-0 w-full h-full opacity-0 cursor-pointer z-40"
                               style={{ WebkitAppearance: 'none', appearance: 'none' }}
                             />
@@ -1595,7 +1650,10 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                             {/* Thumb menor */}
                             <div
                               className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-green-600 rounded-full border border-white shadow z-20 pointer-events-none transition-all duration-75"
-                              style={{ left: `${safeDivide((expectedMargin - min) * 100, range)}%`, transform: 'translate(-50%, -50%)' }}
+                              style={{
+                                left: `${safeDivide((expectedMargin - min) * 100, range)}%`,
+                                transform: 'translate(-50%, -50%)',
+                              }}
                             >
                               {/* Tooltip menor */}
                               <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[9px] font-semibold px-1 py-0.5 rounded whitespace-nowrap shadow">
@@ -1612,9 +1670,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                   {/* Faturamento Necessário - Compacto */}
                   <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-1.5 border border-purple-200 min-w-[140px]">
                     <div className="text-[8px] text-purple-700 mb-0 font-medium">Faturamento Necessário</div>
-                    <div className="text-sm font-bold text-purple-900">
-                      {formatCurrency(requiredRevenue)}
-                    </div>
+                    <div className="text-sm font-bold text-purple-900">{formatCurrency(requiredRevenue)}</div>
                     <div className="text-[7px] text-purple-600 bg-purple-50 rounded px-1 py-0.5 border border-purple-200 mt-0.5">
                       {formatCurrency(calculatedValue)} ÷ {expectedMargin.toFixed(1)}%
                     </div>
@@ -1636,7 +1692,11 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                   <div className="space-y-2">
                     <div className="flex items-start justify-between pb-2 border-b border-ai-border/60">
                       <div className="flex items-center gap-1">
-                        <span className="text-[9px] text-ai-subtext leading-tight">Valor Médio de<br />Venda</span>
+                        <span className="text-[9px] text-ai-subtext leading-tight">
+                          Valor Médio de
+                          <br />
+                          Venda
+                        </span>
                         <button
                           onClick={() => setIsModalOpen(true)}
                           className="p-0.5 rounded hover:bg-ai-surface2 transition-colors"
@@ -1648,15 +1708,25 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                       </div>
                       <span className="text-sm font-bold text-ai-text">{formatCurrency(averageValue)}</span>
                     </div>
-                    <div className={`flex items-start justify-between ${(showReproductiveIndices || productionSystem === 'Recria-Engorda') ? 'pb-2 border-b border-ai-border/60' : ''}`}>
-                      <span className="text-[9px] text-ai-subtext leading-tight">Vendas<br />Necessárias</span>
+                    <div
+                      className={`flex items-start justify-between ${showReproductiveIndices || productionSystem === 'Recria-Engorda' ? 'pb-2 border-b border-ai-border/60' : ''}`}
+                    >
+                      <span className="text-[9px] text-ai-subtext leading-tight">
+                        Vendas
+                        <br />
+                        Necessárias
+                      </span>
                       <span className="text-sm font-bold text-ai-text">
                         {requiredSales > 0 ? `${requiredSales} Cabeças` : '-'}
                       </span>
                     </div>
                     {productionSystem === 'Recria-Engorda' && (
                       <div className="flex items-start justify-between">
-                        <span className="text-[9px] text-ai-subtext leading-tight">Rebanho<br />Médio</span>
+                        <span className="text-[9px] text-ai-subtext leading-tight">
+                          Rebanho
+                          <br />
+                          Médio
+                        </span>
                         <span className="text-sm font-bold text-ai-text">
                           {recriaRebanhoMedio > 0 ? `${Math.round(recriaRebanhoMedio)} Cabeças` : '-'}
                         </span>
@@ -1665,14 +1735,22 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                     {showReproductiveIndices && (
                       <>
                         <div className="flex items-start justify-between pb-2 border-b border-ai-border/60">
-                          <span className="text-[9px] text-ai-subtext leading-tight">Matrizes<br />Necessárias</span>
+                          <span className="text-[9px] text-ai-subtext leading-tight">
+                            Matrizes
+                            <br />
+                            Necessárias
+                          </span>
                           <span className="text-sm font-bold text-ai-text">
                             {requiredMatrixes > 0 ? `${requiredMatrixes} Matrizes` : '-'}
                           </span>
                         </div>
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-1">
-                            <span className="text-[9px] text-ai-subtext leading-tight">Rebanho<br />Médio</span>
+                            <span className="text-[9px] text-ai-subtext leading-tight">
+                              Rebanho
+                              <br />
+                              Médio
+                            </span>
                             <button
                               onClick={() => setIsAverageHerdModalOpen(true)}
                               className="p-0.5 rounded hover:bg-ai-surface2 transition-colors"
@@ -1687,7 +1765,11 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           </span>
                         </div>
                         <div className="flex items-start justify-between pt-1 border-t border-ai-border/40">
-                          <span className="text-[9px] text-ai-subtext leading-tight">Total<br />UAs</span>
+                          <span className="text-[9px] text-ai-subtext leading-tight">
+                            Total
+                            <br />
+                            UAs
+                          </span>
                           <span className="text-sm font-bold text-ai-text">
                             {totalUAsCalculado > 0 ? `${Math.round(totalUAsCalculado)} UA's` : '-'}
                           </span>
@@ -1707,7 +1789,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
               {productionSystem === 'Recria-Engorda' && (
                 <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex-1 flex flex-col min-w-0">
                   <div className="pb-1.5 mb-2 border-b border-ai-border/60">
-                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">Índices de Referência</h3>
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">
+                      Índices de Referência
+                    </h3>
                   </div>
                   <div className="flex flex-col justify-between flex-1 gap-2">
                     {/* Ganho Médio Diário */}
@@ -1726,7 +1810,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           max={1.1}
                           step={0.01}
                           value={recriaGmd}
-                          onChange={(e) => setRecriaGmd(parseFloat(e.target.value))}
+                          onChange={e => setRecriaGmd(parseFloat(e.target.value))}
                           className="flex-1 accent-ai-accent h-1.5"
                         />
                         <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">1,10</span>
@@ -1749,7 +1833,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           max={2}
                           step={0.1}
                           value={recriaMortalidade}
-                          onChange={(e) => setRecriaMortalidade(parseFloat(e.target.value))}
+                          onChange={e => setRecriaMortalidade(parseFloat(e.target.value))}
                           className="flex-1 accent-ai-accent h-1.5"
                         />
                         <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">2,0%</span>
@@ -1772,7 +1856,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           max={60}
                           step={0.5}
                           value={recriaRendimentoCarcaca}
-                          onChange={(e) => setRecriaRendimentoCarcaca(parseFloat(e.target.value))}
+                          onChange={e => setRecriaRendimentoCarcaca(parseFloat(e.target.value))}
                           className="flex-1 accent-ai-accent h-1.5"
                         />
                         <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">60%</span>
@@ -1786,7 +1870,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
               {productionSystem === 'Recria-Engorda' && (
                 <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex-1 flex flex-col min-w-0">
                   <div className="pb-1.5 mb-2 border-b border-ai-border/60">
-                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">Valores de Compra e Venda</h3>
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">
+                      Valores de Compra e Venda
+                    </h3>
                   </div>
                   <div className="flex flex-col justify-between flex-1 gap-2">
                     {/* Peso de Compra */}
@@ -1805,7 +1891,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           max={400}
                           step={5}
                           value={recriaPesoCompra}
-                          onChange={(e) => setRecriaPesoCompra(parseFloat(e.target.value))}
+                          onChange={e => setRecriaPesoCompra(parseFloat(e.target.value))}
                           className="flex-1 accent-ai-accent h-1.5"
                         />
                         <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">400</span>
@@ -1828,7 +1914,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           max={20}
                           step={0.5}
                           value={recriaValorCompra}
-                          onChange={(e) => setRecriaValorCompra(parseFloat(e.target.value))}
+                          onChange={e => setRecriaValorCompra(parseFloat(e.target.value))}
                           className="flex-1 accent-ai-accent h-1.5"
                         />
                         <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">R$20</span>
@@ -1851,7 +1937,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           max={600}
                           step={5}
                           value={recriaPesoVenda}
-                          onChange={(e) => setRecriaPesoVenda(parseFloat(e.target.value))}
+                          onChange={e => setRecriaPesoVenda(parseFloat(e.target.value))}
                           className="flex-1 accent-ai-accent h-1.5"
                         />
                         <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">600</span>
@@ -1874,7 +1960,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           max={360}
                           step={5}
                           value={recriaValorVenda}
-                          onChange={(e) => setRecriaValorVenda(parseFloat(e.target.value))}
+                          onChange={e => setRecriaValorVenda(parseFloat(e.target.value))}
                           className="flex-1 accent-ai-accent h-1.5"
                         />
                         <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">R$360</span>
@@ -1888,7 +1974,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
               {productionSystem === 'Recria-Engorda' && (
                 <div className="bg-white border border-ai-border/70 rounded-lg p-2 min-w-[150px] flex flex-col">
                   <div className="pb-1.5 mb-2 border-b border-ai-border/60">
-                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">Resultados de Performance</h3>
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">
+                      Resultados de Performance
+                    </h3>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between pb-2 border-b border-ai-border/60">
@@ -1925,7 +2013,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                 <div className="flex gap-3 flex-1 items-stretch">
                   <div className="grid grid-cols-2 gap-3 flex-1 min-w-0">
                     <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0">
-                      <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">Índices Reprodutivos</h3>
+                      <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">
+                        Índices Reprodutivos
+                      </h3>
                       <div className="flex flex-col justify-between flex-1 gap-2">
                         <div>
                           <div className="flex items-center justify-between text-[9px] mb-0.5">
@@ -1934,7 +2024,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               {fertility.toFixed(1)}%
                             </span>
                           </div>
-          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
                             <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0">70%</span>
                             <input
                               type="range"
@@ -1942,7 +2032,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               max={90}
                               step={0.5}
                               value={fertility}
-                              onChange={(e) => setFertility(parseFloat(e.target.value))}
+                              onChange={e => setFertility(parseFloat(e.target.value))}
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">90%</span>
@@ -1955,8 +2045,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                             <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
                               {prePartumLoss.toFixed(1)}%
                             </span>
-          </div>
-          <div className="flex items-center gap-2">
+                          </div>
+                          <div className="flex items-center gap-2">
                             <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0">3%</span>
                             <input
                               type="range"
@@ -1964,11 +2054,11 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               max={15}
                               step={0.5}
                               value={prePartumLoss}
-                              onChange={(e) => setPrePartumLoss(parseFloat(e.target.value))}
+                              onChange={e => setPrePartumLoss(parseFloat(e.target.value))}
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">15%</span>
-          </div>
+                          </div>
                         </div>
 
                         <div>
@@ -1986,12 +2076,12 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               max={7}
                               step={0.1}
                               value={calfMortality}
-                              onChange={(e) => setCalfMortality(parseFloat(e.target.value))}
+                              onChange={e => setCalfMortality(parseFloat(e.target.value))}
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">7%</span>
-        </div>
-      </div>
+                          </div>
+                        </div>
 
                         <div>
                           <div className="flex items-center justify-between text-[9px] mb-0.5">
@@ -1999,7 +2089,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                             <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
                               {maleWeaningWeight} kg
                             </span>
-          </div>
+                          </div>
                           <div className="flex items-center gap-2">
                             <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">170 kg</span>
                             <input
@@ -2008,7 +2098,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               max={260}
                               step={1}
                               value={maleWeaningWeight}
-                              onChange={(e) => setMaleWeaningWeight(parseInt(e.target.value, 10))}
+                              onChange={e => setMaleWeaningWeight(parseInt(e.target.value, 10))}
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">260 kg</span>
@@ -2030,7 +2120,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               max={260}
                               step={1}
                               value={femaleWeaningWeight}
-                              onChange={(e) => setFemaleWeaningWeight(parseInt(e.target.value, 10))}
+                              onChange={e => setFemaleWeaningWeight(parseInt(e.target.value, 10))}
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">260 kg</span>
@@ -2040,7 +2130,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                     </div>
 
                     <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0">
-                      <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">Índices Reprodutivos</h3>
+                      <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">
+                        Índices Reprodutivos
+                      </h3>
                       <div className="flex flex-col justify-between flex-1 gap-2">
                         <div>
                           <div className="flex items-center justify-between text-[9px] mb-0.5">
@@ -2057,7 +2149,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               max={24}
                               step={1}
                               value={firstMatingAge}
-                              onChange={(e) => setFirstMatingAge(parseInt(e.target.value, 10))}
+                              onChange={e => setFirstMatingAge(parseInt(e.target.value, 10))}
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">24 meses</span>
@@ -2079,7 +2171,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               max={360}
                               step={1}
                               value={pesoPrimeiraMonta}
-                              onChange={(e) => setPesoPrimeiraMonta(parseInt(e.target.value, 10))}
+                              onChange={e => setPesoPrimeiraMonta(parseInt(e.target.value, 10))}
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">360 kg</span>
@@ -2101,7 +2193,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               max={120}
                               step={1}
                               value={matingPeriodDays}
-                              onChange={(e) => setMatingPeriodDays(parseInt(e.target.value, 10))}
+                              onChange={e => setMatingPeriodDays(parseInt(e.target.value, 10))}
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">120 dias</span>
@@ -2110,10 +2202,17 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
                         <div>
                           <div className="flex items-center justify-between text-[9px] mb-0.5">
-                            <div className="flex items-center gap-1 relative" ref={(el) => { weightInfoRefs.current['cowSlaughter'] = el; }}>
+                            <div
+                              className="flex items-center gap-1 relative"
+                              ref={el => {
+                                weightInfoRefs.current['cowSlaughter'] = el;
+                              }}
+                            >
                               <label className="text-ai-subtext">Dias para abate de vacas</label>
                               <button
-                                ref={(el) => { weightButtonRefs.current['cowSlaughter'] = el; }}
+                                ref={el => {
+                                  weightButtonRefs.current['cowSlaughter'] = el;
+                                }}
                                 type="button"
                                 onClick={() => handleWeightInfoToggle('cowSlaughter')}
                                 className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
@@ -2133,10 +2232,10 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                                   <p className="font-medium text-gray-800 mb-1 text-left">Dias para abate de vacas</p>
                                   <p className="text-[10px] text-left">
                                     Dias necessários para terminação das matrizes vazias após o desmame.
-          </p>
-        </div>
+                                  </p>
+                                </div>
                               )}
-      </div>
+                            </div>
                             <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
                               {cowSlaughterDays} dias
                             </span>
@@ -2149,7 +2248,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               max={90}
                               step={1}
                               value={cowSlaughterDays}
-                              onChange={(e) => setCowSlaughterDays(parseInt(e.target.value, 10))}
+                              onChange={e => setCowSlaughterDays(parseInt(e.target.value, 10))}
                               className="flex-1 accent-ai-accent h-1.5"
                             />
                             <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">90 dias</span>
@@ -2161,19 +2260,21 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
                   {/* Card de Outputs Calculados */}
                   <div className="bg-white border border-ai-border/70 rounded-lg p-2 min-w-[150px] flex flex-col">
-                  <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-ai-border/60">
-                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">Resultados de Performance</h3>
-                    <button
-                      onClick={() => setIsIndicatorsModalOpen(true)}
-                      className="p-1 rounded hover:bg-ai-surface2 transition-colors"
-                      title="Selecionar indicadores"
-                      aria-label="Selecionar indicadores"
-                    >
-                      <ListChecks size={14} className="text-ai-subtext" />
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {visiblePerformanceIndicators.map((indicator, index, list) => (
+                    <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-ai-border/60">
+                      <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">
+                        Resultados de Performance
+                      </h3>
+                      <button
+                        onClick={() => setIsIndicatorsModalOpen(true)}
+                        className="p-1 rounded hover:bg-ai-surface2 transition-colors"
+                        title="Selecionar indicadores"
+                        aria-label="Selecionar indicadores"
+                      >
+                        <ListChecks size={14} className="text-ai-subtext" />
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {visiblePerformanceIndicators.map((indicator, index, list) => (
                         <div
                           key={indicator.id}
                           className={`flex items-center justify-between ${index < list.length - 1 ? 'pb-2 border-b border-ai-border/60' : ''}`}
@@ -2184,16 +2285,13 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           </span>
                         </div>
                       ))}
-                    {visiblePerformanceIndicators.length === 0 && (
-                      <div className="text-[9px] text-ai-subtext">
-                        Selecione indicadores
-                      </div>
-                    )}
+                      {visiblePerformanceIndicators.length === 0 && (
+                        <div className="text-[9px] text-ai-subtext">Selecione indicadores</div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
               )}
-
             </div>
           </div>
 
@@ -2226,7 +2324,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
                   <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
                     <div className="text-[7px] text-indigo-600 mb-0 font-medium">Resultado</div>
-                    <div className={`text-xs font-bold leading-tight ${isFinite(result) && result >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    <div
+                      className={`text-xs font-bold leading-tight ${isFinite(result) && result >= 0 ? 'text-green-700' : 'text-red-700'}`}
+                    >
                       {isFinite(result) && result !== 0 ? formatCurrency(result) : '-'}
                     </div>
                     {isFinite(revenue) && isFinite(totalDisbursement) && revenue !== 0 && totalDisbursement !== 0 && (
@@ -2259,7 +2359,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                     <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
                       <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso/Cab/Mês</div>
                       <div className="text-xs font-bold text-indigo-900 leading-tight">
-                        {isFinite(disbursementPerHeadMonth) && disbursementPerHeadMonth !== 0 ? formatCurrency(disbursementPerHeadMonth) : '-'}
+                        {isFinite(disbursementPerHeadMonth) && disbursementPerHeadMonth !== 0
+                          ? formatCurrency(disbursementPerHeadMonth)
+                          : '-'}
                       </div>
                       <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Custo de manutenção mensal</div>
                     </div>
@@ -2270,7 +2372,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                 <div className="space-y-0.5">
                   <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
                     <div className="text-[7px] text-indigo-600 mb-0 font-medium">Resultado/ha</div>
-                    <div className={`text-xs font-bold leading-tight ${isFinite(resultPerHectare) && resultPerHectare >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    <div
+                      className={`text-xs font-bold leading-tight ${isFinite(resultPerHectare) && resultPerHectare >= 0 ? 'text-green-700' : 'text-red-700'}`}
+                    >
                       {isFinite(resultPerHectare) && resultPerHectare !== 0 ? formatCurrency(resultPerHectare) : '-'}
                     </div>
                     <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Lucro por hectare de pasto</div>
@@ -2278,7 +2382,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
                   <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
                     <div className="text-[7px] text-indigo-600 mb-0 font-medium">Resultado por Cabeça</div>
-                    <div className={`text-xs font-bold leading-tight ${hasResultPerHeadData && isFinite(resultPerHead) && resultPerHead >= 0 ? 'text-green-700' : hasResultPerHeadData ? 'text-red-700' : 'text-indigo-900'}`}>
+                    <div
+                      className={`text-xs font-bold leading-tight ${hasResultPerHeadData && isFinite(resultPerHead) && resultPerHead >= 0 ? 'text-green-700' : hasResultPerHeadData ? 'text-red-700' : 'text-indigo-900'}`}
+                    >
                       {formatIndicatorValue(resultPerHead, 'currency', hasResultPerHeadData)}
                     </div>
                     <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Lucro médio por animal</div>
@@ -2286,7 +2392,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
                   <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
                     <div className="text-[7px] text-indigo-600 mb-0 font-medium">Margem Sobre a Venda</div>
-                    <div className={`text-xs font-bold leading-tight ${isFinite(marginOverSale) && marginOverSale >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    <div
+                      className={`text-xs font-bold leading-tight ${isFinite(marginOverSale) && marginOverSale >= 0 ? 'text-green-700' : 'text-red-700'}`}
+                    >
                       {isFinite(marginOverSale) && marginOverSale !== 0 ? `${marginOverSale.toFixed(1)}%` : '-'}
                     </div>
                     <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Rentabilidade operacional</div>
@@ -2297,7 +2405,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                 <div className="space-y-0.5">
                   <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
                     <div className="text-[7px] text-indigo-600 mb-0 font-medium">Resultado Sobre Ativo Pecuário</div>
-                    <div className={`text-xs font-bold leading-tight ${hasResultOnLivestockAssetData && isFinite(resultOnLivestockAsset) && resultOnLivestockAsset >= 0 ? 'text-green-700' : hasResultOnLivestockAssetData ? 'text-red-700' : 'text-indigo-900'}`}>
+                    <div
+                      className={`text-xs font-bold leading-tight ${hasResultOnLivestockAssetData && isFinite(resultOnLivestockAsset) && resultOnLivestockAsset >= 0 ? 'text-green-700' : hasResultOnLivestockAssetData ? 'text-red-700' : 'text-indigo-900'}`}
+                    >
                       {formatIndicatorValue(resultOnLivestockAsset, 'percentage', hasResultOnLivestockAssetData)}
                     </div>
                     <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Retorno sobre o rebanho</div>
@@ -2305,7 +2415,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
                   <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
                     <div className="text-[7px] text-indigo-600 mb-0 font-medium">Resultado Sobre Valor da Terra</div>
-                    <div className={`text-xs font-bold leading-tight ${hasResultOnLandValueData && isFinite(resultOnLandValue) && resultOnLandValue >= 0 ? 'text-green-700' : hasResultOnLandValueData ? 'text-red-700' : 'text-indigo-900'}`}>
+                    <div
+                      className={`text-xs font-bold leading-tight ${hasResultOnLandValueData && isFinite(resultOnLandValue) && resultOnLandValue >= 0 ? 'text-green-700' : hasResultOnLandValueData ? 'text-red-700' : 'text-indigo-900'}`}
+                    >
                       {formatIndicatorValue(resultOnLandValue, 'percentage', hasResultOnLandValueData)}
                     </div>
                     <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Retorno patrimonial imobiliário</div>
@@ -2315,7 +2427,11 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                     <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
                       <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso Médio Mensal</div>
                       <div className="text-xs font-bold text-indigo-900 leading-tight">
-                        {formatIndicatorValue(averageMonthlyDisbursement, 'currency', hasAverageMonthlyDisbursementData)}
+                        {formatIndicatorValue(
+                          averageMonthlyDisbursement,
+                          'currency',
+                          hasAverageMonthlyDisbursementData,
+                        )}
                       </div>
                       <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Média de gastos operacionais</div>
                     </div>
@@ -2324,7 +2440,6 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
               </div>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -2332,7 +2447,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       {isIndicatorsModalOpen && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={(e) => {
+          onClick={e => {
             if (e.target === e.currentTarget) {
               setIsIndicatorsModalOpen(false);
             }
@@ -2340,7 +2455,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
         >
           <div
             className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-ai-border flex items-center justify-between bg-gradient-to-r from-ai-accent/10 to-transparent">
               <div className="flex flex-col">
@@ -2358,7 +2473,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
               <div className="space-y-3">
-                {performanceIndicators.map((indicator) => {
+                {performanceIndicators.map(indicator => {
                   const isChecked = selectedIndicators.includes(indicator.id);
                   const isDisabled = !isChecked && selectedIndicators.length >= MAX_PERFORMANCE_INDICATORS;
                   return (
@@ -2401,7 +2516,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       {isAverageHerdModalOpen && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={(e) => {
+          onClick={e => {
             if (e.target === e.currentTarget) {
               setIsAverageHerdModalOpen(false);
             }
@@ -2409,7 +2524,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
         >
           <div
             className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
           >
             {/* Header do Modal */}
             <div className="px-6 py-4 border-b border-ai-border flex items-center justify-between bg-gradient-to-r from-ai-accent/10 to-transparent">
@@ -2429,18 +2544,10 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                 <table className="w-full text-sm">
                   <thead className="bg-ai-surface2 border-b border-ai-border">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-ai-text">
-                        Categoria
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-ai-text">
-                        Quantidade (Cabeças)
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-ai-text">
-                        Tempo (meses)
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-ai-text">
-                        Peso Vivo (kg)
-                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-ai-text">Categoria</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-ai-text">Quantidade (Cabeças)</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-ai-text">Tempo (meses)</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-ai-text">Peso Vivo (kg)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ai-border">
@@ -2450,12 +2557,19 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                         {averageHerdTable.vacas > 0 ? averageHerdTable.vacas : '-'}
                       </td>
                       <td className="px-4 py-3 text-center text-sm text-ai-text">
-                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['tempoMatrizes'] = el; }}>
+                        <div
+                          className="flex items-center justify-center gap-1 relative"
+                          ref={el => {
+                            weightInfoRefs.current['tempoMatrizes'] = el;
+                          }}
+                        >
                           <span>{averageHerdTable.vacas > 0 ? averageHerdTable.tempoVacas.toFixed(1) : '-'}</span>
                           {averageHerdTable.vacas > 0 && (
                             <>
                               <button
-                                ref={(el) => { weightButtonRefs.current['tempoMatrizes'] = el; }}
+                                ref={el => {
+                                  weightButtonRefs.current['tempoMatrizes'] = el;
+                                }}
                                 type="button"
                                 onClick={() => handleWeightInfoToggle('tempoMatrizes')}
                                 className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
@@ -2474,11 +2588,14 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                                 >
                                   <p className="font-medium text-gray-800 mb-1 text-left">Tempo (meses) - Matrizes</p>
                                   <p className="text-[10px] text-left mb-2">
-                                    Permanência de fêmeas em reprodução e fêmeas descarte considerando período de monta e dias para abate de vacas.
+                                    Permanência de fêmeas em reprodução e fêmeas descarte considerando período de monta
+                                    e dias para abate de vacas.
                                   </p>
                                   <div className="text-[10px] text-left pt-2 border-t border-gray-200">
-                                    <strong>Fórmula:</strong> (282 + Tempo de monta + Dias para abate) / 30,4<br />
-                                    <strong>Cálculo:</strong> (282 + {matingPeriodDays} + {cowSlaughterDays}) / 30,4 = <strong>{averageHerdTable.tempoVacas.toFixed(1)} meses</strong>
+                                    <strong>Fórmula:</strong> (282 + Tempo de monta + Dias para abate) / 30,4
+                                    <br />
+                                    <strong>Cálculo:</strong> (282 + {matingPeriodDays} + {cowSlaughterDays}) / 30,4 ={' '}
+                                    <strong>{averageHerdTable.tempoVacas.toFixed(1)} meses</strong>
                                   </div>
                                 </div>
                               )}
@@ -2487,12 +2604,23 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
-                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['matrizes'] = el; }}>
-                          <span>{averageHerdTable.vacas > 0 ? Math.round(averageHerdTable.pesoIndividualVaca).toLocaleString('pt-BR') : '-'}</span>
+                        <div
+                          className="flex items-center justify-center gap-1 relative"
+                          ref={el => {
+                            weightInfoRefs.current['matrizes'] = el;
+                          }}
+                        >
+                          <span>
+                            {averageHerdTable.vacas > 0
+                              ? Math.round(averageHerdTable.pesoIndividualVaca).toLocaleString('pt-BR')
+                              : '-'}
+                          </span>
                           {averageHerdTable.vacas > 0 && (
                             <>
                               <button
-                                ref={(el) => { weightButtonRefs.current['matrizes'] = el; }}
+                                ref={el => {
+                                  weightButtonRefs.current['matrizes'] = el;
+                                }}
                                 type="button"
                                 onClick={() => handleWeightInfoToggle('matrizes')}
                                 className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
@@ -2501,34 +2629,41 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               >
                                 <Info size={10} />
                               </button>
-                              {weightCalculationInfoOpen === 'matrizes' && popoverPositions.matrizes && (() => {
-                                const { ARROBA_TO_KG, MATRIZ_WEIGHT_FACTOR } = HERD_CONSTANTS;
-                                const vacaDescarteCategory = animalCategories.find(c => c.id === CATEGORY_IDS.VACA_DESCARTE);
-                                const pesoVacaDescarteArroba = vacaDescarteCategory?.weight || 0;
-                                const pesoCalculado = pesoVacaDescarteArroba * ARROBA_TO_KG * MATRIZ_WEIGHT_FACTOR;
-                                return (
-                                  <div
-                                    className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
-                                    style={{
-                                      top: popoverPositions.matrizes.top,
-                                      left: popoverPositions.matrizes.left,
-                                    }}
-                                  >
-                                    <p className="font-medium text-gray-800 mb-1 text-left">1. Matrizes</p>
-                                    <p className="text-[10px] space-y-1 text-left">
-                                      <div>• <strong>Fórmula:</strong> Peso Vaca Descarte (@) × 30 × 97%</div>
-                                      <div>• O peso da Vaca Descarte é convertido de arrobas para kg (× 30)</div>
-                                      <div>• Aplicado 97% para refletir o peso médio das matrizes em produção</div>
-                                      <div className="mt-2 pt-2 border-t border-gray-200">
-                                        <strong>Exemplo:</strong> {pesoVacaDescarteArroba} @ × 30 × 0,97 = <strong>{pesoCalculado.toFixed(1)} kg</strong>
-                                      </div>
-          </p>
-        </div>
-                                );
-                              })()}
+                              {weightCalculationInfoOpen === 'matrizes' &&
+                                popoverPositions.matrizes &&
+                                (() => {
+                                  const { ARROBA_TO_KG, MATRIZ_WEIGHT_FACTOR } = HERD_CONSTANTS;
+                                  const vacaDescarteCategory = animalCategories.find(
+                                    c => c.id === CATEGORY_IDS.VACA_DESCARTE,
+                                  );
+                                  const pesoVacaDescarteArroba = vacaDescarteCategory?.weight || 0;
+                                  const pesoCalculado = pesoVacaDescarteArroba * ARROBA_TO_KG * MATRIZ_WEIGHT_FACTOR;
+                                  return (
+                                    <div
+                                      className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                      style={{
+                                        top: popoverPositions.matrizes.top,
+                                        left: popoverPositions.matrizes.left,
+                                      }}
+                                    >
+                                      <p className="font-medium text-gray-800 mb-1 text-left">1. Matrizes</p>
+                                      <p className="text-[10px] space-y-1 text-left">
+                                        <div>
+                                          • <strong>Fórmula:</strong> Peso Vaca Descarte (@) × 30 × 97%
+                                        </div>
+                                        <div>• O peso da Vaca Descarte é convertido de arrobas para kg (× 30)</div>
+                                        <div>• Aplicado 97% para refletir o peso médio das matrizes em produção</div>
+                                        <div className="mt-2 pt-2 border-t border-gray-200">
+                                          <strong>Exemplo:</strong> {pesoVacaDescarteArroba} @ × 30 × 0,97 ={' '}
+                                          <strong>{pesoCalculado.toFixed(1)} kg</strong>
+                                        </div>
+                                      </p>
+                                    </div>
+                                  );
+                                })()}
                             </>
                           )}
-      </div>
+                        </div>
                       </td>
                     </tr>
                     <tr className="hover:bg-ai-surface2/50">
@@ -2542,7 +2677,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           {averageHerdTable.bezerrosMamando > 0 && (
                             <button
                               type="button"
-                              onClick={() => setIsWeaningAgeOpen((v) => !v)}
+                              onClick={() => setIsWeaningAgeOpen(v => !v)}
                               className="p-1 rounded hover:bg-ai-surface2 transition-colors"
                               title="Selecione a idade ao desmame"
                               aria-label="Selecione a idade ao desmame"
@@ -2553,12 +2688,23 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
-                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['bezerros'] = el; }}>
-                          <span>{averageHerdTable.bezerrosMamando > 0 ? Math.round(averageHerdTable.pesoIndividualBezerro).toLocaleString('pt-BR') : '-'}</span>
+                        <div
+                          className="flex items-center justify-center gap-1 relative"
+                          ref={el => {
+                            weightInfoRefs.current['bezerros'] = el;
+                          }}
+                        >
+                          <span>
+                            {averageHerdTable.bezerrosMamando > 0
+                              ? Math.round(averageHerdTable.pesoIndividualBezerro).toLocaleString('pt-BR')
+                              : '-'}
+                          </span>
                           {averageHerdTable.bezerrosMamando > 0 && (
                             <>
                               <button
-                                ref={(el) => { weightButtonRefs.current['bezerros'] = el; }}
+                                ref={el => {
+                                  weightButtonRefs.current['bezerros'] = el;
+                                }}
                                 type="button"
                                 onClick={() => handleWeightInfoToggle('bezerros')}
                                 className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
@@ -2567,34 +2713,50 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               >
                                 <Info size={10} />
                               </button>
-                              {weightCalculationInfoOpen === 'bezerros' && popoverPositions.bezerros && (() => {
-                                const { BEZERRO_WEIGHT_ADJUSTMENT } = HERD_CONSTANTS;
-                                const pesoMedioDesmame = (maleWeaningWeight + femaleWeaningWeight) / 2;
-                                const pesoMedioAjustado = pesoMedioDesmame - BEZERRO_WEIGHT_ADJUSTMENT;
-                                const pesoMedioBezerroMamando = pesoMedioAjustado / 2;
-                                return (
-                                  <div
-                                    className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
-                                    style={{
-                                      top: popoverPositions.bezerros.top,
-                                      left: popoverPositions.bezerros.left,
-                                    }}
-                                  >
-                                    <p className="font-medium text-gray-800 mb-1 text-left">2. Bezerros mamando</p>
-                                    <p className="text-[10px] space-y-1 text-left">
-                                      <div><strong>Passo 1:</strong> Peso médio ao desmame = (Peso machos + Peso fêmeas) / 2</div>
-                                      <div><strong>Passo 2:</strong> Peso médio ao desmame - {BEZERRO_WEIGHT_ADJUSTMENT} kg</div>
-                                      <div><strong>Passo 3:</strong> Resultado do Passo 2 / 2</div>
-                                      <div className="mt-2 pt-2 border-t border-gray-200">
-                                        <strong>Exemplo:</strong><br />
-                                        Passo 1: ({maleWeaningWeight} + {femaleWeaningWeight}) / 2 = <strong>{pesoMedioDesmame.toFixed(1)} kg</strong><br />
-                                        Passo 2: {pesoMedioDesmame.toFixed(1)} - {BEZERRO_WEIGHT_ADJUSTMENT} = <strong>{pesoMedioAjustado.toFixed(1)} kg</strong><br />
-                                        Passo 3: {pesoMedioAjustado.toFixed(1)} / 2 = <strong>{pesoMedioBezerroMamando.toFixed(1)} kg</strong>
-                                      </div>
-                                    </p>
-                                  </div>
-                                );
-                              })()}
+                              {weightCalculationInfoOpen === 'bezerros' &&
+                                popoverPositions.bezerros &&
+                                (() => {
+                                  const { BEZERRO_WEIGHT_ADJUSTMENT } = HERD_CONSTANTS;
+                                  const pesoMedioDesmame = (maleWeaningWeight + femaleWeaningWeight) / 2;
+                                  const pesoMedioAjustado = pesoMedioDesmame - BEZERRO_WEIGHT_ADJUSTMENT;
+                                  const pesoMedioBezerroMamando = pesoMedioAjustado / 2;
+                                  return (
+                                    <div
+                                      className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                      style={{
+                                        top: popoverPositions.bezerros.top,
+                                        left: popoverPositions.bezerros.left,
+                                      }}
+                                    >
+                                      <p className="font-medium text-gray-800 mb-1 text-left">2. Bezerros mamando</p>
+                                      <p className="text-[10px] space-y-1 text-left">
+                                        <div>
+                                          <strong>Passo 1:</strong> Peso médio ao desmame = (Peso machos + Peso fêmeas)
+                                          / 2
+                                        </div>
+                                        <div>
+                                          <strong>Passo 2:</strong> Peso médio ao desmame - {BEZERRO_WEIGHT_ADJUSTMENT}{' '}
+                                          kg
+                                        </div>
+                                        <div>
+                                          <strong>Passo 3:</strong> Resultado do Passo 2 / 2
+                                        </div>
+                                        <div className="mt-2 pt-2 border-t border-gray-200">
+                                          <strong>Exemplo:</strong>
+                                          <br />
+                                          Passo 1: ({maleWeaningWeight} + {femaleWeaningWeight}) / 2 ={' '}
+                                          <strong>{pesoMedioDesmame.toFixed(1)} kg</strong>
+                                          <br />
+                                          Passo 2: {pesoMedioDesmame.toFixed(1)} - {BEZERRO_WEIGHT_ADJUSTMENT} ={' '}
+                                          <strong>{pesoMedioAjustado.toFixed(1)} kg</strong>
+                                          <br />
+                                          Passo 3: {pesoMedioAjustado.toFixed(1)} / 2 ={' '}
+                                          <strong>{pesoMedioBezerroMamando.toFixed(1)} kg</strong>
+                                        </div>
+                                      </p>
+                                    </div>
+                                  );
+                                })()}
                             </>
                           )}
                         </div>
@@ -2605,12 +2767,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                         <td colSpan={4} className="px-4 py-3">
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold text-ai-text">
-                                Selecione a idade ao desmame
-                              </span>
-                              <span className="text-xs font-bold text-ai-text">
-                                {weaningAgeMonths} meses
-                              </span>
+                              <span className="text-xs font-semibold text-ai-text">Selecione a idade ao desmame</span>
+                              <span className="text-xs font-bold text-ai-text">{weaningAgeMonths} meses</span>
                             </div>
 
                             <input
@@ -2619,7 +2777,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               max={8}
                               step={1}
                               value={weaningAgeMonths}
-                              onChange={(e) => {
+                              onChange={e => {
                                 const next = parseInt(e.target.value, 10);
                                 setWeaningAgeMonths(isFinite(next) ? next : 7);
                               }}
@@ -2645,12 +2803,23 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                         {averageHerdTable.novilhas8a12 > 0 ? averageHerdTable.tempoNovilhas8a12 : '-'}
                       </td>
                       <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
-                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['novilhas8a12'] = el; }}>
-                          <span>{averageHerdTable.novilhas8a12 > 0 ? Math.round(averageHerdTable.pesoIndividualNovilha8a12).toLocaleString('pt-BR') : '-'}</span>
+                        <div
+                          className="flex items-center justify-center gap-1 relative"
+                          ref={el => {
+                            weightInfoRefs.current['novilhas8a12'] = el;
+                          }}
+                        >
+                          <span>
+                            {averageHerdTable.novilhas8a12 > 0
+                              ? Math.round(averageHerdTable.pesoIndividualNovilha8a12).toLocaleString('pt-BR')
+                              : '-'}
+                          </span>
                           {averageHerdTable.novilhas8a12 > 0 && (
                             <>
                               <button
-                                ref={(el) => { weightButtonRefs.current['novilhas8a12'] = el; }}
+                                ref={el => {
+                                  weightButtonRefs.current['novilhas8a12'] = el;
+                                }}
                                 type="button"
                                 onClick={() => handleWeightInfoToggle('novilhas8a12')}
                                 className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
@@ -2659,36 +2828,62 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               >
                                 <Info size={10} />
                               </button>
-                              {weightCalculationInfoOpen === 'novilhas8a12' && popoverPositions.novilhas8a12 && (() => {
-                                const periodoAteMonta = firstMatingAge - weaningAgeMonths;
-                                const ganhoTotal = pesoPrimeiraMonta - femaleWeaningWeight;
-                                const ganhoMensal = periodoAteMonta > 0 ? ganhoTotal / periodoAteMonta : 0;
-                                const mesesAte12Meses = 12 - weaningAgeMonths;
-                                const pesoAos12Meses = femaleWeaningWeight + (ganhoMensal * mesesAte12Meses);
-                                return (
-                                  <div
-                                    className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
-                                    style={{
-                                      top: popoverPositions.novilhas8a12.top,
-                                      left: popoverPositions.novilhas8a12.left,
-                                    }}
-                                  >
-                                    <p className="font-medium text-gray-800 mb-1 text-left">3. Novilhas {weaningAgeMonths + 1} a 12 meses</p>
-                                    <p className="text-[10px] space-y-1 text-left">
-                                      <div>• A novilha entra em monta aos <strong>{pesoPrimeiraMonta} kg</strong> aos <strong>{firstMatingAge} meses</strong></div>
-                                      <div>• <strong>Ganho Total:</strong> {pesoPrimeiraMonta} kg - Peso ao Desmame ({femaleWeaningWeight} kg) = <strong>{ganhoTotal} kg</strong></div>
-                                      <div>• <strong>Período:</strong> {firstMatingAge} meses - {weaningAgeMonths} meses = <strong>{periodoAteMonta} meses</strong></div>
-                                      {periodoAteMonta > 0 && (
-                                        <>
-                                          <div>• <strong>Ganho Mensal:</strong> {ganhoTotal} kg ÷ {periodoAteMonta} meses = <strong>{ganhoMensal.toFixed(2)} kg/mês</strong></div>
-                                          <div>• <strong>Peso aos 12 meses:</strong> {femaleWeaningWeight} kg + ({ganhoMensal.toFixed(2)} × {mesesAte12Meses}) = <strong>{pesoAos12Meses.toFixed(1)} kg</strong></div>
-                                          <div>• <strong>Peso Médio:</strong> ({femaleWeaningWeight} + {pesoAos12Meses.toFixed(1)}) / 2 = <strong>{averageHerdTable.pesoIndividualNovilha8a12.toFixed(1)} kg</strong></div>
-                                        </>
-                                      )}
-                                    </p>
-                                  </div>
-                                );
-                              })()}
+                              {weightCalculationInfoOpen === 'novilhas8a12' &&
+                                popoverPositions.novilhas8a12 &&
+                                (() => {
+                                  const periodoAteMonta = firstMatingAge - weaningAgeMonths;
+                                  const ganhoTotal = pesoPrimeiraMonta - femaleWeaningWeight;
+                                  const ganhoMensal = periodoAteMonta > 0 ? ganhoTotal / periodoAteMonta : 0;
+                                  const mesesAte12Meses = 12 - weaningAgeMonths;
+                                  const pesoAos12Meses = femaleWeaningWeight + ganhoMensal * mesesAte12Meses;
+                                  return (
+                                    <div
+                                      className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                      style={{
+                                        top: popoverPositions.novilhas8a12.top,
+                                        left: popoverPositions.novilhas8a12.left,
+                                      }}
+                                    >
+                                      <p className="font-medium text-gray-800 mb-1 text-left">
+                                        3. Novilhas {weaningAgeMonths + 1} a 12 meses
+                                      </p>
+                                      <p className="text-[10px] space-y-1 text-left">
+                                        <div>
+                                          • A novilha entra em monta aos <strong>{pesoPrimeiraMonta} kg</strong> aos{' '}
+                                          <strong>{firstMatingAge} meses</strong>
+                                        </div>
+                                        <div>
+                                          • <strong>Ganho Total:</strong> {pesoPrimeiraMonta} kg - Peso ao Desmame (
+                                          {femaleWeaningWeight} kg) = <strong>{ganhoTotal} kg</strong>
+                                        </div>
+                                        <div>
+                                          • <strong>Período:</strong> {firstMatingAge} meses - {weaningAgeMonths} meses
+                                          = <strong>{periodoAteMonta} meses</strong>
+                                        </div>
+                                        {periodoAteMonta > 0 && (
+                                          <>
+                                            <div>
+                                              • <strong>Ganho Mensal:</strong> {ganhoTotal} kg ÷ {periodoAteMonta} meses
+                                              = <strong>{ganhoMensal.toFixed(2)} kg/mês</strong>
+                                            </div>
+                                            <div>
+                                              • <strong>Peso aos 12 meses:</strong> {femaleWeaningWeight} kg + (
+                                              {ganhoMensal.toFixed(2)} × {mesesAte12Meses}) ={' '}
+                                              <strong>{pesoAos12Meses.toFixed(1)} kg</strong>
+                                            </div>
+                                            <div>
+                                              • <strong>Peso Médio:</strong> ({femaleWeaningWeight} +{' '}
+                                              {pesoAos12Meses.toFixed(1)}) / 2 ={' '}
+                                              <strong>
+                                                {averageHerdTable.pesoIndividualNovilha8a12.toFixed(1)} kg
+                                              </strong>
+                                            </div>
+                                          </>
+                                        )}
+                                      </p>
+                                    </div>
+                                  );
+                                })()}
                             </>
                           )}
                         </div>
@@ -2703,12 +2898,23 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                         {averageHerdTable.novilhas13a24 > 0 ? averageHerdTable.tempoNovilhas13a24 : '-'}
                       </td>
                       <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
-                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['novilhas13a24'] = el; }}>
-                          <span>{averageHerdTable.novilhas13a24 > 0 ? Math.round(averageHerdTable.pesoIndividualNovilha13a24).toLocaleString('pt-BR') : '-'}</span>
+                        <div
+                          className="flex items-center justify-center gap-1 relative"
+                          ref={el => {
+                            weightInfoRefs.current['novilhas13a24'] = el;
+                          }}
+                        >
+                          <span>
+                            {averageHerdTable.novilhas13a24 > 0
+                              ? Math.round(averageHerdTable.pesoIndividualNovilha13a24).toLocaleString('pt-BR')
+                              : '-'}
+                          </span>
                           {averageHerdTable.novilhas13a24 > 0 && (
                             <>
                               <button
-                                ref={(el) => { weightButtonRefs.current['novilhas13a24'] = el; }}
+                                ref={el => {
+                                  weightButtonRefs.current['novilhas13a24'] = el;
+                                }}
                                 type="button"
                                 onClick={() => handleWeightInfoToggle('novilhas13a24')}
                                 className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
@@ -2717,36 +2923,62 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               >
                                 <Info size={10} />
                               </button>
-                              {weightCalculationInfoOpen === 'novilhas13a24' && popoverPositions.novilhas13a24 && (() => {
-                                const periodoAteMonta = firstMatingAge - weaningAgeMonths;
-                                const ganhoTotal = pesoPrimeiraMonta - femaleWeaningWeight;
-                                const ganhoMensal = periodoAteMonta > 0 ? ganhoTotal / periodoAteMonta : 0;
-                                const mesesAte13Meses = 13 - weaningAgeMonths;
-                                const pesoAos13Meses = femaleWeaningWeight + (ganhoMensal * mesesAte13Meses);
-                                return (
-                                  <div
-                                    className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
-                                    style={{
-                                      top: popoverPositions.novilhas13a24.top,
-                                      left: popoverPositions.novilhas13a24.left,
-                                    }}
-                                  >
-                                    <p className="font-medium text-gray-800 mb-1 text-left">4. Novilhas 13 a 24 meses</p>
-                                    <p className="text-[10px] space-y-1 text-left">
-                                      <div>• A novilha entra em monta aos <strong>{pesoPrimeiraMonta} kg</strong> aos <strong>{firstMatingAge} meses</strong></div>
-                                      <div>• <strong>Ganho Total:</strong> {pesoPrimeiraMonta} kg - Peso ao Desmame ({femaleWeaningWeight} kg) = <strong>{ganhoTotal} kg</strong></div>
-                                      <div>• <strong>Período:</strong> {firstMatingAge} meses - {weaningAgeMonths} meses = <strong>{periodoAteMonta} meses</strong></div>
-                                      {periodoAteMonta > 0 && (
-                                        <>
-                                          <div>• <strong>Ganho Mensal:</strong> {ganhoTotal} kg ÷ {periodoAteMonta} meses = <strong>{ganhoMensal.toFixed(2)} kg/mês</strong></div>
-                                          <div>• <strong>Peso aos 13 meses:</strong> {femaleWeaningWeight} kg + ({ganhoMensal.toFixed(2)} × {mesesAte13Meses}) = <strong>{pesoAos13Meses.toFixed(1)} kg</strong></div>
-                                          <div>• <strong>Peso Médio:</strong> ({pesoAos13Meses.toFixed(1)} + {pesoPrimeiraMonta}) / 2 = <strong>{averageHerdTable.pesoIndividualNovilha13a24.toFixed(1)} kg</strong></div>
-                                        </>
-                                      )}
-                                    </p>
-                                  </div>
-                                );
-                              })()}
+                              {weightCalculationInfoOpen === 'novilhas13a24' &&
+                                popoverPositions.novilhas13a24 &&
+                                (() => {
+                                  const periodoAteMonta = firstMatingAge - weaningAgeMonths;
+                                  const ganhoTotal = pesoPrimeiraMonta - femaleWeaningWeight;
+                                  const ganhoMensal = periodoAteMonta > 0 ? ganhoTotal / periodoAteMonta : 0;
+                                  const mesesAte13Meses = 13 - weaningAgeMonths;
+                                  const pesoAos13Meses = femaleWeaningWeight + ganhoMensal * mesesAte13Meses;
+                                  return (
+                                    <div
+                                      className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                      style={{
+                                        top: popoverPositions.novilhas13a24.top,
+                                        left: popoverPositions.novilhas13a24.left,
+                                      }}
+                                    >
+                                      <p className="font-medium text-gray-800 mb-1 text-left">
+                                        4. Novilhas 13 a 24 meses
+                                      </p>
+                                      <p className="text-[10px] space-y-1 text-left">
+                                        <div>
+                                          • A novilha entra em monta aos <strong>{pesoPrimeiraMonta} kg</strong> aos{' '}
+                                          <strong>{firstMatingAge} meses</strong>
+                                        </div>
+                                        <div>
+                                          • <strong>Ganho Total:</strong> {pesoPrimeiraMonta} kg - Peso ao Desmame (
+                                          {femaleWeaningWeight} kg) = <strong>{ganhoTotal} kg</strong>
+                                        </div>
+                                        <div>
+                                          • <strong>Período:</strong> {firstMatingAge} meses - {weaningAgeMonths} meses
+                                          = <strong>{periodoAteMonta} meses</strong>
+                                        </div>
+                                        {periodoAteMonta > 0 && (
+                                          <>
+                                            <div>
+                                              • <strong>Ganho Mensal:</strong> {ganhoTotal} kg ÷ {periodoAteMonta} meses
+                                              = <strong>{ganhoMensal.toFixed(2)} kg/mês</strong>
+                                            </div>
+                                            <div>
+                                              • <strong>Peso aos 13 meses:</strong> {femaleWeaningWeight} kg + (
+                                              {ganhoMensal.toFixed(2)} × {mesesAte13Meses}) ={' '}
+                                              <strong>{pesoAos13Meses.toFixed(1)} kg</strong>
+                                            </div>
+                                            <div>
+                                              • <strong>Peso Médio:</strong> ({pesoAos13Meses.toFixed(1)} +{' '}
+                                              {pesoPrimeiraMonta}) / 2 ={' '}
+                                              <strong>
+                                                {averageHerdTable.pesoIndividualNovilha13a24.toFixed(1)} kg
+                                              </strong>
+                                            </div>
+                                          </>
+                                        )}
+                                      </p>
+                                    </div>
+                                  );
+                                })()}
                             </>
                           )}
                         </div>
@@ -2758,7 +2990,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           <span>Touros</span>
                           <button
                             type="button"
-                            onClick={() => setIsBullCowRatioOpen((v) => !v)}
+                            onClick={() => setIsBullCowRatioOpen(v => !v)}
                             className="p-1 rounded hover:bg-ai-surface2 transition-colors"
                             title="Relação Matrizes/Touro (%)"
                             aria-label="Relação Matrizes/Touro (%)"
@@ -2774,12 +3006,23 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                         {averageHerdTable.touros > 0 ? averageHerdTable.tempoTouros : '-'}
                       </td>
                       <td className="px-4 py-3 text-center text-sm font-semibold text-ai-text">
-                        <div className="flex items-center justify-center gap-1 relative" ref={(el) => { weightInfoRefs.current['touros'] = el; }}>
-                          <span>{averageHerdTable.touros > 0 ? Math.round(averageHerdTable.pesoIndividualTouro).toLocaleString('pt-BR') : '-'}</span>
+                        <div
+                          className="flex items-center justify-center gap-1 relative"
+                          ref={el => {
+                            weightInfoRefs.current['touros'] = el;
+                          }}
+                        >
+                          <span>
+                            {averageHerdTable.touros > 0
+                              ? Math.round(averageHerdTable.pesoIndividualTouro).toLocaleString('pt-BR')
+                              : '-'}
+                          </span>
                           {averageHerdTable.touros > 0 && (
                             <>
                               <button
-                                ref={(el) => { weightButtonRefs.current['touros'] = el; }}
+                                ref={el => {
+                                  weightButtonRefs.current['touros'] = el;
+                                }}
                                 type="button"
                                 onClick={() => handleWeightInfoToggle('touros')}
                                 className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
@@ -2798,7 +3041,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                                 >
                                   <p className="font-medium text-gray-800 mb-1 text-left">5. Touros</p>
                                   <p className="text-[10px] space-y-1 text-left">
-                                    <div>• <strong>Peso Individual:</strong> {pesoMedioTouro} kg</div>
+                                    <div>
+                                      • <strong>Peso Individual:</strong> {pesoMedioTouro} kg
+                                    </div>
                                     <div>• Este valor pode ser ajustado na faixa de 600 a 900 kg</div>
                                     <div>• Representa o peso médio de touros adultos utilizados na reprodução</div>
                                   </p>
@@ -2829,9 +3074,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                                       <span className="text-xs font-semibold text-ai-text">
                                         Relação Matrizes/touro (%)
                                       </span>
-                                      <span className="text-xs font-bold text-ai-text">
-                                        {bullPercentLabel}
-                                      </span>
+                                      <span className="text-xs font-bold text-ai-text">{bullPercentLabel}</span>
                                     </div>
                                     <input
                                       type="range"
@@ -2839,26 +3082,24 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                                       max={6}
                                       step={0.5}
                                       value={bullCowRatioPercent}
-                                      onChange={(e) => {
+                                      onChange={e => {
                                         const next = parseFloat(e.target.value);
                                         setBullCowRatioPercent(isFinite(next) ? next : 0);
                                       }}
                                       className="w-full accent-ai-accent h-2"
                                     />
                                     <div className="text-xs font-semibold text-ai-text mt-1">
-                                      {totalTouros > 0 ? `${matrizesPorTouroDisplay} matrizes por touro` : '- matrizes por touro'}
+                                      {totalTouros > 0
+                                        ? `${matrizesPorTouroDisplay} matrizes por touro`
+                                        : '- matrizes por touro'}
                                     </div>
                                   </div>
 
                                   {/* Slider de Peso Médio */}
                                   <div>
                                     <div className="flex items-center justify-between mb-1">
-                                      <span className="text-xs font-semibold text-ai-text">
-                                        Peso Médio (kg)
-                                      </span>
-                                      <span className="text-xs font-bold text-ai-text">
-                                        {pesoMedioTouro} kg
-                                      </span>
+                                      <span className="text-xs font-semibold text-ai-text">Peso Médio (kg)</span>
+                                      <span className="text-xs font-bold text-ai-text">{pesoMedioTouro} kg</span>
                                     </div>
                                     <input
                                       type="range"
@@ -2866,7 +3107,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                                       max={900}
                                       step={1}
                                       value={pesoMedioTouro}
-                                      onChange={(e) => {
+                                      onChange={e => {
                                         const next = parseInt(e.target.value, 10);
                                         setPesoMedioTouro(isFinite(next) ? next : 710);
                                       }}
@@ -2889,35 +3130,41 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                     <tr>
                       <td className="px-4 py-3 text-sm text-ai-text font-bold">Total</td>
                       <td className="px-4 py-3 text-center text-sm font-bold text-ai-text">
-                        {averageHerdTable.vacas + averageHerdTable.bezerrosMamando + averageHerdTable.novilhas8a12 + averageHerdTable.novilhas13a24 + averageHerdTable.touros > 0 
-                          ? averageHerdTable.vacas + averageHerdTable.bezerrosMamando + averageHerdTable.novilhas8a12 + averageHerdTable.novilhas13a24 + averageHerdTable.touros 
+                        {averageHerdTable.vacas +
+                          averageHerdTable.bezerrosMamando +
+                          averageHerdTable.novilhas8a12 +
+                          averageHerdTable.novilhas13a24 +
+                          averageHerdTable.touros >
+                        0
+                          ? averageHerdTable.vacas +
+                            averageHerdTable.bezerrosMamando +
+                            averageHerdTable.novilhas8a12 +
+                            averageHerdTable.novilhas13a24 +
+                            averageHerdTable.touros
                           : '-'}
                       </td>
                       <td className="px-4 py-3 text-center text-sm text-ai-text font-bold">-</td>
                       <td className="px-4 py-3 text-center text-sm font-bold text-ai-text">
                         {(() => {
                           // Peso Médio Ponderado = Σ(Quantidade × Peso Individual) / Σ(Quantidade)
-                          const somaProdutoPesoQuantidade = 
-                            averageHerdTable.pesoVivoVacas + 
-                            averageHerdTable.pesoVivoBezerros + 
-                            averageHerdTable.pesoVivoNovilhas8a12 + 
-                            averageHerdTable.pesoVivoNovilhas13a24 + 
+                          const somaProdutoPesoQuantidade =
+                            averageHerdTable.pesoVivoVacas +
+                            averageHerdTable.pesoVivoBezerros +
+                            averageHerdTable.pesoVivoNovilhas8a12 +
+                            averageHerdTable.pesoVivoNovilhas13a24 +
                             averageHerdTable.pesoVivoTouros;
-                          
-                          const somaQuantidades = 
-                            averageHerdTable.vacas + 
-                            averageHerdTable.bezerrosMamando + 
-                            averageHerdTable.novilhas8a12 + 
-                            averageHerdTable.novilhas13a24 + 
+
+                          const somaQuantidades =
+                            averageHerdTable.vacas +
+                            averageHerdTable.bezerrosMamando +
+                            averageHerdTable.novilhas8a12 +
+                            averageHerdTable.novilhas13a24 +
                             averageHerdTable.touros;
-                          
-                          const pesoMedioPonderado = somaQuantidades > 0 
-                            ? safeDivide(somaProdutoPesoQuantidade, somaQuantidades) 
-                            : 0;
-                          
-                          return pesoMedioPonderado > 0 
-                            ? Math.round(pesoMedioPonderado).toLocaleString('pt-BR')
-                            : '-';
+
+                          const pesoMedioPonderado =
+                            somaQuantidades > 0 ? safeDivide(somaProdutoPesoQuantidade, somaQuantidades) : 0;
+
+                          return pesoMedioPonderado > 0 ? Math.round(pesoMedioPonderado).toLocaleString('pt-BR') : '-';
                         })()}
                       </td>
                     </tr>
@@ -2931,19 +3178,39 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
               {(() => {
                 // Dados das categorias
                 const categorias = [
-                  { quantidade: averageHerdTable.vacas, tempo: averageHerdTable.tempoVacas, peso: averageHerdTable.pesoIndividualVaca },
-                  { quantidade: averageHerdTable.bezerrosMamando, tempo: averageHerdTable.tempoBezerros, peso: averageHerdTable.pesoIndividualBezerro },
-                  { quantidade: averageHerdTable.novilhas8a12, tempo: averageHerdTable.tempoNovilhas8a12, peso: averageHerdTable.pesoIndividualNovilha8a12 },
-                  { quantidade: averageHerdTable.novilhas13a24, tempo: averageHerdTable.tempoNovilhas13a24, peso: averageHerdTable.pesoIndividualNovilha13a24 },
-                  { quantidade: averageHerdTable.touros, tempo: averageHerdTable.tempoTouros, peso: averageHerdTable.pesoIndividualTouro },
+                  {
+                    quantidade: averageHerdTable.vacas,
+                    tempo: averageHerdTable.tempoVacas,
+                    peso: averageHerdTable.pesoIndividualVaca,
+                  },
+                  {
+                    quantidade: averageHerdTable.bezerrosMamando,
+                    tempo: averageHerdTable.tempoBezerros,
+                    peso: averageHerdTable.pesoIndividualBezerro,
+                  },
+                  {
+                    quantidade: averageHerdTable.novilhas8a12,
+                    tempo: averageHerdTable.tempoNovilhas8a12,
+                    peso: averageHerdTable.pesoIndividualNovilha8a12,
+                  },
+                  {
+                    quantidade: averageHerdTable.novilhas13a24,
+                    tempo: averageHerdTable.tempoNovilhas13a24,
+                    peso: averageHerdTable.pesoIndividualNovilha13a24,
+                  },
+                  {
+                    quantidade: averageHerdTable.touros,
+                    tempo: averageHerdTable.tempoTouros,
+                    peso: averageHerdTable.pesoIndividualTouro,
+                  },
                 ];
 
                 // Rebanho médio: Σ(quantidade × tempo) / 12
-                const somaQtdTempo = categorias.reduce((sum, c) => sum + (c.quantidade * c.tempo), 0);
+                const somaQtdTempo = categorias.reduce((sum, c) => sum + c.quantidade * c.tempo, 0);
                 const rebanhoMedio = somaQtdTempo / 12;
 
                 // Total de UAs: Σ(quantidade × tempo × peso) / 12 / 450
-                const somaQtdTempoPeso = categorias.reduce((sum, c) => sum + (c.quantidade * c.tempo * c.peso), 0);
+                const somaQtdTempoPeso = categorias.reduce((sum, c) => sum + c.quantidade * c.tempo * c.peso, 0);
                 const totalUAs = somaQtdTempoPeso / 12 / 450;
 
                 // Peso médio em kg: Σ(quantidade × peso × tempo) / 12 / rebanho médio
@@ -2994,187 +3261,205 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
       {/* Modal - Tabela de Categorias */}
       {isModalOpen && (
-        <div 
-              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-              onClick={(e) => {
-                // Fecha o modal ao clicar no overlay (fundo escuro)
-                if (e.target === e.currentTarget) {
-                  setIsModalOpen(false);
-                }
-              }}
-            >
-              <div 
-                className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
-                onClick={(e) => e.stopPropagation()}
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={e => {
+            // Fecha o modal ao clicar no overlay (fundo escuro)
+            if (e.target === e.currentTarget) {
+              setIsModalOpen(false);
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header do Modal */}
+            <div className="px-6 py-4 border-b border-ai-border flex items-center justify-between bg-gradient-to-r from-ai-accent/10 to-transparent">
+              <h2 className="text-lg font-bold text-ai-text">Editar Categorias de Animais</h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-2 hover:bg-ai-surface2 rounded-lg transition-colors"
+                title="Fechar"
               >
-                {/* Header do Modal */}
-                <div className="px-6 py-4 border-b border-ai-border flex items-center justify-between bg-gradient-to-r from-ai-accent/10 to-transparent">
-                  <h2 className="text-lg font-bold text-ai-text">Editar Categorias de Animais</h2>
-                  <button
-                    onClick={() => setIsModalOpen(false)}
-                    className="p-2 hover:bg-ai-surface2 rounded-lg transition-colors"
-                    title="Fechar"
-                  >
-                    <X size={20} className="text-ai-subtext" />
-                  </button>
-                </div>
+                <X size={20} className="text-ai-subtext" />
+              </button>
+            </div>
 
-                {/* Conteúdo do Modal - Scrollable */}
-                <div className="flex-1 overflow-y-auto p-6">
-                  {!isPercentageSumValid && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2 mb-4">
-                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                      <span className="text-sm text-red-700 font-medium">
-                        A soma dos percentuais deve ser exatamente 100%. Atualmente: {percentageSum.toFixed(1)}%
-                      </span>
-                    </div>
-                  )}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                    <thead className="bg-ai-surface2 border-b border-ai-border">
-                      <tr>
-                        <th className="px-2 py-1 text-left text-[10px] font-semibold text-ai-text">
-                          <div className="flex items-center gap-1">
-                            Categoria
-                            <button onClick={handleAddCategory} className="text-ai-accent hover:text-ai-accentHover" title="Adicionar Categoria">
-                              <Plus size={14} />
-                            </button>
-                          </div>
-                        </th>
-                        <th className="px-2 py-1 text-center text-[10px] font-semibold text-green-600 w-20">%</th>
-                        <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-24">Peso (kg/@)</th>
-                        <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-24">Valor (kg/@)</th>
-                        <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-28">Valor/cab</th>
-                        <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-24">Quantidade</th>
-                        <th className="px-2 py-1 w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ai-border">
-                      {animalCategories.map((category) => {
-                        const valuePerHead = calculateValuePerHead(category);
-                        return (
-                          <tr key={category.id} className="hover:bg-ai-surface2/50 group">
-                            <td className="p-0">
-                              <input
-                                type="text"
-                                value={category.name}
-                                onChange={(e) => updateCategory(category.id, 'name', e.target.value)}
-                                onFocus={(e) => e.target.select()}
-                                onKeyDown={handleKeyDown}
-                                className="w-full h-full px-2 py-2 text-xs border-0 bg-transparent focus:ring-2 focus:ring-inset focus:ring-ai-accent outline-none"
-                              />
-                            </td>
-                            <td className="p-0">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={editingCell?.id === category.id && editingCell?.field === 'percentage' ? tempValue : category.percentage}
-                                onChange={(e) => handleNumericChange(category.id, 'percentage', e.target.value)}
-                                onFocus={(e) => handleInputFocus(e, category.id, 'percentage')}
-                                onBlur={handleInputBlur}
-                                onKeyDown={handleKeyDown}
-                                className="w-full h-full px-1 py-2 text-center text-[10px] border-0 bg-transparent text-green-600 font-bold focus:ring-2 focus:ring-inset focus:ring-ai-accent outline-none"
-                              />
-                            </td>
-                            <td className="p-0 relative">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={editingCell?.id === category.id && editingCell?.field === 'weight' ? tempValue : formatNumberWithComma(category.weight)}
-                                onChange={(e) => handleNumericChange(category.id, 'weight', e.target.value)}
-                                onFocus={(e) => handleInputFocus(e, category.id, 'weight')}
-                                onBlur={handleInputBlur}
-                                onKeyDown={handleKeyDown}
-                                className="w-full h-full px-1 py-2 text-center text-[10px] border-0 bg-transparent focus:ring-2 focus:ring-inset focus:ring-ai-accent outline-none"
-                              />
-                              <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-ai-subtext font-medium pointer-events-none">
-                                {isKgCategory(category.id) ? 'kg' : '@'}
-                              </span>
-                            </td>
-                            <td className="p-0 relative">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                value={editingCell?.id === category.id && editingCell?.field === 'valuePerKg' ? tempValue : formatNumberWithComma(category.valuePerKg)}
-                                onChange={(e) => handleNumericChange(category.id, 'valuePerKg', e.target.value)}
-                                onFocus={(e) => handleInputFocus(e, category.id, 'valuePerKg')}
-                                onBlur={handleInputBlur}
-                                onKeyDown={handleKeyDown}
-                                className="w-full h-full px-1 py-2 text-center text-[10px] border-0 bg-transparent focus:ring-2 focus:ring-inset focus:ring-ai-accent outline-none"
-                              />
-                            </td>
-                            <td className="px-2 py-1 text-center text-ai-text font-semibold text-xs">
-                              {formatCurrency(valuePerHead)}
-                            </td>
-                            <td className="px-2 py-1 text-center text-ai-text font-semibold text-[10px]">
-                              {isPercentageSumValid ? calculateQuantity(category.percentage) : '-'}
-                            </td>
-                            <td className="px-1 py-1 text-center">
-                              {animalCategories.length > 1 && (
-                                <button
-                                  onClick={() => handleDeleteCategory(category.id)}
-                                  className="p-1 text-ai-subtext hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
-                                  title="Excluir categoria"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot className="bg-ai-surface2 border-t-2 border-ai-border">
-                      <tr>
-                        <td className="px-2 py-1 text-ai-text font-bold text-xs">Total</td>
-                        <td className={`px-2 py-1 text-center font-bold text-xs ${
+            {/* Conteúdo do Modal - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {!isPercentageSumValid && (
+                <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-center gap-2 mb-4">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                  <span className="text-sm text-red-700 font-medium">
+                    A soma dos percentuais deve ser exatamente 100%. Atualmente: {percentageSum.toFixed(1)}%
+                  </span>
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-ai-surface2 border-b border-ai-border">
+                    <tr>
+                      <th className="px-2 py-1 text-left text-[10px] font-semibold text-ai-text">
+                        <div className="flex items-center gap-1">
+                          Categoria
+                          <button
+                            onClick={handleAddCategory}
+                            className="text-ai-accent hover:text-ai-accentHover"
+                            title="Adicionar Categoria"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </th>
+                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-green-600 w-20">%</th>
+                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-24">Peso (kg/@)</th>
+                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-24">
+                        Valor (kg/@)
+                      </th>
+                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-28">Valor/cab</th>
+                      <th className="px-2 py-1 text-center text-[10px] font-semibold text-ai-text w-24">Quantidade</th>
+                      <th className="px-2 py-1 w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-ai-border">
+                    {animalCategories.map(category => {
+                      const valuePerHead = calculateValuePerHead(category);
+                      return (
+                        <tr key={category.id} className="hover:bg-ai-surface2/50 group">
+                          <td className="p-0">
+                            <input
+                              type="text"
+                              value={category.name}
+                              onChange={e => updateCategory(category.id, 'name', e.target.value)}
+                              onFocus={e => e.target.select()}
+                              onKeyDown={handleKeyDown}
+                              className="w-full h-full px-2 py-2 text-xs border-0 bg-transparent focus:ring-2 focus:ring-inset focus:ring-ai-accent outline-none"
+                            />
+                          </td>
+                          <td className="p-0">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={
+                                editingCell?.id === category.id && editingCell?.field === 'percentage'
+                                  ? tempValue
+                                  : category.percentage
+                              }
+                              onChange={e => handleNumericChange(category.id, 'percentage', e.target.value)}
+                              onFocus={e => handleInputFocus(e, category.id, 'percentage')}
+                              onBlur={handleInputBlur}
+                              onKeyDown={handleKeyDown}
+                              className="w-full h-full px-1 py-2 text-center text-[10px] border-0 bg-transparent text-green-600 font-bold focus:ring-2 focus:ring-inset focus:ring-ai-accent outline-none"
+                            />
+                          </td>
+                          <td className="p-0 relative">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={
+                                editingCell?.id === category.id && editingCell?.field === 'weight'
+                                  ? tempValue
+                                  : formatNumberWithComma(category.weight)
+                              }
+                              onChange={e => handleNumericChange(category.id, 'weight', e.target.value)}
+                              onFocus={e => handleInputFocus(e, category.id, 'weight')}
+                              onBlur={handleInputBlur}
+                              onKeyDown={handleKeyDown}
+                              className="w-full h-full px-1 py-2 text-center text-[10px] border-0 bg-transparent focus:ring-2 focus:ring-inset focus:ring-ai-accent outline-none"
+                            />
+                            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[9px] text-ai-subtext font-medium pointer-events-none">
+                              {isKgCategory(category.id) ? 'kg' : '@'}
+                            </span>
+                          </td>
+                          <td className="p-0 relative">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={
+                                editingCell?.id === category.id && editingCell?.field === 'valuePerKg'
+                                  ? tempValue
+                                  : formatNumberWithComma(category.valuePerKg)
+                              }
+                              onChange={e => handleNumericChange(category.id, 'valuePerKg', e.target.value)}
+                              onFocus={e => handleInputFocus(e, category.id, 'valuePerKg')}
+                              onBlur={handleInputBlur}
+                              onKeyDown={handleKeyDown}
+                              className="w-full h-full px-1 py-2 text-center text-[10px] border-0 bg-transparent focus:ring-2 focus:ring-inset focus:ring-ai-accent outline-none"
+                            />
+                          </td>
+                          <td className="px-2 py-1 text-center text-ai-text font-semibold text-xs">
+                            {formatCurrency(valuePerHead)}
+                          </td>
+                          <td className="px-2 py-1 text-center text-ai-text font-semibold text-[10px]">
+                            {isPercentageSumValid ? calculateQuantity(category.percentage) : '-'}
+                          </td>
+                          <td className="px-1 py-1 text-center">
+                            {animalCategories.length > 1 && (
+                              <button
+                                onClick={() => handleDeleteCategory(category.id)}
+                                className="p-1 text-ai-subtext hover:text-red-500 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                title="Excluir categoria"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot className="bg-ai-surface2 border-t-2 border-ai-border">
+                    <tr>
+                      <td className="px-2 py-1 text-ai-text font-bold text-xs">Total</td>
+                      <td
+                        className={`px-2 py-1 text-center font-bold text-xs ${
                           isPercentageSumValid ? 'text-ai-text' : 'text-red-600'
-                        }`}>
-                          {percentageSum.toFixed(1)}%
-                          {!isPercentageSumValid && (
-                            <span className="ml-1 text-[9px]">⚠️</span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1 text-center text-ai-subtext text-xs">-</td>
-                        <td className="px-2 py-1 text-center text-ai-subtext text-xs">-</td>
-                        <td className="px-2 py-1 text-center text-ai-text font-bold text-xs">
-                          {isPercentageSumValid ? formatCurrency(averageValue) : '-'}
-                        </td>
-                        <td className="px-2 py-1 text-center text-ai-text font-bold text-xs">
-                          {isPercentageSumValid ? requiredSales : '-'}
-                        </td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Footer do Modal */}
-                <div className="px-6 py-4 border-t border-ai-border bg-ai-surface flex items-center justify-between">
-                  <div className="text-sm text-ai-subtext">
-                    {isPercentageSumValid ? (
-                      <span className="text-green-600 font-medium flex items-center gap-1">
-                        <CheckCircle2 size={16} />
-                        Percentuais corretos (100%)
-                      </span>
-                    ) : (
-                      <span className="text-red-600 font-medium flex items-center gap-1">
-                        <AlertCircle size={16} />
-                        Ajuste para 100%
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 bg-ai-accent text-white rounded-lg hover:bg-ai-accentHover transition-colors font-medium"
-                  >
-                    Concluir
-                  </button>
-                </div>
+                        }`}
+                      >
+                        {percentageSum.toFixed(1)}%
+                        {!isPercentageSumValid && <span className="ml-1 text-[9px]">⚠️</span>}
+                      </td>
+                      <td className="px-2 py-1 text-center text-ai-subtext text-xs">-</td>
+                      <td className="px-2 py-1 text-center text-ai-subtext text-xs">-</td>
+                      <td className="px-2 py-1 text-center text-ai-text font-bold text-xs">
+                        {isPercentageSumValid ? formatCurrency(averageValue) : '-'}
+                      </td>
+                      <td className="px-2 py-1 text-center text-ai-text font-bold text-xs">
+                        {isPercentageSumValid ? requiredSales : '-'}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             </div>
-          )}
+
+            {/* Footer do Modal */}
+            <div className="px-6 py-4 border-t border-ai-border bg-ai-surface flex items-center justify-between">
+              <div className="text-sm text-ai-subtext">
+                {isPercentageSumValid ? (
+                  <span className="text-green-600 font-medium flex items-center gap-1">
+                    <CheckCircle2 size={16} />
+                    Percentuais corretos (100%)
+                  </span>
+                ) : (
+                  <span className="text-red-600 font-medium flex items-center gap-1">
+                    <AlertCircle size={16} />
+                    Ajuste para 100%
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 bg-ai-accent text-white rounded-lg hover:bg-ai-accentHover transition-colors font-medium"
+              >
+                Concluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

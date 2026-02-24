@@ -7,22 +7,22 @@ reviews:
   review_status: true
   collapse_walkthrough: false
   path_instructions:
-    - path: "**/*.tsx"
+    - path: '**/*.tsx'
       instructions: >
         Verifique: tipos TypeScript (sem `any`), uso de `useCallback`/`useMemo` para performance,
         acessibilidade (aria-labels), e que console.log/error use o logger centralizado de `lib/logger.ts`.
-    - path: "**/*.ts"
+    - path: '**/*.ts'
       instructions: >
         Verifique tipagem estrita, tratamento de erros com `unknown` ao invés de `any` em catch blocks,
         e uso do logger centralizado ao invés de console.log direto.
-    - path: "contexts/**"
+    - path: 'contexts/**'
       instructions: >
         Contextos React devem ter memoização adequada com useMemo/useCallback,
         tipagem forte e tratamento de erros robusto.
-    - path: "lib/supabase/**"
-      instructions: "Verifique queries Supabase por segurança (RLS) e tipagem."
-    - path: "api/**"
-      instructions: "Verifique validação de input, tratamento de erros e segurança nas rotas."
+    - path: 'lib/supabase/**'
+      instructions: 'Verifique queries Supabase por segurança (RLS) e tipagem.'
+    - path: 'api/**'
+      instructions: 'Verifique validação de input, tratamento de erros e segurança nas rotas.'
   auto_review:
     enabled: true
     drafts: false

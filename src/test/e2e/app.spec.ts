@@ -14,7 +14,7 @@ test.describe('Funcionalidade do App', () => {
     // Verificar que o root está visível e tem conteúdo
     const root = page.locator('#root');
     await expect(root).toBeVisible();
-    
+
     const rootContent = await root.innerHTML();
     expect(rootContent.length).toBeGreaterThan(0);
   });
@@ -34,15 +34,11 @@ test.describe('Funcionalidade do App', () => {
 
   test('deve carregar recursos sem erros de rede', async ({ page }) => {
     let hasNetworkErrors = false;
-    
-    page.on('response', (response) => {
+
+    page.on('response', response => {
       // Verificar apenas recursos locais
       const url = response.url();
-      if (
-        response.status() >= 400 && 
-        !url.includes('aistudiocdn.com') && 
-        !url.includes('fonts.googleapis.com')
-      ) {
+      if (response.status() >= 400 && !url.includes('aistudiocdn.com') && !url.includes('fonts.googleapis.com')) {
         hasNetworkErrors = true;
       }
     });
@@ -56,9 +52,7 @@ test.describe('Funcionalidade do App', () => {
   test('deve ter CSS aplicado corretamente', async ({ page }) => {
     // Verificar que estilos estão sendo aplicados
     const body = page.locator('body');
-    const backgroundColor = await body.evaluate((el) => 
-      window.getComputedStyle(el).backgroundColor
-    );
+    const backgroundColor = await body.evaluate(el => window.getComputedStyle(el).backgroundColor);
 
     // Deve ter uma cor de fundo definida
     expect(backgroundColor).toBeTruthy();
@@ -69,10 +63,9 @@ test.describe('Funcionalidade do App', () => {
     // Verificar que o React está funcionando
     // Tentando encontrar algum elemento renderizado pelo React
     const root = page.locator('#root');
-    
+
     // Verificar que o root tem conteúdo renderizado
     const children = await root.locator('*').count();
     expect(children).toBeGreaterThan(0);
   });
 });
-

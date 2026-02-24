@@ -13,6 +13,7 @@ Este documento explica como configurar OAuth (Google, GitHub, etc.) no Supabase 
 ### 1. Acesse Authentication > Providers
 
 No dashboard do Supabase, vá para:
+
 - **Authentication** → **Providers**
 
 ### 2. Configurar Google OAuth
@@ -99,15 +100,18 @@ GEMINI_API_KEY=sua_chave_gemini_aqui
 ## Troubleshooting
 
 ### Erro: "redirect_uri_mismatch"
+
 - Verifique se o redirect URI no provedor OAuth está exatamente igual ao configurado no Supabase
 - O formato deve ser: `https://[seu-projeto].supabase.co/auth/v1/callback`
 
 ### Usuário não aparece após login OAuth
+
 - Verifique os logs do Supabase
 - Confirme que os triggers estão ativos no banco de dados
 - Verifique se a tabela `user_profiles` tem permissões corretas
 
 ### Erro de CORS
+
 - Certifique-se de adicionar sua URL local no Supabase Dashboard:
   - **Authentication** → **URL Configuration** → **Site URL**
   - Adicione: `http://localhost:3000` (ou sua porta)
@@ -118,4 +122,3 @@ GEMINI_API_KEY=sua_chave_gemini_aqui
 - Use apenas a `anon` key no cliente
 - As políticas RLS (Row Level Security) garantem que usuários só vejam seus próprios dados
 - OAuth tokens são gerenciados automaticamente pelo Supabase
-

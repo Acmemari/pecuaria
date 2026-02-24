@@ -8,6 +8,7 @@
 ## 🎯 AÇÕES IMEDIATAS (Fazer Agora)
 
 ### 1. Testar as Novas Ferramentas
+
 **Tempo estimado:** 15-30 minutos
 
 Verificar se tudo está funcionando corretamente:
@@ -21,6 +22,7 @@ npm run dev
 ```
 
 **Checklist:**
+
 - [ ] Aplicação compila sem erros
 - [ ] Aplicação inicia normalmente
 - [ ] Não há erros no console do navegador
@@ -28,10 +30,12 @@ npm run dev
 ---
 
 ### 2. Migrar 1-2 Componentes Críticos para Logger
+
 **Tempo estimado:** 30-60 minutos  
 **Impacto:** Alto - Melhora imediata no debugging
 
 **Componentes sugeridos:**
+
 1. `SettingsPage.tsx` (muitos console.error)
 2. `FarmSelector.tsx` (muitos console.log)
 
@@ -64,10 +68,12 @@ componentLogger.info('Loaded companies', { count: uniqueCompanies.length });
 ## 📋 AÇÕES IMPORTANTES (Esta Semana)
 
 ### 3. Adicionar Validações em Formulários Críticos
+
 **Tempo estimado:** 1-2 horas  
 **Impacto:** Alto - Previne dados inválidos
 
 **Formulários para validar:**
+
 1. Login/Registro (email, senha)
 2. Configurações de Perfil (telefone, email)
 3. Cadastro de Fazendas (nome, dados)
@@ -99,6 +105,7 @@ const handleSubmit = async () => {
 ---
 
 ### 4. Adicionar ErrorBoundary em Pontos Estratégicos
+
 **Tempo estimado:** 30 minutos  
 **Impacto:** Médio - Previne crashes completos
 
@@ -123,10 +130,12 @@ import ErrorBoundary from './components/ErrorBoundary';
 ## 🔄 AÇÕES GRADUAIS (Próximas 2 Semanas)
 
 ### 5. Migrar Queries Supabase para supabaseClient
+
 **Tempo estimado:** 2-4 horas (gradual)  
 **Impacto:** Médio - Adiciona retry automático
 
 **Estratégia:**
+
 - Migrar 1-2 componentes por dia
 - Começar pelos mais críticos (autenticação, salvamento de dados)
 
@@ -134,29 +143,25 @@ import ErrorBoundary from './components/ErrorBoundary';
 
 ```typescript
 // ANTES
-const { data, error } = await supabase
-  .from('saved_questionnaires')
-  .select('*')
-  .eq('user_id', userId);
+const { data, error } = await supabase.from('saved_questionnaires').select('*').eq('user_id', userId);
 
 if (error) throw error;
 
 // DEPOIS
 import { supabaseClient } from '../lib/supabaseClient';
 
-const data = await supabaseClient.query(
-  'saved_questionnaires',
-  (builder) => builder.select('*').eq('user_id', userId)
-);
+const data = await supabaseClient.query('saved_questionnaires', builder => builder.select('*').eq('user_id', userId));
 ```
 
 ---
 
 ### 6. Adicionar Testes Unitários
+
 **Tempo estimado:** 3-5 horas  
 **Impacto:** Alto - Previne regressões
 
 **Começar com:**
+
 1. Testes de validação (mais fácil)
 2. Testes de hooks (useAsync, useQuestions)
 3. Testes de componentes críticos
@@ -184,6 +189,7 @@ describe('validateEmail', () => {
 ```
 
 **Executar testes:**
+
 ```bash
 npm run test
 ```
@@ -193,10 +199,12 @@ npm run test
 ## 🚀 AÇÕES FUTURAS (Próximo Mês)
 
 ### 7. Integrar com Serviço de Monitoramento
+
 **Tempo estimado:** 2-3 horas  
 **Impacto:** Alto - Visibilidade de erros em produção
 
 **Opções:**
+
 - [Sentry](https://sentry.io) (recomendado)
 - [LogRocket](https://logrocket.com)
 - [Datadog](https://www.datadoghq.com)
@@ -232,6 +240,7 @@ private sendToExternalService(logEntry: LogEntry) {
 ---
 
 ### 8. Adicionar Headers de Segurança
+
 **Tempo estimado:** 30 minutos  
 **Impacto:** Médio - Melhora segurança
 
@@ -272,10 +281,12 @@ private sendToExternalService(logEntry: LogEntry) {
 ---
 
 ### 9. Documentar Padrões de Código
+
 **Tempo estimado:** 2-3 horas  
 **Impacto:** Médio - Facilita manutenção
 
 **Criar:**
+
 - `docs/CODING_STANDARDS.md`
 - `docs/ERROR_HANDLING.md`
 - `docs/TESTING_GUIDE.md`
@@ -285,6 +296,7 @@ private sendToExternalService(logEntry: LogEntry) {
 ## 📊 CHECKLIST DE PROGRESSO
 
 ### Semana 1 (Atual)
+
 - [x] Criar sistema de logging
 - [x] Criar wrapper Supabase com retry
 - [x] Expandir validações
@@ -295,18 +307,21 @@ private sendToExternalService(logEntry: LogEntry) {
 - [ ] Adicionar validações em formulários
 
 ### Semana 2
+
 - [ ] Adicionar ErrorBoundary em rotas
 - [ ] Migrar 5 componentes para supabaseClient
 - [ ] Criar testes para validações
 - [ ] Criar testes para hooks
 
 ### Semana 3-4
+
 - [ ] Migrar mais componentes para logger
 - [ ] Expandir cobertura de testes
 - [ ] Adicionar headers de segurança
 - [ ] Documentar padrões
 
 ### Mês 2
+
 - [ ] Integrar com Sentry
 - [ ] Monitoramento de performance
 - [ ] Code review completo
@@ -317,18 +332,22 @@ private sendToExternalService(logEntry: LogEntry) {
 ## 🎓 RECURSOS DE APRENDIZADO
 
 ### Logging
+
 - [Structured Logging Best Practices](https://www.loggly.com/ultimate-guide/node-logging-basics/)
 - [Why Structured Logging Matters](https://www.honeycomb.io/blog/structured-logging-and-your-team)
 
 ### Error Handling
+
 - [React Error Boundaries](https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary)
 - [Error Handling Best Practices](https://kentcdodds.com/blog/use-react-error-boundary-to-handle-errors-in-react)
 
 ### Testing
+
 - [Vitest Guide](https://vitest.dev/guide/)
 - [Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
 
 ### Security
+
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/)
 - [Web Security Headers](https://owasp.org/www-project-secure-headers/)
 
@@ -337,24 +356,31 @@ private sendToExternalService(logEntry: LogEntry) {
 ## 💡 DICAS IMPORTANTES
 
 ### 1. Migração Gradual
+
 Não precisa migrar tudo de uma vez. Faça gradualmente:
+
 - Novos componentes: Use as novas ferramentas desde o início
 - Componentes existentes: Migre quando for fazer manutenção
 
 ### 2. Priorize por Impacto
+
 Foque primeiro em:
+
 1. Componentes críticos (autenticação, salvamento de dados)
 2. Componentes com mais erros reportados
 3. Componentes mais usados
 
 ### 3. Teste Antes de Deploy
+
 Sempre teste localmente antes de fazer deploy:
+
 ```bash
 npm run build
 npm run preview
 ```
 
 ### 4. Monitore Logs
+
 Em produção, monitore os logs regularmente para identificar problemas cedo.
 
 ---
@@ -378,6 +404,7 @@ A: Use onde fizer sentido. Se você já tem lógica de loading/error funcionando
 ## 📞 SUPORTE
 
 Se encontrar problemas ou tiver dúvidas:
+
 1. Verifique a documentação nos arquivos `.analysis/`
 2. Revise os exemplos de uso neste documento
 3. Consulte os recursos de aprendizado listados acima

@@ -2,13 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, ArrowLeft, Loader2, Pencil, Trash2, Package } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
-import {
-  fetchDeliveries,
-  createDelivery,
-  updateDelivery,
-  deleteDelivery,
-  type DeliveryRow,
-} from '../lib/deliveries';
+import { fetchDeliveries, createDelivery, updateDelivery, deleteDelivery, type DeliveryRow } from '../lib/deliveries';
 
 interface DeliveryManagementProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -33,7 +27,7 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
   const isAdmin = user?.role === 'admin';
   const effectiveUserId = useMemo(
     () => (isAdmin && selectedAnalyst ? selectedAnalyst.id : user?.id),
-    [isAdmin, selectedAnalyst, user?.id]
+    [isAdmin, selectedAnalyst, user?.id],
   );
 
   const loadDeliveries = useCallback(async () => {
@@ -126,9 +120,7 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
         </div>
 
         <div className="bg-ai-surface border border-ai-border rounded-xl p-6 space-y-5">
-          <h1 className="text-xl font-bold text-ai-text">
-            {editing ? 'Editar Entrega' : 'Nova Entrega'}
-          </h1>
+          <h1 className="text-xl font-bold text-ai-text">{editing ? 'Editar Entrega' : 'Nova Entrega'}</h1>
 
           <div>
             <label className="block text-sm font-medium text-ai-text mb-1">
@@ -137,7 +129,7 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+              onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
               className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm"
               placeholder="Ex.: Reestruturação Comercial Fase 1"
             />
@@ -148,7 +140,7 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
             <textarea
               rows={4}
               value={formData.description}
-              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+              onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
               className="w-full px-3 py-2 border border-ai-border rounded-md bg-ai-bg text-ai-text text-sm resize-none"
               placeholder="Descreva objetivo, escopo e critérios da entrega."
             />
@@ -205,7 +197,7 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {deliveries.map((delivery) => (
+          {deliveries.map(delivery => (
             <article
               key={delivery.id}
               className="rounded-xl border border-ai-border bg-ai-surface p-4 flex flex-col gap-3"
@@ -228,17 +220,11 @@ const DeliveryManagement: React.FC<DeliveryManagementProps> = ({ onToast }) => {
                     className="p-1.5 rounded text-red-500 hover:bg-red-50 disabled:opacity-60"
                     title="Excluir"
                   >
-                    {deletingId === delivery.id ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Trash2 size={14} />
-                    )}
+                    {deletingId === delivery.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                   </button>
                 </div>
               </div>
-              <p className="text-xs text-ai-subtext whitespace-pre-wrap">
-                {delivery.description || 'Sem descrição.'}
-              </p>
+              <p className="text-xs text-ai-subtext whitespace-pre-wrap">{delivery.description || 'Sem descrição.'}</p>
             </article>
           ))}
         </div>

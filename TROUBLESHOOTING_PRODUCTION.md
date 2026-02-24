@@ -3,6 +3,7 @@
 ## Problema Identificado
 
 Na sua configuração do Vercel, há **duas variáveis** relacionadas à OpenAI:
+
 1. ❌ `openai_api_key` (minúsculas) - **NÃO FUNCIONA**
 2. ✅ `OPENAI_API_KEY` (maiúsculas) - **ESTA É A CORRETA**
 
@@ -21,6 +22,7 @@ O código está procurando por `OPENAI_API_KEY` (maiúsculas), então a variáve
 ### 2. Verificar a variável correta
 
 Certifique-se de que a variável `OPENAI_API_KEY` (maiúsculas) está:
+
 - ✅ Nome exatamente como `OPENAI_API_KEY` (case-sensitive)
 - ✅ Valor começa com `sk-` (chave válida da OpenAI)
 - ✅ Marcada para **Production** (e Preview/Development se necessário)
@@ -31,12 +33,14 @@ Certifique-se de que a variável `OPENAI_API_KEY` (maiúsculas) está:
 **IMPORTANTE:** Após adicionar ou modificar variáveis de ambiente, você **DEVE** fazer um novo deploy:
 
 **Opção A: Redeploy via Dashboard**
+
 1. Vá em **Deployments** no Vercel Dashboard
 2. Clique nos três pontos (⋯) do último deployment
 3. Selecione **Redeploy**
 4. Aguarde o deploy completar
 
 **Opção B: Redeploy via Git**
+
 1. Faça um pequeno commit (pode ser apenas um espaço em branco)
 2. Faça push para o repositório
 3. O Vercel fará deploy automaticamente
@@ -77,21 +81,27 @@ Para testar se está funcionando:
 ## Erros Comuns
 
 ### Erro: "OPENAI_API_KEY não está configurada"
+
 **Causa:** Variável não existe ou nome está errado
-**Solução:** 
+**Solução:**
+
 - Verifique se o nome é exatamente `OPENAI_API_KEY` (maiúsculas)
 - Certifique-se de que fez um redeploy após adicionar
 
 ### Erro: "Erro de autenticação com OpenAI"
+
 **Causa:** Chave inválida ou expirada
 **Solução:**
+
 - Verifique se a chave começa com `sk-`
 - Gere uma nova chave no OpenAI Dashboard
 - Atualize a variável no Vercel e faça redeploy
 
 ### Erro: "Timeout ao processar solicitação"
+
 **Causa:** Problema com a API OpenAI ou rede
 **Solução:**
+
 - Verifique se há créditos na conta OpenAI
 - Tente novamente após alguns segundos
 - Verifique os logs para mais detalhes
@@ -112,7 +122,7 @@ Se após seguir todos os passos ainda não funcionar:
 ## Contato
 
 Se o problema persistir, compartilhe:
+
 - Screenshot das variáveis de ambiente no Vercel
 - Logs do Vercel (Functions → Logs)
 - Mensagem de erro exata que aparece na aplicação
-

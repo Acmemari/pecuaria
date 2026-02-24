@@ -48,6 +48,7 @@ N8N_WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 ```
 
 **Passos no Vercel:**
+
 1. Acesse o projeto no painel do Vercel
 2. Vá em **Settings** > **Environment Variables**
 3. Adicione a variável `N8N_WEBHOOK_URL`
@@ -62,6 +63,7 @@ N8N_WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 **Endpoint:** `POST /api/ask-assistant`
 
 **Headers:**
+
 ```json
 {
   "Content-Type": "application/json"
@@ -69,6 +71,7 @@ N8N_WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 ```
 
 **Body:**
+
 ```json
 {
   "question": "Como calcular o custo por arroba produzida?",
@@ -81,6 +84,7 @@ N8N_WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 **Endpoint:** `POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio`
 
 **Headers:**
+
 ```json
 {
   "Content-Type": "application/json"
@@ -88,6 +92,7 @@ N8N_WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 ```
 
 **Body:**
+
 ```json
 {
   "question": "Como calcular o custo por arroba produzida?",
@@ -101,6 +106,7 @@ N8N_WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 **Status:** `200 OK`
 
 **Body (formato flexível):**
+
 ```json
 {
   "answer": "O custo por arroba produzida é calculado..."
@@ -108,6 +114,7 @@ N8N_WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 ```
 
 **Formatos suportados:**
+
 - `{ "answer": "..." }`
 - `{ "response": "..." }`
 - `{ "message": "..." }`
@@ -119,6 +126,7 @@ N8N_WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 **Status:** `200 OK`
 
 **Body:**
+
 ```json
 {
   "answer": "O custo por arroba produzida é calculado..."
@@ -131,13 +139,13 @@ N8N_WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 
 ### Erros Possíveis
 
-| Código | Erro | Descrição |
-|--------|------|-----------|
-| 400 | `BAD_REQUEST` | Campo `question` inválido ou ausente |
-| 500 | `MISSING_WEBHOOK_URL` | Variável `N8N_WEBHOOK_URL` não configurada |
-| 502 | `WEBHOOK_ERROR` | Webhook retornou erro (status 4xx/5xx) |
-| 503 | `NETWORK_ERROR` | Erro de conexão com o webhook |
-| 504 | `TIMEOUT` | Webhook não respondeu em 60 segundos |
+| Código | Erro                  | Descrição                                  |
+| ------ | --------------------- | ------------------------------------------ |
+| 400    | `BAD_REQUEST`         | Campo `question` inválido ou ausente       |
+| 500    | `MISSING_WEBHOOK_URL` | Variável `N8N_WEBHOOK_URL` não configurada |
+| 502    | `WEBHOOK_ERROR`       | Webhook retornou erro (status 4xx/5xx)     |
+| 503    | `NETWORK_ERROR`       | Erro de conexão com o webhook              |
+| 504    | `TIMEOUT`             | Webhook não respondeu em 60 segundos       |
 
 ### Exemplo de Erro
 
@@ -168,15 +176,18 @@ curl -X POST https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio \
 ### 2. Testar a API Local
 
 **Requisitos:**
+
 - Node.js 20+
 - Variáveis configuradas em `.env.local`
 
 **Executar:**
+
 ```bash
 npm run dev:api
 ```
 
 **Testar endpoint:**
+
 ```bash
 curl -X POST http://localhost:3001/api/ask-assistant \
   -H "Content-Type: application/json" \
@@ -294,18 +305,19 @@ Se precisar trocar a URL do webhook:
 
 ### Troubleshooting
 
-| Problema | Solução |
-|----------|---------|
-| Erro `MISSING_WEBHOOK_URL` | Configure variável no Vercel |
-| Timeout constante | Otimize fluxo n8n ou aumente timeout |
-| Resposta vazia | Verifique formato de retorno do n8n |
-| Erro de rede | Verifique se webhook está acessível |
+| Problema                   | Solução                              |
+| -------------------------- | ------------------------------------ |
+| Erro `MISSING_WEBHOOK_URL` | Configure variável no Vercel         |
+| Timeout constante          | Otimize fluxo n8n ou aumente timeout |
+| Resposta vazia             | Verifique formato de retorno do n8n  |
+| Erro de rede               | Verifique se webhook está acessível  |
 
 ---
 
 ## 📞 Suporte
 
 Para problemas com:
+
 - **Frontend/Backend:** Verifique logs do Vercel
 - **n8n:** Acesse painel do n8n e verifique execuções
 - **Rede:** Teste webhook diretamente com `curl`
@@ -314,4 +326,3 @@ Para problemas com:
 
 **Documentado por:** Auto (AI Assistant)  
 **Última atualização:** 2025-01-27
-

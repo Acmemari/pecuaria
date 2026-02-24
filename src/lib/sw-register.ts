@@ -9,7 +9,7 @@ export function registerServiceWorker(): void {
 
       navigator.serviceWorker
         .register(swUrl)
-        .then((registration) => {
+        .then(registration => {
           console.log('[SW] Service Worker registered successfully:', registration.scope);
 
           // Verificar atualizações periodicamente
@@ -26,7 +26,7 @@ export function registerServiceWorker(): void {
             }
           });
         })
-        .catch((error) => {
+        .catch(error => {
           console.error('[SW] Service Worker registration failed:', error);
         });
 
@@ -47,13 +47,12 @@ export function registerServiceWorker(): void {
 export function unregisterServiceWorker(): void {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready
-      .then((registration) => {
+      .then(registration => {
         registration.unregister();
         console.log('[SW] Service Worker unregistered');
       })
-      .catch((error) => {
+      .catch(error => {
         console.error('[SW] Error unregistering service worker:', error);
       });
   }
 }
-

@@ -26,7 +26,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check for existing session
     const initAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
         if (error) {
           log.error('Error getting session', error instanceof Error ? error : new Error(String(error)));
@@ -41,16 +44,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: session.user.user_metadata?.name || session.user.user_metadata?.full_name || 'Usuário',
             role: (session.user.user_metadata?.role as 'admin' | 'client') || 'client',
             plan: (session.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
-            avatar: session.user.user_metadata?.avatar || (session.user.email?.[0].toUpperCase() || 'U'),
-            status: 'active'
+            avatar: session.user.user_metadata?.avatar || session.user.email?.[0].toUpperCase() || 'U',
+            status: 'active',
           });
 
           // Load full profile in background
-          loadUserProfile(session.user.id).then(profile => {
-            if (profile) setUser(profile);
-          }).catch((err: unknown) => {
-            log.error('Error loading user profile', err instanceof Error ? err : new Error(String(err)));
-          });
+          loadUserProfile(session.user.id)
+            .then(profile => {
+              if (profile) setUser(profile);
+            })
+            .catch((err: unknown) => {
+              log.error('Error loading user profile', err instanceof Error ? err : new Error(String(err)));
+            });
         } else {
           setUser(null);
         }
@@ -69,7 +74,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       log.debug(`Auth state changed: ${event}`, { userId: session?.user?.id });
 
       // Detectar evento de recovery - mostrar página de reset de senha
@@ -85,7 +92,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const hash = window.location.hash;
         const pathname = window.location.pathname;
         const isResetPasswordPath = pathname === '/reset-password' || pathname.includes('reset-password');
-        const hasRecoveryToken = hash.includes('type=recovery') || hash.includes('type%3Drecovery') || hash.includes('access_token=');
+        const hasRecoveryToken =
+          hash.includes('type=recovery') || hash.includes('type%3Drecovery') || hash.includes('access_token=');
 
         // Se estiver na rota de reset OU tiver token de recovery, NÃO fazer login automático
         if (isResetPasswordPath || hasRecoveryToken) {
@@ -123,8 +131,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: session.user.user_metadata?.name || session.user.user_metadata?.full_name || 'Usuário',
             role: (session.user.user_metadata?.role as 'admin' | 'client') || 'client',
             plan: (session.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
-            avatar: session.user.user_metadata?.avatar || (session.user.email?.[0].toUpperCase() || 'U'),
-            status: 'active'
+            avatar: session.user.user_metadata?.avatar || session.user.email?.[0].toUpperCase() || 'U',
+            status: 'active',
           });
         }
       } else if (event === 'SIGNED_OUT') {
@@ -148,7 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       });
 
       if (error) {
@@ -211,8 +219,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: data.user.user_metadata?.name || data.user.user_metadata?.full_name || 'Usuário',
             role: (data.user.user_metadata?.role as 'admin' | 'client') || 'client',
             plan: (data.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
-            avatar: data.user.user_metadata?.avatar || (data.user.email?.[0].toUpperCase() || 'U'),
-            status: 'active'
+            avatar: data.user.user_metadata?.avatar || data.user.email?.[0].toUpperCase() || 'U',
+            status: 'active',
           });
           setIsLoading(false);
           return { success: true };
@@ -247,8 +255,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
-          }
-        }
+          },
+        },
       });
 
       if (error) {
@@ -263,112 +271,127 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const checkPermission = useCallback((feature: string): boolean => {
-    return checkPermissionUtil(user, feature);
-  }, [user]);
+  const checkPermission = useCallback(
+    (feature: string): boolean => {
+      return checkPermissionUtil(user, feature);
+    },
+    [user],
+  );
 
-  const checkLimit = useCallback((limit: keyof Plan['limits'], currentValue: number): boolean => {
-    return checkLimitUtil(user, limit, currentValue);
-  }, [user]);
+  const checkLimit = useCallback(
+    (limit: keyof Plan['limits'], currentValue: number): boolean => {
+      return checkLimitUtil(user, limit, currentValue);
+    },
+    [user],
+  );
 
-  const signup = useCallback(async (email: string, password: string, name: string, phone: string, organizationName?: string): Promise<{ success: boolean; error?: string }> => {
-    setIsLoading(true);
-    try {
-      // Sign up with Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name: name,
-            full_name: name,
-            organization_name: organizationName || `${name}'s Organization`,
-            role: 'client',
-            plan: 'basic',
-            avatar: name.charAt(0).toUpperCase(),
-            phone: phone
+  const signup = useCallback(
+    async (
+      email: string,
+      password: string,
+      name: string,
+      phone: string,
+      organizationName?: string,
+    ): Promise<{ success: boolean; error?: string }> => {
+      setIsLoading(true);
+      try {
+        // Sign up with Supabase Auth
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name: name,
+              full_name: name,
+              organization_name: organizationName || `${name}'s Organization`,
+              role: 'client',
+              plan: 'basic',
+              avatar: name.charAt(0).toUpperCase(),
+              phone: phone,
+            },
+            emailRedirectTo: `${window.location.origin}`,
           },
-          emailRedirectTo: `${window.location.origin}`
-        }
-      });
+        });
 
-      if (error) {
-        log.error('Signup error', new Error(error.message));
-        setIsLoading(false);
-        return { success: false, error: error.message };
-      }
-
-      if (data.user) {
-        // Update the profile with phone number if it exists
-        // The trigger will create the profile, but we need to update it with phone
-        try {
-          const { error: updateError } = await supabase
-            .from('user_profiles')
-            .update({ phone: phone })
-            .eq('id', data.user.id);
-
-          if (updateError) {
-            log.warn('Could not update phone in profile');
-          }
-        } catch (err: unknown) {
-          log.warn('Error updating phone');
-        }
-
-        // Wait a bit for the trigger to create the profile
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Try to load the profile with retries
-        const userProfile = await loadUserProfile(data.user.id, 5, 800);
-        if (userProfile) {
-          setUser(userProfile);
+        if (error) {
+          log.error('Signup error', new Error(error.message));
           setIsLoading(false);
-          return { success: true };
-        } else {
-          // Wait a bit more and try again
-          log.warn('Profile not found after signup, retrying');
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          const retryProfile = await loadUserProfile(data.user.id, 3, 1000);
-          if (retryProfile) {
-            setUser(retryProfile);
+          return { success: false, error: error.message };
+        }
+
+        if (data.user) {
+          // Update the profile with phone number if it exists
+          // The trigger will create the profile, but we need to update it with phone
+          try {
+            const { error: updateError } = await supabase
+              .from('user_profiles')
+              .update({ phone: phone })
+              .eq('id', data.user.id);
+
+            if (updateError) {
+              log.warn('Could not update phone in profile');
+            }
+          } catch (err: unknown) {
+            log.warn('Error updating phone');
+          }
+
+          // Wait a bit for the trigger to create the profile
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Try to load the profile with retries
+          const userProfile = await loadUserProfile(data.user.id, 5, 800);
+          if (userProfile) {
+            setUser(userProfile);
             setIsLoading(false);
             return { success: true };
+          } else {
+            // Wait a bit more and try again
+            log.warn('Profile not found after signup, retrying');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const retryProfile = await loadUserProfile(data.user.id, 3, 1000);
+            if (retryProfile) {
+              setUser(retryProfile);
+              setIsLoading(false);
+              return { success: true };
+            }
           }
+
+          setIsLoading(false);
+          return { success: true }; // Return success even if profile not loaded yet - it will be created by trigger
         }
 
         setIsLoading(false);
-        return { success: true }; // Return success even if profile not loaded yet - it will be created by trigger
+        return { success: false, error: 'Erro ao criar conta' };
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        log.error('Signup error', err);
+        setIsLoading(false);
+        return { success: false, error: err.message || 'Erro ao criar conta' };
       }
+    },
+    [],
+  );
 
-      setIsLoading(false);
-      return { success: false, error: 'Erro ao criar conta' };
-    } catch (error: unknown) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      log.error('Signup error', err);
-      setIsLoading(false);
-      return { success: false, error: err.message || 'Erro ao criar conta' };
-    }
-  }, []);
+  const upgradePlan = useCallback(
+    async (planId: Plan['id']) => {
+      if (!user) return;
 
-  const upgradePlan = useCallback(async (planId: Plan['id']) => {
-    if (!user) return;
+      try {
+        const { error } = await supabase.from('user_profiles').update({ plan: planId }).eq('id', user.id);
 
-    try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ plan: planId })
-        .eq('id', user.id);
+        if (error) {
+          log.error('Error upgrading plan', new Error(error.message));
+          return;
+        }
 
-      if (error) {
-        log.error('Error upgrading plan', new Error(error.message));
-        return;
+        const updatedUser = { ...user, plan: planId };
+        setUser(updatedUser);
+      } catch (error: unknown) {
+        log.error('Error upgrading plan', error instanceof Error ? error : new Error(String(error)));
       }
-
-      const updatedUser = { ...user, plan: planId };
-      setUser(updatedUser);
-    } catch (error: unknown) {
-      log.error('Error upgrading plan', error instanceof Error ? error : new Error(String(error)));
-    }
-  }, [user]);
+    },
+    [user],
+  );
 
   const refreshProfile = useCallback(async () => {
     if (!user) return;
@@ -385,13 +408,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = useCallback(async (email: string): Promise<{ success: boolean; error?: string }> => {
     try {
       // Garantir que a URL use o protocolo correto (https em produção)
-      const origin = window.location.origin || (window.location.protocol + '//' + window.location.host);
+      const origin = window.location.origin || window.location.protocol + '//' + window.location.host;
       const redirectUrl = `${origin}/reset-password`;
 
       log.debug(`Sending password reset email with redirect URL: ${redirectUrl}`);
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl
+        redirectTo: redirectUrl,
       });
 
       if (error) {
@@ -422,7 +445,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updatePassword = useCallback(async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const { error } = await supabase.auth.updateUser({
-        password: newPassword
+        password: newPassword,
       });
 
       if (error) {
@@ -454,32 +477,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsPasswordRecovery(false);
   }, []);
 
-  const authContextValue = useMemo(() => ({
-    user,
-    login,
-    logout,
-    isLoading,
-    isPasswordRecovery,
-    checkPermission,
-    checkLimit,
-    upgradePlan,
-    refreshProfile,
-    signInWithOAuth,
-    signup,
-    resetPassword,
-    updatePassword,
-    clearPasswordRecovery
-  }), [
-    user, login, logout, isLoading, isPasswordRecovery,
-    checkPermission, checkLimit, upgradePlan, refreshProfile,
-    signInWithOAuth, signup, resetPassword, updatePassword, clearPasswordRecovery
-  ]);
-
-  return (
-    <AuthContext.Provider value={authContextValue}>
-      {children}
-    </AuthContext.Provider>
+  const authContextValue = useMemo(
+    () => ({
+      user,
+      login,
+      logout,
+      isLoading,
+      isPasswordRecovery,
+      checkPermission,
+      checkLimit,
+      upgradePlan,
+      refreshProfile,
+      signInWithOAuth,
+      signup,
+      resetPassword,
+      updatePassword,
+      clearPasswordRecovery,
+    }),
+    [
+      user,
+      login,
+      logout,
+      isLoading,
+      isPasswordRecovery,
+      checkPermission,
+      checkLimit,
+      upgradePlan,
+      refreshProfile,
+      signInWithOAuth,
+      signup,
+      resetPassword,
+      updatePassword,
+      clearPasswordRecovery,
+    ],
   );
+
+  return <AuthContext.Provider value={authContextValue}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

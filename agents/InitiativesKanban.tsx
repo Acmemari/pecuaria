@@ -6,7 +6,14 @@ import { useClient } from '../contexts/ClientContext';
 import { useFarm } from '../contexts/FarmContext';
 import { fetchDeliveries, type DeliveryRow } from '../lib/deliveries';
 import { fetchPeople, type Person } from '../lib/people';
-import { fetchInitiatives, fetchInitiativeDetail, deleteTask, type InitiativeWithProgress, type InitiativeMilestoneRow, type InitiativeTaskRow } from '../lib/initiatives';
+import {
+  fetchInitiatives,
+  fetchInitiativeDetail,
+  deleteTask,
+  type InitiativeWithProgress,
+  type InitiativeMilestoneRow,
+  type InitiativeTaskRow,
+} from '../lib/initiatives';
 import InitiativeTasksKanban from '../components/InitiativeTasksKanban';
 import TaskCreateModal from '../components/TaskCreateModal';
 import TaskEditModal from '../components/TaskEditModal';
@@ -24,7 +31,7 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
   const isAdmin = user?.role === 'admin';
   const effectiveUserId = useMemo(
     () => (isAdmin && selectedAnalyst ? selectedAnalyst.id : user?.id),
-    [isAdmin, selectedAnalyst, user?.id]
+    [isAdmin, selectedAnalyst, user?.id],
   );
 
   const [loading, setLoading] = useState(true);
@@ -44,13 +51,11 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
   const filterDropdownRef = useRef<HTMLDivElement>(null);
 
   const toggleResponsibleFilter = useCallback((id: string) => {
-    setFilterByResponsibleIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setFilterByResponsibleIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
   }, []);
 
-  const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
-  const personLabel = useCallback((p: Person) => (p.preferred_name?.trim() || p.full_name || '—'), []);
+  const peopleById = useMemo(() => new Map(people.map(p => [p.id, p])), [people]);
+  const personLabel = useCallback((p: Person) => p.preferred_name?.trim() || p.full_name || '—', []);
 
   // No Kanban, removemos filtros visuais (Projeto/Marco).
   // Mantemos selectedDeliveryId apenas para o modal de criação (pré-preenchimento/UX).
@@ -58,10 +63,13 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
   const initiativesForModal = useMemo(() => {
     const list = initiatives || [];
     if (!selectedDeliveryId) return list;
-    return list.filter((i) => i.delivery_id === selectedDeliveryId);
+    return list.filter(i => i.delivery_id === selectedDeliveryId);
   }, [initiatives, selectedDeliveryId]);
 
-  const milestonesAll = useMemo<InitiativeMilestoneRow[]>(() => (viewing?.milestones || []) as InitiativeMilestoneRow[], [viewing]);
+  const milestonesAll = useMemo<InitiativeMilestoneRow[]>(
+    () => (viewing?.milestones || []) as InitiativeMilestoneRow[],
+    [viewing],
+  );
   const milestonesForView = milestonesAll;
 
   const refresh = useCallback(async () => {
@@ -92,7 +100,9 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
         if (mounted) setLoading(false);
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [refresh]);
 
   // Reset selections when farm or client changes
@@ -108,7 +118,8 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
   useEffect(() => {
     if (!openFilterDropdown) return;
     const close = (e: MouseEvent) => {
-      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) setOpenFilterDropdown(null);
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node))
+        setOpenFilterDropdown(null);
     };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
@@ -118,7 +129,7 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
     // Auto-seleciona ou valida a initiative selecionada
     if (selectedInitiativeId) {
       // Se a initiative selecionada não está na lista filtrada, resetar
-      const stillValid = initiativesForView.some((i) => i.id === selectedInitiativeId);
+      const stillValid = initiativesForView.some(i => i.id === selectedInitiativeId);
       if (!stillValid) {
         setSelectedInitiativeId(initiativesForView[0]?.id || '');
       }
@@ -139,14 +150,17 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
         if (!mounted) return;
         setViewing(detail);
         // Se o marco selecionado (usado no modal) não existir mais para esta iniciativa, resetar.
-        if (selectedMilestoneId && !detail.milestones?.some((m) => m.id === selectedMilestoneId)) setSelectedMilestoneId('');
+        if (selectedMilestoneId && !detail.milestones?.some(m => m.id === selectedMilestoneId))
+          setSelectedMilestoneId('');
         // Pré-preencher "Projeto" no modal com base na atividade selecionada.
         if (detail.delivery_id && !selectedDeliveryId) setSelectedDeliveryId(detail.delivery_id);
       } catch (e) {
         onToast?.(e instanceof Error ? e.message : 'Erro ao carregar iniciativa', 'error');
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [selectedInitiativeId, selectedMilestoneId, selectedDeliveryId, onToast]);
 
   const canCreateTask = !!viewing && (viewing.milestones || []).length > 0;
@@ -181,15 +195,25 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
               >
                 <Users size={12} />
                 Responsável{filterByResponsibleIds.length > 0 && ` (${filterByResponsibleIds.length})`}
-                <ChevronRight size={12} className={`transition-transform ${openFilterDropdown === 'responsible' ? 'rotate-90' : ''}`} />
+                <ChevronRight
+                  size={12}
+                  className={`transition-transform ${openFilterDropdown === 'responsible' ? 'rotate-90' : ''}`}
+                />
               </button>
               {openFilterDropdown === 'responsible' && (
-                <div role="listbox" aria-label="Opções de responsável" className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-ai-bg border border-ai-border rounded-lg shadow-lg py-1 min-w-[180px]">
+                <div
+                  role="listbox"
+                  aria-label="Opções de responsável"
+                  className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-ai-bg border border-ai-border rounded-lg shadow-lg py-1 min-w-[180px]"
+                >
                   {people.length === 0 ? (
                     <p className="px-3 py-1.5 text-xs text-ai-subtext italic">Nenhuma pessoa cadastrada</p>
                   ) : (
-                    people.map((p) => (
-                      <label key={p.id} className="flex items-center gap-2 px-3 py-1.5 text-xs text-ai-text hover:bg-ai-surface2 cursor-pointer">
+                    people.map(p => (
+                      <label
+                        key={p.id}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-ai-text hover:bg-ai-surface2 cursor-pointer"
+                      >
                         <input
                           type="checkbox"
                           checked={filterByResponsibleIds.includes(p.id)}
@@ -203,7 +227,10 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
                   {filterByResponsibleIds.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => { setFilterByResponsibleIds([]); setOpenFilterDropdown(null); }}
+                      onClick={() => {
+                        setFilterByResponsibleIds([]);
+                        setOpenFilterDropdown(null);
+                      }}
                       className="w-full text-left px-3 py-1.5 text-[10px] text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 border-t border-ai-border mt-1"
                     >
                       Limpar
@@ -225,7 +252,7 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
               }
               await refresh();
             }}
-            responsibleLabel={(personId) => {
+            responsibleLabel={personId => {
               if (!personId) return '—';
               const p = peopleById.get(personId);
               return p ? personLabel(p) : '—';
@@ -237,8 +264,8 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
               }
               setCreateOpen(true);
             }}
-            onEditTask={(task) => setEditTask(task)}
-            onDeleteTask={async (task) => {
+            onEditTask={task => setEditTask(task)}
+            onDeleteTask={async task => {
               if (!window.confirm('Excluir esta tarefa? Esta ação não pode ser desfeita.')) return;
               try {
                 await deleteTask(task.id);
@@ -262,13 +289,13 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
             initiatives={initiativesForModal}
             people={people}
             selectedDeliveryId={selectedDeliveryId}
-            setSelectedDeliveryId={(v) => setSelectedDeliveryId(v)}
+            setSelectedDeliveryId={v => setSelectedDeliveryId(v)}
             selectedInitiativeId={selectedInitiativeId}
-            setSelectedInitiativeId={(v) => setSelectedInitiativeId(v)}
+            setSelectedInitiativeId={v => setSelectedInitiativeId(v)}
             milestones={milestonesAll}
             selectedMilestoneId={selectedMilestoneId}
-            setSelectedMilestoneId={(v) => setSelectedMilestoneId(v)}
-            getResponsibleLabel={(id) => {
+            setSelectedMilestoneId={v => setSelectedMilestoneId(v)}
+            getResponsibleLabel={id => {
               if (!id) return '—';
               const p = peopleById.get(id);
               return p ? personLabel(p) : '—';
@@ -289,7 +316,7 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
             onClose={() => setEditTask(null)}
             onToast={onToast}
             people={people}
-            getResponsibleLabel={(id) => {
+            getResponsibleLabel={id => {
               if (!id) return '—';
               const p = peopleById.get(id);
               return p ? personLabel(p) : '—';
@@ -310,4 +337,3 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
 };
 
 export default InitiativesKanban;
-

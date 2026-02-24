@@ -71,9 +71,7 @@ function generateStoragePath(milestoneId: string, originalName: string): string 
 /**
  * Busca ou cria a evidência para um marco, e retorna com os arquivos
  */
-export async function fetchOrCreateEvidence(
-  milestoneId: string
-): Promise<MilestoneEvidenceWithFiles> {
+export async function fetchOrCreateEvidence(milestoneId: string): Promise<MilestoneEvidenceWithFiles> {
   if (!milestoneId) throw new Error('ID do marco é obrigatório.');
 
   const { data: existing, error: selErr } = await supabase
@@ -136,10 +134,7 @@ export async function fetchOrCreateEvidence(
 /**
  * Atualiza as notas/comentários da evidência (append ou replace)
  */
-export async function updateEvidenceNotes(
-  evidenceId: string,
-  notes: string
-): Promise<void> {
+export async function updateEvidenceNotes(evidenceId: string, notes: string): Promise<void> {
   const { error } = await supabase
     .from('milestone_evidence')
     .update({ notes: notes.trim() || null })
@@ -151,15 +146,8 @@ export async function updateEvidenceNotes(
 /**
  * Faz append de um comentário às notas existentes
  */
-export async function appendComment(
-  evidenceId: string,
-  newComment: string
-): Promise<void> {
-  const { data: ev } = await supabase
-    .from('milestone_evidence')
-    .select('notes')
-    .eq('id', evidenceId)
-    .single();
+export async function appendComment(evidenceId: string, newComment: string): Promise<void> {
+  const { data: ev } = await supabase.from('milestone_evidence').select('notes').eq('id', evidenceId).single();
 
   const current = ev?.notes?.trim() || '';
   const timestamp = new Date().toLocaleString('pt-BR');
@@ -175,7 +163,7 @@ export async function appendComment(
 export async function uploadEvidenceFile(
   evidenceId: string,
   milestoneId: string,
-  file: File
+  file: File,
 ): Promise<MilestoneEvidenceFileRow> {
   if (file.size > MAX_FILE_SIZE) {
     throw new Error(`Arquivo muito grande. Máximo: ${MAX_FILE_SIZE / 1024 / 1024}MB`);
@@ -214,9 +202,7 @@ export async function uploadEvidenceFile(
  * Gera URL assinada para download/exibição do arquivo
  */
 export async function getSignedUrl(storagePath: string, expiresIn = 3600): Promise<string> {
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(storagePath, expiresIn);
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, expiresIn);
 
   if (error) throw new Error(`Erro ao gerar URL: ${error.message}`);
   return data.signedUrl;
@@ -234,10 +220,7 @@ export async function deleteEvidenceFile(fileId: string): Promise<void> {
 
   if (!file) throw new Error('Arquivo não encontrado');
 
-  const { error: delDb } = await supabase
-    .from('milestone_evidence_files')
-    .delete()
-    .eq('id', fileId);
+  const { error: delDb } = await supabase.from('milestone_evidence_files').delete().eq('id', fileId);
 
   if (delDb) throw delDb;
 

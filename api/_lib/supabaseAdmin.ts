@@ -32,8 +32,18 @@ export function getSupabaseAdmin(): SupabaseClient {
  * Kept for backward compatibility with existing imports.
  */
 export const supabaseAdmin = {
-  get auth() { return getSupabaseAdmin().auth; },
-  from(table: string) { return getSupabaseAdmin().from(table); },
-  rpc(fn: string, params?: any) { return getSupabaseAdmin().rpc(fn, params); },
-  storage: { from(bucket: string) { return getSupabaseAdmin().storage.from(bucket); } },
+  get auth() {
+    return getSupabaseAdmin().auth;
+  },
+  from(table: string) {
+    return getSupabaseAdmin().from(table);
+  },
+  rpc(fn: string, params?: any) {
+    return getSupabaseAdmin().rpc(fn, params);
+  },
+  storage: {
+    from(bucket: string) {
+      return getSupabaseAdmin().storage.from(bucket);
+    },
+  },
 };

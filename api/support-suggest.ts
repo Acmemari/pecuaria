@@ -20,7 +20,10 @@ function buildUserPrompt(body: {
   locationArea?: string;
   specificScreen?: string;
 }): string {
-  const parts = [`Assunto do chamado: "${body.subject}"`, `Tipo: ${body.ticketType === 'erro_tecnico' ? 'Erro Técnico' : 'Sugestão/Solicitação'}`];
+  const parts = [
+    `Assunto do chamado: "${body.subject}"`,
+    `Tipo: ${body.ticketType === 'erro_tecnico' ? 'Erro Técnico' : 'Sugestão/Solicitação'}`,
+  ];
   if (body.locationArea) parts.push(`Localização: ${body.locationArea}`);
   if (body.specificScreen) parts.push(`Tela: ${body.specificScreen}`);
   return parts.join('\n');

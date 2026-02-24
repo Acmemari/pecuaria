@@ -44,7 +44,20 @@ const DATE_BR_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
   year: 'numeric',
 });
 const PT_BR_GANTT_DATE_LOCALE = {
-  month_full: ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+  month_full: [
+    'Janeiro',
+    'Fevereiro',
+    'Marco',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro',
+  ],
   month_short: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
   day_full: ['Domingo', 'Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado'],
   day_short: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
@@ -113,7 +126,8 @@ const SEG_WRAPPER = 'inline-flex items-center rounded-2xl bg-slate-100 p-1';
 const SEG_BTN = 'px-3 py-1.5 text-[11px] font-semibold rounded-xl transition-all duration-150';
 const SEG_ACTIVE = `${SEG_BTN} bg-white text-indigo-600 shadow-sm`;
 const SEG_INACTIVE = `${SEG_BTN} text-slate-500 hover:text-slate-700`;
-const ICON_BTN = 'inline-flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors';
+const ICON_BTN =
+  'inline-flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors';
 
 const parseISODate = (value?: string | null): Date | null => {
   if (!value) return null;
@@ -150,36 +164,40 @@ const applyZoomConfig = (level: ZoomLevel) => {
 
 /* ── Shared sub-components (stable refs, no re-render cost) ────────── */
 
-const ZoomButtons: React.FC<{ active: ZoomLevel; onChange: (z: ZoomLevel) => void }> = React.memo(({ active, onChange }) => (
-  <div className={SEG_WRAPPER}>
-    {ZOOM_OPTIONS.map((z) => (
-      <button
-        key={z.key}
-        type="button"
-        onClick={() => onChange(z.key)}
-        className={active === z.key ? SEG_ACTIVE : SEG_INACTIVE}
-      >
-        {z.label}
-      </button>
-    ))}
-  </div>
-));
+const ZoomButtons: React.FC<{ active: ZoomLevel; onChange: (z: ZoomLevel) => void }> = React.memo(
+  ({ active, onChange }) => (
+    <div className={SEG_WRAPPER}>
+      {ZOOM_OPTIONS.map(z => (
+        <button
+          key={z.key}
+          type="button"
+          onClick={() => onChange(z.key)}
+          className={active === z.key ? SEG_ACTIVE : SEG_INACTIVE}
+        >
+          {z.label}
+        </button>
+      ))}
+    </div>
+  ),
+);
 ZoomButtons.displayName = 'ZoomButtons';
 
-const LevelButtons: React.FC<{ active: DepthLevel; onChange: (d: DepthLevel) => void }> = React.memo(({ active, onChange }) => (
-  <div className={SEG_WRAPPER}>
-    {LEVEL_OPTIONS.map((l) => (
-      <button
-        key={l.key}
-        type="button"
-        onClick={() => onChange(l.key)}
-        className={active === l.key ? SEG_ACTIVE : SEG_INACTIVE}
-      >
-        {l.label}
-      </button>
-    ))}
-  </div>
-));
+const LevelButtons: React.FC<{ active: DepthLevel; onChange: (d: DepthLevel) => void }> = React.memo(
+  ({ active, onChange }) => (
+    <div className={SEG_WRAPPER}>
+      {LEVEL_OPTIONS.map(l => (
+        <button
+          key={l.key}
+          type="button"
+          onClick={() => onChange(l.key)}
+          className={active === l.key ? SEG_ACTIVE : SEG_INACTIVE}
+        >
+          {l.label}
+        </button>
+      ))}
+    </div>
+  ),
+);
 LevelButtons.displayName = 'LevelButtons';
 
 /* ── Main component ────────────────────────────────────────────────── */
@@ -258,7 +276,11 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ projects, initiativ
       deliveriesByProgram.set(key, list);
     }
 
-    const programs: Array<{ id: string; name: string; deliveries: Array<{ id: string; name: string; initiatives: InitiativeWithProgress[] }> }> = [];
+    const programs: Array<{
+      id: string;
+      name: string;
+      deliveries: Array<{ id: string; name: string; initiatives: InitiativeWithProgress[] }>;
+    }> = [];
     const seenProgramIds = new Set<string>();
 
     for (const project of projects) {
@@ -309,7 +331,9 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ projects, initiativ
           let earliestTaskStart: Date | null = null;
           let latestTaskEnd: Date | null = null;
 
-          const milestoneTasks = (initiative.milestones || []).flatMap((m) => (m.tasks || []).map((t) => ({ ...t, milestoneTitle: m.title })));
+          const milestoneTasks = (initiative.milestones || []).flatMap(m =>
+            (m.tasks || []).map(t => ({ ...t, milestoneTitle: m.title })),
+          );
           milestoneTasks.sort((a, b) => a.sort_order - b.sort_order);
 
           for (const milestone of initiative.milestones || []) {
@@ -519,7 +543,9 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ projects, initiativ
       gantt.detachEvent(evDisplay);
       try {
         if (todayMarker) gantt.deleteMarker(todayMarker);
-      } catch { /* marker may already be removed */ }
+      } catch {
+        /* marker may already be removed */
+      }
       gantt.clearAll();
       initializedRef.current = false;
     };
@@ -527,7 +553,9 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ projects, initiativ
 
   useEffect(() => {
     const cleanup = initGantt();
-    return () => { if (typeof cleanup === 'function') cleanup(); };
+    return () => {
+      if (typeof cleanup === 'function') cleanup();
+    };
   }, [initGantt]);
 
   useEffect(() => {
@@ -570,7 +598,9 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ projects, initiativ
     try {
       if (document.fullscreenElement === target) await document.exitFullscreen();
       else await target.requestFullscreen();
-    } catch { /* fullscreen may be blocked by browser policy */ }
+    } catch {
+      /* fullscreen may be blocked by browser policy */
+    }
   }, []);
 
   const handleDownload = useCallback(async () => {
@@ -588,7 +618,9 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ projects, initiativ
       link.download = `cronograma-atividades-${toGanttDate(new Date())}.png`;
       link.href = dataUrl;
       link.click();
-    } catch { /* export can fail in restricted contexts */ }
+    } catch {
+      /* export can fail in restricted contexts */
+    }
     setIsExporting(false);
   }, [isExporting]);
 
@@ -643,7 +675,17 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ projects, initiativ
         <div className="px-4 py-2.5 border-b border-slate-200 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-600">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-indigo-600"
+              >
                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                 <line x1="16" y1="2" x2="16" y2="6" />
                 <line x1="8" y1="2" x2="8" y2="6" />
@@ -679,11 +721,7 @@ const InitiativesGantt: React.FC<InitiativesGanttProps> = ({ projects, initiativ
         </div>
       )}
 
-      <div
-        ref={containerRef}
-        className="w-full"
-        style={{ height: isFullscreen ? 'calc(100vh - 104px)' : '520px' }}
-      />
+      <div ref={containerRef} className="w-full" style={{ height: isFullscreen ? 'calc(100vh - 104px)' : '520px' }} />
     </div>
   );
 };

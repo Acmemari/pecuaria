@@ -29,7 +29,7 @@ export function estimateCostUsd(model: string, inputTokens: number, outputTokens
   // Conservative placeholder rates per 1K tokens (USD). Adjust per real contracts.
   const ratesPer1k: Record<string, { input: number; output: number }> = {
     'gemini-2.0-flash': { input: 0.00035, output: 0.00105 },
-    'gpt-4o-mini': { input: 0.00015, output: 0.00060 },
+    'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
     'claude-3-5-haiku-latest': { input: 0.00025, output: 0.00125 },
   };
   const rate = ratesPer1k[model] ?? { input: 0.0005, output: 0.0015 };
@@ -106,10 +106,7 @@ export async function reserveTokens(args: {
 }): Promise<TokenReservation> {
   const estimatedTokens = Math.max(0, Math.floor(args.estimatedTokens));
   const period = getCurrentPeriod();
-  const [planLimits, budget] = await Promise.all([
-    loadPlanLimits(args.plan),
-    getOrCreateBudget(args.orgId, period),
-  ]);
+  const [planLimits, budget] = await Promise.all([loadPlanLimits(args.plan), getOrCreateBudget(args.orgId, period)]);
 
   const projectedTokens = budget.tokens_used + budget.tokens_reserved + estimatedTokens;
   if (projectedTokens > planLimits.monthly_token_limit) {
@@ -230,4 +227,3 @@ export async function releaseReservation(reservationId: string): Promise<void> {
 
   reservations.delete(reservationId);
 }
-

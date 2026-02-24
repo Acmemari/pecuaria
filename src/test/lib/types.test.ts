@@ -14,7 +14,7 @@ describe('Types - Interface Validation', () => {
     it('should accept valid input structure', () => {
       const validInput: CattleCalculatorInputs = {
         pesoCompra: 300,
-        valorCompra: 14.50,
+        valorCompra: 14.5,
         pesoAbate: 510,
         rendimentoCarcaca: 52,
         valorVenda: 280,
@@ -24,7 +24,7 @@ describe('Types - Interface Validation', () => {
       };
 
       expect(validInput.pesoCompra).toBe(300);
-      expect(validInput.valorCompra).toBe(14.50);
+      expect(validInput.valorCompra).toBe(14.5);
       expect(typeof validInput.pesoCompra).toBe('number');
     });
   });
@@ -69,9 +69,7 @@ describe('Types - Interface Validation', () => {
         status: 'active',
       };
 
-      expect(['financeiro', 'zootecnico', 'mercado', 'consultoria', 'admin']).toContain(
-        validAgent.category,
-      );
+      expect(['financeiro', 'zootecnico', 'mercado', 'consultoria', 'admin']).toContain(validAgent.category);
       expect(['active', 'dev', 'planned', 'locked']).toContain(validAgent.status);
     });
   });
@@ -143,4 +141,3 @@ describe('Types - Interface Validation', () => {
     });
   });
 });
-

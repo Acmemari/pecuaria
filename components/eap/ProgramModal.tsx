@@ -14,14 +14,7 @@ interface ProgramModalProps {
   mode: 'create' | 'edit';
 }
 
-export const ProgramModal: React.FC<ProgramModalProps> = ({
-  form,
-  onChange,
-  onSave,
-  onClose,
-  saving,
-  mode,
-}) => (
+export const ProgramModal: React.FC<ProgramModalProps> = ({ form, onChange, onSave, onClose, saving, mode }) => (
   <ModalShell
     title={mode === 'create' ? 'Novo Programa' : 'Editar Programa'}
     subtitle="Preencha os detalhes para criar uma nova atividade."
@@ -35,7 +28,7 @@ export const ProgramModal: React.FC<ProgramModalProps> = ({
       <input
         type="text"
         value={form.name}
-        onChange={(e) => onChange({ ...form, name: e.target.value })}
+        onChange={e => onChange({ ...form, name: e.target.value })}
         placeholder="Ex: Transformação Digital 2024"
         className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50"
       />
@@ -45,7 +38,7 @@ export const ProgramModal: React.FC<ProgramModalProps> = ({
       <textarea
         rows={3}
         value={form.description}
-        onChange={(e) => onChange({ ...form, description: e.target.value })}
+        onChange={e => onChange({ ...form, description: e.target.value })}
         placeholder="Descreva os objetivos principais e o contexto do programa..."
         className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50 resize-none"
       />
@@ -55,13 +48,13 @@ export const ProgramModal: React.FC<ProgramModalProps> = ({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div>
         <label className="block text-sm font-medium text-ai-text mb-1">Data de Início</label>
-        <DateInputBR value={form.start_date} onChange={(v) => onChange({ ...form, start_date: v })} />
+        <DateInputBR value={form.start_date} onChange={v => onChange({ ...form, start_date: v })} />
       </div>
       <div>
         <label className="block text-sm font-medium text-ai-text mb-1">Data Final</label>
         <DateInputBR
           value={form.end_date}
-          onChange={(v) => onChange({ ...form, end_date: v })}
+          onChange={v => onChange({ ...form, end_date: v })}
           min={form.start_date || undefined}
         />
       </div>
@@ -71,7 +64,7 @@ export const ProgramModal: React.FC<ProgramModalProps> = ({
     <textarea
       rows={3}
       value={form.transformations_achievements}
-      onChange={(e) => onChange({ ...form, transformations_achievements: e.target.value })}
+      onChange={e => onChange({ ...form, transformations_achievements: e.target.value })}
       placeholder="Quais mudanças reais este programa trará para a organização?"
       className="w-full rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5 text-sm text-ai-text placeholder:text-ai-subtext/50 resize-none"
     />
@@ -93,7 +86,7 @@ export const ProgramModal: React.FC<ProgramModalProps> = ({
           <input
             type="text"
             value={item}
-            onChange={(e) =>
+            onChange={e =>
               onChange({
                 ...form,
                 success_evidence: updateAtIndex(form.success_evidence, idx, () => e.target.value),
@@ -140,10 +133,10 @@ export const ProgramModal: React.FC<ProgramModalProps> = ({
           <input
             type="text"
             value={row.name}
-            onChange={(e) =>
+            onChange={e =>
               onChange({
                 ...form,
-                stakeholder_matrix: updateAtIndex(form.stakeholder_matrix, idx, (r) => ({ ...r, name: e.target.value })),
+                stakeholder_matrix: updateAtIndex(form.stakeholder_matrix, idx, r => ({ ...r, name: e.target.value })),
               })
             }
             placeholder="Nome / Cargo"
@@ -152,10 +145,13 @@ export const ProgramModal: React.FC<ProgramModalProps> = ({
           <input
             type="text"
             value={row.activity}
-            onChange={(e) =>
+            onChange={e =>
               onChange({
                 ...form,
-                stakeholder_matrix: updateAtIndex(form.stakeholder_matrix, idx, (r) => ({ ...r, activity: e.target.value })),
+                stakeholder_matrix: updateAtIndex(form.stakeholder_matrix, idx, r => ({
+                  ...r,
+                  activity: e.target.value,
+                })),
               })
             }
             placeholder="Atividade / Responsabilidade"

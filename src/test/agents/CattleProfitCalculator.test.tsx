@@ -11,4 +11,3 @@ describe('CattleProfitCalculator Component', () => {
   // The calculation logic is tested in calculations.test.ts
   // UI rendering tests would require mocking ResizeObserver and Recharts
 });
-

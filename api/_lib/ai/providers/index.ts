@@ -48,7 +48,7 @@ export async function completeWithFallback(options: FallbackCompleteOptions): Pr
   if (available.length === 0) {
     throw new Error(
       'AI_NO_PROVIDERS: Nenhum provider de IA configurado. ' +
-      'Configure GEMINI_API_KEY, OPENAI_API_KEY ou ANTHROPIC_API_KEY.',
+        'Configure GEMINI_API_KEY, OPENAI_API_KEY ou ANTHROPIC_API_KEY.',
     );
   }
 
@@ -64,9 +64,7 @@ export async function completeWithFallback(options: FallbackCompleteOptions): Pr
   for (const providerName of ordered) {
     try {
       const provider = getProvider(providerName);
-      const model = providerName === ordered[0] && options.model
-        ? options.model
-        : DEFAULT_MODELS[providerName];
+      const model = providerName === ordered[0] && options.model ? options.model : DEFAULT_MODELS[providerName];
 
       const response = await provider.complete({ ...options.request, model });
       return response;

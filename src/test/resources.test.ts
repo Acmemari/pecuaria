@@ -44,9 +44,9 @@ describe('Verificação de Recursos Estáticos', () => {
       const importMap = {
         imports: {
           'react/': 'https://aistudiocdn.com/react@^19.2.0/',
-          'react': 'https://aistudiocdn.com/react@^19.2.0',
+          react: 'https://aistudiocdn.com/react@^19.2.0',
           'react-dom/': 'https://aistudiocdn.com/react-dom@^19.2.0/',
-        }
+        },
       };
 
       expect(importMap.imports.react).toBeTruthy();
@@ -56,10 +56,9 @@ describe('Verificação de Recursos Estáticos', () => {
   });
 
   describe('CDN e Recursos Externos', () => {
-
-
     it('deve verificar se Google Fonts está configurado', () => {
-      const fontUrl = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap';
+      const fontUrl =
+        'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap';
       expect(fontUrl).toContain('fonts.googleapis.com');
       expect(fontUrl).toContain('Inter');
       expect(fontUrl).toContain('Roboto+Mono');
@@ -97,16 +96,7 @@ describe('Verificação de Recursos Estáticos', () => {
 
   describe('Estrutura de Head HTML', () => {
     it('deve verificar ordem correta de recursos no head', () => {
-      const expectedOrder = [
-        'charset',
-        'viewport',
-        'title',
-        'tailwind',
-        'fonts',
-        'styles',
-        'importmap',
-        'index.css',
-      ];
+      const expectedOrder = ['charset', 'viewport', 'title', 'tailwind', 'fonts', 'styles', 'importmap', 'index.css'];
 
       // Verificar que temos uma ordem esperada
       expect(expectedOrder.length).toBeGreaterThan(0);
@@ -114,11 +104,7 @@ describe('Verificação de Recursos Estáticos', () => {
     });
 
     it('deve verificar que não há recursos duplicados', () => {
-      const resources = [
-        '/index.css',
-        'https://cdn.tailwindcss.com',
-        'https://fonts.googleapis.com/css2?family=Inter',
-      ];
+      const resources = ['/index.css', 'https://cdn.tailwindcss.com', 'https://fonts.googleapis.com/css2?family=Inter'];
 
       const uniqueResources = new Set(resources);
       expect(uniqueResources.size).toBe(resources.length);
@@ -139,4 +125,3 @@ describe('Validação de Configuração Vite', () => {
     expect(cssExtension).toBe('.css');
   });
 });
-

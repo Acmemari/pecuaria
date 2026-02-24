@@ -48,6 +48,8 @@ const ProjectManagement = lazy(() => import('./agents/ProjectManagement'));
 const CalendarAgent = lazy(() => import('./agents/CalendarAgent'));
 const SupportTicketsDashboard = lazy(() => import('./agents/SupportTicketsDashboard'));
 const FeedbackList = lazy(() => import('./agents/FeedbackList'));
+const AreaCertificadosDesktop = lazy(() => import('./agents/AreaCertificadosDesktop'));
+const RotinasFazendaDesktop = lazy(() => import('./agents/RotinasFazendaDesktop'));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center h-full">
@@ -56,13 +58,18 @@ const LoadingFallback: React.FC = () => (
 );
 
 const AppContent: React.FC = () => {
-  const { user, isLoading, logout, checkPermission, upgradePlan, isPasswordRecovery, clearPasswordRecovery } = useAuth();
+  const { user, isLoading, logout, checkPermission, upgradePlan, isPasswordRecovery, clearPasswordRecovery } =
+    useAuth();
   const { country } = useLocation();
   const { selectedFarm, setSelectedFarm } = useFarm();
   const [activeApp, setActiveApp] = useState<'pecuaria' | 'inttegra'>('pecuaria');
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
-  const [viewMode, setViewMode] = useState<'desktop' | 'simulator' | 'comparator' | 'agile-planning' | 'avaliacao-protocolo'>('desktop');
-  const [cadastroView, setCadastroView] = useState<'desktop' | 'farm' | 'client' | 'people' | 'delivery' | 'project'>('desktop');
+  const [viewMode, setViewMode] = useState<
+    'desktop' | 'simulator' | 'comparator' | 'agile-planning' | 'avaliacao-protocolo'
+  >('desktop');
+  const [cadastroView, setCadastroView] = useState<'desktop' | 'farm' | 'client' | 'people' | 'delivery' | 'project'>(
+    'desktop',
+  );
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [calculatorInputs, setCalculatorInputs] = useState<any>(null);
   const [comparatorScenarios, setComparatorScenarios] = useState<any>(null);
@@ -140,9 +147,12 @@ const AppContent: React.FC = () => {
     setToasts(prev => [...prev, toast]);
   }, []);
 
-  const handleToast = React.useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info') => {
-    addToast({ id: Date.now().toString(), message, type });
-  }, [addToast]);
+  const handleToast = React.useCallback(
+    (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+      addToast({ id: Date.now().toString(), message, type });
+    },
+    [addToast],
+  );
 
   const removeToast = React.useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
@@ -162,7 +172,7 @@ const AppContent: React.FC = () => {
         description: 'Fazendas, clientes e pessoas.',
         icon: 'folder-plus',
         category: 'zootecnico',
-        status: 'active'
+        status: 'active',
       };
 
       const cattleProfit: Agent = {
@@ -171,7 +181,7 @@ const AppContent: React.FC = () => {
         description: 'Análise econômica completa.',
         icon: 'bot',
         category: 'financeiro',
-        status: checkPermission('Calculadora') ? 'active' : 'locked'
+        status: checkPermission('Calculadora') ? 'active' : 'locked',
       };
 
       const clientDocuments: Agent = {
@@ -180,7 +190,7 @@ const AppContent: React.FC = () => {
         description: 'Gerenciar documentos da mentoria',
         icon: 'folder',
         category: 'admin',
-        status: 'active'
+        status: 'active',
       };
 
       const clientManagement: Agent = {
@@ -189,7 +199,7 @@ const AppContent: React.FC = () => {
         description: 'Cadastrar e gerenciar clientes',
         icon: 'users',
         category: 'admin',
-        status: (user?.role === 'admin' || user?.qualification === 'analista') ? 'active' : 'locked'
+        status: user?.role === 'admin' || user?.qualification === 'analista' ? 'active' : 'locked',
       };
 
       const peopleManagement: Agent = {
@@ -198,7 +208,7 @@ const AppContent: React.FC = () => {
         description: 'Colaboradores, consultores, fornecedores e clientes familiares',
         icon: 'users',
         category: 'admin',
-        status: 'active'
+        status: 'active',
       };
 
       const calendarAgent: Agent = {
@@ -207,7 +217,7 @@ const AppContent: React.FC = () => {
         description: 'Visualização de eventos em calendário mensal, semanal e diário',
         icon: 'calendar',
         category: 'zootecnico',
-        status: 'active'
+        status: 'active',
       };
 
       const savedScenarios: Agent = {
@@ -216,7 +226,7 @@ const AppContent: React.FC = () => {
         description: 'Cenários e simulações salvos.',
         icon: 'save',
         category: 'financeiro',
-        status: checkPermission('Calculadora') ? 'active' : 'locked'
+        status: checkPermission('Calculadora') ? 'active' : 'locked',
       };
 
       const askAntonio: Agent = {
@@ -225,7 +235,7 @@ const AppContent: React.FC = () => {
         description: 'Consultor virtual especialista.',
         icon: 'nutrition',
         category: 'consultoria',
-        status: 'active'
+        status: 'active',
       };
 
       const analystManagement: Agent = {
@@ -234,7 +244,7 @@ const AppContent: React.FC = () => {
         description: 'Visualize analistas, clientes e fazendas de forma hierárquica',
         icon: 'users',
         category: 'admin',
-        status: 'active'
+        status: 'active',
       };
 
       const agentTraining: Agent = {
@@ -243,7 +253,7 @@ const AppContent: React.FC = () => {
         description: 'Configurar e treinar o agente',
         icon: 'brain',
         category: 'admin',
-        status: 'active'
+        status: 'active',
       };
 
       const aiAgentConfig: Agent = {
@@ -252,7 +262,7 @@ const AppContent: React.FC = () => {
         description: 'Configurar instruções dos agentes',
         icon: 'settings',
         category: 'admin',
-        status: 'active'
+        status: 'active',
       };
 
       const adminDashboard: Agent = {
@@ -261,7 +271,7 @@ const AppContent: React.FC = () => {
         description: 'Painel mestre administrativo',
         icon: 'users',
         category: 'admin',
-        status: 'active'
+        status: 'active',
       };
 
       const supportTickets: Agent = {
@@ -270,7 +280,7 @@ const AppContent: React.FC = () => {
         description: 'Gestão de tickets e mensagens de suporte',
         icon: 'help-circle',
         category: 'admin',
-        status: 'active'
+        status: 'active',
       };
 
       // Build the ordered list
@@ -302,7 +312,6 @@ const AppContent: React.FC = () => {
       }
 
       return orderedList;
-
     } catch (error) {
       console.error('Erro ao calcular agents:', error);
       // Fallback
@@ -313,7 +322,7 @@ const AppContent: React.FC = () => {
           description: 'Fazendas, clientes e pessoas.',
           icon: 'folder-plus',
           category: 'zootecnico' as const,
-          status: 'active' as const
+          status: 'active' as const,
         },
         {
           id: 'cattle-profit',
@@ -321,7 +330,7 @@ const AppContent: React.FC = () => {
           description: 'Análise econômica completa.',
           icon: 'bot',
           category: 'financeiro' as const,
-          status: 'active' as const
+          status: 'active' as const,
         },
         {
           id: 'ask-antonio',
@@ -329,8 +338,8 @@ const AppContent: React.FC = () => {
           description: 'Consultor virtual especialista.',
           icon: 'nutrition',
           category: 'consultoria' as const,
-          status: 'active' as const
-        }
+          status: 'active' as const,
+        },
       ];
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -384,15 +393,14 @@ const AppContent: React.FC = () => {
   // SEMPRE mostrar a página de reset, mesmo se houver user
   if (isPasswordRecovery) {
     return (
-      <Suspense fallback={
-        <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
-          <Loader2 size={32} className="animate-spin" />
-        </div>
-      }>
-        <ResetPasswordPage
-          onToast={handleToast}
-          onSuccess={() => clearPasswordRecovery()}
-        />
+      <Suspense
+        fallback={
+          <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
+            <Loader2 size={32} className="animate-spin" />
+          </div>
+        }
+      >
+        <ResetPasswordPage onToast={handleToast} onSuccess={() => clearPasswordRecovery()} />
       </Suspense>
     );
   }
@@ -401,26 +409,19 @@ const AppContent: React.FC = () => {
     // Render appropriate auth page
     if (authPage === 'forgot-password') {
       return (
-        <Suspense fallback={
-          <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
-            <Loader2 size={32} className="animate-spin" />
-          </div>
-        }>
-          <ForgotPasswordPage
-            onToast={handleToast}
-            onBack={() => setAuthPage('login')}
-          />
+        <Suspense
+          fallback={
+            <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
+              <Loader2 size={32} className="animate-spin" />
+            </div>
+          }
+        >
+          <ForgotPasswordPage onToast={handleToast} onBack={() => setAuthPage('login')} />
         </Suspense>
       );
     }
 
-
-    return (
-      <LoginPage
-        onToast={handleToast}
-        onForgotPassword={() => setAuthPage('forgot-password')}
-      />
-    );
+    return <LoginPage onToast={handleToast} onForgotPassword={() => setAuthPage('forgot-password')} />;
   }
 
   // If agents are not loaded yet, show loading
@@ -443,8 +444,8 @@ const AppContent: React.FC = () => {
         description: 'Análise econômica completa.',
         icon: 'bot',
         category: 'financeiro',
-        status: 'active'
-      }
+        status: 'active',
+      },
     ];
     // Usar fallback temporariamente
     return (
@@ -466,7 +467,10 @@ const AppContent: React.FC = () => {
   const isIniciativasKanban = activeAgentId === 'iniciativas-kanban';
   const isProjectStructure = activeAgentId === 'project-structure';
   const isCalendar = activeAgentId === 'calendar';
-  const isProjetoSubView = isIniciativasOverview || isIniciativasAtividades || isIniciativasKanban || isProjectStructure;
+  const isRotinasFazenda = activeAgentId === 'rotinas-fazenda';
+  const isAreaCertificados = activeAgentId === 'area-certificados';
+  const isProjetoSubView =
+    isIniciativasOverview || isIniciativasAtividades || isIniciativasKanban || isProjectStructure;
   const isRhFeedbackList = activeAgentId === 'rh-feedback-list';
   const isProgramaCadastro = activeAgentId === 'cadastros' && cadastroView === 'project';
   const isAvaliacaoProtocolo = activeAgentId === 'cattle-profit' && viewMode === 'avaliacao-protocolo';
@@ -484,11 +488,15 @@ const AppContent: React.FC = () => {
               ? 'Estrutura do Projeto'
               : isCalendar
                 ? 'Calendário'
-                : isRhFeedbackList
-                  ? 'RH - Feedback'
-                  : isProgramaCadastro
-                    ? 'Programa de Trabalho'
-                    : activeAgent?.name;
+                : isRotinasFazenda
+                  ? 'Rotinas Fazenda'
+                  : isAreaCertificados
+                    ? 'Área Certificados'
+                    : isRhFeedbackList
+                      ? 'RH - Feedback'
+                      : isProgramaCadastro
+                        ? 'Programa de Trabalho'
+                        : activeAgent?.name;
 
   const renderContent = () => {
     if (activeAgentId === 'settings') {
@@ -506,7 +514,7 @@ const AppContent: React.FC = () => {
       return (
         <SubscriptionPage
           user={user}
-          onUpgrade={(planId) => {
+          onUpgrade={planId => {
             upgradePlan(planId as any);
             setActiveAgentId('cattle-profit');
           }}
@@ -544,11 +552,9 @@ const AppContent: React.FC = () => {
           );
         }
         if (viewMode === 'agile-planning') {
-          return (user?.role === 'admin' || user?.qualification === 'analista') ? (
+          return user?.role === 'admin' || user?.qualification === 'analista' ? (
             <Suspense fallback={<LoadingFallback />}>
-              <AgilePlanning
-                onToast={handleToast}
-              />
+              <AgilePlanning onToast={handleToast} />
             </Suspense>
           ) : (
             <div className="p-8 text-ai-subtext">Acesso negado.</div>
@@ -557,10 +563,7 @@ const AppContent: React.FC = () => {
         if (viewMode === 'comparator') {
           return (
             <Suspense fallback={<LoadingFallback />}>
-              <Comparator
-                onToast={addToast}
-                initialScenarios={comparatorScenarios}
-              />
+              <Comparator onToast={addToast} initialScenarios={comparatorScenarios} />
             </Suspense>
           );
         }
@@ -578,7 +581,7 @@ const AppContent: React.FC = () => {
           <Suspense fallback={<LoadingFallback />}>
             <SavedScenarios
               key="saved-scenarios"
-              onLoadScenario={(inputs) => {
+              onLoadScenario={inputs => {
                 setCalculatorInputs(inputs);
                 setViewMode('simulator');
                 setActiveAgentId('cattle-profit');
@@ -587,7 +590,7 @@ const AppContent: React.FC = () => {
                 setViewMode('simulator');
                 setActiveAgentId('cattle-profit');
               }}
-              onLoadComparator={(scenarios) => {
+              onLoadComparator={scenarios => {
                 setComparatorScenarios(scenarios);
                 setViewMode('comparator');
                 setActiveAgentId('cattle-profit');
@@ -596,7 +599,7 @@ const AppContent: React.FC = () => {
                 setViewMode('comparator');
                 setActiveAgentId('cattle-profit');
               }}
-              onEditQuestionnaire={(q) => {
+              onEditQuestionnaire={q => {
                 setEditingQuestionnaire(q);
                 setViewMode('avaliacao-protocolo');
                 setActiveAgentId('cattle-profit');
@@ -634,27 +637,21 @@ const AppContent: React.FC = () => {
         if (cadastroView === 'project') {
           return (
             <Suspense fallback={<LoadingFallback />}>
-              <ProjectManagement
-                onToast={handleToast}
-              />
+              <ProjectManagement onToast={handleToast} />
             </Suspense>
           );
         }
         if (cadastroView === 'farm') {
           return (
             <Suspense fallback={<LoadingFallback />}>
-              <FarmManagement
-                onToast={handleToast}
-              />
+              <FarmManagement onToast={handleToast} />
             </Suspense>
           );
         }
         if (cadastroView === 'client') {
-          return (user?.role === 'admin' || user?.qualification === 'analista') ? (
+          return user?.role === 'admin' || user?.qualification === 'analista' ? (
             <Suspense fallback={<LoadingFallback />}>
-              <ClientManagement
-                onToast={handleToast}
-              />
+              <ClientManagement onToast={handleToast} />
             </Suspense>
           ) : (
             <div className="p-8 text-ai-subtext">Acesso negado.</div>
@@ -663,17 +660,13 @@ const AppContent: React.FC = () => {
         if (cadastroView === 'delivery') {
           return (
             <Suspense fallback={<LoadingFallback />}>
-              <DeliveryManagement
-                onToast={handleToast}
-              />
+              <DeliveryManagement onToast={handleToast} />
             </Suspense>
           );
         }
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <PeopleManagement
-              onToast={handleToast}
-            />
+            <PeopleManagement onToast={handleToast} />
           </Suspense>
         );
       case 'ai-config':
@@ -711,9 +704,7 @@ const AppContent: React.FC = () => {
       case 'analyst-management':
         return user.role === 'admin' ? (
           <Suspense fallback={<LoadingFallback />}>
-            <AnalystManagement
-              onToast={handleToast}
-            />
+            <AnalystManagement onToast={handleToast} />
           </Suspense>
         ) : (
           <div className="flex items-center justify-center h-full text-red-500">
@@ -721,11 +712,9 @@ const AppContent: React.FC = () => {
           </div>
         );
       case 'agile-planning':
-        return (user.role === 'admin' || user.qualification === 'analista') ? (
+        return user.role === 'admin' || user.qualification === 'analista' ? (
           <Suspense fallback={<LoadingFallback />}>
-            <AgilePlanning
-              onToast={handleToast}
-            />
+            <AgilePlanning onToast={handleToast} />
           </Suspense>
         ) : (
           <div>Acesso negado.</div>
@@ -745,9 +734,7 @@ const AppContent: React.FC = () => {
       case 'client-documents':
         return (
           <Suspense fallback={<LoadingFallback />}>
-            <ClientDocuments
-              onToast={handleToast}
-            />
+            <ClientDocuments onToast={handleToast} />
           </Suspense>
         );
       case 'projeto':
@@ -818,6 +805,18 @@ const AppContent: React.FC = () => {
             <CalendarAgent />
           </Suspense>
         );
+      case 'rotinas-fazenda':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <RotinasFazendaDesktop />
+          </Suspense>
+        );
+      case 'area-certificados':
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <AreaCertificadosDesktop />
+          </Suspense>
+        );
       default:
         return (
           <div className="flex flex-col items-center justify-center h-full text-ai-subtext">
@@ -846,7 +845,9 @@ const AppContent: React.FC = () => {
           onSwitchToPecuaria={() => setActiveApp('pecuaria')}
         />
 
-        <div className={`flex-1 min-w-0 flex flex-col h-full transition-all duration-300 relative ${isSidebarOpen ? (isInttegraSidebarCollapsed ? 'md:ml-16' : 'md:ml-56') : 'ml-0'}`}>
+        <div
+          className={`flex-1 min-w-0 flex flex-col h-full transition-all duration-300 relative ${isSidebarOpen ? (isInttegraSidebarCollapsed ? 'md:ml-16' : 'md:ml-64') : 'ml-0'}`}
+        >
           <AnalystHeader />
 
           <header className="h-12 bg-ai-bg border-b border-ai-border flex items-center justify-between px-4 shrink-0 sticky top-12 z-40">
@@ -882,12 +883,11 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="flex h-screen w-full bg-ai-bg overflow-hidden font-sans text-ai-text">
-
       {/* Sidebar Navigation */}
       <Sidebar
         agents={agents}
         activeAgentId={activeAgentId}
-        onSelectAgent={(id) => {
+        onSelectAgent={id => {
           if (id === 'cattle-profit') setViewMode('desktop');
           if (id === 'cadastros') setCadastroView('desktop');
           setActiveAgentId(id);
@@ -901,8 +901,9 @@ const AppContent: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <div className={`flex-1 min-w-0 flex flex-col h-full transition-all duration-300 relative ${isSidebarOpen ? 'md:ml-56' : 'ml-0'}`}>
-
+      <div
+        className={`flex-1 min-w-0 flex flex-col h-full transition-all duration-300 relative ${isSidebarOpen ? 'md:ml-56' : 'ml-0'}`}
+      >
         {/* Analyst Header - Above main header */}
         <AnalystHeader />
 
@@ -926,53 +927,57 @@ const AppContent: React.FC = () => {
 
           <div className="flex items-center space-x-2 shrink-0">
             {/* Botão Voltar para lista quando estiver no formulário de fazendas */}
-            {((activeAgentId === 'cadastros' && cadastroView === 'farm') || activeAgentId === 'farm-management') && isFarmFormView && (
-              <button
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('farmCancelForm'));
-                }}
-                className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
-              >
-                <ArrowLeft size={16} />
-                Voltar para lista
-              </button>
-            )}
+            {((activeAgentId === 'cadastros' && cadastroView === 'farm') || activeAgentId === 'farm-management') &&
+              isFarmFormView && (
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('farmCancelForm'));
+                  }}
+                  className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
+                >
+                  <ArrowLeft size={16} />
+                  Voltar para lista
+                </button>
+              )}
             {/* Botão Voltar para lista quando estiver no formulário de clientes */}
-            {((activeAgentId === 'cadastros' && cadastroView === 'client') || activeAgentId === 'client-management') && isClientFormView && (
-              <button
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('clientCancelForm'));
-                }}
-                className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
-              >
-                <ArrowLeft size={16} />
-                Voltar para lista
-              </button>
-            )}
+            {((activeAgentId === 'cadastros' && cadastroView === 'client') || activeAgentId === 'client-management') &&
+              isClientFormView && (
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('clientCancelForm'));
+                  }}
+                  className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
+                >
+                  <ArrowLeft size={16} />
+                  Voltar para lista
+                </button>
+              )}
             {/* Botão Voltar para lista quando estiver no formulário de pessoas */}
-            {((activeAgentId === 'cadastros' && cadastroView === 'people') || activeAgentId === 'people-management') && isPeopleFormView && (
-              <button
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('peopleCancelForm'));
-                }}
-                className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
-              >
-                <ArrowLeft size={16} />
-                Voltar para lista
-              </button>
-            )}
+            {((activeAgentId === 'cadastros' && cadastroView === 'people') || activeAgentId === 'people-management') &&
+              isPeopleFormView && (
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('peopleCancelForm'));
+                  }}
+                  className="flex items-center gap-1.5 text-ai-subtext hover:text-ai-text transition-colors cursor-pointer text-sm px-2 py-1"
+                >
+                  <ArrowLeft size={16} />
+                  Voltar para lista
+                </button>
+              )}
             {/* Botão Novo Cliente quando estiver na lista de clientes */}
-            {((activeAgentId === 'cadastros' && cadastroView === 'client') || activeAgentId === 'client-management') && !isClientFormView && (
-              <button
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('clientNewClient'));
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-ai-accent text-white rounded-md hover:bg-ai-accent/90 transition-colors text-sm"
-              >
-                <Plus size={16} />
-                Novo Cliente
-              </button>
-            )}
+            {((activeAgentId === 'cadastros' && cadastroView === 'client') || activeAgentId === 'client-management') &&
+              !isClientFormView && (
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('clientNewClient'));
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-ai-accent text-white rounded-md hover:bg-ai-accent/90 transition-colors text-sm"
+                >
+                  <Plus size={16} />
+                  Novo Cliente
+                </button>
+              )}
             {activeAgentId === 'cattle-profit' && viewMode !== 'desktop' && (
               <button
                 onClick={() => setViewMode('desktop')}
@@ -1007,9 +1012,7 @@ const AppContent: React.FC = () => {
         <main className="flex-1 min-h-0 bg-ai-bg overflow-hidden">
           <div className="h-full w-full max-w-[1600px] mx-auto flex flex-col min-h-0">
             <ErrorBoundary>
-              <div className="flex-1 min-h-0 overflow-y-auto">
-                {renderContent()}
-              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto">{renderContent()}</div>
             </ErrorBoundary>
           </div>
         </main>
@@ -1031,6 +1034,6 @@ const App: React.FC = () => {
       </LocationProvider>
     </AuthProvider>
   );
-}
+};
 
 export default App;

@@ -10,7 +10,9 @@
 Este plano aborda melhorias críticas de robustez identificadas através de análises de código anteriores. As melhorias estão organizadas por prioridade e impacto.
 
 ### Status Atual
+
 ✅ **Já Implementado:**
+
 - Hook `useQuestions` com cache global
 - Hook `useRateLimiter` para controle de taxa
 - Validação de questionários (`questionnaireValidation.ts`)
@@ -19,6 +21,7 @@ Este plano aborda melhorias críticas de robustez identificadas através de aná
 - Validação de variáveis de ambiente (`env.ts`)
 
 🔄 **Áreas para Melhoria:**
+
 1. Logging estruturado e monitoramento
 2. Tratamento de erros mais robusto em componentes
 3. Validação de entrada do usuário em mais pontos
@@ -49,7 +52,7 @@ interface LogContext {
 
 class Logger {
   private isDevelopment = import.meta.env.DEV;
-  
+
   private log(level: LogLevel, message: string, context?: LogContext) {
     const timestamp = new Date().toISOString();
     const logEntry = {
@@ -58,37 +61,37 @@ class Logger {
       message,
       ...context,
     };
-    
+
     // Em desenvolvimento, log colorido no console
     if (this.isDevelopment) {
       const colors = {
         debug: '\x1b[36m', // cyan
-        info: '\x1b[32m',  // green
-        warn: '\x1b[33m',  // yellow
+        info: '\x1b[32m', // green
+        warn: '\x1b[33m', // yellow
         error: '\x1b[31m', // red
       };
       console.log(`${colors[level]}[${level.toUpperCase()}]\x1b[0m`, message, context || '');
     }
-    
+
     // Em produção, apenas errors
     if (!this.isDevelopment && level === 'error') {
       console.error(JSON.stringify(logEntry));
       // Aqui você pode enviar para serviço externo (Sentry, LogRocket, etc.)
     }
   }
-  
+
   debug(message: string, context?: LogContext) {
     this.log('debug', message, context);
   }
-  
+
   info(message: string, context?: LogContext) {
     this.log('info', message, context);
   }
-  
+
   warn(message: string, context?: LogContext) {
     this.log('warn', message, context);
   }
-  
+
   error(message: string, error?: Error, context?: LogContext) {
     this.log('error', message, {
       ...context,
@@ -122,27 +125,20 @@ interface RetryConfig {
   exponentialBackoff?: boolean;
 }
 
-async function withRetry<T>(
-  operation: () => Promise<T>,
-  config: RetryConfig = {}
-): Promise<T> {
-  const {
-    maxRetries = 3,
-    delayMs = 1000,
-    exponentialBackoff = true,
-  } = config;
-  
+async function withRetry<T>(operation: () => Promise<T>, config: RetryConfig = {}): Promise<T> {
+  const { maxRetries = 3, delayMs = 1000, exponentialBackoff = true } = config;
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await operation();
     } catch (error: any) {
       const isLastAttempt = attempt === maxRetries - 1;
-      
+
       // Não retry em erros de autenticação ou validação
       if (error.status === 401 || error.status === 403 || error.status === 400) {
         throw error;
       }
-      
+
       if (isLastAttempt) {
         logger.error('Operation failed after retries', error, {
           component: 'supabaseClient',
@@ -150,37 +146,29 @@ async function withRetry<T>(
         });
         throw error;
       }
-      
-      const delay = exponentialBackoff 
-        ? delayMs * Math.pow(2, attempt)
-        : delayMs;
-      
+
+      const delay = exponentialBackoff ? delayMs * Math.pow(2, attempt) : delayMs;
+
       logger.warn(`Retry attempt ${attempt + 1}/${maxRetries}`, {
         component: 'supabaseClient',
         delay,
       });
-      
+
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
+
   throw new Error('Max retries exceeded');
 }
 
 export const supabaseClient = {
-  async query<T>(
-    table: string,
-    operation: (builder: any) => Promise<{ data: T | null; error: any }>
-  ): Promise<T> {
-    const result = await withRetry(
-      () => operation(supabase.from(table)),
-      { maxRetries: 3 }
-    );
-    
+  async query<T>(table: string, operation: (builder: any) => Promise<{ data: T | null; error: any }>): Promise<T> {
+    const result = await withRetry(() => operation(supabase.from(table)), { maxRetries: 3 });
+
     if (result.error) {
       throw new Error(result.error.message);
     }
-    
+
     return result.data as T;
   },
 };
@@ -204,16 +192,16 @@ export const supabaseClient = {
  */
 export const validateEmail = (email: string): ValidationResult => {
   const trimmed = email.trim();
-  
+
   if (!trimmed) {
     return { valid: false, error: 'Email é obrigatório' };
   }
-  
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(trimmed)) {
     return { valid: false, error: 'Email inválido' };
   }
-  
+
   return { valid: true };
 };
 
@@ -222,11 +210,11 @@ export const validateEmail = (email: string): ValidationResult => {
  */
 export const validatePhone = (phone: string): ValidationResult => {
   const cleaned = phone.replace(/\D/g, '');
-  
+
   if (cleaned.length < 10 || cleaned.length > 11) {
     return { valid: false, error: 'Telefone inválido' };
   }
-  
+
   return { valid: true };
 };
 
@@ -237,19 +225,19 @@ export const validatePassword = (password: string): ValidationResult => {
   if (password.length < 8) {
     return { valid: false, error: 'Senha deve ter pelo menos 8 caracteres' };
   }
-  
+
   if (!/[A-Z]/.test(password)) {
     return { valid: false, error: 'Senha deve conter pelo menos uma letra maiúscula' };
   }
-  
+
   if (!/[a-z]/.test(password)) {
     return { valid: false, error: 'Senha deve conter pelo menos uma letra minúscula' };
   }
-  
+
   if (!/[0-9]/.test(password)) {
     return { valid: false, error: 'Senha deve conter pelo menos um número' };
   }
-  
+
   return { valid: true };
 };
 
@@ -258,15 +246,15 @@ export const validatePassword = (password: string): ValidationResult => {
  */
 export const validatePositiveNumber = (value: number | string): ValidationResult => {
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  
+
   if (isNaN(num)) {
     return { valid: false, error: 'Valor deve ser um número' };
   }
-  
+
   if (num < 0) {
     return { valid: false, error: 'Valor deve ser positivo' };
   }
-  
+
   return { valid: true };
 };
 ```
@@ -323,13 +311,13 @@ export class ErrorBoundary extends Component<Props, State> {
       component: 'ErrorBoundary',
       componentStack: errorInfo.componentStack,
     });
-    
+
     this.setState(prev => ({
       errorCount: prev.errorCount + 1,
     }));
-    
+
     this.props.onError?.(error, errorInfo);
-    
+
     // Auto-reset após muitos erros (possível loop)
     if (this.state.errorCount > 5) {
       logger.error('Too many errors, clearing state', undefined, {
@@ -362,11 +350,11 @@ export class ErrorBoundary extends Component<Props, State> {
                 Algo deu errado
               </h1>
             </div>
-            
+
             <p className="text-gray-600 mb-4">
               Ocorreu um erro inesperado. Tente recarregar a página.
             </p>
-            
+
             {import.meta.env.DEV && this.state.error && (
               <details className="mb-4">
                 <summary className="cursor-pointer text-sm text-gray-500 mb-2">
@@ -379,7 +367,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 </pre>
               </details>
             )}
-            
+
             <div className="flex gap-3">
               <button
                 onClick={this.handleReset}
@@ -388,7 +376,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 <RefreshCw className="w-4 h-4" />
                 Tentar Novamente
               </button>
-              
+
               <button
                 onClick={() => window.location.href = '/'}
                 className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
@@ -429,17 +417,17 @@ interface UseAsyncOptions<T> {
 
 export function useAsync<T, Args extends any[] = []>(
   asyncFunction: (...args: Args) => Promise<T>,
-  options: UseAsyncOptions<T> = {}
+  options: UseAsyncOptions<T> = {},
 ) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [data, setData] = useState<T | null>(null);
-  
+
   const execute = useCallback(
     async (...args: Args) => {
       setLoading(true);
       setError(null);
-      
+
       try {
         const result = await asyncFunction(...args);
         setData(result);
@@ -457,15 +445,15 @@ export function useAsync<T, Args extends any[] = []>(
         setLoading(false);
       }
     },
-    [asyncFunction, options]
+    [asyncFunction, options],
   );
-  
+
   const reset = useCallback(() => {
     setLoading(false);
     setError(null);
     setData(null);
   }, []);
-  
+
   return {
     loading,
     error,
@@ -499,18 +487,18 @@ describe('validateQuestionnaireName', () => {
     expect(result.valid).toBe(false);
     expect(result.error).toContain('vazio');
   });
-  
+
   it('should reject names too short', () => {
     const result = validateQuestionnaireName('AB');
     expect(result.valid).toBe(false);
   });
-  
+
   it('should reject XSS attempts', () => {
     const result = validateQuestionnaireName('<script>alert("xss")</script>');
     expect(result.valid).toBe(false);
     expect(result.error).toContain('inválidos');
   });
-  
+
   it('should accept valid names', () => {
     const result = validateQuestionnaireName('Questionário Fazenda ABC');
     expect(result.valid).toBe(true);
@@ -532,26 +520,26 @@ describe('validateQuestionnaireName', () => {
 // lib/performance.ts
 export class PerformanceMonitor {
   private static marks = new Map<string, number>();
-  
+
   static mark(name: string) {
     this.marks.set(name, performance.now());
   }
-  
+
   static measure(name: string, startMark: string) {
     const start = this.marks.get(startMark);
     if (!start) {
       logger.warn('Performance mark not found', { mark: startMark });
       return;
     }
-    
+
     const duration = performance.now() - start;
-    
+
     logger.info('Performance measurement', {
       component: 'PerformanceMonitor',
       name,
       duration: `${duration.toFixed(2)}ms`,
     });
-    
+
     // Alertar se operação demorou muito
     if (duration > 3000) {
       logger.warn('Slow operation detected', {
@@ -560,7 +548,7 @@ export class PerformanceMonitor {
         duration: `${duration.toFixed(2)}ms`,
       });
     }
-    
+
     this.marks.delete(startMark);
   }
 }
@@ -617,18 +605,21 @@ export class PerformanceMonitor {
 ## 📝 CHECKLIST DE IMPLEMENTAÇÃO
 
 ### Fase 1 (Crítico - Esta Semana)
+
 - [ ] Implementar sistema de logging estruturado
 - [ ] Adicionar retry logic ao Supabase
 - [ ] Expandir validações de input
 - [ ] Melhorar ErrorBoundary
 
 ### Fase 2 (Importante - Próximas 2 Semanas)
+
 - [ ] Criar hook useAsync
 - [ ] Adicionar testes unitários básicos
 - [ ] Implementar monitoramento de performance
 - [ ] Revisar e consolidar tratamento de erros
 
 ### Fase 3 (Desejável - Próximo Mês)
+
 - [ ] Adicionar CSP headers
 - [ ] Expandir cobertura de testes
 - [ ] Implementar integração com serviço de monitoramento (Sentry)
