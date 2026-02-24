@@ -226,8 +226,8 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
           // Ajustar valor de venda
           if (updated.valorVenda < 250) {
             updated.valorVenda = 250;
-          } else if (updated.valorVenda > 350) {
-            updated.valorVenda = 350;
+          } else if (updated.valorVenda > 380) {
+            updated.valorVenda = 380;
           }
         }
 
@@ -591,7 +591,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         label={country === 'PY' ? 'VALOR DE VENTA (kg carcaza)' : 'Valor Venda'}
                         value={scenario.inputs.valorVenda}
                         min={country === 'PY' ? 20000 : 250}
-                        max={country === 'PY' ? 40000 : 350}
+                        max={country === 'PY' ? 40000 : 380}
                         step={country === 'PY' ? 100 : 1}
                         unit={country === 'PY' ? `${currencySymbol}/kg` : `${currencySymbol}/@`}
                         onChange={v => handleInputChange(scenario.id, 'valorVenda', v)}
