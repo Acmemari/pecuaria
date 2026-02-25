@@ -178,6 +178,11 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
     setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const toggleMovimentacoes = () => {
+    if (isCollapsed) return;
+    setIsMovimentacoesOpen(prev => !prev);
+  };
+
   const sidebarWidth = isCollapsed ? 'w-16' : 'w-64';
   const sidebarVisible = isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0 md:overflow-hidden';
 
@@ -271,7 +276,10 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
           <div className="mb-2">
             <button
               type="button"
-              onClick={() => !isCollapsed && setIsMovimentacoesOpen(!isMovimentacoesOpen)}
+              onClick={toggleMovimentacoes}
+              disabled={isCollapsed}
+              aria-label={isMovimentacoesOpen ? 'Fechar menu Movimentações' : 'Abrir menu Movimentações'}
+              aria-expanded={isMovimentacoesOpen}
               className={`w-full flex items-center rounded-md transition-colors hover:opacity-90 ${isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'}`}
               style={{ color: INTEGRA_TEXT, backgroundColor: 'transparent' }}
               title="Movimentações"
