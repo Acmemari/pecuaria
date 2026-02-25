@@ -20,6 +20,14 @@ interface SliderProps {
   labelBadgeStyle?: React.CSSProperties;
   /** Tooltip ao passar o mouse no badge */
   labelBadgeTitle?: string;
+  /** Se true, badge sem caixa (apenas texto). Se false e labelBadgePill true, usa estilo pill (fundo amarelo, borda, texto marrom). */
+  labelBadgePlain?: boolean;
+  /** Se true, badge com estilo pill (fundo amarelo claro, borda, texto marrom) para tempo e $ da @ */
+  labelBadgePill?: boolean;
+  /** Número em destaque no badge (ex.: "8,5") - quando definido com labelBadgeUnit, número fica em destaque e unidade menor */
+  labelBadgeNumber?: string;
+  /** Unidade do badge em fonte menor (ex.: "meses", "%") */
+  labelBadgeUnit?: string;
 }
 
 const Slider: React.FC<SliderProps> = ({
@@ -37,13 +45,77 @@ const Slider: React.FC<SliderProps> = ({
   labelBadge,
   labelBadgeStyle,
   labelBadgeTitle,
+  labelBadgePlain = false,
+  labelBadgePill = false,
+  labelBadgeNumber,
+  labelBadgeUnit,
 }) => {
   const { currencySymbol } = useLocation();
   const [showInfo, setShowInfo] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
   const percentage = ((value - min) / (max - min)) * 100;
   const uniqueId = useId().replace(/:/g, ''); // Remover caracteres inválidos para classe CSS se necessário
   const sliderClass = `slider-${uniqueId}`;
+
+  // Sincronizar inputValue quando value muda externamente (ex: slider)
+  useEffect(() => {
+    if (!isEditing) {
+      setInputValue(value.toString());
+    }
+  }, [value, isEditing]);
+
+  // Validação ±25% do valor atual; interseção com min/max do slider
+  const getValidRange = () => {
+    if (value === 0 || Math.abs(value) < 1e-10) {
+      return { validMin: min, validMax: max };
+    }
+    const validMin = value * 0.75;
+    const validMax = value * 1.25;
+    return {
+      validMin: Math.max(validMin, min),
+      validMax: Math.min(validMax, max),
+    };
+  };
+
+  const applyTypedValue = () => {
+    // Aceitar vírgula (pt-BR) ou ponto como decimal
+    let normalized = inputValue.trim();
+    if (normalized.includes(',')) {
+      normalized = normalized.replace(/\./g, '').replace(',', '.');
+    }
+    const parsed = parseFloat(normalized);
+    if (Number.isNaN(parsed)) {
+      setInputValue(value.toString());
+      setIsEditing(false);
+      return;
+    }
+    const { validMin, validMax } = getValidRange();
+    const clamped = Math.max(validMin, Math.min(validMax, parsed));
+    const rounded = step >= 1 ? Math.round(clamped) : Math.round(clamped / step) * step;
+    const final = Math.max(min, Math.min(max, rounded));
+    onChange(final);
+    setInputValue(final.toString());
+    setIsEditing(false);
+  };
+
+  const cancelEdit = () => {
+    setInputValue(value.toString());
+    setIsEditing(false);
+    inputRef.current?.blur();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      applyTypedValue();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEdit();
+    }
+  };
 
   // Fechar popover ao clicar fora
   useEffect(() => {
@@ -81,25 +153,62 @@ const Slider: React.FC<SliderProps> = ({
         <label className="text-[0.675rem] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1 flex-shrink-1 min-w-0 overflow-visible max-w-[60%] md:max-w-none">
           {index && <span className="opacity-70 flex-shrink-0">{index}.</span>}
           <span className="truncate">{label}</span>
-          {labelBadge != null && labelBadge !== '' && (
+          {(labelBadge != null && labelBadge !== '') || (labelBadgeNumber != null && labelBadgeNumber !== '') ? (
             <span
-              className="text-[0.6rem] font-bold rounded px-1.5 py-0.5 flex-shrink-0"
-              style={labelBadgeStyle}
+              className={`flex-shrink-0 ml-2 ${labelBadgePlain ? '' : 'rounded-md px-1.5 py-0.5 inline-flex items-baseline gap-0.5'}`}
+              style={
+                labelBadgePill
+                  ? {
+                      backgroundColor: '#FFFDD0',
+                      border: '1px solid #D4C85A',
+                      color: '#8B4513',
+                      ...labelBadgeStyle,
+                    }
+                  : labelBadgeStyle
+              }
               title={labelBadgeTitle}
             >
-              {labelBadge}
+              {labelBadgeNumber != null && labelBadgeNumber !== '' ? (
+                <>
+                  <span className="text-[0.65rem] font-bold tabular-nums">{labelBadgeNumber}</span>
+                  {labelBadgeUnit && (
+                    <span className="text-[0.5rem] font-medium opacity-90">{labelBadgeUnit}</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-[0.6rem] font-bold">{labelBadge}</span>
+              )}
             </span>
-          )}
+          ) : null}
         </label>
 
-        {/* Lado Direito: Valor e Unidade */}
+        {/* Lado Direito: Valor editável e Unidade (container pill indica clicabilidade) */}
         <div className="text-right flex items-baseline justify-end gap-1 flex-shrink-0 min-w-fit overflow-visible">
           {isCurrency && (
             <span className="text-[0.675rem] text-gray-400 font-medium flex-shrink-0">{currencySymbol}</span>
           )}
-          <span className="text-[0.9rem] font-bold text-blue-600 tabular-nums leading-none whitespace-nowrap flex-shrink-0">
-            {formattedValue}
-          </span>
+          <div
+            className={`inline-flex items-baseline rounded-full px-1.5 py-0.5 transition-colors cursor-text ${
+              isEditing ? 'bg-white ring-1 ring-blue-400' : 'bg-gray-100/80 hover:bg-gray-100'
+            }`}
+          >
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="decimal"
+              value={isEditing ? inputValue : formattedValue}
+              onChange={e => setInputValue(e.target.value)}
+              onFocus={() => {
+                setIsEditing(true);
+                setInputValue(value.toString());
+                setTimeout(() => inputRef.current?.select(), 0);
+              }}
+              onBlur={applyTypedValue}
+              onKeyDown={handleKeyDown}
+              className="text-[0.9rem] font-bold text-blue-600 tabular-nums leading-none min-w-[3rem] max-w-[4.5rem] text-right bg-transparent border-none outline-none cursor-text py-0"
+              aria-label={`${label}: ${formattedValue} ${cleanUnit}`}
+            />
+          </div>
           {cleanUnit && (
             <span className="text-[0.675rem] text-gray-400 font-medium self-end mb-0.5 flex-shrink-0">{cleanUnit}</span>
           )}
@@ -174,7 +283,9 @@ const Slider: React.FC<SliderProps> = ({
           overflow: visible !important;
           min-width: fit-content !important;
         }
-        .${sliderClass} > div:first-child > div:last-child > span {
+        .${sliderClass} > div:first-child > div:last-child > span,
+        .${sliderClass} > div:first-child > div:last-child > div input,
+        .${sliderClass} > div:first-child > div:last-child > input {
           display: inline-block !important;
           visibility: visible !important;
           opacity: 1 !important;

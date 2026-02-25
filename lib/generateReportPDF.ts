@@ -349,27 +349,15 @@ export function generateReportPDF(data: PDFReportData): void {
 }
 
 /**
- * Generate PDF report for Comparator (3 scenarios comparison)
+ * Build the comparator PDF document (shared logic for save and base64 export)
  */
-export function generateComparatorPDF(data: ComparatorPDFData): void {
+function buildComparatorDoc(data: ComparatorPDFData): jsPDF {
   const { scenarios, userName, createdAt } = data;
 
-  if (scenarios.length !== 3) {
-    throw new Error('É necessário ter exatamente 3 cenários para gerar o relatório comparativo');
-  }
-
-  const scenarioA = scenarios.find(s => s.id === 'A');
-  const scenarioB = scenarios.find(s => s.id === 'B');
-  const scenarioC = scenarios.find(s => s.id === 'C');
-
-  if (!scenarioA || !scenarioB || !scenarioC) {
-    throw new Error('Cenários A, B e C são obrigatórios');
-  }
-
-  // Determine winning scenario (based on resultadoPorHectareAno)
-  const winningScenario = [scenarioA, scenarioB, scenarioC].reduce((prev, curr) =>
+  const winningScenario = scenarios.reduce((prev, curr) =>
     curr.results.resultadoPorHectareAno > prev.results.resultadoPorHectareAno ? curr : prev,
   );
+  const scenarioA = scenarios.find(s => s.id === 'A')!;
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -383,7 +371,6 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
   const contentWidth = pageWidth - margin * 2;
   let yPos = margin;
 
-  // Helper functions
   const addText = (
     text: string,
     x: number,
@@ -405,30 +392,60 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
     }
   };
 
-  const formatCurrency = (value: number): string => {
-    return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (value: number): string =>
+    `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const formatPercent = (value: number): string =>
+    `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+
+  // Usar cenário de referência: se o vencedor for A, comparar com a média dos outros; senão, com A
+  const baselineScenario =
+    winningScenario.id === 'A'
+      ? scenarios.filter(s => s.id !== 'A').reduce(
+          (acc, s) => ({
+            resultadoPorHectareAno: acc.resultadoPorHectareAno + s.results.resultadoPorHectareAno,
+            margemVenda: acc.margemVenda + s.results.margemVenda,
+            resultadoMensal: acc.resultadoMensal + s.results.resultadoMensal,
+            gmd: acc.gmd + s.inputs.gmd,
+            count: acc.count + 1,
+          }),
+          { resultadoPorHectareAno: 0, margemVenda: 0, resultadoMensal: 0, gmd: 0, count: 0 },
+        )
+      : null;
+
+  const calcPct = (winnerVal: number, baseVal: number): string => {
+    if (baseVal === 0) return '+0.0%';
+    const pct = (winnerVal / baseVal - 1) * 100;
+    const sign = pct >= 0 ? '+' : '';
+    return `${sign}${pct.toFixed(1)}%`;
   };
 
-  const formatPercent = (value: number): string => {
-    return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  const getBaseVal = (key: 'resultadoPorHectareAno' | 'margemVenda' | 'resultadoMensal' | 'gmd'): number => {
+    if (baselineScenario && baselineScenario.count > 0) {
+      return baselineScenario[key] / baselineScenario.count;
+    }
+    return key === 'gmd' ? scenarioA.inputs.gmd : (scenarioA.results as Record<string, number>)[key];
   };
 
-  // 1. Header
-  addText(
-    'Calculadora de Resultado Pecuário - Análise de Cenários',
-    pageWidth / 2,
-    yPos,
-    14,
-    true,
-    contentWidth,
-    'center',
-  );
-  yPos += 8;
+  // --- 1. Header (Imagem 1): dark bar, GESTOR|INTTEGRA, subtitle, user/date right ---
+  const headerHeight = 18;
+  doc.setFillColor(15, 23, 42); // #0F172A slate-900
+  doc.rect(0, 0, pageWidth, headerHeight, 'F');
 
-  if (userName) {
-    addText(`Gerado por: ${userName}`, margin, yPos, 10);
-    yPos += 5;
-  }
+  doc.setTextColor(255, 255, 255);
+  // Logo circle + G
+  doc.setFillColor(34, 197, 94); // green
+  doc.circle(8, 9, 4, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('G', 8, 9.5, { align: 'center' });
+
+  addText('GESTOR | INTTEGRA', 16, 7, 11, true);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(203, 213, 225); // slate-300
+  addText('Análise de Cenários Pecuários', 16, 12, 8);
 
   const dateStr = createdAt
     ? new Date(createdAt).toLocaleDateString('pt-BR', {
@@ -445,46 +462,58 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
         hour: '2-digit',
         minute: '2-digit',
       });
-  addText(`Data: ${dateStr}`, margin, yPos, 10);
-  yPos += 8;
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(9);
+  const rightText = userName ? `${userName}  •  ${dateStr}` : dateStr;
+  addText(rightText, pageWidth - margin, 10, 9, false, 70, 'right');
 
-  // 2. Winning Scenario Cards (4 cards)
-  if (yPos > pageHeight - 60) {
+  doc.setTextColor(0, 0, 0);
+  yPos = headerHeight + 8;
+
+  // --- 2. Winning Scenario (Imagem 2): badge + name + 4 cards with icons and % badges ---
+  if (yPos > pageHeight - 70) {
     doc.addPage();
     yPos = margin;
   }
 
-  addText('CENÁRIO VENCEDOR', pageWidth / 2, yPos, 12, true, contentWidth, 'center');
-  yPos += 6;
-  addText(winningScenario.name, pageWidth / 2, yPos, 11, true, contentWidth, 'center');
-  yPos += 7;
+  doc.setFillColor(5, 150, 105); // #059669 emerald-600
+  doc.roundedRect(pageWidth / 2 - 28, yPos, 56, 7, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  addText('CENÁRIO VENCEDOR', pageWidth / 2, yPos + 4.8, 9, true, 54, 'center');
+  doc.setTextColor(0, 0, 0);
+  yPos += 14; // Espaço extra para evitar sobreposição com o nome do cenário
+
+  addText(winningScenario.name, pageWidth / 2, yPos, 14, true, contentWidth, 'center');
+  yPos += 12;
 
   const cardWidth = (contentWidth - 15) / 4;
-  const cardHeight = 28;
+  const cardHeight = 32;
   const cardSpacing = 5;
-
-  // Calculate percentage increase compared to base scenario (A)
-  const baseValue = scenarioA.results.resultadoPorHectareAno;
-  const winningValue = winningScenario.results.resultadoPorHectareAno;
-  const percentIncrease = baseValue > 0 ? ((winningValue / baseValue - 1) * 100).toFixed(0) : '0';
 
   const winningCards = [
     {
       label: 'LUCRO/HA',
       value: formatCurrency(winningScenario.results.resultadoPorHectareAno),
-      subValue: `+${percentIncrease}%`,
+      pctBadge: calcPct(winningScenario.results.resultadoPorHectareAno, getBaseVal('resultadoPorHectareAno')),
+      icon: '$',
     },
     {
       label: 'MARGEM LÍQUIDA',
       value: formatPercent(winningScenario.results.margemVenda),
+      pctBadge: calcPct(winningScenario.results.margemVenda, getBaseVal('margemVenda')),
+      icon: '%',
     },
     {
       label: 'ROI MENSAL',
       value: formatPercent(winningScenario.results.resultadoMensal),
+      pctBadge: calcPct(winningScenario.results.resultadoMensal, getBaseVal('resultadoMensal')),
+      icon: 'chart',
     },
     {
       label: 'GMD (GANHO)',
       value: `${winningScenario.inputs.gmd.toFixed(2)} kg/dia`,
+      pctBadge: calcPct(winningScenario.inputs.gmd, getBaseVal('gmd')),
+      icon: 'scale',
     },
   ];
 
@@ -492,742 +521,234 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
     const x = margin + index * (cardWidth + cardSpacing);
     const y = yPos;
 
-    // Card background
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.5);
-    doc.rect(x, y, cardWidth, cardHeight);
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'FD');
 
-    // Label - centered
-    addText(card.label, x + cardWidth / 2, y + 7, 8, false, cardWidth - 6, 'center');
+    const isPositive = !card.pctBadge.startsWith('-');
+    const badgeColor = isPositive ? [34, 197, 94] : [239, 68, 68];
 
-    // Value - centered and larger
-    doc.setTextColor(34, 139, 34);
-    addText(card.value, x + cardWidth / 2, y + 16, 11, true, cardWidth - 6, 'center');
+    doc.setFillColor(badgeColor[0], badgeColor[1], badgeColor[2]);
+    const badgeW = 18;
+    doc.roundedRect(x + cardWidth - badgeW - 3, y + 3, badgeW, 5, 1.5, 1.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text(card.pctBadge, x + cardWidth - badgeW / 2 - 3, y + 6.2, { align: 'center' });
 
-    // Sub value (if exists) - centered
-    if (card.subValue) {
-      doc.setTextColor(0, 100, 0);
-      addText(card.subValue, x + cardWidth / 2, y + 23, 8, false, cardWidth - 6, 'center');
+    doc.setFillColor(241, 245, 249);
+    doc.circle(x + 8, y + 10, 4, 'F');
+    doc.setDrawColor(34, 197, 94);
+    doc.setLineWidth(0.4);
+    if (card.icon === 'chart') {
+      // Ícone de tendência ascendente (linhas desenhadas)
+      doc.line(x + 5.5, y + 12, x + 7, y + 10);
+      doc.line(x + 7, y + 10, x + 8.5, y + 8.5);
+      doc.line(x + 8.5, y + 8.5, x + 10, y + 7);
+    } else if (card.icon === 'scale') {
+      // Ícone de balança (GMD)
+      doc.line(x + 5.5, y + 10, x + 10.5, y + 10); // barra horizontal
+      doc.line(x + 8, y + 10, x + 8, y + 12.5); // haste central
+      doc.line(x + 5.5, y + 10, x + 5.5, y + 11.5); // prato esq
+      doc.line(x + 10.5, y + 10, x + 10.5, y + 11.5); // prato dir
+    } else {
+      doc.setTextColor(34, 197, 94);
+      doc.setFontSize(8);
+      doc.text(card.icon, x + 8, y + 10.5, { align: 'center' });
     }
 
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    addText(card.label, x + 5, y + 20, 7, false, cardWidth - 25); // cardWidth-25 para não sobrepor o badge
+    doc.setTextColor(30, 41, 59);
+    addText(card.value, x + 5, y + 28, 11, true, cardWidth - 10);
     doc.setTextColor(0, 0, 0);
   });
 
-  yPos += cardHeight + 10;
+  yPos += cardHeight + 12;
 
-  // 3. Premises Table
+  // --- 3. Matriz de Premissas (Imagem 3) ---
   if (yPos > pageHeight - 100) {
     doc.addPage();
     yPos = margin;
   }
 
-  addText('MATRIZ DE PREMISSAS E RESULTADOS COMPARATIVOS', pageWidth / 2, yPos, 11, true, contentWidth, 'center');
-  yPos += 7;
+  addText('Matriz de Premissas', margin, yPos, 12, true);
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  addText('Valores baseados em cotações atuais de mercado', pageWidth - margin, yPos + 1, 8, false, 60, 'right');
+  doc.setTextColor(0, 0, 0);
+  yPos += 8;
 
   const tableStartY = yPos;
-  const colWidth = (contentWidth - 20) / 4;
+  const itemColWidth = contentWidth * 0.4;
+  const scenarioColWidth = (contentWidth - itemColWidth) / scenarios.length;
   const rowHeight = 6;
-  const headerHeight = 10;
+  const tableHeaderHeight = 9;
 
-  // Table headers
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin, tableStartY, colWidth, headerHeight, 'F');
-  doc.setDrawColor(200, 200, 200);
-  doc.rect(margin, tableStartY, colWidth, headerHeight);
+  doc.setFillColor(241, 245, 249); // #F1F5F9
+  doc.rect(margin, tableStartY, itemColWidth, tableHeaderHeight, 'F');
+  doc.setTextColor(100, 116, 139);
+  addText('ITEM', margin + 4, tableStartY + 6, 8, true);
   doc.setTextColor(0, 0, 0);
-  addText('ITEM', margin + colWidth / 2, tableStartY + 7, 8, true, colWidth - 4, 'center');
 
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin + colWidth, tableStartY, colWidth, headerHeight, 'F');
-  doc.setDrawColor(200, 200, 200);
-  doc.rect(margin + colWidth, tableStartY, colWidth, headerHeight);
-  doc.setTextColor(0, 0, 0);
-  addText(scenarioA.name, margin + colWidth + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
+  const scenarioColors = [[30, 64, 175], [34, 197, 94], [249, 115, 22]];
+  scenarios.forEach((scenario, idx) => {
+    doc.setFillColor(241, 245, 249);
+    doc.rect(margin + itemColWidth + idx * scenarioColWidth, tableStartY, scenarioColWidth, tableHeaderHeight, 'F');
+    doc.setTextColor(scenarioColors[idx][0], scenarioColors[idx][1], scenarioColors[idx][2]);
+    addText(scenario.name.toUpperCase(), margin + itemColWidth + idx * scenarioColWidth + scenarioColWidth / 2, tableStartY + 6, 8, true, scenarioColWidth - 4, 'center');
+    doc.setTextColor(0, 0, 0);
+  });
 
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin + colWidth * 2, tableStartY, colWidth, headerHeight, 'F');
-  doc.setDrawColor(200, 200, 200);
-  doc.rect(margin + colWidth * 2, tableStartY, colWidth, headerHeight);
-  doc.setTextColor(0, 0, 0);
-  addText(scenarioB.name, margin + colWidth * 2 + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
+  yPos = tableStartY + tableHeaderHeight;
 
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin + colWidth * 3, tableStartY, colWidth, headerHeight, 'F');
-  doc.setDrawColor(200, 200, 200);
-  doc.rect(margin + colWidth * 3, tableStartY, colWidth, headerHeight);
-  doc.setTextColor(0, 0, 0);
-  addText(scenarioC.name, margin + colWidth * 3 + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
+  const formatTableCurrency = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatTablePercent = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  yPos = tableStartY + headerHeight;
-
-  // Premises rows
-  const premissasItems = [
+  const tableItems = [
     { label: 'Peso Compra (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoCompra}` },
-    { label: 'Valor Compra (R$/kg)', getValue: (s: ComparatorScenario) => s.inputs.valorCompra.toFixed(2) },
+    { label: 'Valor Compra (R$/kg)', getValue: (s: ComparatorScenario) => formatTableCurrency(s.inputs.valorCompra) },
     { label: 'Peso Venda (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoAbate}` },
-    { label: 'Rend. Carcaça (%)', getValue: (s: ComparatorScenario) => s.inputs.rendimentoCarcaca.toFixed(2) },
-    { label: 'Valor Venda (R$/@)', getValue: (s: ComparatorScenario) => `${s.inputs.valorVenda}` },
-    { label: 'GMD (kg/dia)', getValue: (s: ComparatorScenario) => s.inputs.gmd.toFixed(2) },
-    { label: 'Desembolso/Mês (R$)', getValue: (s: ComparatorScenario) => `${s.inputs.custoMensal}` },
-    { label: 'Lotação (UA/ha)', getValue: (s: ComparatorScenario) => s.inputs.lotacao.toFixed(2) },
+    { label: 'Rend. Carcaça (%)', getValue: (s: ComparatorScenario) => `${s.inputs.rendimentoCarcaca}` },
+    { label: 'Valor Venda (R$/@)', getValue: (s: ComparatorScenario) => formatTableCurrency(s.inputs.valorVenda) },
+    { label: 'GMD (kg/dia)', getValue: (s: ComparatorScenario) => s.inputs.gmd.toFixed(1) },
+    { label: 'Desembolso/Mês (R$)', getValue: (s: ComparatorScenario) => formatTableCurrency(s.inputs.custoMensal) },
+    { label: 'Lotação (UA/ha)', getValue: (s: ComparatorScenario) => s.inputs.lotacao.toFixed(1) },
+    { label: 'Lucro/Cabeça (R$)', getValue: (s: ComparatorScenario) => formatTableCurrency(s.results.resultadoPorBoi) },
+    { label: 'Retorno Mensal (%)', getValue: (s: ComparatorScenario) => formatTablePercent(s.results.resultadoMensal) },
+    { label: 'Margem Líquida (%)', getValue: (s: ComparatorScenario) => formatTablePercent(s.results.margemVenda) },
+    { label: 'Resultado/Ha (R$)', getValue: (s: ComparatorScenario) => formatTableCurrency(s.results.resultadoPorHectareAno) },
   ];
 
-  // Results rows
-  const resultadosItems = [
-    { label: 'Lucro/Cabeça (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorBoi) },
-    { label: 'Retorno Mensal (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.resultadoMensal) },
-    { label: 'Margem Líquida (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.margemVenda) },
-    {
-      label: 'Resultado/Ha (R$)',
-      getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorHectareAno),
-    },
-  ];
-
-  // Draw premises table
-  [...premissasItems, ...resultadosItems].forEach((item, index) => {
+  tableItems.forEach((item) => {
     if (yPos > pageHeight - 20) {
       doc.addPage();
       yPos = margin;
     }
-
     const rowY = yPos;
-    doc.setDrawColor(200, 200, 200);
+    doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.2);
+    doc.line(margin, rowY, pageWidth - margin, rowY);
 
-    // Item column - with background
     doc.setFillColor(255, 255, 255);
-    doc.rect(margin, rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin, rowY, colWidth, rowHeight);
-    doc.setTextColor(0, 0, 0);
-    addText(item.label, margin + colWidth / 2, rowY + 4.5, 7, false, colWidth - 4, 'center');
+    doc.rect(margin, rowY, itemColWidth, rowHeight, 'F');
+    addText(item.label, margin + 4, rowY + 4.5, 8, false, itemColWidth - 8);
 
-    // Scenario A - with background
-    doc.setFillColor(255, 255, 255);
-    doc.rect(margin + colWidth, rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin + colWidth, rowY, colWidth, rowHeight);
-    doc.setTextColor(0, 0, 0);
-    addText(item.getValue(scenarioA), margin + colWidth + colWidth / 2, rowY + 4.5, 7, true, colWidth - 4, 'center');
-
-    // Scenario B - with background
-    doc.setFillColor(255, 255, 255);
-    doc.rect(margin + colWidth * 2, rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin + colWidth * 2, rowY, colWidth, rowHeight);
-    doc.setTextColor(0, 0, 0);
-    addText(
-      item.getValue(scenarioB),
-      margin + colWidth * 2 + colWidth / 2,
-      rowY + 4.5,
-      7,
-      true,
-      colWidth - 4,
-      'center',
-    );
-
-    // Scenario C - with background
-    doc.setFillColor(255, 255, 255);
-    doc.rect(margin + colWidth * 3, rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin + colWidth * 3, rowY, colWidth, rowHeight);
-    doc.setTextColor(0, 0, 0);
-    addText(
-      item.getValue(scenarioC),
-      margin + colWidth * 3 + colWidth / 2,
-      rowY + 4.5,
-      7,
-      true,
-      colWidth - 4,
-      'center',
-    );
-
+    scenarios.forEach((scenario, idx) => {
+      doc.setFillColor(255, 255, 255);
+      doc.rect(margin + itemColWidth + idx * scenarioColWidth, rowY, scenarioColWidth, rowHeight, 'F');
+      addText(item.getValue(scenario), margin + itemColWidth + idx * scenarioColWidth + scenarioColWidth / 2, rowY + 4.5, 8, true, scenarioColWidth - 4, 'center');
+    });
     yPos += rowHeight;
   });
 
-  yPos += 5;
+  doc.line(margin, yPos, pageWidth - margin, yPos);
+  yPos += 8;
 
-  // 4. Charts (4 bar charts comparing results) - Increased height by 30%
+  // --- 4. Charts (unchanged) ---
   const chartWidth = (contentWidth - 20) / 2;
-  const chartHeight = 45.5; // 35 * 1.3 = 45.5
+  const chartHeight = 45.5;
   const chartSpacing = 8;
 
   const charts = [
-    {
-      title: 'MARGEM LÍQUIDA (%)',
-      getValue: (s: ComparatorScenario) => s.results.margemVenda,
-      format: (v: number) => formatPercent(v),
-      maxValue:
-        Math.max(scenarioA.results.margemVenda, scenarioB.results.margemVenda, scenarioC.results.margemVenda) * 1.1,
-    },
-    {
-      title: 'RESULTADO POR HECTARE (R$)',
-      getValue: (s: ComparatorScenario) => s.results.resultadoPorHectareAno,
-      format: (v: number) => formatCurrency(v),
-      maxValue:
-        Math.max(
-          scenarioA.results.resultadoPorHectareAno,
-          scenarioB.results.resultadoPorHectareAno,
-          scenarioC.results.resultadoPorHectareAno,
-        ) * 1.1,
-    },
-    {
-      title: 'LUCRO POR CABEÇA (R$)',
-      getValue: (s: ComparatorScenario) => s.results.resultadoPorBoi,
-      format: (v: number) => formatCurrency(v),
-      maxValue:
-        Math.max(
-          scenarioA.results.resultadoPorBoi,
-          scenarioB.results.resultadoPorBoi,
-          scenarioC.results.resultadoPorBoi,
-        ) * 1.1,
-    },
-    {
-      title: 'RETORNO MENSAL (%)',
-      getValue: (s: ComparatorScenario) => s.results.resultadoMensal,
-      format: (v: number) => formatPercent(v),
-      maxValue:
-        Math.max(
-          scenarioA.results.resultadoMensal,
-          scenarioB.results.resultadoMensal,
-          scenarioC.results.resultadoMensal,
-        ) * 1.1,
-    },
+    { title: 'MARGEM LÍQUIDA (%)', getValue: (s: ComparatorScenario) => s.results.margemVenda, format: formatPercent, maxValue: Math.max(...scenarios.map(s => s.results.margemVenda)) * 1.1 },
+    { title: 'RESULTADO POR HECTARE (R$)', getValue: (s: ComparatorScenario) => s.results.resultadoPorHectareAno, format: formatCurrency, maxValue: Math.max(...scenarios.map(s => s.results.resultadoPorHectareAno)) * 1.1 },
+    { title: 'LUCRO POR CABEÇA (R$)', getValue: (s: ComparatorScenario) => s.results.resultadoPorBoi, format: formatCurrency, maxValue: Math.max(...scenarios.map(s => s.results.resultadoPorBoi)) * 1.1 },
+    { title: 'RETORNO MENSAL (%)', getValue: (s: ComparatorScenario) => s.results.resultadoMensal, format: formatPercent, maxValue: Math.max(...scenarios.map(s => s.results.resultadoMensal)) * 1.1 },
   ];
 
-  // Draw charts in 2x2 grid
   let firstRowY = yPos;
   let secondRowY = firstRowY + chartHeight + chartSpacing;
-
-  // Check if we need a new page for charts (with margin for footer)
   if (secondRowY + chartHeight > pageHeight - 15) {
     doc.addPage();
     firstRowY = margin;
     secondRowY = firstRowY + chartHeight + chartSpacing;
   }
 
+  const colors = [[59, 130, 246], [34, 197, 94], [249, 115, 22]];
   charts.forEach((chart, chartIndex) => {
     const isSecondRow = chartIndex >= 2;
     const chartY = isSecondRow ? secondRowY : firstRowY;
     const chartX = margin + (chartIndex % 2) * (chartWidth + chartSpacing);
-
-    // Chart title
     addText(chart.title, chartX + chartWidth / 2, chartY, 8, true, chartWidth, 'center');
     const titleY = chartY + 5;
-
-    // Chart area - reduced to fit margins
-    const yAxisWidth = 18; // Reduced width
-    const barWidth = (chartWidth - yAxisWidth - 10) / 3;
+    const yAxisWidth = 18;
+    const barWidth = (chartWidth - yAxisWidth - 10) / scenarios.length;
     const barSpacing = 4;
-    const chartAreaHeight = chartHeight - 25; // More space for labels
+    const chartAreaHeight = chartHeight - 25;
     const chartAreaY = titleY + 5;
     const chartAreaX = chartX + yAxisWidth;
+    const yAxisX = chartAreaX - 2;
 
-    // Y-axis with intermediate values - closer to the chart
-    const yAxisX = chartAreaX - 2; // Very close to the chart
-    const numYLabels = 5; // 0, 25%, 50%, 75%, 100%
-
-    for (let i = 0; i <= numYLabels; i++) {
-      const ratio = i / numYLabels;
+    for (let i = 0; i <= 5; i++) {
+      const ratio = i / 5;
       const value = chart.maxValue * ratio;
       const labelY = chartAreaY + chartAreaHeight - ratio * chartAreaHeight;
       const valueStr = i === 0 ? '0' : chart.format(value);
       addText(valueStr, yAxisX, labelY + 1.5, 5, false, 12, 'right');
     }
-
-    // Y-axis line - right next to the chart
     doc.setDrawColor(150, 150, 150);
     doc.setLineWidth(0.3);
     doc.line(chartAreaX, chartAreaY, chartAreaX, chartAreaY + chartAreaHeight);
 
-    // Bars
-    const chartScenarios = [scenarioA, scenarioB, scenarioC];
-    const colors = [
-      [59, 130, 246],
-      [34, 197, 94],
-      [249, 115, 22],
-    ]; // Blue, Green, Orange
-
-    chartScenarios.forEach((scenario, barIndex) => {
+    scenarios.forEach((scenario, barIndex) => {
       const value = chart.getValue(scenario);
       const barHeight = (value / chart.maxValue) * chartAreaHeight;
       const barX = chartAreaX + 2 + barIndex * (barWidth + barSpacing);
       const barY = chartAreaY + chartAreaHeight - barHeight;
-
-      // Draw bar
       doc.setFillColor(colors[barIndex][0], colors[barIndex][1], colors[barIndex][2]);
       doc.rect(barX, barY, barWidth, barHeight, 'F');
-
-      // Bar value label - always show above the bar
       doc.setTextColor(0, 0, 0);
-      const valueStr = chart.format(value);
-      addText(valueStr, barX + barWidth / 2, barY - 2, 6, true, barWidth, 'center');
+      addText(chart.format(value), barX + barWidth / 2, barY - 2, 6, true, barWidth, 'center');
     });
 
-    // X-axis line
     doc.setDrawColor(150, 150, 150);
-    doc.setLineWidth(0.3);
     const xAxisStartX = chartAreaX + 2;
-    const xAxisEndX = xAxisStartX + 3 * (barWidth + barSpacing) - barSpacing;
+    const xAxisEndX = xAxisStartX + scenarios.length * (barWidth + barSpacing) - barSpacing;
     doc.line(xAxisStartX, chartAreaY + chartAreaHeight, xAxisEndX, chartAreaY + chartAreaHeight);
 
-    // X-axis labels - scenario names only (values are shown above bars)
-    chartScenarios.forEach((scenario, barIndex) => {
+    scenarios.forEach((scenario, barIndex) => {
       const barX = chartAreaX + 2 + barIndex * (barWidth + barSpacing);
-
-      const scenarioLabel = scenario.name;
-
-      // Show scenario name below x-axis line
-      const labelY = chartAreaY + chartAreaHeight + 5;
-      addText(scenarioLabel, barX + barWidth / 2, labelY, 5, false, barWidth, 'center');
+      addText(scenario.name, barX + barWidth / 2, chartAreaY + chartAreaHeight + 5, 5, false, barWidth, 'center');
     });
   });
 
-  // Footer
   const footerY = pageHeight - margin - 5;
   doc.setFontSize(8);
   doc.setTextColor(128, 128, 128);
   doc.text('Gerado por PecuarIA - Calculadora de Resultado Pecuário', pageWidth / 2, footerY, { align: 'center' });
 
-  // Save PDF
-  const fileName = `comparativo-cenarios-${new Date().toISOString().split('T')[0]}.pdf`;
-  doc.save(fileName);
+  return doc;
+}
+
+/**
+ * Generate PDF report for Comparator (2 or 3 scenarios comparison)
+ */
+export function generateComparatorPDF(data: ComparatorPDFData): void {
+  if (data.scenarios.length < 2 || data.scenarios.length > 3) {
+    throw new Error('É necessário ter 2 ou 3 cenários para gerar o relatório comparativo');
+  }
+  const validIds = data.scenarios.length === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
+  if (!data.scenarios.every(s => s?.id && validIds.includes(s.id))) {
+    throw new Error('IDs dos cenários inválidos (esperado A, B ou A, B, C)');
+  }
+  const doc = buildComparatorDoc(data);
+  doc.save(`comparativo-cenarios-${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
 /**
  * Generate PDF report for Comparator and return as base64 string
- * This is used for saving the PDF to the database
  */
 export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
-  const { scenarios, userName, createdAt } = data;
-
-  if (scenarios.length !== 3) {
-    throw new Error('É necessário ter exatamente 3 cenários para gerar o relatório comparativo');
+  if (data.scenarios.length < 2 || data.scenarios.length > 3) {
+    throw new Error('É necessário ter 2 ou 3 cenários para gerar o relatório comparativo');
   }
-
-  const scenarioA = scenarios.find(s => s.id === 'A');
-  const scenarioB = scenarios.find(s => s.id === 'B');
-  const scenarioC = scenarios.find(s => s.id === 'C');
-
-  if (!scenarioA || !scenarioB || !scenarioC) {
-    throw new Error('Cenários A, B e C são obrigatórios');
+  const validIds = data.scenarios.length === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
+  if (!data.scenarios.every(s => s?.id && validIds.includes(s.id))) {
+    throw new Error('IDs dos cenários inválidos (esperado A, B ou A, B, C)');
   }
-
-  // Determine winning scenario (based on resultadoPorHectareAno)
-  const winningScenario = [scenarioA, scenarioB, scenarioC].reduce((prev, curr) =>
-    curr.results.resultadoPorHectareAno > prev.results.resultadoPorHectareAno ? curr : prev,
-  );
-
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
-
-  const pageWidth = doc.internal.pageSize.width;
-  const pageHeight = doc.internal.pageSize.height;
-  const margin = 10;
-  const contentWidth = pageWidth - margin * 2;
-  let yPos = margin;
-
-  // Helper functions
-  const addText = (
-    text: string,
-    x: number,
-    y: number,
-    fontSize: number = 10,
-    isBold: boolean = false,
-    maxWidth?: number,
-    align: 'left' | 'center' | 'right' = 'left',
-  ) => {
-    doc.setFontSize(fontSize);
-    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-    if (maxWidth) {
-      const lines = doc.splitTextToSize(text, maxWidth);
-      doc.text(lines, x, y, { align });
-      return lines.length * (fontSize * 0.4);
-    } else {
-      doc.text(text, x, y, { align });
-      return fontSize * 0.4;
-    }
-  };
-
-  const formatCurrency = (value: number): string => {
-    return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
-  const formatPercent = (value: number): string => {
-    return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
-  };
-
-  // 1. Header
-  addText(
-    'Calculadora de Resultado Pecuário - Análise de Cenários',
-    pageWidth / 2,
-    yPos,
-    14,
-    true,
-    contentWidth,
-    'center',
-  );
-  yPos += 8;
-
-  if (userName) {
-    addText(`Gerado por: ${userName}`, margin, yPos, 10);
-    yPos += 5;
-  }
-
-  const dateStr = createdAt
-    ? new Date(createdAt).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : new Date().toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-  addText(`Data: ${dateStr}`, margin, yPos, 10);
-  yPos += 8;
-
-  // 2. Winning Scenario Cards (4 cards)
-  if (yPos > pageHeight - 60) {
-    doc.addPage();
-    yPos = margin;
-  }
-
-  addText('CENÁRIO VENCEDOR', pageWidth / 2, yPos, 12, true, contentWidth, 'center');
-  yPos += 6;
-  addText(winningScenario.name, pageWidth / 2, yPos, 11, true, contentWidth, 'center');
-  yPos += 7;
-
-  const cardWidth = (contentWidth - 15) / 4;
-  const cardHeight = 28;
-  const cardSpacing = 5;
-
-  // Calculate percentage increase compared to base scenario (A)
-  const baseValue = scenarioA.results.resultadoPorHectareAno;
-  const winningValue = winningScenario.results.resultadoPorHectareAno;
-  const percentIncrease = baseValue > 0 ? ((winningValue / baseValue - 1) * 100).toFixed(0) : '0';
-
-  const winningCards = [
-    {
-      label: 'LUCRO/HA',
-      value: formatCurrency(winningScenario.results.resultadoPorHectareAno),
-      subValue: `+${percentIncrease}%`,
-    },
-    {
-      label: 'MARGEM LÍQUIDA',
-      value: formatPercent(winningScenario.results.margemVenda),
-    },
-    {
-      label: 'ROI MENSAL',
-      value: formatPercent(winningScenario.results.resultadoMensal),
-    },
-    {
-      label: 'GMD (GANHO)',
-      value: `${winningScenario.inputs.gmd.toFixed(2)} kg/dia`,
-    },
-  ];
-
-  winningCards.forEach((card, index) => {
-    const x = margin + index * (cardWidth + cardSpacing);
-    const y = yPos;
-
-    // Card background
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.5);
-    doc.rect(x, y, cardWidth, cardHeight);
-
-    // Label - centered
-    addText(card.label, x + cardWidth / 2, y + 7, 8, false, cardWidth - 6, 'center');
-
-    // Value - centered and larger
-    doc.setTextColor(34, 139, 34);
-    addText(card.value, x + cardWidth / 2, y + 16, 11, true, cardWidth - 6, 'center');
-
-    // Sub value (if exists) - centered
-    if (card.subValue) {
-      doc.setTextColor(0, 100, 0);
-      addText(card.subValue, x + cardWidth / 2, y + 23, 8, false, cardWidth - 6, 'center');
-    }
-
-    doc.setTextColor(0, 0, 0);
-  });
-
-  yPos += cardHeight + 10;
-
-  // 3. Premises Table
-  if (yPos > pageHeight - 100) {
-    doc.addPage();
-    yPos = margin;
-  }
-
-  addText('MATRIZ DE PREMISSAS E RESULTADOS COMPARATIVOS', pageWidth / 2, yPos, 11, true, contentWidth, 'center');
-  yPos += 7;
-
-  const tableStartY = yPos;
-  const colWidth = (contentWidth - 20) / 4;
-  const rowHeight = 6;
-  const headerHeight = 10;
-
-  // Table headers
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin, tableStartY, colWidth, headerHeight, 'F');
-  doc.setDrawColor(200, 200, 200);
-  doc.rect(margin, tableStartY, colWidth, headerHeight);
-  doc.setTextColor(0, 0, 0);
-  addText('ITEM', margin + colWidth / 2, tableStartY + 7, 8, true, colWidth - 4, 'center');
-
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin + colWidth, tableStartY, colWidth, headerHeight, 'F');
-  doc.setDrawColor(200, 200, 200);
-  doc.rect(margin + colWidth, tableStartY, colWidth, headerHeight);
-  doc.setTextColor(0, 0, 0);
-  addText(scenarioA.name, margin + colWidth + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
-
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin + colWidth * 2, tableStartY, colWidth, headerHeight, 'F');
-  doc.setDrawColor(200, 200, 200);
-  doc.rect(margin + colWidth * 2, tableStartY, colWidth, headerHeight);
-  doc.setTextColor(0, 0, 0);
-  addText(scenarioB.name, margin + colWidth * 2 + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
-
-  doc.setFillColor(240, 240, 240);
-  doc.rect(margin + colWidth * 3, tableStartY, colWidth, headerHeight, 'F');
-  doc.setDrawColor(200, 200, 200);
-  doc.rect(margin + colWidth * 3, tableStartY, colWidth, headerHeight);
-  doc.setTextColor(0, 0, 0);
-  addText(scenarioC.name, margin + colWidth * 3 + colWidth / 2, tableStartY + 7, 7, true, colWidth - 4, 'center');
-
-  yPos = tableStartY + headerHeight;
-
-  // Premises rows
-  const premissasItems = [
-    { label: 'Peso Compra (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoCompra}` },
-    { label: 'Valor Compra (R$/kg)', getValue: (s: ComparatorScenario) => s.inputs.valorCompra.toFixed(2) },
-    { label: 'Peso Venda (kg)', getValue: (s: ComparatorScenario) => `${s.inputs.pesoAbate}` },
-    { label: 'Rend. Carcaça (%)', getValue: (s: ComparatorScenario) => s.inputs.rendimentoCarcaca.toFixed(2) },
-    { label: 'Valor Venda (R$/@)', getValue: (s: ComparatorScenario) => `${s.inputs.valorVenda}` },
-    { label: 'GMD (kg/dia)', getValue: (s: ComparatorScenario) => s.inputs.gmd.toFixed(2) },
-    { label: 'Desembolso/Mês (R$)', getValue: (s: ComparatorScenario) => `${s.inputs.custoMensal}` },
-    { label: 'Lotação (UA/ha)', getValue: (s: ComparatorScenario) => s.inputs.lotacao.toFixed(2) },
-  ];
-
-  // Results rows
-  const resultadosItems = [
-    { label: 'Lucro/Cabeça (R$)', getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorBoi) },
-    { label: 'Retorno Mensal (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.resultadoMensal) },
-    { label: 'Margem Líquida (%)', getValue: (s: ComparatorScenario) => formatPercent(s.results.margemVenda) },
-    {
-      label: 'Resultado/Ha (R$)',
-      getValue: (s: ComparatorScenario) => formatCurrency(s.results.resultadoPorHectareAno),
-    },
-  ];
-
-  // Draw premises table
-  [...premissasItems, ...resultadosItems].forEach((item, index) => {
-    if (yPos > pageHeight - 20) {
-      doc.addPage();
-      yPos = margin;
-    }
-
-    const rowY = yPos;
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.2);
-
-    // Item column - with background
-    doc.setFillColor(255, 255, 255);
-    doc.rect(margin, rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin, rowY, colWidth, rowHeight);
-    doc.setTextColor(0, 0, 0);
-    addText(item.label, margin + colWidth / 2, rowY + 4.5, 7, false, colWidth - 4, 'center');
-
-    // Scenario A - with background
-    doc.setFillColor(255, 255, 255);
-    doc.rect(margin + colWidth, rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin + colWidth, rowY, colWidth, rowHeight);
-    doc.setTextColor(0, 0, 0);
-    addText(item.getValue(scenarioA), margin + colWidth + colWidth / 2, rowY + 4.5, 7, true, colWidth - 4, 'center');
-
-    // Scenario B - with background
-    doc.setFillColor(255, 255, 255);
-    doc.rect(margin + colWidth * 2, rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin + colWidth * 2, rowY, colWidth, rowHeight);
-    doc.setTextColor(0, 0, 0);
-    addText(
-      item.getValue(scenarioB),
-      margin + colWidth * 2 + colWidth / 2,
-      rowY + 4.5,
-      7,
-      true,
-      colWidth - 4,
-      'center',
-    );
-
-    // Scenario C - with background
-    doc.setFillColor(255, 255, 255);
-    doc.rect(margin + colWidth * 3, rowY, colWidth, rowHeight, 'F');
-    doc.rect(margin + colWidth * 3, rowY, colWidth, rowHeight);
-    doc.setTextColor(0, 0, 0);
-    addText(
-      item.getValue(scenarioC),
-      margin + colWidth * 3 + colWidth / 2,
-      rowY + 4.5,
-      7,
-      true,
-      colWidth - 4,
-      'center',
-    );
-
-    yPos += rowHeight;
-  });
-
-  yPos += 5;
-
-  // 4. Charts (4 bar charts comparing results) - Increased height by 30%
-  const chartWidth = (contentWidth - 20) / 2;
-  const chartHeight = 45.5; // 35 * 1.3 = 45.5
-  const chartSpacing = 8;
-
-  const charts = [
-    {
-      title: 'MARGEM LÍQUIDA (%)',
-      getValue: (s: ComparatorScenario) => s.results.margemVenda,
-      format: (v: number) => formatPercent(v),
-      maxValue:
-        Math.max(scenarioA.results.margemVenda, scenarioB.results.margemVenda, scenarioC.results.margemVenda) * 1.1,
-    },
-    {
-      title: 'RESULTADO POR HECTARE (R$)',
-      getValue: (s: ComparatorScenario) => s.results.resultadoPorHectareAno,
-      format: (v: number) => formatCurrency(v),
-      maxValue:
-        Math.max(
-          scenarioA.results.resultadoPorHectareAno,
-          scenarioB.results.resultadoPorHectareAno,
-          scenarioC.results.resultadoPorHectareAno,
-        ) * 1.1,
-    },
-    {
-      title: 'LUCRO POR CABEÇA (R$)',
-      getValue: (s: ComparatorScenario) => s.results.resultadoPorBoi,
-      format: (v: number) => formatCurrency(v),
-      maxValue:
-        Math.max(
-          scenarioA.results.resultadoPorBoi,
-          scenarioB.results.resultadoPorBoi,
-          scenarioC.results.resultadoPorBoi,
-        ) * 1.1,
-    },
-    {
-      title: 'RETORNO MENSAL (%)',
-      getValue: (s: ComparatorScenario) => s.results.resultadoMensal,
-      format: (v: number) => formatPercent(v),
-      maxValue:
-        Math.max(
-          scenarioA.results.resultadoMensal,
-          scenarioB.results.resultadoMensal,
-          scenarioC.results.resultadoMensal,
-        ) * 1.1,
-    },
-  ];
-
-  // Draw charts in 2x2 grid
-  let firstRowY = yPos;
-  let secondRowY = firstRowY + chartHeight + chartSpacing;
-
-  // Check if we need a new page for charts (with margin for footer)
-  if (secondRowY + chartHeight > pageHeight - 15) {
-    doc.addPage();
-    firstRowY = margin;
-    secondRowY = firstRowY + chartHeight + chartSpacing;
-  }
-
-  charts.forEach((chart, chartIndex) => {
-    const isSecondRow = chartIndex >= 2;
-    const chartY = isSecondRow ? secondRowY : firstRowY;
-    const chartX = margin + (chartIndex % 2) * (chartWidth + chartSpacing);
-
-    // Chart title
-    addText(chart.title, chartX + chartWidth / 2, chartY, 8, true, chartWidth, 'center');
-    const titleY = chartY + 5;
-
-    // Chart area - reduced to fit margins
-    const yAxisWidth = 18; // Reduced width
-    const barWidth = (chartWidth - yAxisWidth - 10) / 3;
-    const barSpacing = 4;
-    const chartAreaHeight = chartHeight - 25; // More space for labels
-    const chartAreaY = titleY + 5;
-    const chartAreaX = chartX + yAxisWidth;
-
-    // Y-axis with intermediate values - closer to the chart
-    const yAxisX = chartAreaX - 2; // Very close to the chart
-    const numYLabels = 5; // 0, 25%, 50%, 75%, 100%
-
-    for (let i = 0; i <= numYLabels; i++) {
-      const ratio = i / numYLabels;
-      const value = chart.maxValue * ratio;
-      const labelY = chartAreaY + chartAreaHeight - ratio * chartAreaHeight;
-      const valueStr = i === 0 ? '0' : chart.format(value);
-      addText(valueStr, yAxisX, labelY + 1.5, 5, false, 12, 'right');
-    }
-
-    // Y-axis line - right next to the chart
-    doc.setDrawColor(150, 150, 150);
-    doc.setLineWidth(0.3);
-    doc.line(chartAreaX, chartAreaY, chartAreaX, chartAreaY + chartAreaHeight);
-
-    // Bars
-    const chartScenarios = [scenarioA, scenarioB, scenarioC];
-    const colors = [
-      [59, 130, 246],
-      [34, 197, 94],
-      [249, 115, 22],
-    ]; // Blue, Green, Orange
-
-    chartScenarios.forEach((scenario, barIndex) => {
-      const value = chart.getValue(scenario);
-      const barHeight = (value / chart.maxValue) * chartAreaHeight;
-      const barX = chartAreaX + 2 + barIndex * (barWidth + barSpacing);
-      const barY = chartAreaY + chartAreaHeight - barHeight;
-
-      // Draw bar
-      doc.setFillColor(colors[barIndex][0], colors[barIndex][1], colors[barIndex][2]);
-      doc.rect(barX, barY, barWidth, barHeight, 'F');
-
-      // Bar value label - always show above the bar
-      doc.setTextColor(0, 0, 0);
-      const valueStr = chart.format(value);
-      addText(valueStr, barX + barWidth / 2, barY - 2, 6, true, barWidth, 'center');
-    });
-
-    // X-axis line
-    doc.setDrawColor(150, 150, 150);
-    doc.setLineWidth(0.3);
-    const xAxisStartX = chartAreaX + 2;
-    const xAxisEndX = xAxisStartX + 3 * (barWidth + barSpacing) - barSpacing;
-    doc.line(xAxisStartX, chartAreaY + chartAreaHeight, xAxisEndX, chartAreaY + chartAreaHeight);
-
-    // X-axis labels - scenario names only (values are shown above bars)
-    chartScenarios.forEach((scenario, barIndex) => {
-      const barX = chartAreaX + 2 + barIndex * (barWidth + barSpacing);
-
-      const scenarioLabel = scenario.name;
-
-      // Show scenario name below x-axis line
-      const labelY = chartAreaY + chartAreaHeight + 5;
-      addText(scenarioLabel, barX + barWidth / 2, labelY, 5, false, barWidth, 'center');
-    });
-  });
-
-  // Footer
-  const footerY = pageHeight - margin - 5;
-  doc.setFontSize(8);
-  doc.setTextColor(128, 128, 128);
-  doc.text('Gerado por PecuarIA - Calculadora de Resultado Pecuário', pageWidth / 2, footerY, { align: 'center' });
-
-  // Return PDF as base64 string
-  return doc.output('datauristring').split(',')[1]; // Remove data:application/pdf;base64, prefix
+  const doc = buildComparatorDoc(data);
+  return doc.output('datauristring').split(',')[1];
 }

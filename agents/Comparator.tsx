@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Slider from '../components/Slider';
 import { CattleCalculatorInputs, CalculationResults } from '../types';
-import { Edit2, Check, X, TrendingUp, Download, Save } from 'lucide-react';
+import { Edit2, Check, X, TrendingUp, Download, Save, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocation } from '../contexts/LocationContext';
 import { useClient } from '../contexts/ClientContext';
@@ -9,6 +9,7 @@ import { useFarm } from '../contexts/FarmContext';
 import { Toast } from '../components/Toast';
 import { generateComparatorPDF, generateComparatorPDFAsBase64 } from '../lib/generateReportPDF';
 import { saveComparatorReport } from '../lib/scenarios';
+import { normalizeCattleCalculatorInputs } from '../lib/cattleInputs';
 
 interface ComparatorProps {
   onToast?: (toast: Toast) => void;
@@ -26,6 +27,45 @@ interface Scenario {
 }
 
 import { calculateLivestockIRR, convertMonthlyToAnnualRate } from '../lib/calculations';
+
+const DIAS_POR_MES = 30.41667;
+
+function diasParaMesesDias(dias: number): string {
+  if (!Number.isFinite(dias) || dias <= 0) return '—';
+  const meses = Math.floor(dias / DIAS_POR_MES);
+  const diasResto = Math.round(dias % DIAS_POR_MES);
+  return `${meses} meses + ${diasResto} dias`;
+}
+
+function diasParaMesesDecimal(dias: number): string {
+  if (!Number.isFinite(dias) || dias <= 0) return '—';
+  const meses = dias / DIAS_POR_MES;
+  return `${meses.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses`;
+}
+
+function diasParaMesesBadge(dias: number): { number: string; unit: string } {
+  if (!Number.isFinite(dias) || dias <= 0) return { number: '—', unit: 'meses' };
+  const meses = dias / DIAS_POR_MES;
+  return {
+    number: meses.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+    unit: 'meses',
+  };
+}
+
+function getDesembolsoBadge(inputs: CattleCalculatorInputs): {
+  number: string | null;
+  unit: string | null;
+  title: string;
+} {
+  const denom = inputs.gmd * 10 * inputs.valorVenda;
+  if (denom <= 0) return { number: null, unit: null, title: '' };
+  const valor = (inputs.custoMensal / denom) * 100;
+  return {
+    number: valor.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+    unit: '%',
+    title: 'da @ para cada 100g de ganho. Ideal até 7%',
+  };
+}
 
 function calculateResults(inputs: CattleCalculatorInputs, country?: string): CalculationResults {
   const ARROBA_KG = 15;
@@ -133,6 +173,16 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
     lotacao: 1.5,
   };
 
+  const scenarioCTemplate: Scenario = {
+    id: 'C',
+    name: 'Cenário C (Comparação 2)',
+    inputs: { ...defaultInputs, pesoAbate: 580, valorVenda: 320, gmd: 1.0, custoMensal: 200 },
+    results: null,
+    color: 'orange',
+    colorLight: 'bg-orange-50',
+    colorBorder: 'border-orange-500',
+  };
+
   const defaultScenarios: Scenario[] = [
     {
       id: 'A',
@@ -152,25 +202,21 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       colorLight: 'bg-green-50',
       colorBorder: 'border-green-500',
     },
-    {
-      id: 'C',
-      name: 'Cenário C (Comparação 2)',
-      inputs: { ...defaultInputs, pesoAbate: 580, valorVenda: 320, gmd: 1.0, custoMensal: 200 },
-      results: null,
-      color: 'orange',
-      colorLight: 'bg-orange-50',
-      colorBorder: 'border-orange-500',
-    },
   ];
 
-  // Validar initialScenarios antes de usar
+  // Validar initialScenarios antes de usar (aceita 2 ou 3 cenários)
   const getValidatedScenarios = (): Scenario[] => {
-    if (!initialScenarios || !Array.isArray(initialScenarios) || initialScenarios.length !== 3) {
+    if (
+      !initialScenarios ||
+      !Array.isArray(initialScenarios) ||
+      initialScenarios.length < 2 ||
+      initialScenarios.length > 3
+    ) {
       return defaultScenarios;
     }
 
-    // Verificar se tem os IDs corretos
-    const hasValidIds = initialScenarios.every(s => s?.id && ['A', 'B', 'C'].includes(s.id));
+    const validIds = initialScenarios.length === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
+    const hasValidIds = initialScenarios.every(s => s?.id && validIds.includes(s.id));
     if (!hasValidIds) {
       console.warn('Invalid scenario IDs, using defaults');
       return defaultScenarios;
@@ -247,13 +293,10 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
     if (prevInputsKeyRef.current !== currentInputsKey) {
       prevInputsKeyRef.current = currentInputsKey;
       setScenarios(prev => {
-        // Garantir que temos exatamente 3 cenários únicos
         const uniqueScenarios = prev.filter((s, index, self) => index === self.findIndex(sc => sc.id === s.id));
-
-        if (uniqueScenarios.length !== 3) {
-          return prev; // Não atualizar se houver duplicatas
+        if (uniqueScenarios.length < 2 || uniqueScenarios.length > 3) {
+          return prev;
         }
-
         return prev.map(scenario => ({
           ...scenario,
           results: calculateResults(scenario.inputs, country),
@@ -261,6 +304,17 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       });
     }
   }, [scenarios, country]);
+
+  const handleAddScenarioC = () => {
+    if (scenarios.some(s => s.id === 'C')) return;
+    setScenarios(prev => [...prev, { ...scenarioCTemplate, name: '', inputs: { ...scenarioCTemplate.inputs } }]);
+    setEditingName('C');
+    setTempName('');
+  };
+
+  const handleRemoveScenarioC = () => {
+    setScenarios(prev => prev.filter(s => s.id !== 'C'));
+  };
 
   const handleInputChange = (scenarioId: 'A' | 'B' | 'C', key: keyof CattleCalculatorInputs, value: number) => {
     setScenarios(prev => prev.map(s => (s.id === scenarioId ? { ...s, inputs: { ...s.inputs, [key]: value } } : s)));
@@ -275,12 +329,24 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
   };
 
   const handleNameSave = (scenarioId: 'A' | 'B' | 'C') => {
-    setScenarios(prev => prev.map(s => (s.id === scenarioId ? { ...s, name: tempName || s.name } : s)));
+    setScenarios(prev =>
+      prev.map(s => {
+        if (s.id !== scenarioId) return s;
+        const finalName = tempName.trim() || (scenarioId === 'C' ? 'Cenário C' : s.name);
+        return { ...s, name: finalName };
+      })
+    );
     setEditingName(null);
     setTempName('');
   };
 
   const handleNameCancel = () => {
+    if (editingName === 'C') {
+      const scenarioC = scenarios.find(s => s.id === 'C');
+      if (scenarioC && !scenarioC.name.trim()) {
+        setScenarios(prev => prev.map(s => (s.id === 'C' ? { ...s, name: 'Cenário C' } : s)));
+      }
+    }
     setEditingName(null);
     setTempName('');
   };
@@ -288,20 +354,17 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
   // Apenas gera e baixa o PDF — NÃO persiste no banco (evita salvamento indevido de cenário)
   const handleDownloadClick = () => {
     try {
-      if (scenarios.length !== 3) {
+      if (scenarios.length < 2 || scenarios.length > 3) {
         onToast?.({
           id: Date.now().toString(),
-          message: 'É necessário ter 3 cenários para gerar o relatório',
+          message: 'É necessário ter 2 ou 3 cenários para gerar o relatório',
           type: 'error',
         });
         return;
       }
 
-      const scenarioA = scenarios.find(s => s.id === 'A');
-      const scenarioB = scenarios.find(s => s.id === 'B');
-      const scenarioC = scenarios.find(s => s.id === 'C');
-
-      if (!scenarioA || !scenarioB || !scenarioC || !scenarioA.results || !scenarioB.results || !scenarioC.results) {
+      const scenariosWithResults = scenarios.filter(s => s.results);
+      if (scenariosWithResults.length !== scenarios.length) {
         onToast?.({
           id: Date.now().toString(),
           message: 'Todos os cenários devem ter resultados calculados',
@@ -311,11 +374,12 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       }
 
       generateComparatorPDF({
-        scenarios: [
-          { id: 'A', name: scenarioA.name, inputs: scenarioA.inputs, results: scenarioA.results },
-          { id: 'B', name: scenarioB.name, inputs: scenarioB.inputs, results: scenarioB.results },
-          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results },
-        ],
+        scenarios: scenarios.map(s => ({
+          id: s.id,
+          name: s.name,
+          inputs: s.inputs,
+          results: s.results!,
+        })),
         userName: user?.name || user?.email || undefined,
         createdAt: new Date().toISOString(),
       });
@@ -356,38 +420,32 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
     try {
       const uniqueScenarios = scenarios.filter((s, index, self) => index === self.findIndex(sc => sc.id === s.id));
 
-      if (uniqueScenarios.length !== 3) {
-        throw new Error('É necessário ter exatamente 3 cenários para salvar o comparativo');
+      if (uniqueScenarios.length < 2 || uniqueScenarios.length > 3) {
+        throw new Error('É necessário ter 2 ou 3 cenários para salvar o comparativo');
       }
 
-      const scenarioA = uniqueScenarios.find(s => s.id === 'A');
-      const scenarioB = uniqueScenarios.find(s => s.id === 'B');
-      const scenarioC = uniqueScenarios.find(s => s.id === 'C');
-
-      if (!scenarioA || !scenarioB || !scenarioC || !scenarioA.results || !scenarioB.results || !scenarioC.results) {
+      const allHaveResults = uniqueScenarios.every(s => s.results);
+      if (!allHaveResults) {
         throw new Error('Todos os cenários devem ter resultados calculados');
       }
 
-      // Gerar o PDF como base64 (mesmo PDF que é gerado para download)
+      const scenariosPayload = uniqueScenarios.map(s => ({
+        id: s.id,
+        name: s.name,
+        inputs: s.inputs,
+        results: s.results!,
+      }));
+
       const pdfBase64 = generateComparatorPDFAsBase64({
-        scenarios: [
-          { id: 'A', name: scenarioA.name, inputs: scenarioA.inputs, results: scenarioA.results },
-          { id: 'B', name: scenarioB.name, inputs: scenarioB.inputs, results: scenarioB.results },
-          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results },
-        ],
+        scenarios: scenariosPayload,
         userName: user?.name || user?.email || undefined,
         createdAt: new Date().toISOString(),
       });
 
-      // Salvar o PDF E os dados dos cenários para permitir edição posterior
       const comparatorData = {
         type: 'comparator_pdf',
         pdf_base64: pdfBase64,
-        scenarios: [
-          { id: 'A', name: scenarioA.name, inputs: scenarioA.inputs, results: scenarioA.results },
-          { id: 'B', name: scenarioB.name, inputs: scenarioB.inputs, results: scenarioB.results },
-          { id: 'C', name: scenarioC.name, inputs: scenarioC.inputs, results: scenarioC.results },
-        ],
+        scenarios: scenariosPayload,
       };
 
       // Salvar o comparativo completo (PDF + dados dos cenários) - um único registro, sem cenário adicional
@@ -459,10 +517,23 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
     }
   };
 
+  const is2Scenarios = scenarios.length === 2;
+
   return (
-    <div className="h-full w-full max-w-full flex flex-col gap-1 overflow-hidden px-4 py-2 comparator-container">
-      {/* Header with Download and Save buttons */}
+    <div
+      className={`h-full w-full max-w-full flex flex-col gap-1 overflow-hidden px-4 py-2 comparator-container ${is2Scenarios ? 'comparator-2-scenarios' : ''}`}
+    >
+      {/* Header: Adicionar cenário C (quando 2 cenários) + Download + Salvar */}
       <div className="flex items-center justify-end gap-2 shrink-0 mb-0.5">
+        {scenarios.length === 2 && (
+          <button
+            onClick={handleAddScenarioC}
+            className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-ai-accent border border-ai-accent rounded hover:bg-ai-accent/10 transition-colors"
+          >
+            <Plus size={10} />
+            Adicionar cenário C
+          </button>
+        )}
         <button
           onClick={handleDownloadClick}
           className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors flex items-center gap-1"
@@ -484,9 +555,13 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
         )}
       </div>
 
-      {/* Scenarios Section */}
-      <div className="flex-[1.4] overflow-hidden overflow-x-hidden flex flex-col min-h-0">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3 flex-1 min-h-0 overflow-visible w-full">
+      {/* Scenarios Section - prioridade para premissas aparecerem completas */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col">
+        <div
+          className={`grid grid-cols-1 gap-2 md:gap-3 flex-1 min-h-0 overflow-visible w-full ${
+            scenarios.length === 3 ? 'md:grid-cols-2 xl:grid-cols-3' : 'md:grid-cols-2'
+          }`}
+        >
           {scenarios.map(scenario => {
             const colors = getColorClasses(scenario.id);
             return (
@@ -519,12 +594,23 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                   ) : (
                     <>
                       <h3 className={`text-[15px] font-semibold ${colors.text} truncate`}>{scenario.name}</h3>
-                      <button
-                        onClick={() => handleNameEdit(scenario.id)}
-                        className="p-0.5 text-ai-subtext hover:text-ai-text hover:bg-ai-surface rounded shrink-0"
-                      >
-                        <Edit2 size={12} />
-                      </button>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        {scenario.id === 'C' && (
+                          <button
+                            onClick={handleRemoveScenarioC}
+                            className="p-0.5 text-red-600 hover:bg-red-50 rounded"
+                            title="Remover cenário C"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleNameEdit(scenario.id)}
+                          className="p-0.5 text-ai-subtext hover:text-ai-text hover:bg-ai-surface rounded"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                      </div>
                     </>
                   )}
                 </div>
@@ -607,6 +693,22 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         unit="kg/dia"
                         onChange={v => handleInputChange(scenario.id, 'gmd', v)}
                         description="Ganho médio diário"
+                        labelBadgeNumber={diasParaMesesBadge(
+                          scenario.inputs.gmd > 0
+                            ? (scenario.inputs.pesoAbate - scenario.inputs.pesoCompra) / scenario.inputs.gmd
+                            : 0
+                        ).number}
+                        labelBadgeUnit={diasParaMesesBadge(
+                          scenario.inputs.gmd > 0
+                            ? (scenario.inputs.pesoAbate - scenario.inputs.pesoCompra) / scenario.inputs.gmd
+                            : 0
+                        ).unit}
+                        labelBadgePill
+                        labelBadgeTitle={diasParaMesesDias(
+                          scenario.inputs.gmd > 0
+                            ? (scenario.inputs.pesoAbate - scenario.inputs.pesoCompra) / scenario.inputs.gmd
+                            : 0
+                        )}
                       />
                       <Slider
                         index={7}
@@ -618,6 +720,10 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         unit={`${currencySymbol}/mês`}
                         onChange={v => handleInputChange(scenario.id, 'custoMensal', v)}
                         description="Desembolso por cabeça ao mês"
+                        labelBadgeNumber={getDesembolsoBadge(scenario.inputs).number ?? undefined}
+                        labelBadgeUnit={getDesembolsoBadge(scenario.inputs).unit ?? undefined}
+                        labelBadgePill
+                        labelBadgeTitle={getDesembolsoBadge(scenario.inputs).title}
                       />
                       <Slider
                         index={8}
@@ -639,215 +745,145 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
         </div>
       </div>
 
-      {/* Results Section */}
-      {scenarioA?.results && scenarioB?.results && scenarioC?.results && (
-        <div className="shrink-0 w-full">
+      {/* Results Section - compacta para dar espaço às premissas */}
+      {scenarioA?.results && scenarioB?.results && (!scenarioC || scenarioC?.results) && (
+        <div className="shrink-0 w-full pt-1">
           <div className="flex items-center gap-1.5 mb-1">
-            <TrendingUp size={14} className="text-ai-accent" />
+            <TrendingUp size={12} className="text-ai-accent shrink-0" />
             <h2 className="text-[10px] font-semibold text-ai-text">Resultados Projetados</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
+          <div
+            className={`grid gap-2 w-full ${
+              scenarios.length === 2 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-4'
+            }`}
+          >
             {/* Resultado por Boi */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">
+            <div className="bg-white rounded-lg border border-gray-200 p-2 shadow-sm">
+              <h3 className="text-[10px] font-bold text-gray-600 uppercase mb-1.5">
                 {country === 'PY' ? '1. Resultado por cabeça' : '1. Resultado por cabeça'}
               </h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-blue-700 font-medium">
-                    {scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:
-                  </span>
-                  <span className="text-sm font-bold text-ai-text">
-                    {scenarioA.results.resultadoPorBoi.toLocaleString('pt-BR', {
-                      minimumFractionDigits: country === 'PY' ? 0 : 2,
-                      maximumFractionDigits: country === 'PY' ? 0 : 2,
-                    })}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-green-700 font-medium">
-                    {scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">
-                      ↑ +{(scenarioB.results.resultadoPorBoi - scenarioA.results.resultadoPorBoi).toFixed(0)}
-                    </span>
-                    <span className="text-sm font-bold text-ai-text">
-                      {scenarioB.results.resultadoPorBoi.toLocaleString('pt-BR', {
-                        minimumFractionDigits: country === 'PY' ? 0 : 2,
-                        maximumFractionDigits: country === 'PY' ? 0 : 2,
-                      })}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-orange-700 font-medium">
-                    {scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">
-                      ↑ +{(scenarioC.results.resultadoPorBoi - scenarioA.results.resultadoPorBoi).toFixed(0)}
-                    </span>
-                    <span className="text-sm font-bold text-ai-text">
-                      {scenarioC.results.resultadoPorBoi.toLocaleString('pt-BR', {
-                        minimumFractionDigits: country === 'PY' ? 0 : 2,
-                        maximumFractionDigits: country === 'PY' ? 0 : 2,
-                      })}
-                    </span>
-                  </div>
-                </div>
+              <div className="space-y-1">
+                {scenarios.map(s => {
+                  const colors = getColorClasses(s.id);
+                  const delta =
+                    s.id !== 'A' && scenarioA?.results
+                      ? s.results!.resultadoPorBoi - scenarioA.results.resultadoPorBoi
+                      : null;
+                  return (
+                    <div key={s.id} className="flex items-center justify-between gap-1">
+                      <span className={`text-[10px] font-medium ${colors.text} truncate`}>
+                        {s.name.split(' ')[0]} {s.name.split(' ')[1]}:
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {delta != null && (
+                          <span className="text-[10px] text-green-600 font-medium">↑ +{delta.toFixed(0)}</span>
+                        )}
+                        <span className="text-xs font-bold text-ai-text shrink-0">
+                          {s.results!.resultadoPorBoi.toLocaleString('pt-BR', {
+                            minimumFractionDigits: country === 'PY' ? 0 : 2,
+                            maximumFractionDigits: country === 'PY' ? 0 : 2,
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             {/* TIR Mensal */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">
+            <div className="bg-white rounded-lg border border-gray-200 p-2 shadow-sm">
+              <h3 className="text-[10px] font-bold text-gray-600 uppercase mb-1.5">
                 {country === 'PY' ? '2. RETORNO MENSUAL' : '2. RETORNO MENSAL'}
               </h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-blue-700 font-medium">
-                    {scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:
-                  </span>
-                  <span className="text-sm font-bold text-ai-text">
-                    {scenarioA.results.resultadoMensal.toFixed(2)}% a.m.
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-green-700 font-medium">
-                    {scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">
-                      ↑ +{(scenarioB.results.resultadoMensal - scenarioA.results.resultadoMensal).toFixed(2)}%
-                    </span>
-                    <span className="text-sm font-bold text-ai-text">
-                      {scenarioB.results.resultadoMensal.toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-orange-700 font-medium">
-                    {scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">
-                      ↑ +{(scenarioC.results.resultadoMensal - scenarioA.results.resultadoMensal).toFixed(2)}%
-                    </span>
-                    <span className="text-sm font-bold text-ai-text">
-                      {scenarioC.results.resultadoMensal.toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
+              <div className="space-y-1">
+                {scenarios.map(s => {
+                  const colors = getColorClasses(s.id);
+                  const delta =
+                    s.id !== 'A' && scenarioA?.results
+                      ? s.results!.resultadoMensal - scenarioA.results.resultadoMensal
+                      : null;
+                  return (
+                    <div key={s.id} className="flex items-center justify-between gap-1">
+                      <span className={`text-[10px] font-medium ${colors.text} truncate`}>
+                        {s.name.split(' ')[0]} {s.name.split(' ')[1]}:
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {delta != null && (
+                          <span className="text-[10px] text-green-600 font-medium">↑ +{delta.toFixed(2)}%</span>
+                        )}
+                        <span className="text-xs font-bold text-ai-text shrink-0">
+                          {s.results!.resultadoMensal.toFixed(2)}%{s.id === 'A' ? ' a.m.' : ''}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             {/* Margem Líquida */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">
+            <div className="bg-white rounded-lg border border-gray-200 p-2 shadow-sm">
+              <h3 className="text-[10px] font-bold text-gray-600 uppercase mb-1.5">
                 {country === 'PY' ? '3. MARGEN NETO' : '3. MARGEM LÍQUIDA'}
               </h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-blue-700 font-medium">
-                    {scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:
-                  </span>
-                  <span className="text-sm font-bold text-ai-text">{scenarioA.results.margemVenda.toFixed(2)}%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-green-700 font-medium">
-                    {scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">
-                      ↑ +{(scenarioB.results.margemVenda - scenarioA.results.margemVenda).toFixed(2)}%
-                    </span>
-                    <span className="text-sm font-bold text-ai-text">{scenarioB.results.margemVenda.toFixed(2)}%</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-orange-700 font-medium">
-                    {scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">
-                      ↑ +{(scenarioC.results.margemVenda - scenarioA.results.margemVenda).toFixed(2)}%
-                    </span>
-                    <span className="text-sm font-bold text-ai-text">{scenarioC.results.margemVenda.toFixed(2)}%</span>
-                  </div>
-                </div>
+              <div className="space-y-1">
+                {scenarios.map(s => {
+                  const colors = getColorClasses(s.id);
+                  const delta =
+                    s.id !== 'A' && scenarioA?.results ? s.results!.margemVenda - scenarioA.results.margemVenda : null;
+                  return (
+                    <div key={s.id} className="flex items-center justify-between gap-1">
+                      <span className={`text-[10px] font-medium ${colors.text} truncate`}>
+                        {s.name.split(' ')[0]} {s.name.split(' ')[1]}:
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {delta != null && (
+                          <span className="text-[10px] text-green-600 font-medium">↑ +{delta.toFixed(2)}%</span>
+                        )}
+                        <span className="text-xs font-bold text-ai-text shrink-0">{s.results!.margemVenda.toFixed(2)}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             {/* Resultado por Hectare */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-xs font-bold text-gray-600 uppercase mb-3">
+            <div className="bg-white rounded-lg border border-gray-200 p-2 shadow-sm">
+              <h3 className="text-[10px] font-bold text-gray-600 uppercase mb-1.5">
                 {country === 'PY' ? '4. RESULTADO POR HECTÁREA' : '4. RESULTADO POR HECTARE'}
               </h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-blue-700 font-medium">
-                    {scenarioA.name.split(' ')[0]} {scenarioA.name.split(' ')[1]}:
-                  </span>
-                  <span
-                    className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}
-                  >
-                    {country === 'PY' ? currencySymbol : 'R$'}{' '}
-                    {scenarioA.results.resultadoPorHectareAno.toLocaleString('pt-BR', {
-                      minimumFractionDigits: country === 'PY' ? 0 : 2,
-                      maximumFractionDigits: country === 'PY' ? 0 : 2,
-                    })}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-green-700 font-medium">
-                    {scenarioB.name.split(' ')[0]} {scenarioB.name.split(' ')[1]}:
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">
-                      ↑ +
-                      {(
-                        (scenarioB.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) /
-                        1000
-                      ).toFixed(1)}
-                      k
-                    </span>
-                    <span
-                      className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}
-                    >
-                      {currencySymbol}{' '}
-                      {scenarioB.results.resultadoPorHectareAno.toLocaleString('pt-BR', {
-                        minimumFractionDigits: country === 'PY' ? 0 : 2,
-                        maximumFractionDigits: country === 'PY' ? 0 : 2,
-                      })}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-orange-700 font-medium">
-                    {scenarioC.name.split(' ')[0]} {scenarioC.name.split(' ')[1]}:
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-green-600 font-medium">
-                      ↑ +
-                      {(
-                        (scenarioC.results.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) /
-                        1000
-                      ).toFixed(1)}
-                      k
-                    </span>
-                    <span
-                      className={`${country === 'PY' ? 'text-xs' : 'text-sm'} font-bold text-ai-text whitespace-nowrap`}
-                    >
-                      {currencySymbol}{' '}
-                      {scenarioC.results.resultadoPorHectareAno.toLocaleString('pt-BR', {
-                        minimumFractionDigits: country === 'PY' ? 0 : 2,
-                        maximumFractionDigits: country === 'PY' ? 0 : 2,
-                      })}
-                    </span>
-                  </div>
-                </div>
+              <div className="space-y-1">
+                {scenarios.map(s => {
+                  const colors = getColorClasses(s.id);
+                  const delta =
+                    s.id !== 'A' && scenarioA?.results
+                      ? (s.results!.resultadoPorHectareAno - scenarioA.results.resultadoPorHectareAno) / 1000
+                      : null;
+                  return (
+                    <div key={s.id} className="flex items-center justify-between gap-1">
+                      <span className={`text-[10px] font-medium ${colors.text} truncate`}>
+                        {s.name.split(' ')[0]} {s.name.split(' ')[1]}:
+                      </span>
+                      <div className="flex items-center gap-1">
+                        {delta != null && (
+                          <span className="text-[10px] text-green-600 font-medium">↑ +{delta.toFixed(1)}k</span>
+                        )}
+                        <span
+                          className={`${country === 'PY' ? 'text-[10px]' : 'text-xs'} font-bold text-ai-text whitespace-nowrap shrink-0`}
+                        >
+                          {country === 'PY' ? currencySymbol : 'R$'}{' '}
+                          {s.results!.resultadoPorHectareAno.toLocaleString('pt-BR', {
+                            minimumFractionDigits: country === 'PY' ? 0 : 2,
+                            maximumFractionDigits: country === 'PY' ? 0 : 2,
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -988,6 +1024,15 @@ if (typeof document !== 'undefined') {
           max-width: 55% !important;
           flex-shrink: 1 !important;
           word-break: break-word !important;
+        }
+      }
+      /* Premissas 1-8: +30% fonte quando comparador tem 2 cenários */
+      .comparator-container.comparator-2-scenarios label {
+        font-size: 0.715rem !important;
+      }
+      @media (max-width: 768px) {
+        .comparator-container.comparator-2-scenarios label {
+          font-size: 0.845rem !important;
         }
       }
       .comparator-container .bg-gray-50 > div:first-child > div:last-child {

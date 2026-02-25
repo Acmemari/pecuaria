@@ -244,9 +244,18 @@ export const saveComparatorReport = async (
   if (
     !comparatorResult.scenarios ||
     !Array.isArray(comparatorResult.scenarios) ||
-    comparatorResult.scenarios.length !== 3
+    comparatorResult.scenarios.length < 2 ||
+    comparatorResult.scenarios.length > 3
   ) {
-    throw new Error('O comparativo deve conter exatamente 3 cenários');
+    throw new Error('O comparativo deve conter 2 ou 3 cenários');
+  }
+
+  const validIds = comparatorResult.scenarios.length === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
+  const hasValidIds = comparatorResult.scenarios.every(
+    (s: { id?: string }) => s?.id && validIds.includes(s.id),
+  );
+  if (!hasValidIds) {
+    throw new Error('IDs dos cenários inválidos (esperado A, B ou A, B, C)');
   }
 
   const { data, error } = await supabase

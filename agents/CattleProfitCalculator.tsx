@@ -20,6 +20,30 @@ interface CattleProfitCalculatorProps {
 
 import { calculateLivestockIRR, convertMonthlyToAnnualRate } from '../lib/calculations';
 
+const DIAS_POR_MES = 30.41667;
+
+function diasParaMesesDias(dias: number): string {
+  if (!Number.isFinite(dias) || dias <= 0) return '—';
+  const meses = Math.floor(dias / DIAS_POR_MES);
+  const diasResto = Math.round(dias % DIAS_POR_MES);
+  return `${meses} meses + ${diasResto} dias`;
+}
+
+function diasParaMesesDecimal(dias: number): string {
+  if (!Number.isFinite(dias) || dias <= 0) return '—';
+  const meses = dias / DIAS_POR_MES;
+  return `${meses.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} meses`;
+}
+
+function diasParaMesesBadge(dias: number): { number: string; unit: string } {
+  if (!Number.isFinite(dias) || dias <= 0) return { number: '—', unit: 'meses' };
+  const meses = dias / DIAS_POR_MES;
+  return {
+    number: meses.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+    unit: 'meses',
+  };
+}
+
 const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({
   initialInputs,
   onToast,
@@ -468,29 +492,16 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({
 
   if (!results) return <div className="p-4 md:p-10 text-center">Calculando...</div>;
 
-  // Indicador barra 7: Desembolso / (GMD × 10) / valor de venda da @ (em %). Escala: ≤6% verde, 6–7% amarelo, >7% vermelho
+  // Indicador barra 7: Desembolso / (GMD × 10) / valor de venda da @ (em %). Badge pill com número em destaque.
   const desembolsoBarra7 = (() => {
     const denom = inputs.gmd * 10 * inputs.valorVenda;
-    if (denom <= 0) return { text: null as string | null, style: undefined as React.CSSProperties | undefined };
+    if (denom <= 0) return { number: null as string | null, unit: null as string | null, title: '' };
     const valor = (inputs.custoMensal / denom) * 100;
-    const text = `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
-    const green = { bg: '#dcfce7', border: '#22c55e', color: '#166534' };
-    const yellow = { bg: '#fef9c3', border: '#eab308', color: '#854d0e' };
-    const red = { bg: '#fee2e2', border: '#ef4444', color: '#b91c1c' };
-    let style: React.CSSProperties;
-    if (valor <= 6) {
-      style = { backgroundColor: green.bg, border: `1px solid ${green.border}`, color: green.color };
-    } else if (valor < 7) {
-      const t = (valor - 6) / 1;
-      style = {
-        backgroundColor: `rgb(${Math.round(220 * (1 - t) + 254 * t)},${Math.round(252 * (1 - t) + 249 * t)},${Math.round(231 * (1 - t) + 195 * t)})`,
-        border: `1px solid rgb(${Math.round(34 * (1 - t) + 234 * t)},${Math.round(197 * (1 - t) + 179 * t)},${Math.round(94 * (1 - t) + 8 * t)})`,
-        color: `rgb(${Math.round(22 * (1 - t) + 133 * t)},${Math.round(101 * (1 - t) + 77 * t)},${Math.round(52 * (1 - t) + 14 * t)})`,
-      };
-    } else {
-      style = { backgroundColor: red.bg, border: `1px solid ${red.border}`, color: red.color };
-    }
-    return { text, style };
+    return {
+      number: valor.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+      unit: '%',
+      title: 'da @ para cada 100g de ganho. Ideal até 7%',
+    };
   })();
 
   return (
@@ -592,6 +603,16 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({
               onChange={v => handleInputChange('gmd', v)}
               highlightBorder={isInterdependentChanged}
               description="O que é: Ganho Médio Diário. É a velocidade de ganho de peso. Indica quantos quilos o animal engorda por dia na média de todo o período."
+              labelBadgeNumber={diasParaMesesBadge(
+                inputs.gmd > 0 ? (inputs.pesoAbate - inputs.pesoCompra) / inputs.gmd : 0
+              ).number}
+              labelBadgeUnit={diasParaMesesBadge(
+                inputs.gmd > 0 ? (inputs.pesoAbate - inputs.pesoCompra) / inputs.gmd : 0
+              ).unit}
+              labelBadgePill
+              labelBadgeTitle={diasParaMesesDias(
+                inputs.gmd > 0 ? (inputs.pesoAbate - inputs.pesoCompra) / inputs.gmd : 0
+              )}
             />
             <Slider
               index={7}
@@ -604,9 +625,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({
               onChange={v => handleInputChange('custoMensal', v)}
               highlightBorder={isGmdChanged}
               highlightColor="#DAA520"
-              labelBadge={desembolsoBarra7.text ?? undefined}
-              labelBadgeStyle={desembolsoBarra7.style}
-              labelBadgeTitle="% da @ para cada 100g de ganho. Ideal até 7%"
+              labelBadgeNumber={desembolsoBarra7.number ?? undefined}
+              labelBadgeUnit={desembolsoBarra7.unit ?? undefined}
+              labelBadgePill
+              labelBadgeTitle={desembolsoBarra7.title}
               description="O que é: É o desembolso total (custeios + investimentos) por cabeça/mês. Inclui nutrição (pasto/suplemento/ração), sanidade, mão de obra e custos fixos rateados. Apenas valor de aquisição do animal e pagamento de financiamentos não entram na conta. É utilizado o desembolso para que o foco seja na capacidade de geração de caixa e não no lucro contábil."
             />
             <Slider
