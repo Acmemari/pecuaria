@@ -59,6 +59,7 @@ const Slider: React.FC<SliderProps> = ({
   const percentage = ((value - min) / (max - min)) * 100;
   const uniqueId = useId().replace(/:/g, ''); // Remover caracteres inválidos para classe CSS se necessário
   const sliderClass = `slider-${uniqueId}`;
+  const sliderRangeId = `slider-range-${uniqueId}`;
 
   // Sincronizar inputValue quando value muda externamente (ex: slider)
   useEffect(() => {
@@ -145,12 +146,12 @@ const Slider: React.FC<SliderProps> = ({
 
   return (
     <div
-      className={`bg-gray-50 px-[0.35rem] py-[0.2rem] rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative overflow-visible ${sliderClass}`}
+      className={`bg-gray-50 px-[0.35rem] py-[0.19rem] rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative overflow-visible ${sliderClass}`}
     >
       {/* Cabeçalho: Label + Valor */}
-      <div className="flex justify-between items-start mb-[0.15rem] overflow-visible w-full min-w-0">
+      <div className="flex justify-between items-start mb-[0.14rem] overflow-visible w-full min-w-0">
         {/* Lado Esquerdo: Label */}
-        <label className="text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-0.5 flex-shrink-1 min-w-0 overflow-visible max-w-[75%] md:max-w-none">
+        <label htmlFor={sliderRangeId} className="text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-0.5 flex-shrink-1 min-w-0 overflow-visible max-w-[75%] md:max-w-none">
           {index && <span className="opacity-70 flex-shrink-0">{index}.</span>}
           <span className="truncate">{label}</span>
           {(labelBadge != null && labelBadge !== '') || (labelBadgeNumber != null && labelBadgeNumber !== '') ? (
@@ -218,8 +219,9 @@ const Slider: React.FC<SliderProps> = ({
       {/* Slider + Info Button na mesma linha */}
       <div className="flex items-center gap-2">
         {/* Slider Customizado */}
-        <div className="relative h-[1.1rem] flex items-center flex-1">
+        <div className="relative h-[1.05rem] flex items-center flex-1">
           <input
+            id={sliderRangeId}
             type="range"
             min={min}
             max={max}
@@ -227,10 +229,11 @@ const Slider: React.FC<SliderProps> = ({
             value={value}
             onChange={e => onChange(parseFloat(e.target.value))}
             className="w-full absolute z-20 opacity-0 cursor-pointer h-full custom-range-input"
+            aria-label={`${label}: ${formattedValue} ${cleanUnit}`}
           />
 
           {/* Visual Track */}
-          <div className="w-full h-[0.4rem] bg-gray-200 rounded-full overflow-hidden relative z-10 pointer-events-none">
+          <div className="w-full h-[0.38rem] bg-gray-200 rounded-full overflow-hidden relative z-10 pointer-events-none">
             {/* Progress Bar (Opcional, mas melhora UX) */}
             <div
               className="h-full bg-blue-200/50 absolute left-0 top-0 transition-all duration-75"
@@ -240,7 +243,7 @@ const Slider: React.FC<SliderProps> = ({
 
           {/* Visual Thumb - Segue o input real via CSS calc ou JS */}
           <div
-            className="absolute h-[0.75rem] w-[0.75rem] bg-white border-[2px] rounded-full shadow-md z-10 pointer-events-none transition-all duration-75 ease-out"
+            className="absolute h-[0.7rem] w-[0.7rem] bg-white border-[2px] rounded-full shadow-md z-10 pointer-events-none transition-all duration-75 ease-out"
             style={{
               left: `calc(${percentage}% + (${8 - percentage * 0.15}px))`, // Ajuste fino para centralizar
               transform: 'translateX(-50%)',
@@ -307,16 +310,16 @@ const Slider: React.FC<SliderProps> = ({
           outline: none;
         }
 
-        /* Webkit Slider Thumb (Chrome, Safari, Edge) */
+        /* Webkit Slider Thumb (Chrome, Safari, Edge) - matches visual thumb 0.7rem */
         .${sliderClass} input[type=range]::-webkit-slider-thumb {
           -webkit-appearance: none;
-          height: 14.4px;
-          width: 14.4px;
+          height: 0.7rem;
+          width: 0.7rem;
           border-radius: 50%;
           background: #ffffff;
           border: 2px solid ${highlightBorder ? highlightColor : '#2563eb'}; /* cor highlight ou blue-600 */
           cursor: pointer;
-          margin-top: -3.6px; /* Ajuste para alinhar com o track visual se necessário */
+          margin-top: -2.8px; /* Align with 0.38rem track */
           box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
         }
 
@@ -329,10 +332,10 @@ const Slider: React.FC<SliderProps> = ({
           border-radius: 9999px;
         }
 
-        /* Firefox Thumb */
+        /* Firefox Thumb - matches visual thumb 0.7rem */
         .${sliderClass} input[type=range]::-moz-range-thumb {
-          height: 14.4px;
-          width: 14.4px;
+          height: 0.7rem;
+          width: 0.7rem;
           border: 2px solid ${highlightBorder ? highlightColor : '#2563eb'};
           border-radius: 50%;
           background: #ffffff;

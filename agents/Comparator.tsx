@@ -524,7 +524,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       className={`h-full w-full max-w-full flex flex-col gap-0.5 overflow-hidden px-4 py-1.5 comparator-container ${is2Scenarios ? 'comparator-2-scenarios' : ''}`}
     >
       {/* Header: Adicionar cenário C (quando 2 cenários) + Download + Salvar */}
-      <div className="flex items-center justify-end gap-2 shrink-0 mb-0.25">
+      <div className="flex items-center justify-end gap-2 shrink-0 mb-0.5">
         {scenarios.length === 2 && (
           <button
             onClick={handleAddScenarioC}
@@ -556,7 +556,12 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       </div>
 
       {/* Scenarios Section - prioridade para premissas aparecerem completas */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col scrollbar-hide">
+      <div
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col scrollbar-hide"
+        tabIndex={0}
+        role="region"
+        aria-label="Cenários de comparação. Role para ver todos os cenários."
+      >
         <div
           className={`grid grid-cols-1 gap-2 md:gap-3 flex-1 min-h-0 overflow-visible w-full ${
             scenarios.length === 3 ? 'md:grid-cols-2 xl:grid-cols-3' : 'md:grid-cols-2'
@@ -617,7 +622,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
                 {/* Card apenas com sliders */}
                 <div
-                  className="bg-white rounded-lg border border-gray-200 p-1.5 md:p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full"
+                  className="bg-white rounded-lg border border-gray-200 p-[0.36rem] md:p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full"
                   style={{ overflowX: 'visible', overflowY: 'visible' }}
                 >
                   {/* Colored vertical bar on the left */}
@@ -627,7 +632,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                     style={{ overflowX: 'visible' }}
                   >
                     {/* Inputs */}
-                    <div className="flex flex-col gap-0.2 md:gap-0.2 flex-1 min-h-0 overflow-visible w-full">
+                    <div className="flex flex-col gap-[0.19rem] md:gap-[0.19rem] flex-1 min-h-0 overflow-visible w-full">
                       <Slider
                         index={1}
                         label="Peso de Compra"
@@ -1120,16 +1125,16 @@ if (typeof document !== 'undefined') {
         max-width: 100% !important;
       }
       .comparator-container input[type=range]::-webkit-slider-thumb {
-        height: 11px !important;
-        width: 11px !important;
+        height: 0.75rem !important;
+        width: 0.75rem !important;
         border-width: 2px !important;
         margin-top: -2.5px !important;
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1) !important;
       }
       @media (max-width: 768px) {
         .comparator-container input[type=range]::-webkit-slider-thumb {
-          height: 14px !important;
-          width: 14px !important;
+          height: 0.9rem !important;
+          width: 0.9rem !important;
           margin-top: -3px !important;
         }
       }
@@ -1142,15 +1147,15 @@ if (typeof document !== 'undefined') {
         }
       }
       .comparator-container input[type=range]::-moz-range-thumb {
-        height: 11px !important;
-        width: 11px !important;
+        height: 0.75rem !important;
+        width: 0.75rem !important;
         border-width: 2px !important;
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1) !important;
       }
       @media (max-width: 768px) {
         .comparator-container input[type=range]::-moz-range-thumb {
-          height: 14px !important;
-          width: 14px !important;
+          height: 0.9rem !important;
+          width: 0.9rem !important;
         }
       }
       .comparator-container input[type=range]::-moz-range-track {

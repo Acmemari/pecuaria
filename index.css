@@ -29,6 +29,10 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  /* Indica overflow com gradiente sutil na borda inferior (use junto com scrollbar-hide) */
+  .scrollbar-hide-fade {
+    box-shadow: inset 0 -0.75rem 0.5rem -0.25rem rgba(0, 0, 0, 0.04);
+  }
 }
 
 /* Global styles */
