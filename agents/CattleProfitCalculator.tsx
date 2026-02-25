@@ -506,10 +506,10 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({
 
   return (
     <>
-      <div className="h-full flex flex-col md:flex-row gap-2 md:gap-4 overflow-hidden">
+      <div className="h-full flex flex-col md:flex-row gap-1.5 md:gap-3 overflow-hidden">
         {/* Left Column: Inputs - Full width on mobile, fixed width on desktop */}
-        <div className="w-full md:w-[300px] flex flex-col shrink-0 md:h-full md:overflow-hidden overflow-x-visible overflow-y-auto">
-          <div className="mb-2 md:mb-3 flex items-center justify-between px-1">
+        <div className="w-full md:w-[300px] flex flex-col shrink-0 md:h-full md:overflow-hidden overflow-x-visible overflow-y-auto scrollbar-hide">
+          <div className="mb-1 md:mb-1.5 flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={18} className="text-ai-subtext" />
               <h2 className="text-sm font-semibold text-ai-text">Premissas</h2>
@@ -534,7 +534,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-1 overflow-y-auto overflow-x-visible md:overflow-visible md:pr-1 pb-1 gap-1.5">
+          <div className="flex flex-col md:flex-1 overflow-y-auto overflow-x-visible md:overflow-visible md:pr-1 pb-1 gap-0.5 scrollbar-hide">
             <Slider
               index={1}
               label="Peso de Compra"

@@ -145,12 +145,12 @@ const Slider: React.FC<SliderProps> = ({
 
   return (
     <div
-      className={`bg-gray-50 p-[0.45rem] rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative overflow-visible ${sliderClass}`}
+      className={`bg-gray-50 px-[0.35rem] py-[0.2rem] rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative overflow-visible ${sliderClass}`}
     >
       {/* Cabeçalho: Label + Valor */}
-      <div className="flex justify-between items-start mb-[0.45rem] overflow-visible w-full min-w-0">
+      <div className="flex justify-between items-start mb-[0.15rem] overflow-visible w-full min-w-0">
         {/* Lado Esquerdo: Label */}
-        <label className="text-[0.675rem] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1 flex-shrink-1 min-w-0 overflow-visible max-w-[60%] md:max-w-none">
+        <label className="text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-0.5 flex-shrink-1 min-w-0 overflow-visible max-w-[75%] md:max-w-none">
           {index && <span className="opacity-70 flex-shrink-0">{index}.</span>}
           <span className="truncate">{label}</span>
           {(labelBadge != null && labelBadge !== '') || (labelBadgeNumber != null && labelBadgeNumber !== '') ? (
@@ -218,7 +218,7 @@ const Slider: React.FC<SliderProps> = ({
       {/* Slider + Info Button na mesma linha */}
       <div className="flex items-center gap-2">
         {/* Slider Customizado */}
-        <div className="relative h-[1.35rem] flex items-center flex-1">
+        <div className="relative h-[1.1rem] flex items-center flex-1">
           <input
             type="range"
             min={min}
@@ -230,7 +230,7 @@ const Slider: React.FC<SliderProps> = ({
           />
 
           {/* Visual Track */}
-          <div className="w-full h-[0.45rem] bg-gray-200 rounded-full overflow-hidden relative z-10 pointer-events-none">
+          <div className="w-full h-[0.4rem] bg-gray-200 rounded-full overflow-hidden relative z-10 pointer-events-none">
             {/* Progress Bar (Opcional, mas melhora UX) */}
             <div
               className="h-full bg-blue-200/50 absolute left-0 top-0 transition-all duration-75"
@@ -240,7 +240,7 @@ const Slider: React.FC<SliderProps> = ({
 
           {/* Visual Thumb - Segue o input real via CSS calc ou JS */}
           <div
-            className="absolute h-[0.9rem] w-[0.9rem] bg-white border-[2px] rounded-full shadow-md z-10 pointer-events-none transition-all duration-75 ease-out"
+            className="absolute h-[0.75rem] w-[0.75rem] bg-white border-[2px] rounded-full shadow-md z-10 pointer-events-none transition-all duration-75 ease-out"
             style={{
               left: `calc(${percentage}% + (${8 - percentage * 0.15}px))`, // Ajuste fino para centralizar
               transform: 'translateX(-50%)',

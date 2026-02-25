@@ -521,10 +521,10 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
   return (
     <div
-      className={`h-full w-full max-w-full flex flex-col gap-1 overflow-hidden px-4 py-2 comparator-container ${is2Scenarios ? 'comparator-2-scenarios' : ''}`}
+      className={`h-full w-full max-w-full flex flex-col gap-0.5 overflow-hidden px-4 py-1.5 comparator-container ${is2Scenarios ? 'comparator-2-scenarios' : ''}`}
     >
       {/* Header: Adicionar cenário C (quando 2 cenários) + Download + Salvar */}
-      <div className="flex items-center justify-end gap-2 shrink-0 mb-0.5">
+      <div className="flex items-center justify-end gap-2 shrink-0 mb-0.25">
         {scenarios.length === 2 && (
           <button
             onClick={handleAddScenarioC}
@@ -556,7 +556,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
       </div>
 
       {/* Scenarios Section - prioridade para premissas aparecerem completas */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden flex flex-col scrollbar-hide">
         <div
           className={`grid grid-cols-1 gap-2 md:gap-3 flex-1 min-h-0 overflow-visible w-full ${
             scenarios.length === 3 ? 'md:grid-cols-2 xl:grid-cols-3' : 'md:grid-cols-2'
@@ -567,7 +567,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
             return (
               <div key={scenario.id} className="flex flex-col h-full">
                 {/* Scenario Header - FORA do card */}
-                <div className="flex items-center justify-between shrink-0 mb-1">
+                <div className="flex items-center justify-between shrink-0 mb-0.5">
                   {editingName === scenario.id ? (
                     <div className="flex items-center gap-1.5 flex-1">
                       <input
@@ -617,7 +617,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
                 {/* Card apenas com sliders */}
                 <div
-                  className="bg-white rounded-lg border border-gray-200 p-2 md:p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full"
+                  className="bg-white rounded-lg border border-gray-200 p-1.5 md:p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full"
                   style={{ overflowX: 'visible', overflowY: 'visible' }}
                 >
                   {/* Colored vertical bar on the left */}
@@ -627,7 +627,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                     style={{ overflowX: 'visible' }}
                   >
                     {/* Inputs */}
-                    <div className="flex flex-col gap-0.35 md:gap-0.35 flex-1 min-h-0 overflow-visible w-full">
+                    <div className="flex flex-col gap-0.2 md:gap-0.2 flex-1 min-h-0 overflow-visible w-full">
                       <Slider
                         index={1}
                         label="Peso de Compra"

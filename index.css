@@ -21,6 +21,14 @@
   .scrollbar-thin {
     scrollbar-width: thin;
   }
+  /* Oculta barra de rolagem mantendo scroll funcional */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Global styles */
