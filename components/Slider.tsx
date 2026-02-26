@@ -81,6 +81,13 @@ const Slider: React.FC<SliderProps> = ({
     };
   };
 
+  const roundToStep = (val: number, st: number): number => {
+    if (st >= 1) return Math.round(val);
+    const decimals = Math.max((st.toString().split('.')[1] || '').length, 1);
+    const steps = Math.round(val / st);
+    return parseFloat((steps * st).toFixed(decimals));
+  };
+
   const applyTypedValue = () => {
     // Aceitar vírgula (pt-BR) ou ponto como decimal
     let normalized = inputValue.trim();
@@ -95,7 +102,7 @@ const Slider: React.FC<SliderProps> = ({
     }
     const { validMin, validMax } = getValidRange();
     const clamped = Math.max(validMin, Math.min(validMax, parsed));
-    const rounded = step >= 1 ? Math.round(clamped) : Math.round(clamped / step) * step;
+    const rounded = roundToStep(clamped, step);
     const final = Math.max(min, Math.min(max, rounded));
     onChange(final);
     setInputValue(final.toString());

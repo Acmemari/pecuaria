@@ -620,19 +620,19 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                   )}
                 </div>
 
-                {/* Card apenas com sliders */}
+                {/* Card apenas com sliders (altura ~5% menor) */}
                 <div
-                  className="bg-white rounded-lg border border-gray-200 p-[0.36rem] md:p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full"
+                  className="bg-white rounded-lg border border-gray-200 py-[0.30rem] px-[0.36rem] md:py-[0.42rem] md:px-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full"
                   style={{ overflowX: 'visible', overflowY: 'visible' }}
                 >
                   {/* Colored vertical bar on the left */}
                   <div className={`absolute left-0 top-0 bottom-0 w-1 ${colors.accent} rounded-l-lg`}></div>
                   <div
-                    className="pl-2 md:pl-1 flex flex-col flex-1 min-h-0 overflow-visible w-full"
+                    className="pl-3 md:pl-2.5 flex flex-col flex-1 min-h-0 overflow-visible w-full min-w-0"
                     style={{ overflowX: 'visible' }}
                   >
                     {/* Inputs */}
-                    <div className="flex flex-col gap-[0.19rem] md:gap-[0.19rem] flex-1 min-h-0 overflow-visible w-full">
+                    <div className="flex flex-col gap-[0.12rem] md:gap-[0.12rem] flex-1 min-h-0 overflow-visible w-full">
                       <Slider
                         index={1}
                         label="Peso de Compra"
@@ -782,7 +782,11 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       </span>
                       <div className="flex items-center gap-1">
                         {delta != null && (
-                          <span className="text-[10px] text-green-600 font-medium">↑ +{delta.toFixed(0)}</span>
+                          <span
+                            className={`text-[10px] font-medium ${delta >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                          >
+                            {delta >= 0 ? `↑ +${Math.abs(delta).toFixed(0)}` : `↓ ${Math.abs(delta).toFixed(0)}`}
+                          </span>
                         )}
                         <span className="text-xs font-bold text-ai-text shrink-0">
                           {s.results!.resultadoPorBoi.toLocaleString('pt-BR', {
@@ -816,7 +820,11 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       </span>
                       <div className="flex items-center gap-1">
                         {delta != null && (
-                          <span className="text-[10px] text-green-600 font-medium">↑ +{delta.toFixed(2)}%</span>
+                          <span
+                            className={`text-[10px] font-medium ${delta >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                          >
+                            {delta >= 0 ? `↑ +${Math.abs(delta).toFixed(2)}%` : `↓ ${Math.abs(delta).toFixed(2)}%`}
+                          </span>
                         )}
                         <span className="text-xs font-bold text-ai-text shrink-0">
                           {s.results!.resultadoMensal.toFixed(2)}%{s.id === 'A' ? ' a.m.' : ''}
@@ -845,7 +853,11 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       </span>
                       <div className="flex items-center gap-1">
                         {delta != null && (
-                          <span className="text-[10px] text-green-600 font-medium">↑ +{delta.toFixed(2)}%</span>
+                          <span
+                            className={`text-[10px] font-medium ${delta >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                          >
+                            {delta >= 0 ? `↑ +${Math.abs(delta).toFixed(2)}%` : `↓ ${Math.abs(delta).toFixed(2)}%`}
+                          </span>
                         )}
                         <span className="text-xs font-bold text-ai-text shrink-0">{s.results!.margemVenda.toFixed(2)}%</span>
                       </div>
@@ -874,7 +886,11 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                       </span>
                       <div className="flex items-center gap-1">
                         {delta != null && (
-                          <span className="text-[10px] text-green-600 font-medium">↑ +{delta.toFixed(1)}k</span>
+                          <span
+                            className={`text-[10px] font-medium ${delta >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                          >
+                            {delta >= 0 ? `↑ +${Math.abs(delta).toFixed(1)}k` : `↓ ${Math.abs(delta).toFixed(1)}k`}
+                          </span>
                         )}
                         <span
                           className={`${country === 'PY' ? 'text-[10px]' : 'text-xs'} font-bold text-ai-text whitespace-nowrap shrink-0`}
