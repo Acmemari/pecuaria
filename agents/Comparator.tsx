@@ -320,19 +320,24 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
     setScenarios(prev => prev.map(s => (s.id === scenarioId ? { ...s, inputs: { ...s.inputs, [key]: value } } : s)));
   };
 
+  const defaultNames = ['Cenário A (Base)', 'Cenário B (Comparação 1)', 'Cenário C (Comparação 2)', 'Cenário C'];
+
   const handleNameEdit = (scenarioId: 'A' | 'B' | 'C') => {
     const scenario = scenarios.find(s => s.id === scenarioId);
     if (scenario) {
-      setTempName(scenario.name);
+      // Se o nome ainda é o padrão, limpar para facilitar a digitação
+      const isDefault = defaultNames.includes(scenario.name);
+      setTempName(isDefault ? '' : scenario.name);
       setEditingName(scenarioId);
     }
   };
 
   const handleNameSave = (scenarioId: 'A' | 'B' | 'C') => {
+    const fallbackNames: Record<string, string> = { A: 'Cenário A (Base)', B: 'Cenário B (Comparação 1)', C: 'Cenário C' };
     setScenarios(prev =>
       prev.map(s => {
         if (s.id !== scenarioId) return s;
-        const finalName = tempName.trim() || (scenarioId === 'C' ? 'Cenário C' : s.name);
+        const finalName = tempName.trim() || fallbackNames[scenarioId] || s.name;
         return { ...s, name: finalName };
       })
     );
@@ -579,6 +584,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         type="text"
                         value={tempName}
                         onChange={e => setTempName(e.target.value)}
+                        placeholder={`Digite o nome do cenário ${scenario.id}`}
                         className="flex-1 px-1.5 py-0.5 text-xs border border-ai-border rounded focus:outline-none focus:border-ai-accent"
                         onKeyDown={e => {
                           if (e.key === 'Enter') handleNameSave(scenario.id);
