@@ -146,10 +146,10 @@ const Slider: React.FC<SliderProps> = ({
 
   return (
     <div
-      className={`bg-gray-50 px-[0.35rem] py-[0.19rem] rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative overflow-visible ${sliderClass}`}
+      className={`bg-gray-50 px-[0.35rem] py-[0.12rem] rounded-lg border border-gray-100 hover:border-gray-200 transition-colors group relative overflow-visible ${sliderClass}`}
     >
       {/* Cabeçalho: Label + Valor */}
-      <div className="flex justify-between items-start mb-[0.14rem] overflow-visible w-full min-w-0">
+      <div className="flex justify-between items-start mb-[0.08rem] overflow-visible w-full min-w-0">
         {/* Lado Esquerdo: Label */}
         <label htmlFor={sliderRangeId} className="text-[0.65rem] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-0.5 flex-shrink-1 min-w-0 overflow-visible max-w-[75%] md:max-w-none">
           {index && <span className="opacity-70 flex-shrink-0">{index}.</span>}

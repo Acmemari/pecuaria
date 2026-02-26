@@ -628,7 +628,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
                 {/* Card apenas com sliders */}
                 <div
-                  className="bg-white rounded-lg border border-gray-200 p-[0.36rem] md:p-0.5 flex flex-col flex-1 min-h-0 overflow-visible relative w-full"
+                  className="bg-white rounded-lg border border-gray-200 p-[0.25rem] md:p-[0.3rem] flex flex-col flex-1 min-h-0 overflow-visible relative w-full"
                   style={{ overflowX: 'visible', overflowY: 'visible' }}
                 >
                   {/* Colored vertical bar on the left */}
@@ -638,7 +638,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                     style={{ overflowX: 'visible' }}
                   >
                     {/* Inputs */}
-                    <div className="flex flex-col gap-[0.19rem] md:gap-[0.19rem] flex-1 min-h-0 overflow-visible w-full">
+                    <div className="flex flex-col gap-px flex-1 min-h-0 overflow-visible w-full">
                       <Slider
                         index={1}
                         label="Peso de Compra"
