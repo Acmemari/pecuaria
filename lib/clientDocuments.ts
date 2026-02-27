@@ -1,9 +1,18 @@
 /**
  * Operações CRUD para documentos de clientes (mentoria)
  * Suporta PDF, WORD (doc, docx), Excel (xls, xlsx)
+ * v2: confidencialidade, versionamento, auditoria, tags
  */
 import { supabase } from './supabase';
-import { ClientDocument, DocumentCategory, DocumentFileType, DocumentUploadParams, DocumentFilter } from '../types';
+import {
+  ClientDocument,
+  ConfidentialityLevel,
+  DocumentCategory,
+  DocumentFileType,
+  DocumentUploadParams,
+  DocumentFilter,
+  DocumentAuditAction,
+} from '../types';
 import { logger } from './logger';
 
 const log = logger.withContext({ component: 'clientDocuments' });
@@ -21,6 +30,14 @@ const ALLOWED_MIME_TYPES: Record<string, DocumentFileType> = {
 };
 
 const ALLOWED_EXTENSIONS: DocumentFileType[] = ['pdf', 'docx', 'doc', 'xlsx', 'xls'];
+
+/** Expiração de URL assinada por nível de confidencialidade (em segundos) */
+const SIGNED_URL_EXPIRY: Record<ConfidentialityLevel, number> = {
+  publico: 3600, // 1 hora
+  interno: 1800, // 30 minutos
+  confidencial: 300, // 5 minutos
+  restrito: 120, // 2 minutos
+};
 
 /**
  * Valida o arquivo antes do upload
@@ -60,13 +77,91 @@ function generateStoragePath(clientId: string, originalName: string): string {
   return `${clientId}/${timestamp}_${randomId}_${safeName}.${ext}`;
 }
 
+// ---------------------------------------------------------------------------
+// Audit logging
+// ---------------------------------------------------------------------------
+
+/**
+ * Registra ação no log de auditoria imutável
+ */
+export async function logDocumentAction(
+  documentId: string,
+  action: DocumentAuditAction,
+  metadata?: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from('document_audit_log').insert({
+      document_id: documentId,
+      user_id: user.id,
+      action,
+      metadata: metadata || {},
+    });
+  } catch (err) {
+    // Audit log failures should not block the main operation
+    log.warn('logDocumentAction failed', {
+      action,
+      documentId,
+    });
+  }
+}
+
+/**
+ * Lista entradas de auditoria de um documento
+ */
+export async function getDocumentAuditLog(
+  documentId: string,
+): Promise<{ entries: Array<{ id: string; userId: string; action: DocumentAuditAction; metadata: Record<string, unknown>; createdAt: string }>; error?: string }> {
+  try {
+    const { data, error } = await supabase
+      .from('document_audit_log')
+      .select('id, user_id, action, metadata, created_at')
+      .eq('document_id', documentId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      return { entries: [], error: error.message };
+    }
+
+    return {
+      entries: (data || []).map((row: any) => ({
+        id: row.id,
+        userId: row.user_id,
+        action: row.action,
+        metadata: row.metadata,
+        createdAt: row.created_at,
+      })),
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Erro ao buscar auditoria';
+    return { entries: [], error: msg };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Upload
+// ---------------------------------------------------------------------------
+
 /**
  * Faz upload de um documento para o cliente
  */
 export async function uploadDocument(
   params: DocumentUploadParams,
 ): Promise<{ success: boolean; document?: ClientDocument; error?: string }> {
-  const { clientId, file, category = 'geral', description } = params;
+  const {
+    clientId,
+    file,
+    category = 'geral',
+    description,
+    confidentiality = 'interno',
+    tags = [],
+    versionGroupId,
+  } = params;
 
   try {
     // Validar arquivo
@@ -97,6 +192,28 @@ export async function uploadDocument(
       return { success: false, error: `Erro ao fazer upload: ${uploadError.message}` };
     }
 
+    // Determinar versão
+    let version = 1;
+    let finalVersionGroupId = versionGroupId;
+
+    if (versionGroupId) {
+      // Nova versão de documento existente: marcar versão anterior como não-corrente
+      const { data: prevVersions } = await supabase
+        .from('client_documents')
+        .select('version')
+        .eq('version_group_id', versionGroupId)
+        .order('version', { ascending: false })
+        .limit(1);
+
+      if (prevVersions && prevVersions.length > 0) {
+        version = prevVersions[0].version + 1;
+        await supabase
+          .from('client_documents')
+          .update({ is_current_version: false })
+          .eq('version_group_id', versionGroupId);
+      }
+    }
+
     // Inserir metadados na tabela
     const { data, error: dbError } = await supabase
       .from('client_documents')
@@ -110,6 +227,11 @@ export async function uploadDocument(
         storage_path: storagePath,
         category,
         description,
+        confidentiality,
+        version,
+        version_group_id: finalVersionGroupId || undefined, // DB trigger/default will handle null
+        is_current_version: true,
+        tags,
       })
       .select()
       .single();
@@ -121,16 +243,36 @@ export async function uploadDocument(
       return { success: false, error: `Erro ao salvar documento: ${dbError.message}` };
     }
 
-    return {
-      success: true,
-      document: mapDocumentFromDatabase(data),
-    };
+    // Se não havia version_group_id, setar para o próprio id (auto-referência)
+    if (!finalVersionGroupId) {
+      await supabase
+        .from('client_documents')
+        .update({ version_group_id: data.id })
+        .eq('id', data.id);
+      data.version_group_id = data.id;
+    }
+
+    const document = mapDocumentFromDatabase(data);
+
+    // Audit log
+    await logDocumentAction(document.id, versionGroupId ? 'new_version' : 'upload', {
+      file_name: file.name,
+      file_size: file.size,
+      version,
+      confidentiality,
+    });
+
+    return { success: true, document };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Erro desconhecido ao fazer upload';
     log.error('uploadDocument error', error instanceof Error ? error : new Error(msg));
     return { success: false, error: msg };
   }
 }
+
+// ---------------------------------------------------------------------------
+// List / Query
+// ---------------------------------------------------------------------------
 
 /**
  * Lista documentos de um cliente com filtros opcionais
@@ -139,17 +281,21 @@ export async function listDocuments(
   filter: DocumentFilter = {},
 ): Promise<{ documents: ClientDocument[]; error?: string }> {
   try {
-    // Não fazer join com auth.users (uploaded_by) - anon/authenticated não têm permissão.
-    // Apenas client_documents + clients.
     let query = supabase
       .from('client_documents')
       .select(
         `
         *,
-        clients(name)
+        clients(name),
+        contract_details(id, status, end_date, contract_value)
       `,
       )
       .order('created_at', { ascending: false });
+
+    // Por padrão, mostrar apenas versão corrente
+    if (filter.onlyCurrentVersion !== false) {
+      query = query.eq('is_current_version', true);
+    }
 
     // Aplicar filtros
     if (filter.clientId) {
@@ -161,8 +307,14 @@ export async function listDocuments(
     if (filter.fileType) {
       query = query.eq('file_type', filter.fileType);
     }
+    if (filter.confidentiality) {
+      query = query.eq('confidentiality', filter.confidentiality);
+    }
     if (filter.searchTerm) {
       query = query.or(`original_name.ilike.%${filter.searchTerm}%,description.ilike.%${filter.searchTerm}%`);
+    }
+    if (filter.tags && filter.tags.length > 0) {
+      query = query.contains('tags', filter.tags);
     }
 
     const { data, error } = await query;
@@ -172,11 +324,30 @@ export async function listDocuments(
       return { documents: [], error: error.message };
     }
 
-    const documents = (data || []).map(doc => ({
-      ...mapDocumentFromDatabase(doc as unknown as DatabaseDocument),
-      uploaderName: '—',
-      clientName: (doc as unknown as { clients?: { name?: string } }).clients?.name || 'Cliente',
-    }));
+    const documents = (data || []).map((doc: any) => {
+      const mapped = mapDocumentFromDatabase(doc as DatabaseDocument);
+      return {
+        ...mapped,
+        uploaderName: '—',
+        clientName: doc.clients?.name || 'Cliente',
+        contractDetails: doc.contract_details?.[0]
+          ? {
+              id: doc.contract_details[0].id,
+              documentId: mapped.id,
+              status: doc.contract_details[0].status,
+              endDate: doc.contract_details[0].end_date,
+              contractValue: doc.contract_details[0].contract_value,
+              currency: 'BRL',
+              parties: [],
+              autoRenew: false,
+              renewalReminderDays: 30,
+              relatedDocumentIds: [],
+              createdAt: '',
+              updatedAt: '',
+            }
+          : undefined,
+      };
+    });
 
     return { documents };
   } catch (error: unknown) {
@@ -187,11 +358,46 @@ export async function listDocuments(
 }
 
 /**
- * Obtém URL de download temporário para um documento
+ * Lista versões de um documento (pelo version_group_id)
  */
-export async function getDocumentUrl(storagePath: string): Promise<{ url?: string; error?: string }> {
+export async function getDocumentVersions(
+  versionGroupId: string,
+): Promise<{ versions: ClientDocument[]; error?: string }> {
   try {
-    const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(storagePath, 3600); // URL válida por 1 hora
+    const { data, error } = await supabase
+      .from('client_documents')
+      .select('*')
+      .eq('version_group_id', versionGroupId)
+      .order('version', { ascending: false });
+
+    if (error) {
+      return { versions: [], error: error.message };
+    }
+
+    return {
+      versions: (data || []).map((doc: any) => mapDocumentFromDatabase(doc as DatabaseDocument)),
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Erro ao buscar versões';
+    return { versions: [], error: msg };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Download
+// ---------------------------------------------------------------------------
+
+/**
+ * Obtém URL de download temporário para um documento
+ * Expiração varia conforme nível de confidencialidade
+ */
+export async function getDocumentUrl(
+  storagePath: string,
+  confidentiality: ConfidentialityLevel = 'interno',
+): Promise<{ url?: string; error?: string }> {
+  try {
+    const expirySeconds = SIGNED_URL_EXPIRY[confidentiality];
+    const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(storagePath, expirySeconds);
 
     if (error) {
       log.error('getDocumentUrl error', new Error(error.message));
@@ -205,6 +411,10 @@ export async function getDocumentUrl(storagePath: string): Promise<{ url?: strin
     return { error: msg };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Delete
+// ---------------------------------------------------------------------------
 
 /**
  * Exclui um documento (apenas analistas e admins)
@@ -222,12 +432,16 @@ export async function deleteDocument(documentId: string): Promise<{ success: boo
       return { success: false, error: 'Documento não encontrado' };
     }
 
+    // Audit log antes de excluir
+    await logDocumentAction(documentId, 'delete', {
+      storage_path: doc.storage_path,
+    });
+
     // Excluir do storage
     const { error: storageError } = await supabase.storage.from(BUCKET_NAME).remove([doc.storage_path]);
 
     if (storageError) {
       log.warn('deleteDocument storage error (file may already be removed)');
-      // Continuar mesmo com erro no storage (arquivo pode já ter sido removido)
     }
 
     // Excluir do banco
@@ -246,16 +460,42 @@ export async function deleteDocument(documentId: string): Promise<{ success: boo
   }
 }
 
+// ---------------------------------------------------------------------------
+// Update
+// ---------------------------------------------------------------------------
+
 export async function updateDocument(
   documentId: string,
-  updates: { category?: DocumentCategory; description?: string },
+  updates: {
+    category?: DocumentCategory;
+    description?: string;
+    confidentiality?: ConfidentialityLevel;
+    tags?: string[];
+  },
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const oldDoc = await supabase
+      .from('client_documents')
+      .select('confidentiality')
+      .eq('id', documentId)
+      .single();
+
     const { error } = await supabase.from('client_documents').update(updates).eq('id', documentId);
 
     if (error) {
       log.error('updateDocument error', new Error(error.message));
       return { success: false, error: error.message };
+    }
+
+    // Audit log
+    const metadata: Record<string, unknown> = { ...updates };
+    if (updates.confidentiality && oldDoc.data?.confidentiality !== updates.confidentiality) {
+      await logDocumentAction(documentId, 'confidentiality_change', {
+        from: oldDoc.data?.confidentiality,
+        to: updates.confidentiality,
+      });
+    } else {
+      await logDocumentAction(documentId, 'update_metadata', metadata);
     }
 
     return { success: true };
@@ -266,9 +506,10 @@ export async function updateDocument(
   }
 }
 
-/**
- * Mapeia documento do formato do banco para o tipo TypeScript
- */
+// ---------------------------------------------------------------------------
+// Database mapping
+// ---------------------------------------------------------------------------
+
 interface DatabaseDocument {
   id: string;
   client_id: string;
@@ -280,6 +521,12 @@ interface DatabaseDocument {
   storage_path: string;
   category: DocumentCategory;
   description?: string;
+  confidentiality: ConfidentialityLevel;
+  version: number;
+  version_group_id: string;
+  is_current_version: boolean;
+  tags: string[];
+  checksum?: string;
   created_at: string;
   updated_at: string;
 }
@@ -296,10 +543,20 @@ function mapDocumentFromDatabase(doc: DatabaseDocument): ClientDocument {
     storagePath: doc.storage_path,
     category: doc.category,
     description: doc.description,
+    confidentiality: doc.confidentiality || 'interno',
+    version: doc.version || 1,
+    versionGroupId: doc.version_group_id || doc.id,
+    isCurrentVersion: doc.is_current_version ?? true,
+    tags: doc.tags || [],
+    checksum: doc.checksum,
     createdAt: doc.created_at,
     updatedAt: doc.updated_at,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Helpers / Labels
+// ---------------------------------------------------------------------------
 
 /**
  * Formata o tamanho do arquivo para exibição
@@ -358,4 +615,24 @@ export const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   financeiro: 'Financeiro',
   tecnico: 'Técnico',
   outro: 'Outro',
+};
+
+/**
+ * Labels para níveis de confidencialidade
+ */
+export const CONFIDENTIALITY_LABELS: Record<ConfidentialityLevel, string> = {
+  publico: 'Público',
+  interno: 'Interno',
+  confidencial: 'Confidencial',
+  restrito: 'Restrito',
+};
+
+/**
+ * Cores para badges de confidencialidade
+ */
+export const CONFIDENTIALITY_COLORS: Record<ConfidentialityLevel, string> = {
+  publico: 'bg-green-100 text-green-800',
+  interno: 'bg-blue-100 text-blue-800',
+  confidencial: 'bg-orange-100 text-orange-800',
+  restrito: 'bg-red-100 text-red-800',
 };

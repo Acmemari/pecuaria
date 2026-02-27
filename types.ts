@@ -238,6 +238,19 @@ export interface ClientOwner {
 
 export type DocumentCategory = 'geral' | 'contrato' | 'relatorio' | 'financeiro' | 'tecnico' | 'outro';
 export type DocumentFileType = 'pdf' | 'docx' | 'doc' | 'xlsx' | 'xls';
+export type ConfidentialityLevel = 'publico' | 'interno' | 'confidencial' | 'restrito';
+export type ContractStatus = 'rascunho' | 'revisao' | 'aprovado' | 'assinado' | 'arquivado' | 'expirado' | 'cancelado';
+export type DocumentAuditAction =
+  | 'upload'
+  | 'download'
+  | 'view'
+  | 'update_metadata'
+  | 'new_version'
+  | 'delete'
+  | 'restore'
+  | 'status_change'
+  | 'share'
+  | 'confidentiality_change';
 
 export interface ClientDocument {
   id: string;
@@ -250,11 +263,57 @@ export interface ClientDocument {
   storagePath: string;
   category: DocumentCategory;
   description?: string;
+  confidentiality: ConfidentialityLevel;
+  version: number;
+  versionGroupId: string;
+  isCurrentVersion: boolean;
+  tags: string[];
+  checksum?: string;
   createdAt: string;
   updatedAt: string;
   // Campos calculados/join
   uploaderName?: string;
   clientName?: string;
+  contractDetails?: ContractDetails;
+}
+
+export interface ContractDetails {
+  id: string;
+  documentId: string;
+  status: ContractStatus;
+  startDate?: string;
+  endDate?: string;
+  signedDate?: string;
+  contractValue?: number;
+  currency: string;
+  parties: ContractParty[];
+  autoRenew: boolean;
+  renewalPeriodMonths?: number;
+  renewalReminderDays: number;
+  relatedDocumentIds: string[];
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractParty {
+  name: string;
+  role: 'contratante' | 'contratado' | 'testemunha' | 'fiador';
+  email?: string;
+  signedAt?: string;
+}
+
+export interface DocumentAuditEntry {
+  id: string;
+  documentId: string;
+  userId: string;
+  action: DocumentAuditAction;
+  metadata: Record<string, unknown>;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+  // Campos calculados/join
+  userName?: string;
 }
 
 export interface DocumentUploadParams {
@@ -262,6 +321,9 @@ export interface DocumentUploadParams {
   file: File;
   category?: DocumentCategory;
   description?: string;
+  confidentiality?: ConfidentialityLevel;
+  tags?: string[];
+  versionGroupId?: string; // para upload de nova versão
 }
 
 export interface DocumentFilter {
@@ -269,4 +331,8 @@ export interface DocumentFilter {
   category?: DocumentCategory;
   fileType?: DocumentFileType;
   searchTerm?: string;
+  confidentiality?: ConfidentialityLevel;
+  tags?: string[];
+  contractStatus?: ContractStatus;
+  onlyCurrentVersion?: boolean;
 }
