@@ -43,10 +43,10 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ form, onChange, on
         className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text resize-none"
       />
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-ai-text mb-1">Data inicial</label>
-        <DateInputBR value={form.start_date} onChange={v => onChange({ ...form, start_date: v })} />
+        <DateInputBR value={form.start_date} onChange={v => onChange({ ...form, start_date: v })} className="min-w-[160px]" />
       </div>
       <div>
         <label className="block text-sm font-medium text-ai-text mb-1">Data final</label>
@@ -54,6 +54,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({ form, onChange, on
           value={form.end_date}
           onChange={v => onChange({ ...form, end_date: v })}
           min={form.start_date || undefined}
+          className="min-w-[160px]"
         />
       </div>
     </div>

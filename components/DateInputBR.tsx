@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { ptBR } from 'date-fns/locale';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -70,6 +71,7 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
 
   const [text, setText] = useState(fmtBR(selected));
   const [showCal, setShowCal] = useState(false);
+  const [calPosition, setCalPosition] = useState({ top: 0, left: 0 });
   const wrapRef = useRef<HTMLDivElement>(null);
 
   // Sincroniza texto quando value externo muda
@@ -77,12 +79,27 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
     setText(fmtBR(selected));
   }, [selected]);
 
+  // Posiciona o calendário ao abrir
+  useEffect(() => {
+    if (!showCal || !wrapRef.current) return;
+    const rect = wrapRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const calHeight = 330;
+    const showAbove = spaceBelow < calHeight && rect.top > calHeight;
+    setCalPosition({
+      top: showAbove ? rect.top - calHeight - 4 : rect.bottom + 4,
+      left: rect.left,
+    });
+  }, [showCal]);
+
   // Fecha calendário ao clicar fora
   useEffect(() => {
     if (!showCal) return;
     const handler = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setShowCal(false);
+      const target = e.target as Node;
+      if (wrapRef.current && !wrapRef.current.contains(target)) {
+        const calEl = document.querySelector('.react-datepicker');
+        if (!calEl?.contains(target)) setShowCal(false);
       }
     };
     document.addEventListener('mousedown', handler);
@@ -126,12 +143,13 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
       <input
         id={id}
         type="text"
+        inputMode="numeric"
         value={text}
         disabled={disabled}
         required={required}
         placeholder={placeholder}
         autoComplete="off"
-        className="w-full pl-3 pr-10 py-2 border border-ai-border rounded-md bg-ai-surface text-ai-text text-sm focus:outline-none focus:ring-2 focus:ring-ai-accent/20 transition-all placeholder:text-ai-subtext/40"
+        className="w-full min-h-[44px] pl-3 pr-11 py-2.5 border border-ai-border rounded-md bg-ai-surface text-ai-text text-base focus:outline-none focus:ring-2 focus:ring-ai-accent/20 transition-all placeholder:text-ai-subtext/60"
         onChange={e => {
           const m = mask(e.target.value);
           setText(m);
@@ -152,32 +170,38 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
       <button
         type="button"
         disabled={disabled}
-        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded text-ai-subtext/60 hover:text-ai-accent hover:bg-ai-surface2 transition-colors"
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2 rounded text-ai-subtext/60 hover:text-ai-accent hover:bg-ai-surface2 transition-colors"
         title="Abrir calendário"
         onClick={() => setShowCal(p => !p)}
       >
-        <CalendarIcon size={16} />
+        <CalendarIcon size={18} />
       </button>
 
-      {/* Popup do calendário */}
-      {showCal && (
-        <div className="absolute z-[9999] mt-1 left-0">
-          <DatePicker
-            selected={selected}
-            onChange={(date: Date | null) => {
-              if (date) {
-                onChange(toIso(date));
-                setText(fmtBR(date));
-              }
-              setShowCal(false);
-            }}
-            inline
-            locale="pt-BR"
-            minDate={minD || undefined}
-            maxDate={maxD || undefined}
-          />
-        </div>
-      )}
+      {/* Popup do calendário – renderizado em portal para não ser cortado por overflow */}
+      {showCal &&
+        typeof document !== 'undefined' &&
+        ReactDOM.createPortal(
+          <div
+            className="fixed z-[10001]"
+            style={{ top: calPosition.top, left: calPosition.left }}
+          >
+            <DatePicker
+              selected={selected}
+              onChange={(date: Date | null) => {
+                if (date) {
+                  onChange(toIso(date));
+                  setText(fmtBR(date));
+                }
+                setShowCal(false);
+              }}
+              inline
+              locale="pt-BR"
+              minDate={minD || undefined}
+              maxDate={maxD || undefined}
+            />
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

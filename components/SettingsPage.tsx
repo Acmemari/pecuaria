@@ -1148,13 +1148,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                   <td className="px-4 py-3 text-sm text-ai-text">{company.name}</td>
                   <td className="px-4 py-3 text-sm text-ai-subtext">
                     <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        company.plan === 'enterprise'
+                      className={`px-2 py-1 rounded text-xs ${company.plan === 'enterprise'
                           ? 'bg-purple-100 text-purple-700'
                           : company.plan === 'pro'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-gray-100 text-gray-700'
-                      }`}
+                        }`}
                     >
                       {company.plan === 'enterprise'
                         ? 'Enterprise'
@@ -1165,13 +1164,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                   </td>
                   <td className="px-4 py-3 text-sm text-ai-subtext">
                     <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        company.status === 'active'
+                      className={`px-2 py-1 rounded text-xs ${company.status === 'active'
                           ? 'bg-green-100 text-green-700'
                           : company.status === 'inactive'
                             ? 'bg-red-100 text-red-700'
                             : 'bg-yellow-100 text-yellow-700'
-                      }`}
+                        }`}
                     >
                       {company.status === 'active' ? 'Ativo' : company.status === 'inactive' ? 'Inativo' : 'Pendente'}
                     </span>
@@ -1223,11 +1221,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
             <button
               key={theme.value}
               onClick={() => setAppearance(prev => ({ ...prev, theme: theme.value as any }))}
-              className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${
-                appearance.theme === theme.value
+              className={`p-4 border rounded-lg flex flex-col items-center gap-2 transition-colors ${appearance.theme === theme.value
                   ? 'border-ai-accent bg-ai-accent/10'
                   : 'border-ai-border bg-white hover:border-ai-subtext'
-              }`}
+                }`}
             >
               {theme.icon}
               <span className="text-sm font-medium text-ai-text">{theme.label}</span>
@@ -1259,8 +1256,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
           className="w-full px-4 py-2 border border-ai-border rounded-lg bg-white text-ai-text focus:outline-none focus:ring-2 focus:ring-ai-accent"
         >
           <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-          <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-          <option value="YYYY-MM-DD">YYYY-MM-DD</option>
         </select>
       </div>
 
@@ -1306,14 +1301,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         </div>
         <button
           onClick={() => setPrivacy(prev => ({ ...prev, dataSharing: !prev.dataSharing }))}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            privacy.dataSharing ? 'bg-ai-accent' : 'bg-gray-300'
-          }`}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${privacy.dataSharing ? 'bg-ai-accent' : 'bg-gray-300'
+            }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              privacy.dataSharing ? 'translate-x-6' : 'translate-x-1'
-            }`}
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${privacy.dataSharing ? 'translate-x-6' : 'translate-x-1'
+              }`}
           />
         </button>
       </div>
@@ -1788,22 +1781,20 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                   <button
                     type="button"
                     onClick={() => setQuestionForm({ ...questionForm, positiveAnswer: 'Sim' })}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                      questionForm.positiveAnswer === 'Sim'
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${questionForm.positiveAnswer === 'Sim'
                         ? 'bg-green-100 border-2 border-green-500 text-green-700'
                         : 'bg-gray-100 border-2 border-gray-300 text-gray-700 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     Sim
                   </button>
                   <button
                     type="button"
                     onClick={() => setQuestionForm({ ...questionForm, positiveAnswer: 'Não' })}
-                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
-                      questionForm.positiveAnswer === 'Não'
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${questionForm.positiveAnswer === 'Não'
                         ? 'bg-green-100 border-2 border-green-500 text-green-700'
                         : 'bg-gray-100 border-2 border-gray-300 text-gray-700 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     Não
                   </button>
@@ -1823,11 +1814,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                       key={type}
                       type="button"
                       onClick={() => handleToggleApplicableType(type)}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        questionForm.applicableTypes.includes(type)
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${questionForm.applicableTypes.includes(type)
                           ? 'bg-ai-accent text-white'
                           : 'bg-gray-100 border-2 border-gray-300 text-gray-700 hover:bg-gray-200'
-                      }`}
+                        }`}
                     >
                       {type}
                     </button>
@@ -2012,9 +2002,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === tab.id ? 'bg-ai-accent text-white' : 'text-ai-text hover:bg-ai-surface2'
-                  }`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.id ? 'bg-ai-accent text-white' : 'text-ai-text hover:bg-ai-surface2'
+                    }`}
                 >
                   {tab.icon}
                   {tab.label}

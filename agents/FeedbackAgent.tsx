@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { useFarm } from '../contexts/FarmContext';
 import { fetchPeople, type Person } from '../lib/people';
 import { saveFeedback } from '../lib/feedbacks';
-
+import DateInputBR from '../components/DateInputBR';
 interface FeedbackAgentProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
 }
@@ -454,11 +454,10 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
 
           <div className="space-y-3">
             <label className="block text-sm text-ai-text">Data do ocorrido</label>
-            <input
-              type="date"
+            <DateInputBR
               className={fieldClass}
               value={form.eventDate || ''}
-              onChange={e => setForm(p => ({ ...p, eventDate: e.target.value }))}
+              onChange={v => setForm(p => ({ ...p, eventDate: v }))}
             />
           </div>
 
@@ -477,11 +476,10 @@ const FeedbackAgent: React.FC<FeedbackAgentProps> = ({ onToast }) => {
               <label className="block text-sm text-ai-text">Prejuízos para a fazenda e pessoais</label>
               <button
                 type="button"
-                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-all ${
-                  genDamagesLoading
-                    ? 'text-ai-subtext cursor-not-allowed'
-                    : 'text-ai-accent hover:bg-ai-accent/10 active:scale-95'
-                }`}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-all ${genDamagesLoading
+                  ? 'text-ai-subtext cursor-not-allowed'
+                  : 'text-ai-accent hover:bg-ai-accent/10 active:scale-95'
+                  }`}
                 onClick={handleGenerateDamages}
                 disabled={genDamagesLoading}
                 title="Gerar prejuízos com IA"
