@@ -987,6 +987,18 @@ const AppContent: React.FC = () => {
                 Voltar
               </button>
             )}
+            {((activeAgentId === 'cadastros' && cadastroView === 'farm') || activeAgentId === 'farm-management') &&
+              !isFarmFormView && (
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('farmNewFarm'));
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-ai-accent text-white rounded-md hover:bg-ai-accent/90 transition-colors text-sm"
+                >
+                  <Plus size={16} />
+                  Nova Fazenda
+                </button>
+              )}
             {activeAgentId === 'cadastros' && cadastroView !== 'desktop' && (
               <button
                 onClick={() => setCadastroView('desktop')}

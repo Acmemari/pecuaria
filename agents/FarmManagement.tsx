@@ -831,10 +831,10 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       updatedFarms = farms.map(farm =>
         farm.id === editingFarm.id
           ? ({
-              ...farm,
-              ...farmData,
-              updatedAt: now,
-            } as Farm)
+            ...farm,
+            ...farmData,
+            updatedAt: now,
+          } as Farm)
           : farm,
       );
     } else {
@@ -1041,7 +1041,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     window.dispatchEvent(new CustomEvent('farmCancelForm'));
   };
 
-  // Escutar evento de cancelamento da barra superior
+  // Escutar evento de cancelamento ou criação da barra superior
   useEffect(() => {
     const handleCancelForm = () => {
       if (view === 'form') {
@@ -1051,9 +1051,17 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       }
     };
 
+    const handleNewFarm = () => {
+      resetForm();
+      setIsCreatingNew(true);
+      setView('form');
+    };
+
     window.addEventListener('farmCancelForm', handleCancelForm);
+    window.addEventListener('farmNewFarm', handleNewFarm);
     return () => {
       window.removeEventListener('farmCancelForm', handleCancelForm);
+      window.removeEventListener('farmNewFarm', handleNewFarm);
     };
   }, [view]);
 
@@ -1072,17 +1080,6 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         <div className="h-full flex flex-col p-4 md:p-6">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-ai-text">Cadastro de Fazendas</h1>
-            <button
-              onClick={() => {
-                resetForm();
-                setIsCreatingNew(true);
-                setView('form');
-              }}
-              className="px-4 py-2 bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors flex items-center gap-2"
-            >
-              <Plus size={18} />
-              Nova Fazenda
-            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-1 overflow-y-auto content-start">
@@ -1187,9 +1184,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                     }
                   }}
                   placeholder="Ex: Fazenda Santa Maria"
-                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
-                    errors.name ? 'border-red-500' : 'border-ai-border'
-                  }`}
+                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${errors.name ? 'border-red-500' : 'border-ai-border'
+                    }`}
                 />
                 {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
               </div>
@@ -1219,9 +1215,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                       setErrors({ ...errors, productionSystem: '' });
                     }
                   }}
-                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
-                    errors.productionSystem ? 'border-red-500' : 'border-ai-border'
-                  } bg-white`}
+                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${errors.productionSystem ? 'border-red-500' : 'border-ai-border'
+                    } bg-white`}
                 >
                   <option value="">Selecione um sistema</option>
                   <option value="Cria">Cria</option>
@@ -1260,9 +1255,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                     }
                   }}
                   disabled={!isStateRequired}
-                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
-                    errors.state ? 'border-red-500' : 'border-ai-border'
-                  } ${!isStateRequired ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${errors.state ? 'border-red-500' : 'border-ai-border'
+                    } ${!isStateRequired ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                 >
                   <option value="">{isStateRequired ? 'Selecione o estado' : 'N/A'}</option>
                   {isStateRequired &&
@@ -1289,9 +1283,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                     }
                   }}
                   placeholder="Digite a cidade"
-                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${
-                    errors.city ? 'border-red-500' : 'border-ai-border'
-                  }`}
+                  className={`w-full px-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent ${errors.city ? 'border-red-500' : 'border-ai-border'
+                    }`}
                 />
                 {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
               </div>
@@ -1304,9 +1297,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                   Dimensões da Fazenda (Hectares)
                 </h3>
                 <p
-                  className={`text-xs font-semibold ${
-                    isTotalAreaValid() && formData.totalArea ? 'text-green-600' : 'text-ai-subtext'
-                  }`}
+                  className={`text-xs font-semibold ${isTotalAreaValid() && formData.totalArea ? 'text-green-600' : 'text-ai-subtext'
+                    }`}
                 >
                   SOMA TOTAL: {formatNumberForDisplay(calculateTotalAreaSum())} ha
                 </p>
@@ -1323,13 +1315,12 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                     onBlur={() => handleNumericBlur('totalArea')}
                     placeholder="0,00"
                     inputMode="decimal"
-                    className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
-                      errors.totalArea
+                    className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${errors.totalArea
                         ? 'border-red-500'
                         : isTotalAreaValid() && formData.totalArea
                           ? 'border-green-500'
                           : 'border-ai-border'
-                    }`}
+                      }`}
                   />
                   {errors.totalArea && <p className="text-red-500 text-xs mt-1">{errors.totalArea}</p>}
                 </div>
@@ -1527,9 +1518,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                       }}
                       placeholder="0"
                       inputMode="numeric"
-                      className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
-                        errors.operationSum ? 'border-red-500' : 'border-ai-border'
-                      }`}
+                      className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${errors.operationSum ? 'border-red-500' : 'border-ai-border'
+                        }`}
                     />
                   </div>
                 </div>
@@ -1553,9 +1543,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                       }}
                       placeholder="0"
                       inputMode="numeric"
-                      className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
-                        errors.operationSum ? 'border-red-500' : 'border-ai-border'
-                      }`}
+                      className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${errors.operationSum ? 'border-red-500' : 'border-ai-border'
+                        }`}
                     />
                   </div>
                 </div>
@@ -1579,9 +1568,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                       }}
                       placeholder="0"
                       inputMode="numeric"
-                      className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
-                        errors.operationSum ? 'border-red-500' : 'border-ai-border'
-                      }`}
+                      className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${errors.operationSum ? 'border-red-500' : 'border-ai-border'
+                        }`}
                     />
                   </div>
                 </div>
