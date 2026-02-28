@@ -1,152 +1,212 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { User, AuthContextType, Plan } from '../types';
 import { supabase } from '../lib/supabase';
 import { loadUserProfile } from '../lib/auth/loadUserProfile';
 import { createUserProfileIfMissing } from '../lib/auth/createProfile';
 import { checkPermission as checkPermissionUtil, checkLimit as checkLimitUtil } from '../lib/auth/permissions';
-import { mapUserProfile } from '../lib/auth/mapUserProfile';
 import { logger } from '../lib/logger';
 
 const log = logger.withContext({ component: 'AuthContext' });
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Builds a minimal User object from Supabase session metadata.
+ * Used as an immediate fallback while the full profile loads from the DB.
+ */
+function buildFallbackUser(sessionUser: {
+  id: string;
+  email?: string;
+  user_metadata?: Record<string, unknown>;
+}): User {
+  const meta = sessionUser.user_metadata ?? {};
+  return {
+    id: sessionUser.id,
+    email: sessionUser.email ?? '',
+    name: (meta.name as string) || (meta.full_name as string) || 'Usuário',
+    role: (meta.role === 'admin' ? 'admin' : 'client') as 'admin' | 'client',
+    plan: (['basic', 'pro', 'enterprise'].includes(meta.plan as string)
+      ? (meta.plan as 'basic' | 'pro' | 'enterprise')
+      : 'basic'),
+    avatar: (meta.avatar as string) || (sessionUser.email?.[0].toUpperCase() ?? 'U'),
+    status: 'active',
+  };
+}
+
+/**
+ * Loads the user profile with progressive retry using exponential-style delays.
+ * On first failure, attempts to create the profile (handles new signups where
+ * the DB trigger hasn't fired yet). Total max wait: ~5.6 seconds.
+ */
+async function loadProfileWithRetry(userId: string): Promise<User | null> {
+  // Progressive delays: immediate, 300ms, 700ms, 1.5s, 3s
+  const delays = [0, 300, 700, 1500, 3000];
+  let creationAttempted = false;
+
+  for (let i = 0; i < delays.length; i++) {
+    if (delays[i] > 0) {
+      await new Promise(r => setTimeout(r, delays[i]));
+    }
+
+    const profile = await loadUserProfile(userId, 1, 0);
+    if (profile) return profile;
+
+    // On first miss, try to create the profile (new user / trigger delay)
+    if (!creationAttempted) {
+      creationAttempted = true;
+      log.info('Profile not found on first attempt, triggering creation', { userId });
+      await createUserProfileIfMissing(userId);
+    }
+  }
+
+  log.warn('Profile not found after all retry attempts', { userId });
+  return null;
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
+  /**
+   * Guards against concurrent profile loads.
+   * Set to true while a profile is being fetched to prevent duplicate requests.
+   */
+  const profileLoadingRef = useRef(false);
+
+  /**
+   * Signals that login() is actively managing the post-login profile load.
+   * When true, the SIGNED_IN handler in onAuthStateChange will defer to login().
+   */
+  const loginInProgressRef = useRef(false);
+
   useEffect(() => {
-    // Timeout de segurança para garantir que isLoading sempre se torne false
+    // Hard safety net: if something goes wrong, unblock the UI after 8 seconds
     const safetyTimeout = setTimeout(() => {
-      log.warn('Auth initialization timeout - forçando isLoading = false');
+      log.warn('Auth initialization timeout - forcing isLoading = false');
       setIsLoading(false);
-    }, 10000); // 10 segundos máximo
+    }, 8000);
 
-    // Check for existing session
-    const initAuth = async () => {
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
-
-        if (error) {
-          log.error('Error getting session', error instanceof Error ? error : new Error(String(error)));
-          // Mesmo com erro, definir isLoading como false para não travar a aplicação
-          setIsLoading(false);
-        } else if (session?.user) {
-          // Optimistically set user from session metadata specific to Supabase Auth
-          // This allows immediate rendering while we fetch the full profile
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name || session.user.user_metadata?.full_name || 'Usuário',
-            role: (session.user.user_metadata?.role as 'admin' | 'client') || 'client',
-            plan: (session.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
-            avatar: session.user.user_metadata?.avatar || session.user.email?.[0].toUpperCase() || 'U',
-            status: 'active',
-          });
-
-          // Load full profile in background
-          loadUserProfile(session.user.id)
-            .then(profile => {
-              if (profile) setUser(profile);
-            })
-            .catch((err: unknown) => {
-              log.error('Error loading user profile', err instanceof Error ? err : new Error(String(err)));
-            });
-        } else {
-          setUser(null);
-        }
-      } catch (error: unknown) {
-        log.error('Error initializing auth', error instanceof Error ? error : new Error(String(error)));
-      } finally {
-        clearTimeout(safetyTimeout);
-        setIsLoading(false);
-      }
-    };
-
-    initAuth();
-
-    // Listen for auth changes
+    /**
+     * Single source of truth for auth state.
+     * We rely on onAuthStateChange instead of calling getSession() separately
+     * to avoid duplicated logic and race conditions.
+     *
+     * Event flow on page load with existing session:
+     *   INITIAL_SESSION → (profile loads in background)
+     *
+     * Event flow on new login:
+     *   SIGNED_IN → (handled by login() for email/password, or here for OAuth)
+     *
+     * Event flow on password reset link:
+     *   PASSWORD_RECOVERY → show reset form
+     */
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      try {
-        log.debug(`Auth state changed: ${event}`, { userId: session?.user?.id });
+      log.debug(`Auth state changed: ${event}`, { userId: session?.user?.id });
 
-        // Detectar evento de recovery - mostrar página de reset de senha
-        if (event === 'PASSWORD_RECOVERY') {
-          log.info('Password recovery token detected, showing reset password page');
-          setIsPasswordRecovery(true);
-          // Não definir user aqui - deixar na página de reset
+      // --- PASSWORD RECOVERY ---
+      if (event === 'PASSWORD_RECOVERY') {
+        log.info('Password recovery token detected, showing reset password page');
+        setIsPasswordRecovery(true);
+        clearTimeout(safetyTimeout);
+        setIsLoading(false);
+        return;
+      }
+
+      // --- INITIAL SESSION (page load) ---
+      if (event === 'INITIAL_SESSION') {
+        if (session?.user) {
+          // Show app immediately with session metadata
+          setUser(buildFallbackUser(session.user));
+          clearTimeout(safetyTimeout);
+          setIsLoading(false);
+
+          // Load full profile in background (non-blocking)
+          if (!profileLoadingRef.current) {
+            profileLoadingRef.current = true;
+            loadUserProfile(session.user.id)
+              .then(profile => {
+                if (profile) setUser(profile);
+              })
+              .catch((err: unknown) =>
+                log.error('Background profile load failed', err instanceof Error ? err : new Error(String(err))),
+              )
+              .finally(() => {
+                profileLoadingRef.current = false;
+              });
+          }
+        } else {
+          setUser(null);
+          clearTimeout(safetyTimeout);
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      // --- SIGNED IN ---
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Check for password recovery flow — do NOT auto-login
+        // IMPORTANT: Only check for 'type=recovery', NOT for 'access_token='.
+        // Checking 'access_token=' would incorrectly block OAuth callbacks (Google, etc.)
+        const hash = window.location.hash;
+        const pathname = window.location.pathname;
+        const isResetPasswordPath = pathname.includes('reset-password');
+        const isRecoveryToken = hash.includes('type=recovery') || hash.includes('type%3Drecovery');
+
+        if (isResetPasswordPath || isRecoveryToken) {
+          log.info('Recovery session detected, skipping auto-login');
+          clearTimeout(safetyTimeout);
+          setIsLoading(false);
           return;
         }
 
-        if (event === 'SIGNED_IN' && session?.user) {
-          // Verificar se é uma sessão de recovery (não deve fazer login completo)
-          const hash = window.location.hash;
-          const pathname = window.location.pathname;
-          const isResetPasswordPath = pathname === '/reset-password' || pathname.includes('reset-password');
-          const hasRecoveryToken =
-            hash.includes('type=recovery') || hash.includes('type%3Drecovery') || hash.includes('access_token=');
+        // If login() is already handling this SIGNED_IN (email/password flow),
+        // defer to it to avoid duplicate profile loads and race conditions.
+        if (loginInProgressRef.current) {
+          log.debug('login() in progress — SIGNED_IN handler deferring');
+          return;
+        }
 
-          // Se estiver na rota de reset OU tiver token de recovery, NÃO fazer login automático
-          if (isResetPasswordPath || hasRecoveryToken) {
-            log.info('Recovery session detected, skipping user set');
-            return;
-          }
+        // OAuth or other sign-in flows (e.g. Google) are handled here
+        log.info('SIGNED_IN via OAuth — loading profile');
 
-          // Wait a bit for trigger to create profile
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        if (!profileLoadingRef.current) {
+          profileLoadingRef.current = true;
+          try {
+            // Render app immediately with fallback data
+            setUser(buildFallbackUser(session.user));
+            clearTimeout(safetyTimeout);
+            setIsLoading(false);
 
-          // Try to load profile
-          let userProfile = await loadUserProfile(session.user.id, 3, 1000);
-
-          // If profile still doesn't exist, try to create it
-          if (!userProfile && session.user) {
-            log.info('Profile not found, attempting to create using RPC');
-            const created = await createUserProfileIfMissing(session.user.id);
-
-            if (created) {
-              // Wait a bit more and try loading again
-              await new Promise(resolve => setTimeout(resolve, 1500));
-              userProfile = await loadUserProfile(session.user.id, 3, 1000);
+            // Then load the real profile progressively
+            const profile = await loadProfileWithRetry(session.user.id);
+            if (profile) {
+              setUser(profile);
             }
-          }
-
-          if (userProfile) {
-            setUser(userProfile);
-          } else {
-            log.warn('Profile not found after SIGNED_IN event and creation attempt');
-            // Even without profile, we can set a basic user object to allow access
-            // The profile will be created by the trigger eventually
-            setUser({
-              id: session.user.id,
-              email: session.user.email || '',
-              name: session.user.user_metadata?.name || session.user.user_metadata?.full_name || 'Usuário',
-              role: (session.user.user_metadata?.role as 'admin' | 'client') || 'client',
-              plan: (session.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
-              avatar: session.user.user_metadata?.avatar || session.user.email?.[0].toUpperCase() || 'U',
-              status: 'active',
-            });
-          }
-
-          // Sempre garantir que isLoading seja falso após o processamento do SIGNED_IN
-          setIsLoading(false);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setIsLoading(false);
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          const userProfile = await loadUserProfile(session.user.id);
-          if (userProfile) {
-            setUser(userProfile);
+          } finally {
+            profileLoadingRef.current = false;
           }
         }
-      } catch (err: unknown) {
-        log.error('Error in onAuthStateChange', err instanceof Error ? err : new Error(String(err)));
-        setIsLoading(false); // Garantir destravamento em caso de erro
+        return;
+      }
+
+      // --- SIGNED OUT ---
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        clearTimeout(safetyTimeout);
+        setIsLoading(false);
+        return;
+      }
+
+      // --- TOKEN REFRESHED ---
+      // Supabase auto-refreshes the JWT every ~1 hour.
+      // The user profile in our DB has NOT changed — no need to reload it.
+      // Reloading here would cause unnecessary DB queries at scale.
+      if (event === 'TOKEN_REFRESHED') {
+        log.debug('Session token refreshed silently');
+        return;
       }
     });
 
@@ -156,94 +216,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // NÃO chamar setIsLoading(true) aqui para não causar re-montagem do LoginPage
-    // O LoginPage já tem seu próprio estado de loading (isSubmitting)
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+  /**
+   * Email/password login.
+   *
+   * Design decisions:
+   * - Sets loginInProgressRef so the SIGNED_IN handler doesn't duplicate work.
+   * - Immediately renders app with fallback user (no waiting for profile).
+   * - Loads full profile in background so the UI feels instant.
+   * - Does NOT call setIsLoading(true) to avoid unmounting LoginPage.
+   */
+  const login = useCallback(
+    async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+      loginInProgressRef.current = true;
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-      if (error) {
-        log.error('Login error', new Error(error.message));
-        // NÃO chamar setIsLoading aqui - o LoginPage permanece montado e mantém o estado de erro
+        if (error) {
+          log.error('Login error', new Error(error.message));
+          const errorMsg = error.message.toLowerCase();
+          let errorMessage = 'Erro ao realizar login.';
 
-        // Map Supabase errors to user-friendly messages
-        let errorMessage = 'Erro ao realizar login.';
-        const errorMsg = error.message.toLowerCase();
-
-        if (errorMsg === 'invalid login credentials' || errorMsg.includes('invalid login credentials')) {
-          errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.';
-        } else if (errorMsg.includes('email not confirmed') || errorMsg.includes('email_not_confirmed')) {
-          errorMessage = 'Email não confirmado. Verifique sua caixa de entrada.';
-        } else if (errorMsg.includes('user not found') || errorMsg.includes('user_not_found')) {
-          errorMessage = 'Email não encontrado. Verifique se o email está correto.';
-        } else if (errorMsg.includes('invalid email')) {
-          errorMessage = 'Email inválido. Verifique o formato do email.';
-        } else if (errorMsg.includes('too many requests') || errorMsg.includes('rate limit')) {
-          errorMessage = 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
-        } else if (errorMsg.includes('password')) {
-          errorMessage = 'Senha incorreta. Verifique sua senha e tente novamente.';
-        }
-
-        return { success: false, error: errorMessage };
-      }
-
-      if (data.user) {
-        log.info('Login successful', { userId: data.user.id });
-        // Wait a moment for the trigger to potentially create the profile
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Try to load the profile with retries
-        let userProfile = await loadUserProfile(data.user.id, 3, 1000);
-
-        // If profile doesn't exist, try to create it
-        if (!userProfile) {
-          log.info('Profile not found after login, attempting to create');
-          const created = await createUserProfileIfMissing(data.user.id);
-
-          if (created) {
-            // Wait a bit more and try loading again
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            userProfile = await loadUserProfile(data.user.id, 3, 1000);
+          if (errorMsg.includes('invalid login credentials')) {
+            errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.';
+          } else if (errorMsg.includes('email not confirmed') || errorMsg.includes('email_not_confirmed')) {
+            errorMessage = 'Email não confirmado. Verifique sua caixa de entrada.';
+          } else if (errorMsg.includes('user not found') || errorMsg.includes('user_not_found')) {
+            errorMessage = 'Email não encontrado. Verifique se o email está correto.';
+          } else if (errorMsg.includes('invalid email')) {
+            errorMessage = 'Email inválido. Verifique o formato do email.';
+          } else if (errorMsg.includes('too many requests') || errorMsg.includes('rate limit')) {
+            errorMessage = 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
           }
+
+          return { success: false, error: errorMessage };
         }
 
-        if (userProfile) {
-          log.info('User profile loaded, setting user state');
-          setUser(userProfile);
+        if (data.user) {
+          log.info('Login successful', { userId: data.user.id });
+
+          // Render app immediately — no blocking wait
+          setUser(buildFallbackUser(data.user));
           setIsLoading(false);
-          return { success: true };
-        } else {
-          log.warn('Profile not found after login and creation attempt');
-          // Create a temporary user object from auth data
-          // The profile will be created by trigger or on next login
-          setUser({
-            id: data.user.id,
-            email: data.user.email || '',
-            name: data.user.user_metadata?.name || data.user.user_metadata?.full_name || 'Usuário',
-            role: (data.user.user_metadata?.role as 'admin' | 'client') || 'client',
-            plan: (data.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
-            avatar: data.user.user_metadata?.avatar || data.user.email?.[0].toUpperCase() || 'U',
-            status: 'active',
-          });
-          setIsLoading(false);
+
+          // Load full profile in background
+          if (!profileLoadingRef.current) {
+            profileLoadingRef.current = true;
+            loadProfileWithRetry(data.user.id)
+              .then(profile => {
+                if (profile) setUser(profile);
+              })
+              .catch((err: unknown) =>
+                log.error('Profile load after login failed', err instanceof Error ? err : new Error(String(err))),
+              )
+              .finally(() => {
+                profileLoadingRef.current = false;
+              });
+          }
+
           return { success: true };
         }
+
+        return { success: false, error: 'Erro inesperado ao realizar login.' };
+      } catch (error: unknown) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        log.error('Login error', err);
+        return { success: false, error: err.message || 'Erro inesperado ao realizar login.' };
+      } finally {
+        // Always clear the flag so subsequent events are handled normally
+        loginInProgressRef.current = false;
       }
-
-      // NÃO chamar setIsLoading aqui para manter o LoginPage montado
-      return { success: false, error: 'Erro inesperado ao realizar login.' };
-    } catch (error: unknown) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      log.error('Login error', err);
-      return { success: false, error: err.message || 'Erro inesperado ao realizar login.' };
-    }
-  }, []);
+    },
+    [],
+  );
 
   const logout = useCallback(async () => {
-    // Clear user state immediately to ensure UI update
     setUser(null);
     try {
       await supabase.auth.signOut();
@@ -252,12 +298,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  /**
+   * Google OAuth login.
+   *
+   * After the OAuth redirect, Supabase fires SIGNED_IN which is handled above.
+   * The redirectTo URL must be registered in:
+   *   1. Supabase Dashboard → Authentication → URL Configuration → Redirect URLs
+   *   2. Google Cloud Console → OAuth 2.0 → Authorized redirect URIs
+   */
   const signInWithOAuth = useCallback(async (provider: 'google') => {
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}`,
+          redirectTo: window.location.origin,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -277,20 +331,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const checkPermission = useCallback(
-    (feature: string): boolean => {
-      return checkPermissionUtil(user, feature);
-    },
-    [user],
-  );
-
-  const checkLimit = useCallback(
-    (limit: keyof Plan['limits'], currentValue: number): boolean => {
-      return checkLimitUtil(user, limit, currentValue);
-    },
-    [user],
-  );
-
   const signup = useCallback(
     async (
       email: string,
@@ -299,99 +339,94 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       phone: string,
       organizationName?: string,
     ): Promise<{ success: boolean; error?: string }> => {
-      setIsLoading(true);
       try {
-        // Sign up with Supabase Auth
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
-              name: name,
+              name,
               full_name: name,
               organization_name: organizationName || `${name}'s Organization`,
               role: 'client',
               plan: 'basic',
               avatar: name.charAt(0).toUpperCase(),
-              phone: phone,
+              phone,
             },
-            emailRedirectTo: `${window.location.origin}`,
+            emailRedirectTo: window.location.origin,
           },
         });
 
         if (error) {
           log.error('Signup error', new Error(error.message));
-          setIsLoading(false);
           return { success: false, error: error.message };
         }
 
         if (data.user) {
-          // Update the profile with phone number if it exists
-          // The trigger will create the profile, but we need to update it with phone
-          try {
-            const { error: updateError } = await supabase
-              .from('user_profiles')
-              .update({ phone: phone })
-              .eq('id', data.user.id);
-
-            if (updateError) {
-              log.warn('Could not update phone in profile');
-            }
-          } catch (err: unknown) {
-            log.warn('Error updating phone');
-          }
-
-          // Wait a bit for the trigger to create the profile
-          await new Promise(resolve => setTimeout(resolve, 1000));
-
-          // Try to load the profile with retries
-          const userProfile = await loadUserProfile(data.user.id, 5, 800);
-          if (userProfile) {
-            setUser(userProfile);
-            setIsLoading(false);
-            return { success: true };
-          } else {
-            // Wait a bit more and try again
-            log.warn('Profile not found after signup, retrying');
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            const retryProfile = await loadUserProfile(data.user.id, 3, 1000);
-            if (retryProfile) {
-              setUser(retryProfile);
-              setIsLoading(false);
-              return { success: true };
-            }
-          }
-
+          // Render app immediately with fallback user
+          setUser(buildFallbackUser(data.user));
           setIsLoading(false);
-          return { success: true }; // Return success even if profile not loaded yet - it will be created by trigger
+
+          // Load full profile progressively in background
+          // loadProfileWithRetry handles profile creation internally
+          if (!profileLoadingRef.current) {
+            profileLoadingRef.current = true;
+            loadProfileWithRetry(data.user.id)
+              .then(profile => {
+                if (profile) {
+                  setUser(profile);
+                } else {
+                  // Profile will be created by DB trigger — update phone when it appears
+                  supabase
+                    .from('user_profiles')
+                    .update({ phone })
+                    .eq('id', data.user!.id)
+                    .then(({ error: updateErr }) => {
+                      if (updateErr) log.warn('Could not update phone in profile');
+                    });
+                }
+              })
+              .catch((err: unknown) =>
+                log.error('Profile load after signup failed', err instanceof Error ? err : new Error(String(err))),
+              )
+              .finally(() => {
+                profileLoadingRef.current = false;
+              });
+          }
+
+          return { success: true };
         }
 
-        setIsLoading(false);
         return { success: false, error: 'Erro ao criar conta' };
       } catch (error: unknown) {
         const err = error instanceof Error ? error : new Error(String(error));
         log.error('Signup error', err);
-        setIsLoading(false);
         return { success: false, error: err.message || 'Erro ao criar conta' };
       }
     },
     [],
   );
 
+  const checkPermission = useCallback(
+    (feature: string): boolean => checkPermissionUtil(user, feature),
+    [user],
+  );
+
+  const checkLimit = useCallback(
+    (limit: keyof Plan['limits'], currentValue: number): boolean => checkLimitUtil(user, limit, currentValue),
+    [user],
+  );
+
   const upgradePlan = useCallback(
     async (planId: Plan['id']) => {
       if (!user) return;
-
       try {
         const { error } = await supabase.from('user_profiles').update({ plan: planId }).eq('id', user.id);
-
         if (error) {
           log.error('Error upgrading plan', new Error(error.message));
           return;
         }
-
-        const updatedUser = { ...user, plan: planId };
-        setUser(updatedUser);
+        setUser({ ...user, plan: planId });
       } catch (error: unknown) {
         log.error('Error upgrading plan', error instanceof Error ? error : new Error(String(error)));
       }
@@ -402,10 +437,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshProfile = useCallback(async () => {
     if (!user) return;
     try {
-      const userProfile = await loadUserProfile(user.id, 1, 0);
-      if (userProfile) {
-        setUser(userProfile);
-      }
+      const profile = await loadUserProfile(user.id, 1, 0);
+      if (profile) setUser(profile);
     } catch (error: unknown) {
       log.error('Error refreshing profile', error instanceof Error ? error : new Error(String(error)));
     }
@@ -413,21 +446,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetPassword = useCallback(async (email: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Garantir que a URL use o protocolo correto (https em produção)
-      const origin = window.location.origin || window.location.protocol + '//' + window.location.host;
-      const redirectUrl = `${origin}/reset-password`;
-
+      const redirectUrl = `${window.location.origin}/reset-password`;
       log.debug(`Sending password reset email with redirect URL: ${redirectUrl}`);
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl,
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirectUrl });
 
       if (error) {
         log.error('Reset password error', new Error(error.message));
-
-        let errorMessage = 'Erro ao enviar email de recuperação.';
         const errorMsg = error.message.toLowerCase();
+        let errorMessage = 'Erro ao enviar email de recuperação.';
 
         if (errorMsg.includes('user not found') || errorMsg.includes('user_not_found')) {
           errorMessage = 'Email não encontrado. Verifique se o email está correto.';
@@ -450,15 +477,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updatePassword = useCallback(async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
 
       if (error) {
         log.error('Update password error', new Error(error.message));
-
-        let errorMessage = 'Erro ao atualizar senha.';
         const errorMsg = error.message.toLowerCase();
+        let errorMessage = 'Erro ao atualizar senha.';
 
         if (errorMsg.includes('password')) {
           errorMessage = 'A senha não atende aos requisitos mínimos.';
@@ -478,7 +502,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Função para limpar estado de recovery (quando usuário cancela ou volta ao login)
   const clearPasswordRecovery = useCallback(() => {
     setIsPasswordRecovery(false);
   }, []);
