@@ -72,7 +72,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
 
       if (!result.success) {
         // DEFINIR ERRO E PARAR
-        setLoginError('Email ou senha incorretos. Verifique suas credenciais.');
+        setLoginError(result.error || 'Email ou senha incorretos. Verifique suas credenciais.');
         setIsSubmitting(false);
         return; // NÃO CONTINUA
       }
@@ -131,9 +131,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
                 setPhone('');
                 setOrganizationName('');
               }}
-              className={`flex-1 py-2 px-3 sm:px-4 rounded-md text-[10px] sm:text-xs font-medium transition-colors ${
-                !isSignup ? 'bg-ai-text text-white' : 'text-ai-subtext hover:text-ai-text'
-              }`}
+              className={`flex-1 py-2 px-3 sm:px-4 rounded-md text-[10px] sm:text-xs font-medium transition-colors ${!isSignup ? 'bg-ai-text text-white' : 'text-ai-subtext hover:text-ai-text'
+                }`}
             >
               Entrar
             </button>
@@ -145,9 +144,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
                 setPassword('');
                 setConfirmPassword('');
               }}
-              className={`flex-1 py-2 px-3 sm:px-4 rounded-md text-[10px] sm:text-xs font-medium transition-colors ${
-                isSignup ? 'bg-ai-text text-white' : 'text-ai-subtext hover:text-ai-text'
-              }`}
+              className={`flex-1 py-2 px-3 sm:px-4 rounded-md text-[10px] sm:text-xs font-medium transition-colors ${isSignup ? 'bg-ai-text text-white' : 'text-ai-subtext hover:text-ai-text'
+                }`}
             >
               Cadastrar
             </button>
@@ -212,13 +210,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
                       const formatted = formatPhone(e.target.value);
                       setPhone(formatted);
                     }}
-                    className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text transition-all outline-none ${
-                      phone && !validatePhone(phone)
+                    className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text transition-all outline-none ${phone && !validatePhone(phone)
                         ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
                         : phone && validatePhone(phone)
                           ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
                           : 'border-ai-border focus:border-ai-text'
-                    }`}
+                      }`}
                     placeholder="Ex: (55) 99999-9999"
                     maxLength={15}
                   />
@@ -245,11 +242,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
                     setPassword(e.target.value);
                     if (loginError) setLoginError('');
                   }}
-                  className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text focus:border-ai-text transition-all outline-none ${
-                    isSignup && password && !passwordLengthValid
+                  className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text focus:border-ai-text transition-all outline-none ${isSignup && password && !passwordLengthValid
                       ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
                       : 'border-ai-border'
-                  }`}
+                    }`}
                   placeholder={isSignup ? 'Mínimo 6 caracteres' : '••••••••'}
                   minLength={isSignup ? 6 : undefined}
                 />
@@ -275,13 +271,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
                       required={isSignup}
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
-                      className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text transition-all outline-none ${
-                        confirmPassword && !passwordsMatch
+                      className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text transition-all outline-none ${confirmPassword && !passwordsMatch
                           ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
                           : confirmPassword && passwordsMatch
                             ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
                             : 'border-ai-border focus:border-ai-text'
-                      }`}
+                        }`}
                       placeholder="Digite a senha novamente"
                     />
                   </div>

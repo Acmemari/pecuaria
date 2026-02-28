@@ -73,71 +73,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      log.debug(`Auth state changed: ${event}`, { userId: session?.user?.id });
+      try {
+        log.debug(`Auth state changed: ${event}`, { userId: session?.user?.id });
 
-      // Detectar evento de recovery - mostrar página de reset de senha
-      if (event === 'PASSWORD_RECOVERY') {
-        log.info('Password recovery token detected, showing reset password page');
-        setIsPasswordRecovery(true);
-        // Não definir user aqui - deixar na página de reset
-        return;
-      }
-
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Verificar se é uma sessão de recovery (não deve fazer login completo)
-        const hash = window.location.hash;
-        const pathname = window.location.pathname;
-        const isResetPasswordPath = pathname === '/reset-password' || pathname.includes('reset-password');
-        const hasRecoveryToken =
-          hash.includes('type=recovery') || hash.includes('type%3Drecovery') || hash.includes('access_token=');
-
-        // Se estiver na rota de reset OU tiver token de recovery, NÃO fazer login automático
-        if (isResetPasswordPath || hasRecoveryToken) {
-          log.info('Recovery session detected, skipping user set');
+        // Detectar evento de recovery - mostrar página de reset de senha
+        if (event === 'PASSWORD_RECOVERY') {
+          log.info('Password recovery token detected, showing reset password page');
+          setIsPasswordRecovery(true);
+          // Não definir user aqui - deixar na página de reset
           return;
         }
 
-        // Wait a bit for trigger to create profile
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (event === 'SIGNED_IN' && session?.user) {
+          // Verificar se é uma sessão de recovery (não deve fazer login completo)
+          const hash = window.location.hash;
+          const pathname = window.location.pathname;
+          const isResetPasswordPath = pathname === '/reset-password' || pathname.includes('reset-password');
+          const hasRecoveryToken =
+            hash.includes('type=recovery') || hash.includes('type%3Drecovery') || hash.includes('access_token=');
 
-        // Try to load profile
-        let userProfile = await loadUserProfile(session.user.id, 3, 1000);
+          // Se estiver na rota de reset OU tiver token de recovery, NÃO fazer login automático
+          if (isResetPasswordPath || hasRecoveryToken) {
+            log.info('Recovery session detected, skipping user set');
+            return;
+          }
 
-        // If profile still doesn't exist, try to create it
-        if (!userProfile && session.user) {
-          log.info('Profile not found, attempting to create using RPC');
-          const created = await createUserProfileIfMissing(session.user.id);
+          // Wait a bit for trigger to create profile
+          await new Promise(resolve => setTimeout(resolve, 1000));
 
-          if (created) {
-            // Wait a bit more and try loading again
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            userProfile = await loadUserProfile(session.user.id, 3, 1000);
+          // Try to load profile
+          let userProfile = await loadUserProfile(session.user.id, 3, 1000);
+
+          // If profile still doesn't exist, try to create it
+          if (!userProfile && session.user) {
+            log.info('Profile not found, attempting to create using RPC');
+            const created = await createUserProfileIfMissing(session.user.id);
+
+            if (created) {
+              // Wait a bit more and try loading again
+              await new Promise(resolve => setTimeout(resolve, 1500));
+              userProfile = await loadUserProfile(session.user.id, 3, 1000);
+            }
+          }
+
+          if (userProfile) {
+            setUser(userProfile);
+          } else {
+            log.warn('Profile not found after SIGNED_IN event and creation attempt');
+            // Even without profile, we can set a basic user object to allow access
+            // The profile will be created by the trigger eventually
+            setUser({
+              id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.user_metadata?.name || session.user.user_metadata?.full_name || 'Usuário',
+              role: (session.user.user_metadata?.role as 'admin' | 'client') || 'client',
+              plan: (session.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
+              avatar: session.user.user_metadata?.avatar || session.user.email?.[0].toUpperCase() || 'U',
+              status: 'active',
+            });
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          const userProfile = await loadUserProfile(session.user.id);
+          if (userProfile) {
+            setUser(userProfile);
           }
         }
-
-        if (userProfile) {
-          setUser(userProfile);
-        } else {
-          log.warn('Profile not found after SIGNED_IN event and creation attempt');
-          // Even without profile, we can set a basic user object to allow access
-          // The profile will be created by the trigger eventually
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name || session.user.user_metadata?.full_name || 'Usuário',
-            role: (session.user.user_metadata?.role as 'admin' | 'client') || 'client',
-            plan: (session.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
-            avatar: session.user.user_metadata?.avatar || session.user.email?.[0].toUpperCase() || 'U',
-            status: 'active',
-          });
-        }
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        const userProfile = await loadUserProfile(session.user.id);
-        if (userProfile) {
-          setUser(userProfile);
-        }
+      } catch (err: unknown) {
+        log.error('Error in onAuthStateChange', err instanceof Error ? err : new Error(String(err)));
       }
     });
 
