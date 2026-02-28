@@ -163,11 +163,12 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [permissionsModalFarm, setPermissionsModalFarm] = useState<Farm | null>(null);
 
-  const formPerms = useFarmPermissions(editingFarm?.id ?? null, user?.id, user?.role);
+  const userPermRole = user?.qualification === 'visitante' ? 'admin' : user?.role;
+  const formPerms = useFarmPermissions(editingFarm?.id ?? null, user?.id, userPermRole);
   const batchPerms = useBatchFarmPermissions(
     farms.map(f => f.id),
     user?.id,
-    user?.role,
+    userPermRole,
   );
   const formReadOnly = editingFarm ? !formPerms.canEdit('farms:form') : false;
 
@@ -1316,10 +1317,10 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                     placeholder="0,00"
                     inputMode="decimal"
                     className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${errors.totalArea
-                        ? 'border-red-500'
-                        : isTotalAreaValid() && formData.totalArea
-                          ? 'border-green-500'
-                          : 'border-ai-border'
+                      ? 'border-red-500'
+                      : isTotalAreaValid() && formData.totalArea
+                        ? 'border-green-500'
+                        : 'border-ai-border'
                       }`}
                   />
                   {errors.totalArea && <p className="text-red-500 text-xs mt-1">{errors.totalArea}</p>}

@@ -187,7 +187,7 @@ const AppContent: React.FC = () => {
         description: 'Análise econômica completa.',
         icon: 'bot',
         category: 'financeiro',
-        status: checkPermission('Calculadora') ? 'active' : 'locked',
+        status: checkPermission('Calculadora') || isVisitor ? 'active' : 'locked',
       };
 
       const clientDocuments: Agent = {
@@ -232,7 +232,7 @@ const AppContent: React.FC = () => {
         description: 'Cenários e simulações salvos.',
         icon: 'save',
         category: 'financeiro',
-        status: checkPermission('Calculadora') ? 'active' : 'locked',
+        status: checkPermission('Calculadora') || isVisitor ? 'active' : 'locked',
       };
 
       const askAntonio: Agent = {
