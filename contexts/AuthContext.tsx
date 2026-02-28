@@ -69,10 +69,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
-    return () => {
-      clearTimeout(safetyTimeout);
-    };
-
     // Listen for auth changes
     const {
       data: { subscription },
@@ -146,6 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => {
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
   }, []);
