@@ -68,19 +68,6 @@ const Slider: React.FC<SliderProps> = ({
     }
   }, [value, isEditing]);
 
-  // Validação ±25% do valor atual; interseção com min/max do slider
-  const getValidRange = () => {
-    if (value === 0 || Math.abs(value) < 1e-10) {
-      return { validMin: min, validMax: max };
-    }
-    const validMin = value * 0.75;
-    const validMax = value * 1.25;
-    return {
-      validMin: Math.max(validMin, min),
-      validMax: Math.min(validMax, max),
-    };
-  };
-
   const roundToStep = (val: number, st: number): number => {
     if (st >= 1) return Math.round(val);
     const decimals = Math.max((st.toString().split('.')[1] || '').length, 1);
@@ -100,8 +87,7 @@ const Slider: React.FC<SliderProps> = ({
       setIsEditing(false);
       return;
     }
-    const { validMin, validMax } = getValidRange();
-    const clamped = Math.max(validMin, Math.min(validMax, parsed));
+    const clamped = Math.max(min, Math.min(max, parsed));
     const rounded = roundToStep(clamped, step);
     const final = Math.max(min, Math.min(max, rounded));
     onChange(final);
@@ -167,11 +153,11 @@ const Slider: React.FC<SliderProps> = ({
               style={
                 labelBadgePill
                   ? {
-                      backgroundColor: '#FFFDD0',
-                      border: '1px solid #D4C85A',
-                      color: '#8B4513',
-                      ...labelBadgeStyle,
-                    }
+                    backgroundColor: '#FFFDD0',
+                    border: '1px solid #D4C85A',
+                    color: '#8B4513',
+                    ...labelBadgeStyle,
+                  }
                   : labelBadgeStyle
               }
               title={labelBadgeTitle}
@@ -196,9 +182,8 @@ const Slider: React.FC<SliderProps> = ({
             <span className="text-[0.675rem] text-gray-400 font-medium flex-shrink-0">{currencySymbol}</span>
           )}
           <div
-            className={`inline-flex items-baseline rounded-full px-1.5 py-0.5 transition-colors cursor-text ${
-              isEditing ? 'bg-white ring-1 ring-blue-400' : 'bg-gray-100/80 hover:bg-gray-100'
-            }`}
+            className={`inline-flex items-baseline rounded-full px-1.5 py-0.5 transition-colors cursor-text ${isEditing ? 'bg-white ring-1 ring-blue-400' : 'bg-gray-100/80 hover:bg-gray-100'
+              }`}
           >
             <input
               ref={inputRef}
