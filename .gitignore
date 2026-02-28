@@ -27,3 +27,6 @@ dist-ssr
 
 # Test scripts
 test-gemini-key.mjs
+
+# Claude/IDE worktrees
+.claude

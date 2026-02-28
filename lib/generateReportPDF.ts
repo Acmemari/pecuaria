@@ -354,10 +354,28 @@ export function generateReportPDF(data: PDFReportData): void {
 function buildComparatorDoc(data: ComparatorPDFData): jsPDF {
   const { scenarios, userName, createdAt } = data;
 
+  if (scenarios.length < 2 || scenarios.length > 3) {
+    throw new Error('É necessário ter 2 ou 3 cenários para gerar o relatório comparativo');
+  }
+  const validIds: ReadonlyArray<'A' | 'B' | 'C'> = scenarios.length === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
+  const scenarioIds = new Set(scenarios.map(s => s?.id).filter(Boolean));
+  const expectedSet = new Set(validIds);
+  if (
+    scenarioIds.size !== scenarios.length ||
+    scenarioIds.size !== expectedSet.size ||
+    [...scenarioIds].some(id => !expectedSet.has(id as 'A' | 'B' | 'C'))
+  ) {
+    throw new Error('IDs dos cenários inválidos (esperado A, B ou A, B, C)');
+  }
+
+  const scenarioA = scenarios.find(s => s.id === 'A');
+  if (!scenarioA) {
+    throw new Error("Cenário 'A' ausente");
+  }
+
   const winningScenario = scenarios.reduce((prev, curr) =>
     curr.results.resultadoPorHectareAno > prev.results.resultadoPorHectareAno ? curr : prev,
   );
-  const scenarioA = scenarios.find(s => s.id === 'A')!;
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -727,13 +745,6 @@ function buildComparatorDoc(data: ComparatorPDFData): jsPDF {
  * Generate PDF report for Comparator (2 or 3 scenarios comparison)
  */
 export function generateComparatorPDF(data: ComparatorPDFData): void {
-  if (data.scenarios.length < 2 || data.scenarios.length > 3) {
-    throw new Error('É necessário ter 2 ou 3 cenários para gerar o relatório comparativo');
-  }
-  const validIds = data.scenarios.length === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
-  if (!data.scenarios.every(s => s?.id && validIds.includes(s.id))) {
-    throw new Error('IDs dos cenários inválidos (esperado A, B ou A, B, C)');
-  }
   const doc = buildComparatorDoc(data);
   doc.save(`comparativo-cenarios-${new Date().toISOString().split('T')[0]}.pdf`);
 }
@@ -742,13 +753,6 @@ export function generateComparatorPDF(data: ComparatorPDFData): void {
  * Generate PDF report for Comparator and return as base64 string
  */
 export function generateComparatorPDFAsBase64(data: ComparatorPDFData): string {
-  if (data.scenarios.length < 2 || data.scenarios.length > 3) {
-    throw new Error('É necessário ter 2 ou 3 cenários para gerar o relatório comparativo');
-  }
-  const validIds = data.scenarios.length === 2 ? ['A', 'B'] : ['A', 'B', 'C'];
-  if (!data.scenarios.every(s => s?.id && validIds.includes(s.id))) {
-    throw new Error('IDs dos cenários inválidos (esperado A, B ou A, B, C)');
-  }
   const doc = buildComparatorDoc(data);
   return doc.output('datauristring').split(',')[1];
 }
