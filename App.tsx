@@ -67,7 +67,7 @@ const AppContent: React.FC = () => {
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
 
   // Agents allowed for visitor role (full access)
-  const VISITOR_ALLOWED_AGENTS = ['cattle-profit', 'ask-antonio'];
+  const VISITOR_ALLOWED_AGENTS = ['cattle-profit', 'ask-antonio', 'cadastros', 'saved-scenarios'];
   const isVisitor = user?.qualification === 'visitante';
 
   const [viewMode, setViewMode] = useState<
@@ -628,6 +628,14 @@ const AppContent: React.FC = () => {
         );
       case 'cadastros':
         if (cadastroView === 'desktop') {
+          // Visitors skip the picker and go directly to farm management
+          if (isVisitor) {
+            return (
+              <Suspense fallback={<LoadingFallback />}>
+                <FarmManagement onToast={handleToast} />
+              </Suspense>
+            );
+          }
           return (
             <Suspense fallback={<LoadingFallback />}>
               <CadastrosDesktop
@@ -895,7 +903,10 @@ const AppContent: React.FC = () => {
         activeAgentId={activeAgentId}
         onSelectAgent={id => {
           if (id === 'cattle-profit') setViewMode('desktop');
-          if (id === 'cadastros') setCadastroView('desktop');
+          if (id === 'cadastros') {
+            // Visitors can only access the farm sub-view
+            setCadastroView(isVisitor ? 'farm' : 'desktop');
+          }
           setActiveAgentId(id);
         }}
         isOpen={isSidebarOpen}
@@ -914,7 +925,8 @@ const AppContent: React.FC = () => {
         <AnalystHeader />
 
         {/* Header - Minimalist with hamburger button */}
-        <header className="h-12 bg-ai-bg border-b border-ai-border flex items-center justify-between px-4 shrink-0 sticky top-12 z-40">
+        {/* sticky offset: top-12 when AnalystHeader is visible (analyst/admin), top-0 otherwise */}
+        <header className={`h-12 bg-ai-bg border-b border-ai-border flex items-center justify-between px-4 shrink-0 sticky z-40 ${user?.qualification === 'analista' || user?.role === 'admin' ? 'top-12' : 'top-0'}`}>
           <div className="flex items-center gap-2 md:gap-0">
             {/* Hamburger button - always visible */}
             <button

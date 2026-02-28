@@ -198,7 +198,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       </div>
                       <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
                       {(isLocked || isLockedForVisitor) && (
-                        <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400" />
+                        <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                       )}
                     </button>
                   </div>
@@ -220,7 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <span className="ml-3 text-sm font-medium block truncate">Gerenciamento</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  {isVisitor && <Lock size={9} className="text-amber-400" />}
+                  {isVisitor && <Lock size={9} className="text-gray-400" />}
                   <ChevronDown
                     size={14}
                     className={`flex-shrink-0 transition-transform duration-200 ${isIniciativasOpen ? 'rotate-180' : ''}`}
@@ -316,7 +316,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
 
                       {isLocked || isLockedForVisitor ? (
-                        <Lock size={10} className={`absolute right-3 top-1/2 -translate-y-1/2 ${isLockedForVisitor ? 'text-amber-400' : 'text-ai-subtext/50'}`} />
+                        <Lock size={10} className={`absolute right-3 top-1/2 -translate-y-1/2 ${isLockedForVisitor ? 'text-gray-400' : 'text-ai-subtext/50'}`} />
                       ) : null}
                     </button>
                     {agent.id === 'cattle-profit' && canAccessRh && (
@@ -378,7 +378,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <Briefcase size={16} />
               </div>
               <span className="ml-3 text-sm font-medium block text-left truncate">Área Certificados</span>
-              {isVisitor && <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400" />}
+              {isVisitor && <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />}
             </button>
           </nav>
         </div>
@@ -391,15 +391,15 @@ const Sidebar: React.FC<SidebarProps> = ({
               type="button"
               onClick={() => onSwitchToInttegra()}
               className={`w-full flex items-center gap-2 px-3 py-2 mb-3 rounded-md text-sm font-medium transition-colors ${isVisitor
-                  ? 'text-ai-subtext hover:text-emerald-600 hover:bg-emerald-50'
-                  : 'text-ai-subtext hover:text-emerald-600 hover:bg-emerald-50'
+                ? 'text-ai-subtext hover:text-emerald-600 hover:bg-emerald-50'
+                : 'text-ai-subtext hover:text-emerald-600 hover:bg-emerald-50'
                 }`}
               title={isVisitor ? 'Inttegra (Restrito — clique para saber mais)' : 'Ir para Inttegra'}
             >
               <Layers size={14} className="text-emerald-500" />
               <span>Inttegra</span>
               {isVisitor
-                ? <Lock size={9} className="ml-auto text-amber-400" />
+                ? <Lock size={9} className="ml-auto text-gray-400" />
                 : <ArrowLeftRight size={12} className="ml-auto opacity-50" />}
             </button>
           )}

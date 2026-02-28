@@ -8,6 +8,10 @@ import { mapFarmsFromDatabase } from '../lib/utils/farmMapper';
 const PAGE_SIZE = 50;
 const HIERARCHY_STORAGE_KEY = 'hierarchySelection.v1';
 
+// Fixed UUIDs for the visitor demo context (created in migration 024)
+const VISITOR_ANALYST_ID = '00000000-0000-0000-0000-000000000001'; // Sistema Visitante (synthetic, not in auth.users)
+const VISITOR_CLIENT_ID = '00000000-0000-0000-0000-000000000002'; // Visitante Demo client
+
 interface HierarchyLoadingState {
   analysts: boolean;
   clients: boolean;
@@ -290,6 +294,8 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const effectiveAnalystId = useMemo(() => {
     if (!user) return null;
+    // Visitors always use the synthetic visitor analyst context
+    if (user.qualification === 'visitante') return VISITOR_ANALYST_ID;
     if (user.role === 'admin') return state.analystId;
     return user.id;
   }, [user, state.analystId]);
@@ -381,6 +387,22 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (!user || !effectiveAnalystId) {
         dispatch({ type: 'SET_CLIENTS', payload: { data: [], append: false, hasMore: false } });
         dispatch({ type: 'SELECT_CLIENT_ID', payload: null });
+        return;
+      }
+
+      // Visitor: serve the demo client from memory, no DB required
+      if (user.qualification === 'visitante') {
+        const demoClient: Client = {
+          id: VISITOR_CLIENT_ID,
+          name: 'Visitante Demo',
+          email: 'visitante@sistema.interno',
+          phone: '',
+          analystId: VISITOR_ANALYST_ID,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        dispatch({ type: 'SET_CLIENTS', payload: { data: [demoClient], append: false, hasMore: false } });
+        dispatch({ type: 'SELECT_CLIENT_ID', payload: VISITOR_CLIENT_ID });
         return;
       }
 
@@ -527,6 +549,36 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     if (!user) return;
+
+    // Visitor: pre-inject the synthetic demo analyst + demo client
+    if (user.qualification === 'visitante') {
+      dispatch({
+        type: 'SET_SELECTED_ANALYST',
+        payload: {
+          id: VISITOR_ANALYST_ID,
+          name: 'Sistema Visitante',
+          email: 'visitante@sistema.interno',
+          role: 'client',
+          qualification: 'analista',
+        },
+      });
+      // Pre-select the demo client so farms load immediately
+      dispatch({
+        type: 'SET_SELECTED_CLIENT',
+        payload: {
+          id: VISITOR_CLIENT_ID,
+          name: 'Visitante Demo',
+          email: 'visitante@sistema.interno',
+          phone: '',
+          analystId: VISITOR_ANALYST_ID,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+      dispatch({ type: 'SELECT_CLIENT_ID', payload: VISITOR_CLIENT_ID });
+      return;
+    }
+
     if (user.role === 'admin') {
       void loadAnalysts({ append: false, search: '' });
       return;
