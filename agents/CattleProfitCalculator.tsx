@@ -56,7 +56,7 @@ const CattleProfitCalculator: React.FC<CattleProfitCalculatorProps> = ({
   const defaultInputs = useMemo(
     () => ({
       pesoCompra: 200, // 1. Peso de compra (kg)
-      valorCompra: 9, // 2. Valor de compra (R$/kg)
+      valorCompra: 13, // 2. Valor de compra (R$/kg)
       pesoAbate: 530, // 3. Peso vivo ao abate (kg)
       rendimentoCarcaca: 54.5, // 4. Rendimento de carcaça (%)
       valorVenda: 300, // 5. Valor de venda (R$ por arroba)

@@ -164,7 +164,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
   const defaultInputs: CattleCalculatorInputs = {
     pesoCompra: 200,
-    valorCompra: 9,
+    valorCompra: 13,
     pesoAbate: 530,
     rendimentoCarcaca: 54.5,
     valorVenda: 300,
