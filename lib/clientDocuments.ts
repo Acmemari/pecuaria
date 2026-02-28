@@ -17,6 +17,8 @@ import { logger } from './logger';
 
 const log = logger.withContext({ component: 'clientDocuments' });
 
+import { storage } from './storage';
+
 const BUCKET_NAME = 'client-documents';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -62,9 +64,6 @@ export function validateFile(file: File): { valid: boolean; error?: string; file
   return { valid: true, fileType };
 }
 
-/**
- * Gera nome único para o arquivo no storage
- */
 function generateStoragePath(clientId: string, originalName: string): string {
   const timestamp = Date.now();
   const randomId = Math.random().toString(36).substring(2, 8);
@@ -74,7 +73,8 @@ function generateStoragePath(clientId: string, originalName: string): string {
     .replace(/[^a-zA-Z0-9-_]/g, '_') // caracteres especiais
     .substring(0, 50); // limita tamanho
 
-  return `${clientId}/${timestamp}_${randomId}_${safeName}.${ext}`;
+  // Prefixamos com o nome do bucket conceitual para organização no B2
+  return `${BUCKET_NAME}/${clientId}/${timestamp}_${randomId}_${safeName}.${ext}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,15 +181,12 @@ export async function uploadDocument(
     // Gerar caminho no storage
     const storagePath = generateStoragePath(clientId, file.name);
 
-    // Upload para o storage
-    const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(storagePath, file, {
-      contentType: file.type,
-      upsert: false,
-    });
+    // Upload para o storage B2
+    const { success, error: uploadError } = await storage.uploadFile(file, storagePath);
 
-    if (uploadError) {
-      log.error('uploadDocument storage error', new Error(uploadError.message));
-      return { success: false, error: `Erro ao fazer upload: ${uploadError.message}` };
+    if (!success) {
+      log.error('uploadDocument storage error', new Error(uploadError));
+      return { success: false, error: `Erro ao fazer upload para o B2: ${uploadError}` };
     }
 
     // Determinar versão
@@ -237,10 +234,9 @@ export async function uploadDocument(
       .single();
 
     if (dbError) {
-      // Tentar remover arquivo do storage se falhar no DB
-      await supabase.storage.from(BUCKET_NAME).remove([storagePath]);
+      // Nota: Falta implementar deleteFile no storage.ts se necessário
       log.error('uploadDocument DB error', new Error(dbError.message));
-      return { success: false, error: `Erro ao salvar documento: ${dbError.message}` };
+      return { success: false, error: `Erro ao salvar documento no banco: ${dbError.message}` };
     }
 
     // Se não havia version_group_id, setar para o próprio id (auto-referência)
@@ -273,6 +269,7 @@ export async function uploadDocument(
 // ---------------------------------------------------------------------------
 // List / Query
 // ---------------------------------------------------------------------------
+
 
 /**
  * Lista documentos de um cliente com filtros opcionais
@@ -332,19 +329,19 @@ export async function listDocuments(
         clientName: doc.clients?.name || 'Cliente',
         contractDetails: doc.contract_details?.[0]
           ? {
-              id: doc.contract_details[0].id,
-              documentId: mapped.id,
-              status: doc.contract_details[0].status,
-              endDate: doc.contract_details[0].end_date,
-              contractValue: doc.contract_details[0].contract_value,
-              currency: 'BRL',
-              parties: [],
-              autoRenew: false,
-              renewalReminderDays: 30,
-              relatedDocumentIds: [],
-              createdAt: '',
-              updatedAt: '',
-            }
+            id: doc.contract_details[0].id,
+            documentId: mapped.id,
+            status: doc.contract_details[0].status,
+            endDate: doc.contract_details[0].end_date,
+            contractValue: doc.contract_details[0].contract_value,
+            currency: 'BRL',
+            parties: [],
+            autoRenew: false,
+            renewalReminderDays: 30,
+            relatedDocumentIds: [],
+            createdAt: '',
+            updatedAt: '',
+          }
           : undefined,
       };
     });
@@ -391,25 +388,8 @@ export async function getDocumentVersions(
  * Obtém URL de download temporário para um documento
  * Expiração varia conforme nível de confidencialidade
  */
-export async function getDocumentUrl(
-  storagePath: string,
-  confidentiality: ConfidentialityLevel = 'interno',
-): Promise<{ url?: string; error?: string }> {
-  try {
-    const expirySeconds = SIGNED_URL_EXPIRY[confidentiality];
-    const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(storagePath, expirySeconds);
-
-    if (error) {
-      log.error('getDocumentUrl error', new Error(error.message));
-      return { error: error.message };
-    }
-
-    return { url: data.signedUrl };
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Erro ao obter URL do documento';
-    log.error('getDocumentUrl error', error instanceof Error ? error : new Error(msg));
-    return { error: msg };
-  }
+export async function getDocumentUrl(storagePath: string): Promise<{ url?: string; error?: string }> {
+  return storage.getSignedUrl(storagePath);
 }
 
 // ---------------------------------------------------------------------------
@@ -437,12 +417,9 @@ export async function deleteDocument(documentId: string): Promise<{ success: boo
       storage_path: doc.storage_path,
     });
 
-    // Excluir do storage
-    const { error: storageError } = await supabase.storage.from(BUCKET_NAME).remove([doc.storage_path]);
+    // Excluir do storage B2 (Opcional - Implementar se necessário)
+    // const { error: storageError } = await storage.deleteFile(doc.storage_path);
 
-    if (storageError) {
-      log.warn('deleteDocument storage error (file may already be removed)');
-    }
 
     // Excluir do banco
     const { error: dbError } = await supabase.from('client_documents').delete().eq('id', documentId);

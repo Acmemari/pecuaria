@@ -164,7 +164,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
 
   const defaultInputs: CattleCalculatorInputs = {
     pesoCompra: 200,
-    valorCompra: 14.5,
+    valorCompra: 9,
     pesoAbate: 530,
     rendimentoCarcaca: 54.5,
     valorVenda: 300,
@@ -264,8 +264,8 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
             updated.valorVenda = 40000;
           }
         } else {
-          if (updated.valorCompra < 11) {
-            updated.valorCompra = 11;
+          if (updated.valorCompra < 9) {
+            updated.valorCompra = 9;
           } else if (updated.valorCompra > 18) {
             updated.valorCompra = 18;
           }
@@ -320,19 +320,24 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
     setScenarios(prev => prev.map(s => (s.id === scenarioId ? { ...s, inputs: { ...s.inputs, [key]: value } } : s)));
   };
 
+  const defaultNames = ['Cenário A (Base)', 'Cenário B (Comparação 1)', 'Cenário C (Comparação 2)', 'Cenário C'];
+
   const handleNameEdit = (scenarioId: 'A' | 'B' | 'C') => {
     const scenario = scenarios.find(s => s.id === scenarioId);
     if (scenario) {
-      setTempName(scenario.name);
+      // Se o nome ainda é o padrão, limpar para facilitar a digitação
+      const isDefault = defaultNames.includes(scenario.name);
+      setTempName(isDefault ? '' : scenario.name);
       setEditingName(scenarioId);
     }
   };
 
   const handleNameSave = (scenarioId: 'A' | 'B' | 'C') => {
+    const fallbackNames: Record<string, string> = { A: 'Cenário A (Base)', B: 'Cenário B (Comparação 1)', C: 'Cenário C' };
     setScenarios(prev =>
       prev.map(s => {
         if (s.id !== scenarioId) return s;
-        const finalName = tempName.trim() || (scenarioId === 'C' ? 'Cenário C' : s.name);
+        const finalName = tempName.trim() || fallbackNames[scenarioId] || s.name;
         return { ...s, name: finalName };
       })
     );
@@ -563,9 +568,8 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
         aria-label="Cenários de comparação. Role para ver todos os cenários."
       >
         <div
-          className={`grid grid-cols-1 gap-2 md:gap-3 flex-1 min-h-0 overflow-visible w-full ${
-            scenarios.length === 3 ? 'md:grid-cols-2 xl:grid-cols-3' : 'md:grid-cols-2'
-          }`}
+          className={`grid grid-cols-1 gap-2 md:gap-3 flex-1 min-h-0 overflow-visible w-full ${scenarios.length === 3 ? 'md:grid-cols-2 xl:grid-cols-3' : 'md:grid-cols-2'
+            }`}
         >
           {scenarios.map(scenario => {
             const colors = getColorClasses(scenario.id);
@@ -579,6 +583,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         type="text"
                         value={tempName}
                         onChange={e => setTempName(e.target.value)}
+                        placeholder={`Digite o nome do cenário ${scenario.id}`}
                         className="flex-1 px-1.5 py-0.5 text-xs border border-ai-border rounded focus:outline-none focus:border-ai-accent"
                         onKeyDown={e => {
                           if (e.key === 'Enter') handleNameSave(scenario.id);
@@ -648,7 +653,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         index={2}
                         label="Valor de Compra"
                         value={scenario.inputs.valorCompra}
-                        min={country === 'PY' ? 15000 : 11}
+                        min={country === 'PY' ? 15000 : 9}
                         max={country === 'PY' ? 30000 : 18}
                         step={country === 'PY' ? 100 : 0.05}
                         unit={`${currencySymbol}/kg`}
@@ -759,9 +764,8 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
           </div>
 
           <div
-            className={`grid gap-2 w-full ${
-              scenarios.length === 2 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-4'
-            }`}
+            className={`grid gap-2 w-full ${scenarios.length === 2 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-4'
+              }`}
           >
             {/* Resultado por Boi */}
             <div className="bg-white rounded-lg border border-gray-200 p-2 shadow-sm">

@@ -118,6 +118,10 @@ app.post('/api/agents-run', (req, res) => {
   handleApiRoute('./api/agents-run.ts', req, res);
 });
 
+app.post('/api/get-storage-url', (req, res) => {
+  handleApiRoute('./api/get-storage-url.ts', req, res);
+});
+
 app.listen(PORT, () => {
   console.log(`\n🚀 Servidor de desenvolvimento da API rodando em http://localhost:${PORT}`);
   console.log(`📝 O Vite está configurado para fazer proxy de /api/* para este servidor\n`);

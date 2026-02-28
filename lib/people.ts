@@ -162,6 +162,8 @@ export async function deletePerson(id: string): Promise<void> {
   }
 }
 
+import { storage } from './storage';
+
 const BUCKET = 'people-photos';
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MB
 
@@ -179,17 +181,16 @@ export async function uploadPersonPhoto(userId: string, personId: string, file: 
   }
 
   const ext = file.name.split('.').pop() || 'jpg';
-  const path = `${userId}/${personId}-${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    upsert: true,
-    contentType: file.type,
-  });
-  if (error) {
-    log.error('uploadPersonPhoto failed', new Error(error.message));
-    throw new Error(error.message || 'Erro ao enviar foto.');
+  const path = `${BUCKET}/${userId}/${personId}-${Date.now()}.${ext}`;
+
+  const { success, error } = await storage.uploadFile(file, path);
+
+  if (!success) {
+    log.error('uploadPersonPhoto failed', new Error(error));
+    throw new Error(error || 'Erro ao enviar foto para o Backblaze B2.');
   }
 
-  const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  if (!urlData?.publicUrl) throw new Error('Não foi possível obter a URL da foto.');
-  return urlData.publicUrl;
+  // Retornamos o path. O frontend cuidará de obter a URL assinada ou pública.
+  return path;
 }
+

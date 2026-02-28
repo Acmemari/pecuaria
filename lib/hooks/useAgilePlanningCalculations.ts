@@ -34,6 +34,12 @@ export interface AgilePlanningParams {
   animalCategories: AnimalCategory[];
   isPercentageSumValid: boolean;
 
+  // Índices de terminação
+  gmdPosDesmame: number;
+  pesoAbateBois: number;
+  rendimentoCarcacaBois: number;
+  valorArrobaBois: number;
+
   // Fazenda
   farm: Farm | null;
   showReproductiveIndices: boolean;
@@ -115,6 +121,10 @@ export function useAgilePlanningCalculations(params: AgilePlanningParams): Agile
     maleWeaningWeight,
     femaleWeaningWeight,
     firstMatingAge,
+    gmdPosDesmame,
+    pesoAbateBois,
+    rendimentoCarcacaBois,
+    valorArrobaBois,
     animalCategories,
     isPercentageSumValid,
     farm,
