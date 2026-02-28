@@ -132,8 +132,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               status: 'active',
             });
           }
+
+          // Sempre garantir que isLoading seja falso após o processamento do SIGNED_IN
+          setIsLoading(false);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
+          setIsLoading(false);
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           const userProfile = await loadUserProfile(session.user.id);
           if (userProfile) {
@@ -142,6 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (err: unknown) {
         log.error('Error in onAuthStateChange', err instanceof Error ? err : new Error(String(err)));
+        setIsLoading(false); // Garantir destravamento em caso de erro
       }
     });
 

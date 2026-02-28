@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Lock, Mail, ArrowRight, Loader2, User, Building2, Phone } from 'lucide-react';
 import { formatPhone, validatePhone } from '../lib/utils/phoneMask';
+import { APP_VERSION } from '../src/version';
 
 interface LoginPageProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -105,6 +106,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
           <p className="text-ai-subtext text-xs sm:text-sm mt-1 sm:mt-2">Calculadora de resultados para a pecuária</p>
           <p className="text-ai-subtext text-xs sm:text-sm mt-1">@ntonio_chaker_</p>
           <p className="text-ai-subtext text-xs sm:text-sm mt-0.5">antonio@inttegra.com</p>
+          <p className="text-[10px] text-ai-border mt-2">v{APP_VERSION}</p>
         </div>
 
         {/* Login/Signup Card */}
@@ -211,10 +213,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
                       setPhone(formatted);
                     }}
                     className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text transition-all outline-none ${phone && !validatePhone(phone)
-                        ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
-                        : phone && validatePhone(phone)
-                          ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
-                          : 'border-ai-border focus:border-ai-text'
+                      ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
+                      : phone && validatePhone(phone)
+                        ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
+                        : 'border-ai-border focus:border-ai-text'
                       }`}
                     placeholder="Ex: (55) 99999-9999"
                     maxLength={15}
@@ -243,8 +245,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
                     if (loginError) setLoginError('');
                   }}
                   className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text focus:border-ai-text transition-all outline-none ${isSignup && password && !passwordLengthValid
-                      ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
-                      : 'border-ai-border'
+                    ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
+                    : 'border-ai-border'
                     }`}
                   placeholder={isSignup ? 'Mínimo 6 caracteres' : '••••••••'}
                   minLength={isSignup ? 6 : undefined}
@@ -272,10 +274,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       className={`block w-full pl-9 sm:pl-10 pr-3 py-2 sm:py-2.5 bg-ai-surface border rounded-lg text-xs sm:text-sm focus:ring-1 focus:ring-ai-text transition-all outline-none ${confirmPassword && !passwordsMatch
-                          ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
-                          : confirmPassword && passwordsMatch
-                            ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
-                            : 'border-ai-border focus:border-ai-text'
+                        ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500'
+                        : confirmPassword && passwordsMatch
+                          ? 'border-green-300 focus:border-green-500 focus:ring-green-500'
+                          : 'border-ai-border focus:border-ai-text'
                         }`}
                       placeholder="Digite a senha novamente"
                     />
