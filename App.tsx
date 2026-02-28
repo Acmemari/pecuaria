@@ -11,6 +11,7 @@ import { LocationProvider, useLocation } from './contexts/LocationContext';
 import { useFarm } from './contexts/FarmContext';
 import { HierarchyProvider } from './contexts/HierarchyContext';
 import AnalystHeader from './components/AnalystHeader';
+import VisitorContentGuard from './components/VisitorContentGuard';
 import { Agent } from './types';
 import { Menu, Construction, Loader2, ArrowLeft, Plus } from 'lucide-react';
 import { ToastContainer, Toast } from './components/Toast';
@@ -64,6 +65,11 @@ const AppContent: React.FC = () => {
   const { selectedFarm, setSelectedFarm } = useFarm();
   const [activeApp, setActiveApp] = useState<'pecuaria' | 'inttegra'>('pecuaria');
   const [activeAgentId, setActiveAgentId] = useState<string>('cattle-profit');
+
+  // Agents allowed for visitor role (full access)
+  const VISITOR_ALLOWED_AGENTS = ['cattle-profit', 'ask-antonio'];
+  const isVisitor = user?.qualification === 'visitante';
+
   const [viewMode, setViewMode] = useState<
     'desktop' | 'simulator' | 'comparator' | 'agile-planning' | 'avaliacao-protocolo'
   >('desktop');
@@ -1024,7 +1030,29 @@ const AppContent: React.FC = () => {
         <main className="flex-1 min-h-0 bg-ai-bg overflow-hidden">
           <div className="h-full w-full max-w-[1600px] mx-auto flex flex-col min-h-0">
             <ErrorBoundary>
-              <div className="flex-1 min-h-0 overflow-y-auto">{renderContent()}</div>
+              <VisitorContentGuard
+                isVisitor={isVisitor}
+                isAllowed={
+                  !isVisitor ||
+                  VISITOR_ALLOWED_AGENTS.includes(activeAgentId) ||
+                  activeAgentId === 'settings' ||
+                  activeAgentId === 'subscription'
+                }
+                featureName={
+                  agents.find(a => a.id === activeAgentId)?.name ??
+                  (activeAgentId === 'rotinas-fazenda' ? 'Rotinas Fazenda' :
+                    activeAgentId === 'area-certificados' ? 'Área Certificados' :
+                      activeAgentId === 'calendar' ? 'Calendário' :
+                        activeAgentId === 'projeto' ? 'Projeto' :
+                          activeAgentId === 'iniciativas-overview' ? 'Gerenciamento' :
+                            activeAgentId === 'iniciativas-atividades' ? 'Atividades' :
+                              activeAgentId === 'iniciativas-kanban' ? 'Kanban' :
+                                activeAgentId === 'project-structure' ? 'Estrutura do Projeto' :
+                                  'Esta funcionalidade')
+                }
+              >
+                <div className="flex-1 min-h-0 overflow-y-auto">{renderContent()}</div>
+              </VisitorContentGuard>
             </ErrorBoundary>
           </div>
         </main>

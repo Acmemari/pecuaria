@@ -3,6 +3,7 @@ import { Plus, ArrowLeft, Search, Trash2, Edit2, Loader2, User, Camera, X, Move,
 import { useAuth } from '../contexts/AuthContext';
 import { useAnalyst } from '../contexts/AnalystContext';
 import { useFarm } from '../contexts/FarmContext';
+import { StorageImage } from '../components/shared/StorageImage';
 import {
   fetchPeople,
   createPerson,
@@ -448,11 +449,12 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
               <label className="block text-sm font-medium text-ai-text mb-1">Foto</label>
               <div className="flex items-center gap-4 flex-wrap">
                 <div className="w-20 h-20 rounded-full bg-ai-surface border border-ai-border overflow-hidden flex items-center justify-center shrink-0">
-                  {photoPreview ? (
-                    <img src={photoPreview} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <Camera size={24} className="text-ai-subtext" />
-                  )}
+                  <StorageImage
+                    path={photoPreview}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    fallback={<Camera size={24} className="text-ai-subtext" />}
+                  />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="cursor-pointer">
@@ -663,11 +665,12 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
                 className="bg-ai-surface border border-ai-border rounded-lg p-4 flex items-center gap-4 hover:border-ai-accent/30 transition-colors"
               >
                 <div className="w-12 h-12 rounded-full bg-ai-surface2 flex items-center justify-center overflow-hidden shrink-0">
-                  {p.photo_url ? (
-                    <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <User size={24} className="text-ai-subtext" />
-                  )}
+                  <StorageImage
+                    path={p.photo_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    fallback={<User size={24} className="text-ai-subtext" />}
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-ai-text truncate">

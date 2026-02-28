@@ -178,17 +178,18 @@ const Sidebar: React.FC<SidebarProps> = ({
               .map(agent => {
                 const isActive = activeAgentId === agent.id;
                 const isLocked = agent.status !== 'active';
+                const isLockedForVisitor = isVisitor;
                 return (
                   <div key={agent.id} className="space-y-0.5 mb-1">
                     <button
-                      onClick={() => !isLocked && !isVisitor && onSelectAgent(agent.id)}
-                      disabled={isLocked || isVisitor}
+                      onClick={() => !isLocked && onSelectAgent(agent.id)}
+                      disabled={isLocked}
                       className={`
                       w-full flex items-center px-3 py-2 rounded-md transition-all relative group
                       ${isActive ? 'bg-ai-accent/10 text-ai-accent' : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'}
-                      ${isLocked || isVisitor ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                      ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                     `}
-                      title={isVisitor ? `${agent.name} (Indisponível para visitantes)` : agent.name}
+                      title={isLockedForVisitor ? `${agent.name} (Restrito — clique para saber mais)` : agent.name}
                     >
                       <div
                         className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}
@@ -196,8 +197,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <ClipboardList size={16} />
                       </div>
                       <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
-                      {isLocked && (
-                        <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />
+                      {(isLocked || isLockedForVisitor) && (
+                        <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400" />
                       )}
                     </button>
                   </div>
@@ -207,22 +208,24 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="space-y-0.5 mb-1">
               <button
                 type="button"
-                onClick={() => !isVisitor && setIsIniciativasOpen(!isIniciativasOpen)}
-                disabled={isVisitor}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left group ${isGerenciamentoView(activeAgentId)
+                onClick={() => setIsIniciativasOpen(!isIniciativasOpen)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-md transition-all duration-200 text-left group cursor-pointer ${isGerenciamentoView(activeAgentId)
                   ? 'bg-ai-accent/5 text-ai-accent'
                   : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                  } ${isVisitor ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                title={isVisitor ? 'Gerenciamento (Indisponível para visitantes)' : 'Gerenciamento'}
+                  }`}
+                title={isVisitor ? 'Gerenciamento (Restrito — clique para saber mais)' : 'Gerenciamento'}
               >
                 <div className="flex items-center">
                   <FolderOpen size={16} className="flex-shrink-0 text-ai-subtext group-hover:text-ai-text" />
                   <span className="ml-3 text-sm font-medium block truncate">Gerenciamento</span>
                 </div>
-                <ChevronDown
-                  size={14}
-                  className={`flex-shrink-0 transition-transform duration-200 ${isIniciativasOpen ? 'rotate-180' : ''}`}
-                />
+                <div className="flex items-center gap-1">
+                  {isVisitor && <Lock size={9} className="text-amber-400" />}
+                  <ChevronDown
+                    size={14}
+                    className={`flex-shrink-0 transition-transform duration-200 ${isIniciativasOpen ? 'rotate-180' : ''}`}
+                  />
+                </div>
               </button>
               {isIniciativasOpen && (
                 <div className="ml-4 space-y-0.5 border-l border-ai-border pl-2 overflow-hidden transition-all duration-200">
@@ -272,23 +275,23 @@ const Sidebar: React.FC<SidebarProps> = ({
               .map(agent => {
                 const isActive = activeAgentId === agent.id;
                 const isLocked = agent.status !== 'active';
-                const isAllowedForVisitor = agent.id === 'cattle-profit';
+                const isAllowedForVisitor = agent.id === 'cattle-profit' || agent.id === 'ask-antonio';
                 const isLockedForVisitor = isVisitor && !isAllowedForVisitor;
 
                 return (
                   <React.Fragment key={agent.id}>
                     <button
-                      onClick={() => !isLocked && !isLockedForVisitor && onSelectAgent(agent.id)}
-                      disabled={isLocked || isLockedForVisitor}
+                      onClick={() => !isLocked && onSelectAgent(agent.id)}
+                      disabled={isLocked}
                       className={`
                       w-full flex items-center px-3 py-2 rounded-md transition-all relative group
                       ${isActive
                           ? 'bg-ai-accent/10 text-ai-accent'
                           : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                         }
-                      ${isLocked || isLockedForVisitor ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                      ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                     `}
-                      title={isLockedForVisitor ? `${agent.name} (Indisponível para visitantes)` : agent.name}
+                      title={isLockedForVisitor ? `${agent.name} (Restrito — clique para saber mais)` : agent.name}
                     >
                       <div
                         className={`flex-shrink-0 ${isActive ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}
@@ -313,7 +316,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <span className="ml-3 text-sm font-medium block text-left truncate">{agent.name}</span>
 
                       {isLocked || isLockedForVisitor ? (
-                        <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />
+                        <Lock size={10} className={`absolute right-3 top-1/2 -translate-y-1/2 ${isLockedForVisitor ? 'text-amber-400' : 'text-ai-subtext/50'}`} />
                       ) : null}
                     </button>
                     {agent.id === 'cattle-profit' && canAccessRh && (
@@ -359,17 +362,15 @@ const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Área Certificados - último item */}
             <button
-              onClick={() => !isVisitor && onSelectAgent('area-certificados')}
-              disabled={isVisitor}
+              onClick={() => onSelectAgent('area-certificados')}
               className={`
-                w-full flex items-center px-3 py-2 rounded-md transition-all relative group
+                w-full flex items-center px-3 py-2 rounded-md transition-all relative group cursor-pointer
                 ${activeAgentId === 'area-certificados'
                   ? 'bg-ai-accent/10 text-ai-accent'
                   : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
                 }
-                ${isVisitor ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
               `}
-              title={isVisitor ? 'Área Certificados (Indisponível para visitantes)' : 'Área Certificados'}
+              title={isVisitor ? 'Área Certificados (Restrito — clique para saber mais)' : 'Área Certificados'}
             >
               <div
                 className={`flex-shrink-0 ${activeAgentId === 'area-certificados' ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}
@@ -377,7 +378,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <Briefcase size={16} />
               </div>
               <span className="ml-3 text-sm font-medium block text-left truncate">Área Certificados</span>
-              {isVisitor && <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-ai-subtext/50" />}
+              {isVisitor && <Lock size={10} className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400" />}
             </button>
           </nav>
         </div>
@@ -388,18 +389,18 @@ const Sidebar: React.FC<SidebarProps> = ({
           {onSwitchToInttegra && (
             <button
               type="button"
-              onClick={() => !isVisitor && onSwitchToInttegra()}
-              disabled={isVisitor}
+              onClick={() => onSwitchToInttegra()}
               className={`w-full flex items-center gap-2 px-3 py-2 mb-3 rounded-md text-sm font-medium transition-colors ${isVisitor
-                ? 'text-ai-subtext opacity-50 cursor-not-allowed'
-                : 'text-ai-subtext hover:text-emerald-600 hover:bg-emerald-50'
+                  ? 'text-ai-subtext hover:text-emerald-600 hover:bg-emerald-50'
+                  : 'text-ai-subtext hover:text-emerald-600 hover:bg-emerald-50'
                 }`}
-              title={isVisitor ? 'Inttegra (Indisponível para visitantes)' : 'Ir para Inttegra'}
+              title={isVisitor ? 'Inttegra (Restrito — clique para saber mais)' : 'Ir para Inttegra'}
             >
-              <Layers size={14} className={isVisitor ? 'text-ai-subtext' : 'text-emerald-500'} />
+              <Layers size={14} className="text-emerald-500" />
               <span>Inttegra</span>
-              {!isVisitor && <ArrowLeftRight size={12} className="ml-auto opacity-50" />}
-              {isVisitor && <Lock size={10} className="ml-auto text-ai-subtext/50" />}
+              {isVisitor
+                ? <Lock size={9} className="ml-auto text-amber-400" />
+                : <ArrowLeftRight size={12} className="ml-auto opacity-50" />}
             </button>
           )}
 

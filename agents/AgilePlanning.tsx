@@ -307,6 +307,12 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   const [matingPeriodDays, setMatingPeriodDays] = useState(90); // 40 a 120 dias, default 90
   const [cowSlaughterDays, setCowSlaughterDays] = useState(30); // 0 a 90 dias, default 30
 
+  // Estados de índices de terminação
+  const [gmdPosDesmame, setGmdPosDesmame] = useState(0.65); // 0.65 a 1.2, default 0.65
+  const [pesoAbateBois, setPesoAbateBois] = useState(550); // 480 a 630 kg, default 550
+  const [rendimentoCarcacaBois, setRendimentoCarcacaBois] = useState(55); // 50 a 58%, default 55
+  const [valorArrobaBois, setValorArrobaBois] = useState(330); // 280 a 400/@, default 330
+
   // Estado de categorias
   const [animalCategories, setAnimalCategories] = useState<AnimalCategory[]>(getDefaultCategories);
   const [selectedIndicators, setSelectedIndicators] = useState<string[]>([
@@ -1293,12 +1299,21 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     }
   }, [productionSystem, recriaValorVenda]);
 
+  // Sincronizar valor da @ com a tabela de categorias (Cria e Ciclo Completo)
+  useEffect(() => {
+    if (productionSystem === 'Cria' || productionSystem === 'Ciclo Completo') {
+      setAnimalCategories(prev =>
+        prev.map(cat => (cat.id === CATEGORY_IDS.BOI_GORDO ? { ...cat, valuePerKg: valorArrobaBois } : cat)),
+      );
+    }
+  }, [productionSystem, valorArrobaBois]);
+
   // Atualizar margem esperada quando sistema de produção mudar
   useEffect(() => {
     setExpectedMargin(marginConfig.default);
   }, [marginConfig.default]);
 
-  // Atualizar pesos das categorias quando os sliders de peso ao desmame mudarem
+  // Atualizar pesos das categorias quando os sliders de peso ao desmame/abate mudarem
   useEffect(() => {
     setAnimalCategories(prev =>
       prev.map(cat => {
@@ -1310,10 +1325,14 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
           // Peso ao desmame de fêmeas = Bezerra Desm.
           return { ...cat, weight: femaleWeaningWeight };
         }
+        if (cat.id === CATEGORY_IDS.BOI_GORDO && productionSystem !== 'Recria-Engorda') {
+          // Peso ao abate bois (kg) convertido para @ (usando fator 30)
+          return { ...cat, weight: pesoAbateBois / HERD_CONSTANTS.ARROBA_TO_KG };
+        }
         return cat;
       }),
     );
-  }, [maleWeaningWeight, femaleWeaningWeight]);
+  }, [maleWeaningWeight, femaleWeaningWeight, pesoAbateBois, productionSystem]);
 
   // ============================================================================
   // HANDLERS
@@ -1680,11 +1699,14 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
             </div>
           </div>
 
-          {/* Valor Médio de Venda */}
+          {/* Valor Médio de Venda e Blocos de Indicadores */}
           <div className="mb-4">
-            <div className="flex items-stretch gap-4">
+            <div className={`grid gap-3 items-stretch ${showReproductiveIndices ? '[grid-template-columns:160px_1fr_1fr_1fr_160px]' :
+                productionSystem === 'Recria-Engorda' ? 'grid-cols-4' :
+                  'grid-cols-1'
+              }`}>
               {/* Caixa de Valor Médio */}
-              <div className="bg-white border border-ai-border/70 rounded-lg p-2 min-w-[180px] flex flex-col">
+              <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col">
                 <div className="pb-1.5 mb-2 border-b border-ai-border/60">
                   <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">Valores</h3>
                 </div>
@@ -1785,9 +1807,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                 )}
               </div>
 
-              {/* Card de Índices de Referência - Recria-Engorda (na mesma linha que Valores) */}
+              {/* Card de Índices de Referência - Recria-Engorda */}
               {productionSystem === 'Recria-Engorda' && (
-                <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex-1 flex flex-col min-w-0">
+                <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0">
                   <div className="pb-1.5 mb-2 border-b border-ai-border/60">
                     <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">
                       Índices de Referência
@@ -1868,7 +1890,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
               {/* Card de Valores de Compra e Venda - Recria-Engorda */}
               {productionSystem === 'Recria-Engorda' && (
-                <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex-1 flex flex-col min-w-0">
+                <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0">
                   <div className="pb-1.5 mb-2 border-b border-ai-border/60">
                     <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">
                       Valores de Compra e Venda
@@ -2009,257 +2031,354 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                 </div>
               )}
 
+              {/* Índices Reprodutivos e de Terminação (Cria / Ciclo Completo) */}
               {showReproductiveIndices && (
-                <div className="flex gap-3 flex-1 items-stretch">
-                  <div className="grid grid-cols-2 gap-3 flex-1 min-w-0">
-                    <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0">
-                      <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">
-                        Índices Reprodutivos
-                      </h3>
-                      <div className="flex flex-col justify-between flex-1 gap-2">
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] mb-0.5">
-                            <label className="text-ai-subtext">Fertilidade</label>
-                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
-                              {fertility.toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0">70%</span>
-                            <input
-                              type="range"
-                              min={70}
-                              max={90}
-                              step={0.5}
-                              value={fertility}
-                              onChange={e => setFertility(parseFloat(e.target.value))}
-                              className="flex-1 accent-ai-accent h-1.5"
-                            />
-                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">90%</span>
-                          </div>
+                <>
+                  {/* Card 1: Índices Reprodutivos (Fertilidade, Perdas, Mortalidade) */}
+                  <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0 overflow-hidden">
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">
+                      Índices Reprodutivos
+                    </h3>
+                    <div className="flex flex-col justify-between flex-1 gap-2">
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">Fertilidade</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {fertility.toFixed(1)}%
+                          </span>
                         </div>
-
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] mb-0.5">
-                            <label className="text-ai-subtext">Perda Pré Parto</label>
-                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
-                              {prePartumLoss.toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0">3%</span>
-                            <input
-                              type="range"
-                              min={3}
-                              max={15}
-                              step={0.5}
-                              value={prePartumLoss}
-                              onChange={e => setPrePartumLoss(parseFloat(e.target.value))}
-                              className="flex-1 accent-ai-accent h-1.5"
-                            />
-                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">15%</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] mb-0.5">
-                            <label className="text-ai-subtext">Mortalidade de Bezerros</label>
-                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
-                              {calfMortality.toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0">1,5%</span>
-                            <input
-                              type="range"
-                              min={1.5}
-                              max={7}
-                              step={0.1}
-                              value={calfMortality}
-                              onChange={e => setCalfMortality(parseFloat(e.target.value))}
-                              className="flex-1 accent-ai-accent h-1.5"
-                            />
-                            <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">7%</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] mb-0.5">
-                            <label className="text-ai-subtext">Peso ao desmame de machos</label>
-                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
-                              {maleWeaningWeight} kg
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">170 kg</span>
-                            <input
-                              type="range"
-                              min={170}
-                              max={260}
-                              step={1}
-                              value={maleWeaningWeight}
-                              onChange={e => setMaleWeaningWeight(parseInt(e.target.value, 10))}
-                              className="flex-1 accent-ai-accent h-1.5"
-                            />
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">260 kg</span>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] mb-0.5">
-                            <label className="text-ai-subtext">Peso ao desmame de fêmeas</label>
-                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
-                              {femaleWeaningWeight} kg
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">170 kg</span>
-                            <input
-                              type="range"
-                              min={170}
-                              max={260}
-                              step={1}
-                              value={femaleWeaningWeight}
-                              onChange={e => setFemaleWeaningWeight(parseInt(e.target.value, 10))}
-                              className="flex-1 accent-ai-accent h-1.5"
-                            />
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">260 kg</span>
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0">70%</span>
+                          <input
+                            type="range"
+                            min={70}
+                            max={90}
+                            step={0.5}
+                            value={fertility}
+                            onChange={e => setFertility(parseFloat(e.target.value))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">90%</span>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0">
-                      <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">
-                        Índices Reprodutivos
-                      </h3>
-                      <div className="flex flex-col justify-between flex-1 gap-2">
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] mb-0.5">
-                            <label className="text-ai-subtext">Idade a primeira monta</label>
-                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
-                              {firstMatingAge} meses
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">12 meses</span>
-                            <input
-                              type="range"
-                              min={12}
-                              max={24}
-                              step={1}
-                              value={firstMatingAge}
-                              onChange={e => setFirstMatingAge(parseInt(e.target.value, 10))}
-                              className="flex-1 accent-ai-accent h-1.5"
-                            />
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">24 meses</span>
-                          </div>
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">Perda Pré Parto</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {prePartumLoss.toFixed(1)}%
+                          </span>
                         </div>
-
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] mb-0.5">
-                            <label className="text-ai-subtext">Peso a primeira monta</label>
-                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
-                              {pesoPrimeiraMonta} kg
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">270 kg</span>
-                            <input
-                              type="range"
-                              min={270}
-                              max={360}
-                              step={1}
-                              value={pesoPrimeiraMonta}
-                              onChange={e => setPesoPrimeiraMonta(parseInt(e.target.value, 10))}
-                              className="flex-1 accent-ai-accent h-1.5"
-                            />
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">360 kg</span>
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0">3%</span>
+                          <input
+                            type="range"
+                            min={3}
+                            max={15}
+                            step={0.5}
+                            value={prePartumLoss}
+                            onChange={e => setPrePartumLoss(parseFloat(e.target.value))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">15%</span>
                         </div>
+                      </div>
 
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] mb-0.5">
-                            <label className="text-ai-subtext">Tempo de monta</label>
-                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
-                              {matingPeriodDays} dias
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">40 dias</span>
-                            <input
-                              type="range"
-                              min={40}
-                              max={120}
-                              step={1}
-                              value={matingPeriodDays}
-                              onChange={e => setMatingPeriodDays(parseInt(e.target.value, 10))}
-                              className="flex-1 accent-ai-accent h-1.5"
-                            />
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">120 dias</span>
-                          </div>
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">Mortalidade de Bezerros</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {calfMortality.toFixed(1)}%
+                          </span>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0">1,5%</span>
+                          <input
+                            type="range"
+                            min={1.5}
+                            max={7}
+                            step={0.1}
+                            value={calfMortality}
+                            onChange={e => setCalfMortality(parseFloat(e.target.value))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-7 flex-shrink-0 text-right">7%</span>
+                        </div>
+                      </div>
 
-                        <div>
-                          <div className="flex items-center justify-between text-[9px] mb-0.5">
-                            <div
-                              className="flex items-center gap-1 relative"
-                              ref={el => {
-                                weightInfoRefs.current['cowSlaughter'] = el;
-                              }}
-                            >
-                              <label className="text-ai-subtext">Dias para abate de vacas</label>
-                              <button
-                                ref={el => {
-                                  weightButtonRefs.current['cowSlaughter'] = el;
-                                }}
-                                type="button"
-                                onClick={() => handleWeightInfoToggle('cowSlaughter')}
-                                className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
-                                title="Mais informações"
-                                aria-label="Mais informações"
-                              >
-                                <Info size={10} />
-                              </button>
-                              {weightCalculationInfoOpen === 'cowSlaughter' && popoverPositions.cowSlaughter && (
-                                <div
-                                  className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
-                                  style={{
-                                    top: popoverPositions.cowSlaughter.top,
-                                    left: popoverPositions.cowSlaughter.left,
-                                  }}
-                                >
-                                  <p className="font-medium text-gray-800 mb-1 text-left">Dias para abate de vacas</p>
-                                  <p className="text-[10px] text-left">
-                                    Dias necessários para terminação das matrizes vazias após o desmame.
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                            <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
-                              {cowSlaughterDays} dias
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">0 dias</span>
-                            <input
-                              type="range"
-                              min={0}
-                              max={90}
-                              step={1}
-                              value={cowSlaughterDays}
-                              onChange={e => setCowSlaughterDays(parseInt(e.target.value, 10))}
-                              className="flex-1 accent-ai-accent h-1.5"
-                            />
-                            <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">90 dias</span>
-                          </div>
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">Peso ao desmame de machos</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {maleWeaningWeight} kg
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">170 kg</span>
+                          <input
+                            type="range"
+                            min={170}
+                            max={260}
+                            step={1}
+                            value={maleWeaningWeight}
+                            onChange={e => setMaleWeaningWeight(parseInt(e.target.value, 10))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">260 kg</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">Peso ao desmame de fêmeas</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {femaleWeaningWeight} kg
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">170 kg</span>
+                          <input
+                            type="range"
+                            min={170}
+                            max={260}
+                            step={1}
+                            value={femaleWeaningWeight}
+                            onChange={e => setFemaleWeaningWeight(parseInt(e.target.value, 10))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">260 kg</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Card de Outputs Calculados */}
-                  <div className="bg-white border border-ai-border/70 rounded-lg p-2 min-w-[150px] flex flex-col">
+                  {/* Card 2: Índices Reprodutivos (Idade Monta, Peso Monta, Tempo Monta) */}
+                  <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0 overflow-hidden">
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">
+                      Índices Reprodutivos
+                    </h3>
+                    <div className="flex flex-col justify-between flex-1 gap-2">
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">Idade a primeira monta</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {firstMatingAge} meses
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">12 meses</span>
+                          <input
+                            type="range"
+                            min={12}
+                            max={24}
+                            step={1}
+                            value={firstMatingAge}
+                            onChange={e => setFirstMatingAge(parseInt(e.target.value, 10))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">24 meses</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">Peso a primeira monta</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {pesoPrimeiraMonta} kg
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">270 kg</span>
+                          <input
+                            type="range"
+                            min={270}
+                            max={360}
+                            step={1}
+                            value={pesoPrimeiraMonta}
+                            onChange={e => setPesoPrimeiraMonta(parseInt(e.target.value, 10))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">360 kg</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">Tempo de monta</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {matingPeriodDays} dias
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">40 dias</span>
+                          <input
+                            type="range"
+                            min={40}
+                            max={120}
+                            step={1}
+                            value={matingPeriodDays}
+                            onChange={e => setMatingPeriodDays(parseInt(e.target.value, 10))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">120 dias</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <div
+                            className="flex items-center gap-1 relative"
+                            ref={el => {
+                              weightInfoRefs.current['cowSlaughter'] = el;
+                            }}
+                          >
+                            <label className="text-ai-subtext">Dias para abate de vacas</label>
+                            <button
+                              ref={el => {
+                                weightButtonRefs.current['cowSlaughter'] = el;
+                              }}
+                              type="button"
+                              onClick={() => handleWeightInfoToggle('cowSlaughter')}
+                              className="text-gray-300 hover:text-blue-500 transition-colors focus:outline-none"
+                              title="Mais informações"
+                              aria-label="Mais informações"
+                            >
+                              <Info size={10} />
+                            </button>
+                            {weightCalculationInfoOpen === 'cowSlaughter' && popoverPositions.cowSlaughter && (
+                              <div
+                                className="fixed z-[100] w-56 p-2.5 bg-white rounded-lg shadow-2xl border border-gray-200 text-xs text-gray-600 leading-relaxed animate-in fade-in zoom-in-95 duration-200"
+                                style={{
+                                  top: popoverPositions.cowSlaughter.top,
+                                  left: popoverPositions.cowSlaughter.left,
+                                }}
+                              >
+                                <p className="font-medium text-gray-800 mb-1 text-left">Dias para abate de vacas</p>
+                                <p className="text-[10px] text-left">
+                                  Dias necessários para terminação das matrizes vazias após o desmame.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {cowSlaughterDays} dias
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0">0 dias</span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={90}
+                            step={1}
+                            value={cowSlaughterDays}
+                            onChange={e => setCowSlaughterDays(parseInt(e.target.value, 10))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-9 flex-shrink-0 text-right">90 dias</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Indicadores de Terminação */}
+                  <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex flex-col min-w-0 overflow-hidden">
+                    <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text pb-1.5 mb-2 border-b border-ai-border/60">
+                      Indicadores de Terminação
+                    </h3>
+                    <div className="flex flex-col justify-between flex-1 gap-2">
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">GMD pós desmame</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {gmdPosDesmame.toFixed(2)} kg/dia
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0">0,65</span>
+                          <input
+                            type="range"
+                            min={0.65}
+                            max={1.2}
+                            step={0.01}
+                            value={gmdPosDesmame}
+                            onChange={e => setGmdPosDesmame(parseFloat(e.target.value))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">1,20</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">Peso ao abate bois</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {pesoAbateBois} kg
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0">480 kg</span>
+                          <input
+                            type="range"
+                            min={480}
+                            max={630}
+                            step={1}
+                            value={pesoAbateBois}
+                            onChange={e => setPesoAbateBois(parseInt(e.target.value, 10))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">630 kg</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">Rendimento de carcaça</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            {rendimentoCarcacaBois.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0">50%</span>
+                          <input
+                            type="range"
+                            min={50}
+                            max={58}
+                            step={0.5}
+                            value={rendimentoCarcacaBois}
+                            onChange={e => setRendimentoCarcacaBois(parseFloat(e.target.value))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">58%</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between text-[9px] mb-0.5">
+                          <label className="text-ai-subtext">Valor a @ bois</label>
+                          <span className="font-semibold text-ai-text bg-ai-surface2/70 border border-ai-border/70 rounded px-1.5 py-0.5">
+                            R$ {valorArrobaBois}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0">R$ 280</span>
+                          <input
+                            type="range"
+                            min={280}
+                            max={400}
+                            step={1}
+                            value={valorArrobaBois}
+                            onChange={e => setValorArrobaBois(parseInt(e.target.value, 10))}
+                            className="flex-1 accent-ai-accent h-1.5"
+                          />
+                          <span className="text-[7px] text-ai-subtext w-8 flex-shrink-0 text-right">R$ 400</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 4: Resultados de Performance */}
+                  <div className="bg-white border border-ai-border/70 rounded-lg p-2 min-w-0 flex flex-col overflow-hidden">
                     <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-ai-border/60">
                       <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">
                         Resultados de Performance
@@ -2290,7 +2409,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                       )}
                     </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
           </div>
@@ -3135,12 +3254,12 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           averageHerdTable.novilhas8a12 +
                           averageHerdTable.novilhas13a24 +
                           averageHerdTable.touros >
-                        0
+                          0
                           ? averageHerdTable.vacas +
-                            averageHerdTable.bezerrosMamando +
-                            averageHerdTable.novilhas8a12 +
-                            averageHerdTable.novilhas13a24 +
-                            averageHerdTable.touros
+                          averageHerdTable.bezerrosMamando +
+                          averageHerdTable.novilhas8a12 +
+                          averageHerdTable.novilhas13a24 +
+                          averageHerdTable.touros
                           : '-'}
                       </td>
                       <td className="px-4 py-3 text-center text-sm text-ai-text font-bold">-</td>
@@ -3413,9 +3532,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                     <tr>
                       <td className="px-2 py-1 text-ai-text font-bold text-xs">Total</td>
                       <td
-                        className={`px-2 py-1 text-center font-bold text-xs ${
-                          isPercentageSumValid ? 'text-ai-text' : 'text-red-600'
-                        }`}
+                        className={`px-2 py-1 text-center font-bold text-xs ${isPercentageSumValid ? 'text-ai-text' : 'text-red-600'
+                          }`}
                       >
                         {percentageSum.toFixed(1)}%
                         {!isPercentageSumValid && <span className="ml-1 text-[9px]">⚠️</span>}
