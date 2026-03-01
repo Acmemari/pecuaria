@@ -106,7 +106,11 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ onToast, onSucces
           <div className="mb-4 sm:mb-6">
             <h2 className="text-base sm:text-lg font-semibold">Redefinir senha</h2>
             <p className="text-[10px] sm:text-xs text-ai-subtext mt-1">
-              Digite sua nova senha abaixo. A senha deve ter no mínimo 6 caracteres.
+              Digite sua nova senha abaixo. A senha deve ter no mínimo 6 caracteres. Em caso de dúvidas, contate{' '}
+              <a href="mailto:suporte@ai.com" className="text-ai-text font-medium hover:underline">
+                suporte@ai.com
+              </a>
+              .
             </p>
           </div>
 

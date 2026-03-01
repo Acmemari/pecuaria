@@ -222,6 +222,11 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# Template de recuperação de senha (reset password)
+[auth.email.template.recovery]
+subject = "Redefinir Senha - PecuarIA"
+content_path = "./templates/recovery.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"
