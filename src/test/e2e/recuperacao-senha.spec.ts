@@ -46,11 +46,11 @@ test.describe('Recuperação de senha', () => {
     await page.getByRole('button', { name: /esqueci minha senha/i }).click();
     await page.waitForLoadState('networkidle');
 
-    // Email inválido
-    await page.getByPlaceholder(/exemplo@/i).fill('email-invalido');
+    // Email sem TLD (passa HTML5 em alguns browsers, falha na nossa regex)
+    await page.getByPlaceholder(/exemplo@/i).fill('user@domain');
     await page.getByRole('button', { name: /enviar link de recuperação/i }).click();
 
     // Deve mostrar erro de validação
-    await expect(page.getByText(/email válido|informe um email/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/informe um email válido/i)).toBeVisible({ timeout: 5000 });
   });
 });
