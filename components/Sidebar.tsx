@@ -385,8 +385,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* User Profile & Footer */}
         <div className="p-3 border-t border-ai-border bg-ai-bg shrink-0">
-          {/* Switch to Inttegra */}
-          {onSwitchToInttegra && (
+          {/* Switch to Inttegra - apenas para admin */}
+          {onSwitchToInttegra && user?.role === 'admin' && (
             <button
               type="button"
               onClick={() => onSwitchToInttegra()}
