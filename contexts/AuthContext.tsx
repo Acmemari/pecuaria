@@ -200,13 +200,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // --- TOKEN REFRESHED ---
-      // Supabase auto-refreshes the JWT every ~1 hour.
-      // The user profile in our DB has NOT changed — no need to reload it.
-      // Reloading here would cause unnecessary DB queries at scale.
-      if (event === 'TOKEN_REFRESHED') {
-        log.debug('Session token refreshed silently');
-        return;
+          // Sempre garantir que isLoading seja falso após o processamento do SIGNED_IN
+          setIsLoading(false);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setIsLoading(false);
+          // Clear session-specific localStorage (covers external sign-outs, expired sessions)
+          try {
+            localStorage.removeItem('hierarchySelection.v1');
+            localStorage.removeItem('agro-farms');
+            localStorage.removeItem('selectedAnalystId');
+            localStorage.removeItem('selectedClientId');
+            localStorage.removeItem('selectedFarm');
+            localStorage.removeItem('selectedFarmId');
+          } catch {
+            // Ignore storage errors
+          }
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          const userProfile = await loadUserProfile(session.user.id);
+          if (userProfile) {
+            setUser(userProfile);
+          }
+        }
+      } catch (err: unknown) {
+        log.error('Error in onAuthStateChange', err instanceof Error ? err : new Error(String(err)));
+        setIsLoading(false); // Garantir destravamento em caso de erro
       }
     });
 
@@ -291,6 +309,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(async () => {
     setUser(null);
+
+    // Clear all session-specific localStorage data
+    try {
+      localStorage.removeItem('hierarchySelection.v1');
+      localStorage.removeItem('agro-farms');
+      localStorage.removeItem('selectedAnalystId');
+      localStorage.removeItem('selectedClientId');
+      localStorage.removeItem('selectedFarm');
+      localStorage.removeItem('selectedFarmId');
+    } catch {
+      // Ignore storage errors
+    }
+
     try {
       await supabase.auth.signOut();
     } catch (error: unknown) {
