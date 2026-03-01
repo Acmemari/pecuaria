@@ -48,14 +48,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             status: 'active',
           });
 
-          // Load full profile in background
-          loadUserProfile(session.user.id)
-            .then(profile => {
-              if (profile) setUser(profile);
-            })
-            .catch((err: unknown) => {
-              log.error('Error loading user profile', err instanceof Error ? err : new Error(String(err)));
-            });
+          // Load full profile before rendering (await instead of fire-and-forget)
+          try {
+            const profile = await loadUserProfile(session.user.id);
+            if (profile) setUser(profile);
+          } catch (err: unknown) {
+            log.error('Error loading user profile', err instanceof Error ? err : new Error(String(err)));
+          }
         } else {
           setUser(null);
         }
@@ -120,16 +119,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(userProfile);
           } else {
             log.warn('Profile not found after SIGNED_IN event and creation attempt');
-            // Even without profile, we can set a basic user object to allow access
-            // The profile will be created by the trigger eventually
-            setUser({
-              id: session.user.id,
-              email: session.user.email || '',
-              name: session.user.user_metadata?.name || session.user.user_metadata?.full_name || 'Usuário',
-              role: (session.user.user_metadata?.role as 'admin' | 'client') || 'client',
-              plan: (session.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
-              avatar: session.user.user_metadata?.avatar || session.user.email?.[0].toUpperCase() || 'U',
-              status: 'active',
+            // Only set fallback if current user doesn't already have a loaded profile with qualification
+            // This prevents overriding a good profile set by login() with a fallback lacking qualification
+            setUser(prev => {
+              if (prev?.qualification !== undefined) return prev;
+              return {
+                id: session.user.id,
+                email: session.user.email || '',
+                name: session.user.user_metadata?.name || session.user.user_metadata?.full_name || 'Usuário',
+                role: (session.user.user_metadata?.role as 'admin' | 'client') || 'client',
+                plan: (session.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
+                avatar: session.user.user_metadata?.avatar || session.user.email?.[0].toUpperCase() || 'U',
+                status: 'active',
+              };
             });
           }
 
