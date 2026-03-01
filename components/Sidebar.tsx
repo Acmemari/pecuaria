@@ -275,7 +275,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               .map(agent => {
                 const isActive = activeAgentId === agent.id;
                 const isLocked = agent.status !== 'active';
-                const isAllowedForVisitor = agent.id === 'cattle-profit' || agent.id === 'ask-antonio';
+                const isAllowedForVisitor = agent.id === 'cattle-profit' || agent.id === 'ask-antonio' || agent.id === 'saved-scenarios';
                 const isLockedForVisitor = isVisitor && !isAllowedForVisitor;
 
                 return (
