@@ -138,6 +138,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setIsLoading(false);
+          // Clear session-specific localStorage (covers external sign-outs, expired sessions)
+          try {
+            localStorage.removeItem('hierarchySelection.v1');
+            localStorage.removeItem('agro-farms');
+            localStorage.removeItem('selectedAnalystId');
+            localStorage.removeItem('selectedClientId');
+            localStorage.removeItem('selectedFarm');
+            localStorage.removeItem('selectedFarmId');
+          } catch {
+            // Ignore storage errors
+          }
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           const userProfile = await loadUserProfile(session.user.id);
           if (userProfile) {
@@ -245,6 +256,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     // Clear user state immediately to ensure UI update
     setUser(null);
+
+    // Clear all session-specific localStorage data
+    try {
+      localStorage.removeItem('hierarchySelection.v1');
+      localStorage.removeItem('agro-farms');
+      localStorage.removeItem('selectedAnalystId');
+      localStorage.removeItem('selectedClientId');
+      localStorage.removeItem('selectedFarm');
+      localStorage.removeItem('selectedFarmId');
+    } catch {
+      // Ignore storage errors
+    }
+
     try {
       await supabase.auth.signOut();
     } catch (error: unknown) {
