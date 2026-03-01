@@ -197,34 +197,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null);
         clearTimeout(safetyTimeout);
         setIsLoading(false);
+        // Clear session-specific localStorage (covers external sign-outs, expired sessions)
+        try {
+          localStorage.removeItem('hierarchySelection.v1');
+          localStorage.removeItem('agro-farms');
+          localStorage.removeItem('selectedAnalystId');
+          localStorage.removeItem('selectedClientId');
+          localStorage.removeItem('selectedFarm');
+          localStorage.removeItem('selectedFarmId');
+        } catch {
+          // Ignore storage errors
+        }
         return;
       }
 
-          // Sempre garantir que isLoading seja falso após o processamento do SIGNED_IN
-          setIsLoading(false);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setIsLoading(false);
-          // Clear session-specific localStorage (covers external sign-outs, expired sessions)
-          try {
-            localStorage.removeItem('hierarchySelection.v1');
-            localStorage.removeItem('agro-farms');
-            localStorage.removeItem('selectedAnalystId');
-            localStorage.removeItem('selectedClientId');
-            localStorage.removeItem('selectedFarm');
-            localStorage.removeItem('selectedFarmId');
-          } catch {
-            // Ignore storage errors
-          }
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+      // --- TOKEN REFRESHED ---
+      if (event === 'TOKEN_REFRESHED' && session?.user) {
+        try {
           const userProfile = await loadUserProfile(session.user.id);
           if (userProfile) {
             setUser(userProfile);
           }
+        } catch (err: unknown) {
+          log.error('Error refreshing token profile', err instanceof Error ? err : new Error(String(err)));
         }
-      } catch (err: unknown) {
-        log.error('Error in onAuthStateChange', err instanceof Error ? err : new Error(String(err)));
-        setIsLoading(false); // Garantir destravamento em caso de erro
+        return;
       }
     });
 
