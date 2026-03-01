@@ -99,6 +99,13 @@ const AppContent: React.FC = () => {
   // Estado para controlar se está no formulário de pessoas
   const [isPeopleFormView, setIsPeopleFormView] = useState(false);
 
+  // Inttegra só acessível para admin — redireciona se não-admin tentar acessar
+  useEffect(() => {
+    if (activeApp === 'inttegra' && user && user.role !== 'admin') {
+      setActiveApp('pecuaria');
+    }
+  }, [activeApp, user?.role]);
+
   // Handle window resize to adjust sidebar state
   useEffect(() => {
     const handleResize = () => {

@@ -26,6 +26,20 @@ Este guia explica como configurar o fluxo completo de recuperação de senha no 
 
 ### 2. Configurar Template de Email
 
+**Opção A – Script automático (recomendado):**
+
+1. Obtenha um token em [Supabase Dashboard > Account > Access Tokens](https://supabase.com/dashboard/account/tokens)
+2. Execute:
+   ```bash
+   SUPABASE_ACCESS_TOKEN=seu_token npm run email:push-template
+   ```
+   No Windows PowerShell:
+   ```powershell
+   $env:SUPABASE_ACCESS_TOKEN="seu_token"; npm run email:push-template
+   ```
+
+**Opção B – Manual no Dashboard:**
+
 1. No Supabase Dashboard, vá em **Authentication** > **Email Templates**
 2. Selecione o template **Reset Password**
 3. Copie o conteúdo do arquivo `lib/email-templates/reset-password.html`

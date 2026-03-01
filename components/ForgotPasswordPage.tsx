@@ -79,7 +79,10 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onToast, onBack
                 instruções para redefinir sua senha.
               </p>
               <p className="text-[10px] sm:text-xs text-ai-subtext mb-6">
-                Não recebeu o email? Verifique sua pasta de spam ou tente novamente.
+                Não recebeu o email? Verifique sua pasta de spam ou entre em contato:{' '}
+                <a href="mailto:suporte@ai.com" className="text-ai-text font-medium hover:underline">
+                  suporte@ai.com
+                </a>
               </p>
               <button
                 onClick={onBack}
@@ -109,7 +112,11 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = ({ onToast, onBack
           <div className="mb-4 sm:mb-6">
             <h2 className="text-base sm:text-lg font-semibold">Recuperar senha</h2>
             <p className="text-[10px] sm:text-xs text-ai-subtext mt-1">
-              Digite seu email e enviaremos um link para redefinir sua senha.
+              Digite seu email e enviaremos um link para redefinir sua senha. Em caso de dúvidas, contate{' '}
+              <a href="mailto:suporte@ai.com" className="text-ai-text font-medium hover:underline">
+                suporte@ai.com
+              </a>
+              .
             </p>
           </div>
 

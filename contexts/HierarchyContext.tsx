@@ -57,7 +57,8 @@ type HierarchyAction =
   | { type: 'SET_ERROR'; payload: { level: keyof HierarchyErrorState; value: string | null } }
   | { type: 'SELECT_ANALYST_ID'; payload: string | null }
   | { type: 'SELECT_CLIENT_ID'; payload: string | null }
-  | { type: 'SELECT_FARM_ID'; payload: string | null };
+  | { type: 'SELECT_FARM_ID'; payload: string | null }
+  | { type: 'RESET' };
 
 interface HierarchyContextType extends HierarchyState {
   effectiveAnalystId: string | null;
@@ -221,6 +222,8 @@ function hierarchyReducer(state: HierarchyState, action: HierarchyAction): Hiera
         farmId: action.payload,
         selectedFarm: state.farms.find(f => f.id === action.payload) || null,
       };
+    case 'RESET':
+      return { ...initialState };
     default:
       return state;
   }
@@ -301,18 +304,26 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [user, state.analystId]);
 
   useEffect(() => {
+    // Only hydrate for non-visitor authenticated users
+    if (!user || user.qualification === 'visitante') return;
     const initial = loadInitialPersistedIds();
     dispatch({ type: 'HYDRATE_IDS', payload: initial });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   useEffect(() => {
+    // Don't persist if no user is logged in (state was just reset)
+    if (!user) return;
+    // Don't persist visitor synthetic IDs — they should never leak to other sessions
+    if (user.qualification === 'visitante') return;
+
     const payload = {
       analystId: state.analystId,
       clientId: state.clientId,
       farmId: state.farmId,
     };
     localStorage.setItem(HIERARCHY_STORAGE_KEY, JSON.stringify(payload));
-  }, [state.analystId, state.clientId, state.farmId]);
+  }, [state.analystId, state.clientId, state.farmId, user]);
 
   const nextController = useCallback((level: keyof HierarchyLoadingState) => {
     abortRef.current[level]?.abort();
@@ -548,7 +559,28 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // User logged out: reset all hierarchy state and clear persisted data
+      dispatch({ type: 'RESET' });
+      localStorage.removeItem(HIERARCHY_STORAGE_KEY);
+      localStorage.removeItem('agro-farms');
+      localStorage.removeItem('selectedAnalystId');
+      localStorage.removeItem('selectedClientId');
+      localStorage.removeItem('selectedFarm');
+      localStorage.removeItem('selectedFarmId');
+      paginationRef.current = {
+        analystsOffset: 0,
+        clientsOffset: 0,
+        farmsOffset: 0,
+        analystsSearch: '',
+        clientsSearch: '',
+        farmsSearch: '',
+      };
+      abortRef.current.analysts?.abort();
+      abortRef.current.clients?.abort();
+      abortRef.current.farms?.abort();
+      return;
+    }
 
     // Visitor: pre-inject the synthetic demo analyst + demo client
     if (user.qualification === 'visitante') {
