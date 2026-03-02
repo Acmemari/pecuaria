@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Lock, Mail, ArrowRight, Loader2, User, Building2, Phone } from 'lucide-react';
+import { APP_VERSION } from '../src/version';
 import { formatPhone, validatePhone } from '../lib/utils/phoneMask';
 
 interface LoginPageProps {
@@ -105,6 +106,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
           <p className="text-ai-subtext text-xs sm:text-sm mt-1 sm:mt-2">Calculadora de resultados para a pecuária</p>
           <p className="text-ai-subtext text-xs sm:text-sm mt-1">@ntonio_chaker_</p>
           <p className="text-ai-subtext text-xs sm:text-sm mt-0.5">antonio@inttegra.com</p>
+          <p className="text-ai-subtext text-[10px] sm:text-xs mt-0.5 font-medium tracking-wide">v{APP_VERSION} SaaS</p>
         </div>
 
         {/* Login/Signup Card */}
