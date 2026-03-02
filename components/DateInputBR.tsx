@@ -212,6 +212,8 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
             ref={calRef}
             className="fixed z-[9999] bg-ai-bg border border-ai-border rounded-lg shadow-xl"
             style={{ top: calPosition.top, left: calPosition.left }}
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
           >
             <DatePicker
               selected={selected}
@@ -220,7 +222,7 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
                   onChange(toIso(date));
                   setText(fmtBR(date));
                 }
-                setShowCal(false);
+                setTimeout(() => setShowCal(false), 0);
               }}
               inline
               locale="pt-BR"
