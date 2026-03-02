@@ -1,10 +1,9 @@
 import React from 'react';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { ModalShell } from './ModalShell';
 import DateInputBR from '../DateInputBR';
 import type { ActivityFormState } from './types';
 import type { Person } from '../../lib/people';
-import { peopleFilteredForResponsavel, peopleFilteredForLiderInterno } from '../../lib/people';
 
 interface ActivityModalProps {
   form: ActivityFormState;
@@ -13,7 +12,12 @@ interface ActivityModalProps {
   onClose: () => void;
   saving: boolean;
   mode: 'create' | 'edit';
+  /** Full list — used for the Participantes multi-select */
   people: Person[];
+  /** Pre-filtered list for Responsável (Co-Gestor, Consultor, Analista only) */
+  peopleForResponsavel: Person[];
+  /** Pre-filtered list for Lider Interno (excludes Co-Gestor, Consultor, Analista) */
+  peopleForLiderInterno: Person[];
 }
 
 export const ActivityModal: React.FC<ActivityModalProps> = ({
@@ -24,6 +28,8 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
   saving,
   mode,
   people,
+  peopleForResponsavel,
+  peopleForLiderInterno,
 }) => (
   <ModalShell
     title={mode === 'create' ? 'Nova Macro Atividade' : 'Editar Macro Atividade'}
@@ -70,7 +76,7 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
           className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
         >
           <option value="">Selecione (Co-Gestor, Consultor ou Analista)</option>
-          {peopleFilteredForResponsavel(people).map(person => (
+          {peopleForResponsavel.map(person => (
             <option key={person.id} value={person.id}>
               {person.preferred_name?.trim() || person.full_name}
             </option>
@@ -85,7 +91,7 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
           className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
         >
           <option value="">Selecione</option>
-          {peopleFilteredForLiderInterno(people).map(person => (
+          {peopleForLiderInterno.map(person => (
             <option key={person.id} value={person.id}>
               {person.preferred_name?.trim() || person.full_name}
             </option>

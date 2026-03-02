@@ -15,7 +15,7 @@ import {
   ensureDefaultMilestone,
   type InitiativeWithProgress,
 } from '../lib/initiatives';
-import { fetchPeople, type Person } from '../lib/people';
+import { fetchPeople, peopleFilteredForResponsavel, peopleFilteredForLiderInterno, type Person } from '../lib/people';
 import { arrayMove } from '@dnd-kit/sortable';
 import { sanitizeText } from '../lib/inputSanitizer';
 import { supabase } from '../lib/supabase';
@@ -143,6 +143,9 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   const [initiatives, setInitiatives] = useState<InitiativeWithProgress[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [tasks, setTasks] = useState<WorkbenchTask[]>([]);
+
+  const peopleForResponsavel = useMemo(() => peopleFilteredForResponsavel(people), [people]);
+  const peopleForLiderInterno = useMemo(() => peopleFilteredForLiderInterno(people), [people]);
 
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
@@ -1216,6 +1219,8 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           saving={saving}
           mode={modalMode}
           people={people}
+          peopleForResponsavel={peopleForResponsavel}
+          peopleForLiderInterno={peopleForLiderInterno}
         />
       )}
 

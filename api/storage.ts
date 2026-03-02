@@ -5,6 +5,11 @@
  * Actions:
  *   presign-upload  → returns a presigned PUT URL for direct browser→B2 upload
  *   delete          → deletes one or more objects from B2
+ *
+ * Security:
+ *   - Requires valid Supabase JWT in Authorization: Bearer <token>
+ *   - expiresIn is capped at PRESIGN_MAX_EXPIRES (1 hour)
+ *   - key/keys are validated against an allowlist of path prefixes
  */
 import {
   S3Client,
@@ -13,6 +18,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 
 let _client: S3Client | null = null;
 
@@ -41,6 +47,60 @@ function getBucket(): string {
   const bucket = process.env.VITE_B2_BUCKET;
   if (!bucket) throw new Error('VITE_B2_BUCKET not configured');
   return bucket;
+}
+
+/** Maximum presigned URL lifetime in seconds (1 hour). */
+const PRESIGN_MAX_EXPIRES = 3600;
+
+/**
+ * Allowed key prefixes — only paths under these prefixes can be written/deleted.
+ * Prevents path traversal attacks and accidental access to system objects.
+ */
+const ALLOWED_KEY_PREFIXES = [
+  'people-photos/',
+  'client-documents/',
+  'support-ticket-attachments/',
+  'milestone-evidence/',
+  'public/',
+];
+
+/**
+ * Validates a storage key:
+ * - Must start with one of the allowed prefixes
+ * - Must not contain path traversal sequences
+ * - Only safe characters: letters, digits, hyphens, underscores, dots, slashes
+ */
+function isValidKey(key: string): boolean {
+  if (key.includes('..') || key.includes('//')) return false;
+  if (!/^[a-zA-Z0-9_\-./]+$/.test(key)) return false;
+  return ALLOWED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
+/**
+ * Validates the Supabase JWT from the Authorization header.
+ * Returns the user id on success, null on failure.
+ */
+async function getAuthUserId(req: VercelRequest): Promise<string | null> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return null;
+  const match = (Array.isArray(authHeader) ? authHeader[0] : authHeader).match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1]?.trim();
+  if (!token) return null;
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return null;
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: { persistSession: false },
+    });
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data.user) return null;
+    return data.user.id;
+  } catch {
+    return null;
+  }
 }
 
 /** Allowed origins for CORS. Env var extends project defaults. */
@@ -78,12 +138,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     return res.status(204).end();
   }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Require authenticated user for all actions
+  const userId = await getAuthUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized: valid Supabase session required' });
   }
 
   const { action, key, keys, contentType, expiresIn } = req.body ?? {};
@@ -93,6 +159,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!key || typeof key !== 'string') {
         return res.status(400).json({ error: 'Missing required field: key' });
       }
+      if (!isValidKey(key)) {
+        return res.status(400).json({
+          error: `Invalid key. Must start with one of: ${ALLOWED_KEY_PREFIXES.join(', ')}`,
+        });
+      }
+
+      // Cap expiresIn to prevent excessively long-lived presigned URLs
+      const safeExpiresIn = Math.min(
+        typeof expiresIn === 'number' && expiresIn > 0 ? expiresIn : PRESIGN_MAX_EXPIRES,
+        PRESIGN_MAX_EXPIRES,
+      );
 
       const command = new PutObjectCommand({
         Bucket: getBucket(),
@@ -100,9 +177,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ContentType: contentType || 'application/octet-stream',
       });
 
-      const url = await getSignedUrl(getB2Client(), command, {
-        expiresIn: expiresIn || 3600,
-      });
+      const url = await getSignedUrl(getB2Client(), command, { expiresIn: safeExpiresIn });
 
       return res.status(200).json({ url });
     }
@@ -121,6 +196,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         deleteKeys = [key];
       } else {
         return res.status(400).json({ error: 'Missing required field: key or keys' });
+      }
+
+      // Validate all keys before executing any deletes
+      const invalidKey = deleteKeys.find((k) => !isValidKey(k));
+      if (invalidKey) {
+        return res.status(400).json({ error: `Invalid key: ${invalidKey}` });
       }
 
       const client = getB2Client();
