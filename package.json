@@ -1,7 +1,7 @@
 {
   "name": "pecuaria",
   "private": true,
-  "version": "1.4.47",
+  "version": "1.4.48",
   "type": "module",
   "engines": {
     "node": ">=20 <25"

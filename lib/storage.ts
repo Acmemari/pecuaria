@@ -113,6 +113,24 @@ export function storageGetPublicUrl(prefix: string, path: string): string {
 }
 
 /**
+ * Convert a stored public URL (from storageGetPublicUrl) into a time-limited
+ * signed URL so private-bucket objects can be displayed in the browser.
+ * Returns the original URL unchanged if it doesn't match the expected pattern.
+ */
+export async function storageResolveUrl(storedUrl: string, expiresIn = 3600): Promise<string> {
+  try {
+    const env = getEnv();
+    const prefix = `${env.VITE_B2_ENDPOINT}/${env.VITE_B2_BUCKET}/`;
+    if (!storedUrl.startsWith(prefix)) return storedUrl;
+    const key = storedUrl.slice(prefix.length);
+    const command = new GetObjectCommand({ Bucket: env.VITE_B2_BUCKET, Key: key });
+    return awsGetSignedUrl(getClient(), command, { expiresIn });
+  } catch {
+    return storedUrl;
+  }
+}
+
+/**
  * Delete one or more objects from B2 via the server API.
  */
 export async function storageRemove(prefix: string, paths: string[]): Promise<void> {

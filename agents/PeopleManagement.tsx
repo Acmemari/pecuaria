@@ -12,6 +12,7 @@ import {
   type Person,
   type PersonFormData,
 } from '../lib/people';
+import { storageResolveUrl } from '../lib/storage';
 
 const PERSON_TYPES = [
   'Proprietário',
@@ -84,6 +85,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
   const [formData, setFormData] = useState(initialForm);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropSourceUrl, setCropSourceUrl] = useState<string | null>(null);
   const [cropZoom, setCropZoom] = useState(1);
@@ -128,6 +130,25 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
     loadPeople();
   }, [loadPeople]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const resolve = async () => {
+      const urls: Record<string, string> = {};
+      await Promise.all(
+        people
+          .filter((p) => p.photo_url)
+          .map(async (p) => {
+            try {
+              urls[p.id] = await storageResolveUrl(p.photo_url!);
+            } catch { /* keep empty — fallback icon will show */ }
+          }),
+      );
+      if (!cancelled) setSignedUrls(urls);
+    };
+    resolve();
+    return () => { cancelled = true; };
+  }, [people]);
+
   const openNew = () => {
     setEditing(null);
     setFormData({
@@ -139,7 +160,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
     setView('form');
   };
 
-  const openEdit = (p: Person) => {
+  const openEdit = async (p: Person) => {
     setEditing(p);
     setFormData({
       full_name: p.full_name,
@@ -155,7 +176,7 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
       main_activities: p.main_activities ?? '',
       farm_id: p.farm_id ?? selectedFarm?.id ?? '',
     });
-    setPhotoPreview(p.photo_url);
+    setPhotoPreview(signedUrls[p.id] ?? p.photo_url);
     setPhotoFile(null);
     setView('form');
   };
@@ -689,8 +710,13 @@ const PeopleManagement: React.FC<PeopleManagementProps> = ({ onToast }) => {
                 className="bg-ai-surface border border-ai-border rounded-lg p-4 flex items-center gap-4 hover:border-ai-accent/30 transition-colors"
               >
                 <div className="w-12 h-12 rounded-full bg-ai-surface2 flex items-center justify-center overflow-hidden shrink-0">
-                  {p.photo_url ? (
-                    <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
+                  {signedUrls[p.id] ? (
+                    <img
+                      src={signedUrls[p.id]}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    />
                   ) : (
                     <User size={24} className="text-ai-subtext" />
                   )}
