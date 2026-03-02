@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { logger } from './logger';
+import { storageUpload, storageGetPublicUrl } from './storage';
 
 const log = logger.withContext({ component: 'people' });
 
@@ -162,7 +163,7 @@ export async function deletePerson(id: string): Promise<void> {
   }
 }
 
-const BUCKET = 'people-photos';
+const STORAGE_PREFIX = 'people-photos';
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MB
 
 export async function uploadPersonPhoto(userId: string, personId: string, file: File): Promise<string> {
@@ -180,16 +181,7 @@ export async function uploadPersonPhoto(userId: string, personId: string, file: 
 
   const ext = file.name.split('.').pop() || 'jpg';
   const path = `${userId}/${personId}-${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    upsert: true,
-    contentType: file.type,
-  });
-  if (error) {
-    log.error('uploadPersonPhoto failed', new Error(error.message));
-    throw new Error(error.message || 'Erro ao enviar foto.');
-  }
+  await storageUpload(STORAGE_PREFIX, path, file, { contentType: file.type, upsert: true });
 
-  const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  if (!urlData?.publicUrl) throw new Error('Não foi possível obter a URL da foto.');
-  return urlData.publicUrl;
+  return storageGetPublicUrl(STORAGE_PREFIX, path);
 }

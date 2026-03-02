@@ -15,6 +15,7 @@ import {
   Brain,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { storageUpload, storageGetPublicUrl } from '../lib/storage';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AgentConfig {
@@ -195,14 +196,9 @@ const AgentTrainingAdmin: React.FC = () => {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `agent-training/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage.from('public').upload(filePath, file);
+      await storageUpload('public', filePath, file, { contentType: file.type });
 
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('public').getPublicUrl(filePath);
+      const publicUrl = storageGetPublicUrl('public', filePath);
 
       // Save to database
       const { error: dbError } = await supabase.from('agent_training_images').insert({

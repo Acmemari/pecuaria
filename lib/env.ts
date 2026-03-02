@@ -7,9 +7,22 @@ interface EnvConfig {
   VITE_SUPABASE_URL: string;
   VITE_SUPABASE_ANON_KEY: string;
   GEMINI_API_KEY?: string;
+  VITE_B2_ENDPOINT: string;
+  VITE_B2_REGION: string;
+  VITE_B2_BUCKET: string;
+  VITE_B2_KEY_ID: string;
+  VITE_B2_APP_KEY: string;
 }
 
-const requiredEnvVars = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'] as const;
+const requiredEnvVars = [
+  'VITE_SUPABASE_URL',
+  'VITE_SUPABASE_ANON_KEY',
+  'VITE_B2_ENDPOINT',
+  'VITE_B2_REGION',
+  'VITE_B2_BUCKET',
+  'VITE_B2_KEY_ID',
+  'VITE_B2_APP_KEY',
+] as const;
 const optionalEnvVars = ['GEMINI_API_KEY'] as const;
 
 let _cachedEnv: EnvConfig | null = null;
@@ -53,6 +66,11 @@ export function validateEnv(): EnvConfig {
     VITE_SUPABASE_URL: supabaseUrl,
     VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
     GEMINI_API_KEY: import.meta.env.GEMINI_API_KEY,
+    VITE_B2_ENDPOINT: import.meta.env.VITE_B2_ENDPOINT,
+    VITE_B2_REGION: import.meta.env.VITE_B2_REGION,
+    VITE_B2_BUCKET: import.meta.env.VITE_B2_BUCKET,
+    VITE_B2_KEY_ID: import.meta.env.VITE_B2_KEY_ID,
+    VITE_B2_APP_KEY: import.meta.env.VITE_B2_APP_KEY,
   };
 
   return _cachedEnv;

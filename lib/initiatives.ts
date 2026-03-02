@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { sanitizeText } from './inputSanitizer';
+import { storageRemove } from './storage';
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────
 
@@ -589,7 +590,7 @@ export async function deleteInitiative(initiativeId: string): Promise<void> {
 
   // Limpeza best-effort no Storage (não bloqueia sucesso da exclusão principal).
   if (storagePaths.length > 0) {
-    await supabase.storage.from('milestone-evidence').remove(storagePaths);
+    await storageRemove('milestone-evidence', storagePaths);
   }
 }
 

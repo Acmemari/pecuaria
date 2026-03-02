@@ -5,10 +5,11 @@
 import { supabase } from './supabase';
 import { ClientDocument, DocumentCategory, DocumentFileType, DocumentUploadParams, DocumentFilter } from '../types';
 import { logger } from './logger';
+import { storageUpload, storageGetSignedUrl, storageRemove } from './storage';
 
 const log = logger.withContext({ component: 'clientDocuments' });
 
-const BUCKET_NAME = 'client-documents';
+const STORAGE_PREFIX = 'client-documents';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 // Tipos de arquivo permitidos
@@ -86,15 +87,12 @@ export async function uploadDocument(
     // Gerar caminho no storage
     const storagePath = generateStoragePath(clientId, file.name);
 
-    // Upload para o storage
-    const { error: uploadError } = await supabase.storage.from(BUCKET_NAME).upload(storagePath, file, {
-      contentType: file.type,
-      upsert: false,
-    });
-
-    if (uploadError) {
-      log.error('uploadDocument storage error', new Error(uploadError.message));
-      return { success: false, error: `Erro ao fazer upload: ${uploadError.message}` };
+    try {
+      await storageUpload(STORAGE_PREFIX, storagePath, file, { contentType: file.type });
+    } catch (uploadError: unknown) {
+      const msg = uploadError instanceof Error ? uploadError.message : 'Erro desconhecido';
+      log.error('uploadDocument storage error', new Error(msg));
+      return { success: false, error: `Erro ao fazer upload: ${msg}` };
     }
 
     // Inserir metadados na tabela
@@ -115,8 +113,7 @@ export async function uploadDocument(
       .single();
 
     if (dbError) {
-      // Tentar remover arquivo do storage se falhar no DB
-      await supabase.storage.from(BUCKET_NAME).remove([storagePath]);
+      await storageRemove(STORAGE_PREFIX, [storagePath]);
       log.error('uploadDocument DB error', new Error(dbError.message));
       return { success: false, error: `Erro ao salvar documento: ${dbError.message}` };
     }
@@ -191,14 +188,8 @@ export async function listDocuments(
  */
 export async function getDocumentUrl(storagePath: string): Promise<{ url?: string; error?: string }> {
   try {
-    const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(storagePath, 3600); // URL válida por 1 hora
-
-    if (error) {
-      log.error('getDocumentUrl error', new Error(error.message));
-      return { error: error.message };
-    }
-
-    return { url: data.signedUrl };
+    const url = await storageGetSignedUrl(STORAGE_PREFIX, storagePath, 3600);
+    return { url };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Erro ao obter URL do documento';
     log.error('getDocumentUrl error', error instanceof Error ? error : new Error(msg));
@@ -222,12 +213,10 @@ export async function deleteDocument(documentId: string): Promise<{ success: boo
       return { success: false, error: 'Documento não encontrado' };
     }
 
-    // Excluir do storage
-    const { error: storageError } = await supabase.storage.from(BUCKET_NAME).remove([doc.storage_path]);
-
-    if (storageError) {
+    try {
+      await storageRemove(STORAGE_PREFIX, [doc.storage_path]);
+    } catch {
       log.warn('deleteDocument storage error (file may already be removed)');
-      // Continuar mesmo com erro no storage (arquivo pode já ter sido removido)
     }
 
     // Excluir do banco

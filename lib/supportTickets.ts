@@ -1,9 +1,10 @@
 import { supabase } from './supabase';
 import { logger } from './logger';
+import { storageUpload, storageGetSignedUrl, storageRemove } from './storage';
 
 const log = logger.withContext({ component: 'supportTickets' });
 
-const BUCKET_NAME = 'support-ticket-attachments';
+const STORAGE_PREFIX = 'support-ticket-attachments';
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_IMAGE_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
@@ -158,10 +159,12 @@ export async function fetchUserNames(userIds: string[]): Promise<Record<string, 
 export async function withSignedUrls(attachments: SupportTicketAttachment[]): Promise<SupportTicketAttachment[]> {
   const signed = await Promise.all(
     attachments.map(async attachment => {
-      const { data, error } = await supabase.storage.from(BUCKET_NAME).createSignedUrl(attachment.storage_path, 3600);
-
-      if (error) return attachment;
-      return { ...attachment, signed_url: data.signedUrl };
+      try {
+        const signedUrl = await storageGetSignedUrl(STORAGE_PREFIX, attachment.storage_path, 3600);
+        return { ...attachment, signed_url: signedUrl };
+      } catch {
+        return attachment;
+      }
     }),
   );
 
@@ -304,13 +307,7 @@ export async function uploadTicketAttachment(
 
   const storagePath = buildStoragePath(ticketId, file.name || 'imagem');
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(storagePath, file, { contentType: file.type, upsert: false });
-
-  if (uploadError) {
-    throw new Error(uploadError.message || 'Erro ao enviar imagem.');
-  }
+  await storageUpload(STORAGE_PREFIX, storagePath, file, { contentType: file.type });
 
   const { data, error } = await supabase
     .from('support_ticket_attachments')
@@ -327,7 +324,7 @@ export async function uploadTicketAttachment(
     .single();
 
   if (error || !data) {
-    await supabase.storage.from(BUCKET_NAME).remove([storagePath]);
+    await storageRemove(STORAGE_PREFIX, [storagePath]);
     throw new Error(error?.message || 'Erro ao salvar anexo.');
   }
 

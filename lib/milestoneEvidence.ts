@@ -4,8 +4,9 @@
  * - Anexos: imagem, vídeo, planilha, documento
  */
 import { supabase } from './supabase';
+import { storageUpload, storageGetSignedUrl, storageRemove } from './storage';
 
-const BUCKET = 'milestone-evidence';
+const STORAGE_PREFIX = 'milestone-evidence';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export type EvidenceFileType = 'image' | 'video' | 'document' | 'spreadsheet';
@@ -172,11 +173,7 @@ export async function uploadEvidenceFile(
   const fileType = inferFileType(file.type, file.name);
   const storagePath = generateStoragePath(milestoneId, file.name);
 
-  const { error: uploadErr } = await supabase.storage
-    .from(BUCKET)
-    .upload(storagePath, file, { contentType: file.type, upsert: false });
-
-  if (uploadErr) throw new Error(`Erro no upload: ${uploadErr.message}`);
+  await storageUpload(STORAGE_PREFIX, storagePath, file, { contentType: file.type });
 
   const { data: row, error: dbErr } = await supabase
     .from('milestone_evidence_files')
@@ -191,7 +188,7 @@ export async function uploadEvidenceFile(
     .single();
 
   if (dbErr) {
-    await supabase.storage.from(BUCKET).remove([storagePath]);
+    await storageRemove(STORAGE_PREFIX, [storagePath]);
     throw new Error(`Erro ao registrar arquivo: ${dbErr.message}`);
   }
 
@@ -202,10 +199,7 @@ export async function uploadEvidenceFile(
  * Gera URL assinada para download/exibição do arquivo
  */
 export async function getSignedUrl(storagePath: string, expiresIn = 3600): Promise<string> {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(storagePath, expiresIn);
-
-  if (error) throw new Error(`Erro ao gerar URL: ${error.message}`);
-  return data.signedUrl;
+  return storageGetSignedUrl(STORAGE_PREFIX, storagePath, expiresIn);
 }
 
 /**
@@ -224,5 +218,5 @@ export async function deleteEvidenceFile(fileId: string): Promise<void> {
 
   if (delDb) throw delDb;
 
-  await supabase.storage.from(BUCKET).remove([file.storage_path]);
+  await storageRemove(STORAGE_PREFIX, [file.storage_path]);
 }
