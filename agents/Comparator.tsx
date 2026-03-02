@@ -264,8 +264,8 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
             updated.valorVenda = 40000;
           }
         } else {
-          if (updated.valorCompra < 11) {
-            updated.valorCompra = 11;
+          if (updated.valorCompra < 9) {
+            updated.valorCompra = 9;
           } else if (updated.valorCompra > 18) {
             updated.valorCompra = 18;
           }
@@ -643,7 +643,7 @@ const Comparator: React.FC<ComparatorProps> = ({ onToast, initialScenarios }) =>
                         index={2}
                         label="Valor de Compra"
                         value={scenario.inputs.valorCompra}
-                        min={country === 'PY' ? 15000 : 11}
+                        min={country === 'PY' ? 15000 : 9}
                         max={country === 'PY' ? 30000 : 18}
                         step={country === 'PY' ? 100 : 0.05}
                         unit={`${currencySymbol}/kg`}

@@ -1,8 +1,11 @@
 /**
  * Backblaze B2 Storage abstraction layer (S3-compatible).
  *
- * Replaces all `supabase.storage.from(...)` calls with a single bucket
- * in B2, using virtual "prefixes" to separate logical areas.
+ * Uploads and deletes go through /api/storage (server-side presigned URLs)
+ * to avoid CORS issues with browser-to-B2 requests.
+ *
+ * Signed URL generation and public URL building remain client-side
+ * (they don't make network requests to B2).
  *
  * Prefixes (map to old Supabase buckets):
  *   client-documents/
@@ -13,8 +16,6 @@
  */
 import {
   S3Client,
-  PutObjectCommand,
-  DeleteObjectCommand,
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl as awsGetSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -46,11 +47,9 @@ function fullKey(prefix: string, path: string): string {
 }
 
 /**
- * Upload a file to B2.
- * @param prefix - Logical area (e.g. 'client-documents')
- * @param path   - Object key within the prefix
- * @param body   - File or Blob to upload
- * @param options - Optional contentType and upsert flag
+ * Upload a file to B2 via server-generated presigned URL.
+ * 1. Requests a presigned PUT URL from /api/storage
+ * 2. PUTs the file directly to B2 using that URL (no auth headers needed)
  */
 export async function storageUpload(
   prefix: string,
@@ -58,23 +57,39 @@ export async function storageUpload(
   body: File | Blob,
   options?: { contentType?: string; upsert?: boolean },
 ): Promise<void> {
-  const arrayBuffer = await body.arrayBuffer();
+  const ct = options?.contentType ?? (body instanceof File ? body.type : 'application/octet-stream');
 
-  await getClient().send(
-    new PutObjectCommand({
-      Bucket: getBucket(),
-      Key: fullKey(prefix, path),
-      Body: new Uint8Array(arrayBuffer),
-      ContentType: options?.contentType ?? (body instanceof File ? body.type : 'application/octet-stream'),
+  const presignRes = await fetch('/api/storage', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'presign-upload',
+      key: fullKey(prefix, path),
+      contentType: ct,
     }),
-  );
+  });
+
+  if (!presignRes.ok) {
+    const err = await presignRes.json().catch(() => ({}));
+    throw new Error(err.error || `Presign request failed (${presignRes.status})`);
+  }
+
+  const { url } = await presignRes.json();
+
+  const uploadRes = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': ct },
+    body,
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error(`B2 upload failed (${uploadRes.status})`);
+  }
 }
 
 /**
  * Generate a time-limited signed URL for private objects.
- * @param prefix    - Logical area
- * @param path      - Object key within the prefix
- * @param expiresIn - Seconds until URL expires (default 3600)
+ * Runs client-side — generates the URL locally without a network request.
  */
 export async function storageGetSignedUrl(
   prefix: string,
@@ -91,7 +106,6 @@ export async function storageGetSignedUrl(
 /**
  * Build a public URL for an object.
  * Requires the bucket (or prefix) to allow public reads in B2.
- * Falls back to a signed URL with long expiry if public access isn't enabled.
  */
 export function storageGetPublicUrl(prefix: string, path: string): string {
   const env = getEnv();
@@ -99,21 +113,19 @@ export function storageGetPublicUrl(prefix: string, path: string): string {
 }
 
 /**
- * Delete one or more objects from B2.
- * B2's S3 API supports single-key deletes; we loop for multiple.
+ * Delete one or more objects from B2 via the server API.
  */
 export async function storageRemove(prefix: string, paths: string[]): Promise<void> {
-  const client = getClient();
-  const bucket = getBucket();
+  const keys = paths.map((p) => fullKey(prefix, p));
 
-  await Promise.all(
-    paths.map((p) =>
-      client.send(
-        new DeleteObjectCommand({
-          Bucket: bucket,
-          Key: fullKey(prefix, p),
-        }),
-      ),
-    ),
-  );
+  const res = await fetch('/api/storage', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'delete', keys }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Delete request failed (${res.status})`);
+  }
 }
