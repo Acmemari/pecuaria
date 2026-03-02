@@ -15,6 +15,7 @@ interface Company {
   status?: 'active' | 'inactive' | 'pending';
 }
 import { useAuth } from '../contexts/AuthContext';
+import { useLocation } from '../contexts/LocationContext';
 import { supabase } from '../lib/supabase';
 import { createUserProfileIfMissing } from '../lib/auth/createProfile';
 import {
@@ -50,7 +51,7 @@ interface SettingsPageProps {
   onLogout: () => void;
 }
 
-type TabId = 'profile' | 'account' | 'company' | 'appearance' | 'privacy' | 'support' | 'questionnaires';
+type TabId = 'profile' | 'account' | 'company' | 'appearance' | 'privacy' | 'support' | 'questionnaires' | 'system';
 
 interface Tab {
   id: TabId;
@@ -60,6 +61,7 @@ interface Tab {
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLogout }) => {
   const { refreshProfile } = useAuth();
+  const { refreshSettings: refreshLocationSettings } = useLocation();
   const [activeTab, setActiveTab] = useState<TabId>('profile');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -137,6 +139,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
   const [filterQuestionCategory, setFilterQuestionCategory] = useState<string>('');
   const [filterQuestionGroup, setFilterQuestionGroup] = useState<string>('');
 
+  // System settings (admin only)
+  const [paraguayEnabled, setParaguayEnabled] = useState(false);
+  const [isLoadingParaguaySetting, setIsLoadingParaguaySetting] = useState(false);
+
   // Estrutura de categorias e grupos
   const categoriesAndGroups = {
     Gente: ['Liderança', 'Valores', 'Autonomia', 'Domínio', 'Propósito'],
@@ -177,7 +183,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     { id: 'privacy', label: 'Privacidade', icon: <Shield size={18} /> },
     { id: 'support', label: 'Suporte', icon: <HelpCircle size={18} /> },
     ...(user.role === 'admin'
-      ? [{ id: 'questionnaires' as TabId, label: 'Questionários', icon: <FileCheck size={18} /> }]
+      ? [
+          { id: 'questionnaires' as TabId, label: 'Questionários', icon: <FileCheck size={18} /> },
+          { id: 'system' as TabId, label: 'Sistema', icon: <Globe size={18} /> },
+        ]
       : []),
   ];
 
@@ -204,6 +213,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     // Load questions if on questionnaires tab
     if (activeTab === 'questionnaires' && user.role === 'admin') {
       loadQuestions();
+    }
+
+    // Load system settings if on system tab
+    if (activeTab === 'system' && user.role === 'admin') {
+      loadParaguaySetting();
     }
   }, [activeTab]);
 
@@ -245,6 +259,50 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
       }
     } finally {
       setIsLoadingQuestions(false);
+    }
+  };
+
+  const loadParaguaySetting = async () => {
+    setIsLoadingParaguaySetting(true);
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'paraguay_enabled')
+        .single();
+      if (!error && data?.value === true) {
+        setParaguayEnabled(true);
+      } else {
+        setParaguayEnabled(false);
+      }
+    } catch {
+      setParaguayEnabled(false);
+    } finally {
+      setIsLoadingParaguaySetting(false);
+    }
+  };
+
+  const handleSaveParaguaySetting = async () => {
+    setIsSaving(true);
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('app_settings')
+        .update({
+          value: paraguayEnabled,
+          updated_at: new Date().toISOString(),
+          updated_by: authUser?.id ?? null,
+        })
+        .eq('key', 'paraguay_enabled');
+
+      if (error) throw error;
+      onToast('Configuração salva. A versão Paraguai foi ' + (paraguayEnabled ? 'ativada' : 'desativada') + '.', 'success');
+      refreshLocationSettings();
+    } catch (err) {
+      console.error('Erro ao salvar configuração:', err);
+      onToast('Erro ao salvar configuração. Tente novamente.', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1350,6 +1408,50 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
     </div>
   );
 
+  const renderSystemTab = () => (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-ai-text mb-4">Configurações do Sistema</h3>
+
+      {/* Versão Paraguai */}
+      <div className="flex items-center justify-between p-4 bg-ai-surface rounded-lg border border-ai-border">
+        <div>
+          <p className="font-medium text-ai-text">Versão Paraguai</p>
+          <p className="text-sm text-ai-subtext mt-1">
+            Quando ativada, os usuários podem alternar para a versão em espanhol com moeda em Guaraní (G$) e unidades
+            em kg de carcaça.
+          </p>
+        </div>
+        {isLoadingParaguaySetting ? (
+          <div className="text-ai-subtext text-sm">Carregando...</div>
+        ) : (
+          <button
+            onClick={() => setParaguayEnabled(prev => !prev)}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+              paraguayEnabled ? 'bg-ai-accent' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                paraguayEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        )}
+      </div>
+
+      <div className="flex gap-3">
+        <button
+          onClick={handleSaveParaguaySetting}
+          disabled={isSaving || isLoadingParaguaySetting}
+          className="px-4 py-2 bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          <Save size={16} />
+          {isSaving ? 'Salvando...' : 'Salvar'}
+        </button>
+      </div>
+    </div>
+  );
+
   const renderSupportTab = () => (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-ai-text mb-4">Central de Ajuda</h3>
@@ -1968,6 +2070,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ user, onBack, onToast, onLo
         return renderSupportTab();
       case 'questionnaires':
         return renderQuestionnairesTab();
+      case 'system':
+        return renderSystemTab();
       default:
         return null;
     }

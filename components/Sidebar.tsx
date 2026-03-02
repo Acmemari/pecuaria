@@ -73,7 +73,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSettingsClick,
   onSwitchToInttegra,
 }) => {
-  const { country, setCountry } = useLocation();
+  const { country, setCountry, paraguayEnabled } = useLocation();
   const [isIniciativasOpen, setIsIniciativasOpen] = useState(() => isGerenciamentoView(activeAgentId));
   const [isRhOpen, setIsRhOpen] = useState(() => activeAgentId === RH_FEEDBACK_ID);
   const canAccessRh = user?.role === 'admin' || user?.role === 'client' || user?.qualification === 'analista';
@@ -105,11 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       `}
       >
         {/* Header */}
-        <div className="h-12 shrink-0 flex items-center justify-between px-4 border-b border-ai-border bg-ai-bg">
-          <div className="flex items-center space-x-2 text-ai-text">
-            <BrainCircuit size={16} className="text-ai-accent" />
-            <span className="font-bold tracking-tight text-base">pecuarIA</span>
-          </div>
+        <div className="h-12 shrink-0 flex items-center justify-end px-4 border-b border-ai-border bg-ai-bg">
           {/* Close button - visible on mobile, hidden on desktop when sidebar is always visible */}
           <button
             onClick={toggleSidebar}
@@ -123,47 +119,47 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Agent List */}
         <div className="flex-1 overflow-y-auto py-4">
-          {/* Bandeiras BR e PY */}
-          <div className="px-4 mb-3 flex items-center justify-start gap-2">
-            {/* Bandeira do Brasil */}
-            <button
-              onClick={() => setCountry('BR')}
-              className={`flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 ${country === 'BR' ? 'opacity-100 scale-[1.2]' : 'opacity-50 hover:opacity-75 scale-[0.72]'}`}
-              title="Brasil"
-            >
-              <svg
-                width="20"
-                height="14"
-                viewBox="0 0 20 14"
-                className="flex-shrink-0 cursor-pointer"
-                xmlns="http://www.w3.org/2000/svg"
+          {/* Bandeiras BR e PY - só quando Paraguai estiver habilitado */}
+          {paraguayEnabled && (
+            <div className="px-4 mb-3 flex items-center justify-start gap-2">
+              <button
+                onClick={() => setCountry('BR')}
+                className={`flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 ${country === 'BR' ? 'opacity-100 scale-[1.2]' : 'opacity-50 hover:opacity-75 scale-[0.72]'}`}
+                title="Brasil"
               >
-                <rect width="20" height="14" fill="#009739" />
-                <path d="M10 0L20 7L10 14L0 7Z" fill="#FEDD00" />
-                <circle cx="10" cy="7" r="4.5" fill="#012169" />
-              </svg>
-              <span className="text-[8px] font-semibold">BR</span>
-            </button>
-            {/* Bandeira do Paraguai */}
-            <button
-              onClick={() => setCountry('PY')}
-              className={`flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 ${country === 'PY' ? 'opacity-100 scale-[1.2]' : 'opacity-50 hover:opacity-75 scale-[0.72]'}`}
-              title="Paraguai"
-            >
-              <svg
-                width="20"
-                height="14"
-                viewBox="0 0 20 14"
-                className="flex-shrink-0 cursor-pointer"
-                xmlns="http://www.w3.org/2000/svg"
+                <svg
+                  width="20"
+                  height="14"
+                  viewBox="0 0 20 14"
+                  className="flex-shrink-0 cursor-pointer"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect width="20" height="14" fill="#009739" />
+                  <path d="M10 0L20 7L10 14L0 7Z" fill="#FEDD00" />
+                  <circle cx="10" cy="7" r="4.5" fill="#012169" />
+                </svg>
+                <span className="text-[8px] font-semibold">BR</span>
+              </button>
+              <button
+                onClick={() => setCountry('PY')}
+                className={`flex items-center gap-1.5 flex-shrink-0 transition-all duration-200 ${country === 'PY' ? 'opacity-100 scale-[1.2]' : 'opacity-50 hover:opacity-75 scale-[0.72]'}`}
+                title="Paraguai"
               >
-                <rect width="20" height="4.67" y="0" fill="#CE1126" />
-                <rect width="20" height="4.67" y="4.67" fill="#FFFFFF" />
-                <rect width="20" height="4.66" y="9.34" fill="#0038A8" />
-              </svg>
-              <span className="text-[8px] font-semibold">PY</span>
-            </button>
-          </div>
+                <svg
+                  width="20"
+                  height="14"
+                  viewBox="0 0 20 14"
+                  className="flex-shrink-0 cursor-pointer"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect width="20" height="4.67" y="0" fill="#CE1126" />
+                  <rect width="20" height="4.67" y="4.67" fill="#FFFFFF" />
+                  <rect width="20" height="4.66" y="9.34" fill="#0038A8" />
+                </svg>
+                <span className="text-[8px] font-semibold">PY</span>
+              </button>
+            </div>
+          )}
           <div className="px-4 mb-2">
             <span className="text-[10px] font-bold text-ai-subtext uppercase tracking-widest">Ferramentas</span>
           </div>
@@ -384,8 +380,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* User Profile & Footer */}
         <div className="p-3 border-t border-ai-border bg-ai-bg shrink-0">
-          {/* Switch to Inttegra */}
-          {onSwitchToInttegra && (
+          {/* Switch to Inttegra - apenas admin */}
+          {onSwitchToInttegra && user?.role === 'admin' && (
             <button
               type="button"
               onClick={onSwitchToInttegra}
