@@ -11,6 +11,7 @@ import { LocationProvider, useLocation } from './contexts/LocationContext';
 import { useFarm } from './contexts/FarmContext';
 import { HierarchyProvider } from './contexts/HierarchyContext';
 import AnalystHeader from './components/AnalystHeader';
+import VisitorContentGuard from './components/VisitorContentGuard';
 import { Agent } from './types';
 import { Menu, Construction, Loader2, ArrowLeft, Plus } from 'lucide-react';
 import { ToastContainer, Toast } from './components/Toast';
@@ -649,6 +650,17 @@ const AppContent: React.FC = () => {
           );
         }
         if (cadastroView === 'client') {
+          if (user?.qualification === 'visitante') {
+            return (
+              <VisitorContentGuard
+                isVisitor
+                isAllowed={false}
+                featureName="Cadastro de Clientes"
+              >
+                <div className="p-8 bg-ai-surface min-h-[200px]" />
+              </VisitorContentGuard>
+            );
+          }
           return user?.role === 'admin' || user?.qualification === 'analista' ? (
             <Suspense fallback={<LoadingFallback />}>
               <ClientManagement onToast={handleToast} />
@@ -670,6 +682,9 @@ const AppContent: React.FC = () => {
           </Suspense>
         );
       case 'ai-config':
+        if (user.qualification === 'visitante') {
+          return <VisitorContentGuard isVisitor isAllowed={false} featureName="Especialista IA"><div className="p-8 bg-ai-surface min-h-[200px]" /></VisitorContentGuard>;
+        }
         return user.role === 'admin' ? (
           <Suspense fallback={<LoadingFallback />}>
             <AIAgentConfigAdmin />
@@ -678,6 +693,9 @@ const AppContent: React.FC = () => {
           <div>Acesso negado.</div>
         );
       case 'agent-training':
+        if (user.qualification === 'visitante') {
+          return <VisitorContentGuard isVisitor isAllowed={false} featureName="Treinar Antonio"><div className="p-8 bg-ai-surface min-h-[200px]" /></VisitorContentGuard>;
+        }
         return user.role === 'admin' ? (
           <Suspense fallback={<LoadingFallback />}>
             <AgentTrainingAdmin />
@@ -686,6 +704,9 @@ const AppContent: React.FC = () => {
           <div>Acesso negado.</div>
         );
       case 'admin-dashboard':
+        if (user.qualification === 'visitante') {
+          return <VisitorContentGuard isVisitor isAllowed={false} featureName="Gestão de Usuários"><div className="p-8 bg-ai-surface min-h-[200px]" /></VisitorContentGuard>;
+        }
         return user.role === 'admin' ? (
           <Suspense fallback={<LoadingFallback />}>
             <AdminDashboard />
@@ -694,6 +715,9 @@ const AppContent: React.FC = () => {
           <div>Acesso negado.</div>
         );
       case 'support-tickets':
+        if (user.qualification === 'visitante') {
+          return <VisitorContentGuard isVisitor isAllowed={false} featureName="Suporte Interno"><div className="p-8 bg-ai-surface min-h-[200px]" /></VisitorContentGuard>;
+        }
         return user.role === 'admin' ? (
           <Suspense fallback={<LoadingFallback />}>
             <SupportTicketsDashboard />
@@ -702,6 +726,9 @@ const AppContent: React.FC = () => {
           <div>Acesso negado.</div>
         );
       case 'analyst-management':
+        if (user.qualification === 'visitante') {
+          return <VisitorContentGuard isVisitor isAllowed={false} featureName="Gerenciamento de Analistas"><div className="p-8 bg-ai-surface min-h-[200px]" /></VisitorContentGuard>;
+        }
         return user.role === 'admin' ? (
           <Suspense fallback={<LoadingFallback />}>
             <AnalystManagement onToast={handleToast} />

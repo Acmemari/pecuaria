@@ -79,6 +79,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   const canAccessRh = user?.role === 'admin' || user?.role === 'client' || user?.qualification === 'analista';
   const isVisitor = user?.qualification === 'visitante';
 
+  const VISITOR_LOCKED_AGENTS = new Set([
+    'client-management',
+    'analyst-management',
+    'agent-training',
+    'ai-config',
+    'admin-dashboard',
+    'support-tickets',
+  ]);
+
   // Manter submenu Gerenciamento aberto quando um filho estiver ativo
   useEffect(() => {
     if (isGerenciamentoView(activeAgentId)) setIsIniciativasOpen(true);
@@ -268,7 +277,9 @@ const Sidebar: React.FC<SidebarProps> = ({
               .filter(a => a.id !== 'cadastros' && a.id !== 'calendar' && a.id !== 'area-certificados')
               .map(agent => {
                 const isActive = activeAgentId === agent.id;
-                const isLocked = agent.status !== 'active';
+                const isLockedByStatus = agent.status !== 'active';
+                const isLockedForVisitor = isVisitor && VISITOR_LOCKED_AGENTS.has(agent.id);
+                const isLocked = isLockedByStatus || isLockedForVisitor;
 
                 return (
                   <React.Fragment key={agent.id}>

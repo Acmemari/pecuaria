@@ -16,7 +16,7 @@ interface AnalystHeaderProps {
 
 const AnalystHeader: React.FC<AnalystHeaderProps> = () => {
   const { user } = useAuth();
-  const { selectedClient, selectedAnalyst } = useHierarchy();
+  const { selectedClient, selectedAnalyst, selectedFarm } = useHierarchy();
   const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [isLoadingUnread, setIsLoadingUnread] = useState(false);
   const [adminUnreadCount, setAdminUnreadCount] = useState(0);
@@ -57,9 +57,54 @@ const AnalystHeader: React.FC<AnalystHeaderProps> = () => {
     void refreshUnread();
   }, [refreshUnread]);
 
-  // Não mostrar se não for analista ou admin
-  if (!user || (user.qualification !== 'analista' && user.role !== 'admin')) {
+  // Não mostrar se não for analista, admin ou visitante
+  if (
+    !user ||
+    (user.qualification !== 'analista' && user.role !== 'admin' && user.qualification !== 'visitante')
+  ) {
     return null;
+  }
+
+  const isVisitor = user.qualification === 'visitante';
+
+  // Visitantes: header com hierarquia fixa (seletores desabilitados/ocultos)
+  if (isVisitor) {
+    return (
+      <header className="h-12 bg-ai-surface border-b border-ai-border flex items-center justify-between px-4 shrink-0 sticky top-0 z-50">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-ai-subtext font-medium">Analista:</span>
+            <span className="text-sm font-semibold text-ai-text">Inttegra (Visitante)</span>
+          </div>
+          <div className="h-6 w-px bg-ai-border" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-ai-subtext font-medium">Cliente:</span>
+            <span className="text-sm font-semibold text-ai-text">Visitante Demo</span>
+          </div>
+          {selectedFarm && (
+            <>
+              <div className="h-6 w-px bg-ai-border" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-ai-subtext font-medium">Fazenda:</span>
+                <span className="text-sm font-semibold text-ai-text">{selectedFarm.name}</span>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsSupportOpen(true)}
+            className="relative inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded-md border border-ai-border text-ai-text hover:bg-ai-surface2"
+            title="Suporte interno"
+            aria-label="Suporte"
+          >
+            <HelpCircle className="w-4 h-4" />
+            Suporte
+          </button>
+        </div>
+      </header>
+    );
   }
 
   return (

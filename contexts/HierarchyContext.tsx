@@ -314,7 +314,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     const initial = loadInitialPersistedIds();
     dispatch({ type: 'HYDRATE_IDS', payload: initial });
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user) return;

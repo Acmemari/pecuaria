@@ -111,9 +111,9 @@ const CardContent: React.FC<{
       >
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
-            <p className={`text-sm font-medium truncate ${isSelected ? '' : 'text-ai-text'}`}>{item.title}</p>
+            <p className={`text-sm font-medium break-normal ${isSelected ? '' : 'text-ai-text'}`}>{item.title}</p>
             {item.subtitle && (
-              <p className={`text-[11px] truncate mt-0.5 ${isSelected ? 'opacity-70' : 'text-ai-subtext'}`}>
+              <p className={`text-[11px] break-normal mt-0.5 ${isSelected ? 'opacity-70' : 'text-ai-subtext'}`}>
                 {item.subtitle}
               </p>
             )}

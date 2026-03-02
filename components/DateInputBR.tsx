@@ -75,19 +75,43 @@ const DateInputBR: React.FC<DateInputBRProps> = ({
   const wrapRef = useRef<HTMLDivElement>(null);
   const calRef = useRef<HTMLDivElement>(null);
 
-  // Posiciona o calendário quando abre
+  // Posiciona o calendário quando abre e recalcula em scroll/resize
   const CALENDAR_HEIGHT = 280;
+  const computePosition = useCallback(() => {
+    if (!wrapRef.current) return;
+    const rect = wrapRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top =
+      spaceBelow < CALENDAR_HEIGHT ? rect.top - CALENDAR_HEIGHT : rect.bottom + 4;
+    setCalPosition({ top, left: rect.left });
+  }, []);
+
   useLayoutEffect(() => {
     if (showCal && wrapRef.current) {
-      const rect = wrapRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const top =
-        spaceBelow < CALENDAR_HEIGHT ? rect.top - CALENDAR_HEIGHT : rect.bottom + 4;
-      setCalPosition({ top, left: rect.left });
+      computePosition();
     } else {
       setCalPosition(null);
+      return;
     }
-  }, [showCal]);
+
+    let rafId: number | null = null;
+    const handleUpdate = () => {
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        computePosition();
+      });
+    };
+
+    window.addEventListener('scroll', handleUpdate, true);
+    window.addEventListener('resize', handleUpdate);
+
+    return () => {
+      window.removeEventListener('scroll', handleUpdate, true);
+      window.removeEventListener('resize', handleUpdate);
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
+  }, [showCal, computePosition]);
 
   // Sincroniza texto quando value externo muda
   useEffect(() => {

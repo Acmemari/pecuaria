@@ -53,7 +53,9 @@ function setCorsIfAllowed(req: VercelRequest, res: VercelResponse): boolean {
   const origin = req.headers.origin;
   if (!origin) return true; // No origin: allow (server-to-server, same-origin)
   if (!ALLOWED_ORIGINS.includes(origin)) {
-    res.status(403).json({ error: 'Origin not allowed' });
+    res.status(403).json({
+      error: `Origin not allowed. Add your frontend URL to STORAGE_ALLOWED_ORIGINS env var (rejected: ${origin})`,
+    });
     return false;
   }
   res.setHeader('Access-Control-Allow-Origin', origin);

@@ -21,6 +21,10 @@ ANTHROPIC_API_KEY=sua-chave-anthropic-aqui
 
 # Opcional - Para desenvolvimento local do servidor de API
 WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
+
+# Storage API CORS - obrigatório em produção (upload/delete de arquivos)
+# Adicione a URL do frontend; default: localhost em dev
+STORAGE_ALLOWED_ORIGINS=https://seu-app.vercel.app,https://seu-dominio.com
 ```
 
 ## Tabela de variáveis
@@ -36,6 +40,7 @@ WEBHOOK_URL=https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio
 | `ANTHROPIC_API_KEY`         | Recomendada | Backend              | Fallback quando Gemini e OpenAI falham                |
 | `N8N_WEBHOOK_URL`           | Sim         | Backend              | `/api/ask-assistant` (chat)                           |
 | `WEBHOOK_URL`               | Opcional    | Backend              | Alias local para `N8N_WEBHOOK_URL`                    |
+| `STORAGE_ALLOWED_ORIGINS`   | Produção    | Backend              | `/api/storage` (CORS; upload/delete de arquivos)      |
 
 > \* O backend aceita tanto `SUPABASE_URL` quanto `VITE_SUPABASE_URL` (prioridade para `SUPABASE_URL`). Isso permite configurar sem o prefixo `VITE_` no Vercel.
 
@@ -74,6 +79,13 @@ O pipeline de agentes (`/api/agents-run`) usa as tabelas: `plan_limits`, `rate_l
 
 - `WEBHOOK_URL` - Alternativa para `N8N_WEBHOOK_URL` (desenvolvimento local)
 
+### Storage API (upload de arquivos B2)
+
+- `STORAGE_ALLOWED_ORIGINS` - Origens permitidas para CORS na API `/api/storage`. **Obrigatório em produção.** O padrão inclui apenas `localhost` e `127.0.0.1` nas portas 3000 e 5173. Se o frontend rodar em outra URL (ex.: Vercel, domínio customizado, IP da LAN), configure com as origens separadas por vírgula:
+  - Produção: `https://seu-app.vercel.app,https://seu-dominio.com`
+  - Local (porta diferente ou IP): `http://192.168.1.100:3000`
+  - Erro "Origin not allowed"? Verifique o header Origin na requisição falha (DevTools > Network) e adicione essa URL à variável.
+
 ## Configuração no Vercel
 
 Para configurar as variáveis no Vercel:
@@ -87,6 +99,7 @@ Para configurar as variáveis no Vercel:
    - `OPENAI_API_KEY` = (recomendada para fallback)
    - `ANTHROPIC_API_KEY` = (recomendada para fallback)
    - `N8N_WEBHOOK_URL` = `https://pecuaria-n8n.tcvxzi.easypanel.host/webhook/fala-antonio`
+   - `STORAGE_ALLOWED_ORIGINS` = URL(s) do frontend, ex.: `https://seu-app.vercel.app` (obrigatório para upload de arquivos funcionar em produção)
 4. Marque todas as variáveis para os ambientes **Production**, **Preview** e **Development**
 5. Faça um novo deploy para aplicar as mudanças
 

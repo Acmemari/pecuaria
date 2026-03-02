@@ -311,7 +311,6 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       projects.map(p => ({
         id: p.id,
         title: p.name,
-        subtitle: `${formatDateBR(p.start_date)} — ${formatDateBR(p.end_date)}`,
       })),
     [projects],
   );
@@ -321,10 +320,6 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       deliveries.map(d => ({
         id: d.id,
         title: d.name,
-        subtitle:
-          d.start_date || d.end_date || d.due_date
-            ? `${formatDateBR(d.start_date ?? null)} — ${formatDateBR(d.end_date ?? d.due_date ?? null)}`
-            : 'Sem período definido',
       })),
     [deliveries],
   );
@@ -344,7 +339,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       tasks.map(t => ({
         id: t.id,
         title: t.title,
-        subtitle: `${t.kanban_status}${t.due_date ? ` · ${formatDateBR(t.due_date)}` : ''}`,
+        subtitle: t.kanban_status,
       })),
     [tasks],
   );
