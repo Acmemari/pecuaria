@@ -104,11 +104,15 @@ export const mapUserProfile = (input: unknown): User | null => {
     if (validQualifications.includes(qualValue as (typeof validQualifications)[number])) {
       qualification = qualValue as 'visitante' | 'cliente' | 'analista';
     } else {
-      log.warn('Invalid qualification value, defaulting to visitante');
-      qualification = 'visitante';
+      // Qualificação inválida no banco: infere pelo vínculo existente para evitar
+      // que um usuário alocado a uma organização seja tratado como visitante.
+      log.warn('Invalid qualification value, inferring from client_id');
+      qualification = profile.client_id ? 'cliente' : 'visitante';
     }
   } else {
-    qualification = 'visitante';
+    // Qualificação nula: infere pelo vínculo com organização.
+    // Evita que usuários com client_id definido entrem no fluxo de visitante.
+    qualification = profile.client_id ? 'cliente' : 'visitante';
   }
 
   return {

@@ -295,8 +295,9 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const effectiveAnalystId = useMemo(() => {
     if (!user) return null;
     if (user.qualification === 'visitante') return VISITOR_ANALYST_ID;
-    // Clientes têm contexto fixo pelo clientId — não usam analista próprio como filtro
-    if (user.qualification === 'cliente') return null;
+    // Clientes têm contexto fixo pelo clientId — não usam analista próprio como filtro.
+    // Se o perfil ainda não carregou a qualification mas clientId já existe, tratar como cliente.
+    if (user.qualification === 'cliente' || (user.clientId && !user.qualification)) return null;
     if (user.role === 'admin') return state.analystId;
     return user.id;
   }, [user, state.analystId]);
@@ -314,21 +315,26 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
       return;
     }
-    if (user.qualification === 'cliente') {
-      // Cliente sem organização vinculada: hidrata com estado vazio
+    // Trata como cliente se: qualification='cliente' OU se clientId existe
+    // (cobre o estado transitório onde qualification ainda não foi carregada do perfil real).
+    const isClientProfile = user.qualification === 'cliente' || Boolean(user.clientId);
+    if (isClientProfile) {
       if (!user.clientId) {
+        // Cliente sem organização vinculada ainda: aguarda perfil completo sem fixar IDs de visitante
         dispatch({ type: 'HYDRATE_IDS', payload: { analystId: null, clientId: null, farmId: null } });
         return;
       }
-      // Carrega o cliente fixo vinculado ao perfil do usuário.
-      // A fazenda é restaurada do localStorage para manter a última seleção.
+      // Carrega o cliente fixo vinculado ao perfil. Restaura fazenda do localStorage se existir.
       const persisted = loadInitialPersistedIds();
+      // Garante que não use clientId/analystId de outra sessão (ex: sessão de visitante anterior)
+      const safeFarmId =
+        persisted.farmId && persisted.farmId !== VISITOR_FARM_ID ? persisted.farmId : null;
       dispatch({
         type: 'HYDRATE_IDS',
         payload: {
           analystId: null,
           clientId: user.clientId,
-          farmId: persisted.farmId ?? null,
+          farmId: safeFarmId,
         },
       });
       return;
@@ -430,8 +436,9 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const loadClients = useCallback(
     async (options?: { append?: boolean; search?: string }) => {
-      // Usuário com qualification='cliente' busca diretamente pelo seu client_id fixo
-      const isClientUser = user?.qualification === 'cliente';
+      // Usuário com qualification='cliente' busca diretamente pelo seu client_id fixo.
+      // Também cobre estado transitório: perfil com clientId mas qualification ainda indefinida.
+      const isClientUser = user?.qualification === 'cliente' || Boolean(user?.clientId && !user?.qualification);
 
       if (!user || (!effectiveAnalystId && !isClientUser)) {
         dispatch({ type: 'SET_CLIENTS', payload: { data: [], append: false, hasMore: false } });
@@ -612,8 +619,9 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
       return; // loadClients dispara via effectiveAnalystId
     }
-    // Clientes não têm analista próprio — context de analista não se aplica
-    if (user.qualification === 'cliente') {
+    // Clientes não têm analista próprio — context de analista não se aplica.
+    // Cobre também estado transitório onde clientId existe mas qualification ainda não chegou.
+    if (user.qualification === 'cliente' || (user.clientId && !user.qualification)) {
       dispatch({ type: 'SET_SELECTED_ANALYST', payload: null });
       return;
     }
