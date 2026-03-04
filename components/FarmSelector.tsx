@@ -14,7 +14,7 @@ const FarmSelector: React.FC = () => {
     return null;
   }
 
-  if (!user || (user.qualification !== 'analista' && user.role !== 'admin')) {
+  if (!user || (user.qualification !== 'analista' && user.qualification !== 'cliente' && user.role !== 'admin')) {
     return null;
   }
 
