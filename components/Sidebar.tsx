@@ -367,27 +367,29 @@ const Sidebar: React.FC<SidebarProps> = ({
                 );
               })}
 
-            {/* Área Certificados - último item */}
-            <button
-              onClick={() => onSelectAgent('area-certificados')}
-              className={`
-                w-full flex items-center px-3 py-2 rounded-md transition-all relative group
-                ${
-                  activeAgentId === 'area-certificados'
-                    ? 'bg-ai-accent/10 text-ai-accent'
-                    : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
-                }
-                cursor-pointer
-              `}
-              title="Área Certificados"
-            >
-              <div
-                className={`flex-shrink-0 ${activeAgentId === 'area-certificados' ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}
+            {/* Área Certificados - último item (oculto para cliente) */}
+            {user?.role !== 'client' && (
+              <button
+                onClick={() => onSelectAgent('area-certificados')}
+                className={`
+                  w-full flex items-center px-3 py-2 rounded-md transition-all relative group
+                  ${
+                    activeAgentId === 'area-certificados'
+                      ? 'bg-ai-accent/10 text-ai-accent'
+                      : 'text-ai-subtext hover:bg-ai-surface2 hover:text-ai-text'
+                  }
+                  cursor-pointer
+                `}
+                title="Área Certificados"
               >
-                <Briefcase size={16} />
-              </div>
-              <span className="ml-3 text-sm font-medium block text-left truncate">Área Certificados</span>
-            </button>
+                <div
+                  className={`flex-shrink-0 ${activeAgentId === 'area-certificados' ? 'text-ai-accent' : 'text-ai-subtext group-hover:text-ai-text'}`}
+                >
+                  <Briefcase size={16} />
+                </div>
+                <span className="ml-3 text-sm font-medium block text-left truncate">Área Certificados</span>
+              </button>
+            )}
           </nav>
         </div>
 
