@@ -4,6 +4,7 @@ import { Client, Farm, User } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { mapFarmsFromDatabase } from '../lib/utils/farmMapper';
+import { sanitizeUUID } from '../lib/uuid';
 
 const PAGE_SIZE = 50;
 const HIERARCHY_STORAGE_KEY = 'hierarchySelection.v1';
@@ -127,19 +128,21 @@ function loadInitialPersistedIds(): { analystId: string | null; clientId: string
     if (modernRaw) {
       const modern = JSON.parse(modernRaw);
       return {
-        analystId: typeof modern?.analystId === 'string' ? modern.analystId : null,
-        clientId: typeof modern?.clientId === 'string' ? modern.clientId : null,
-        farmId: typeof modern?.farmId === 'string' ? modern.farmId : null,
+        analystId: sanitizeUUID(typeof modern?.analystId === 'string' ? modern.analystId : null),
+        clientId: sanitizeUUID(typeof modern?.clientId === 'string' ? modern.clientId : null),
+        farmId: sanitizeUUID(typeof modern?.farmId === 'string' ? modern.farmId : null),
       };
     }
   } catch {
     // ignore invalid storage
   }
 
-  const analystId = parseLegacyId(localStorage.getItem('selectedAnalystId'));
-  const clientId = parseLegacyId(localStorage.getItem('selectedClientId'));
-  const farmId = localStorage.getItem('selectedFarmId') || parseLegacyId(localStorage.getItem('selectedFarm'));
-  return { analystId, clientId, farmId: farmId || null };
+  const analystId = sanitizeUUID(parseLegacyId(localStorage.getItem('selectedAnalystId')));
+  const clientId = sanitizeUUID(parseLegacyId(localStorage.getItem('selectedClientId')));
+  const farmId = sanitizeUUID(
+    localStorage.getItem('selectedFarmId') || parseLegacyId(localStorage.getItem('selectedFarm')),
+  );
+  return { analystId, clientId, farmId };
 }
 
 function hierarchyReducer(state: HierarchyState, action: HierarchyAction): HierarchyState {
@@ -655,12 +658,15 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!user) return;
     const runValidation = async () => {
       const current = stateRef.current;
-      if (!current.analystId && !current.clientId && !current.farmId) return;
+      const sanitizedAnalystId = sanitizeUUID(current.analystId);
+      const sanitizedClientId = sanitizeUUID(current.clientId);
+      const sanitizedFarmId = sanitizeUUID(current.farmId);
+      if (!sanitizedAnalystId && !sanitizedClientId && !sanitizedFarmId) return;
 
       const { data, error } = await supabase.rpc('validate_hierarchy', {
-        p_analyst_id: current.analystId,
-        p_client_id: current.clientId,
-        p_farm_id: current.farmId,
+        p_analyst_id: sanitizedAnalystId,
+        p_client_id: sanitizedClientId,
+        p_farm_id: sanitizedFarmId,
       });
 
       if (error || !data || !Array.isArray(data) || data.length === 0) {
@@ -669,9 +675,9 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
 
       const result = data[0];
-      const nextAnalystId = result.analyst_valid ? current.analystId : null;
-      const nextClientId = result.client_valid ? current.clientId : null;
-      const nextFarmId = result.farm_valid ? current.farmId : null;
+      const nextAnalystId = result.analyst_valid ? sanitizedAnalystId : null;
+      const nextClientId = result.client_valid ? sanitizedClientId : null;
+      const nextFarmId = result.farm_valid ? sanitizedFarmId : null;
 
       dispatch({
         type: 'HYDRATE_IDS',

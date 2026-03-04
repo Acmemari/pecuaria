@@ -132,9 +132,11 @@ export async function fetchProjects(createdBy: string, filters?: FetchProjectsFi
   // No clientMode, cliente lê projetos da própria organização/fazenda sem filtro por created_by.
   // Usa RPC readonly para incluir fallback de dados legados (projects.client_id nulo).
   if (filters?.clientMode && filters.clientId?.trim()) {
+    const rawFarmId = filters.farmId?.trim();
+    const p_farm_id = rawFarmId && rawFarmId.length > 0 ? rawFarmId : null;
     const { data, error } = await supabase.rpc('client_list_projects_by_farm', {
       p_client_id: filters.clientId,
-      p_farm_id: filters.farmId?.trim() ? filters.farmId : null,
+      p_farm_id,
     });
     if (error) throw new Error(error.message || 'Erro ao carregar projetos.');
     return (data || []).map(mapProjectRow);
