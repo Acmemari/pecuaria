@@ -539,7 +539,7 @@ const AppContent: React.FC = () => {
                 onSelectPlanejamentoAgil={() => setViewMode('agile-planning')}
                 onSelectAvaliacaoProtocolo={() => setViewMode('avaliacao-protocolo')}
                 onSelectFeedbackAgent={() => setActiveAgentId('agent-feedback')}
-                showPlanejamentoAgil={user?.role === 'admin' || user?.qualification === 'analista'}
+                showPlanejamentoAgil={user?.role === 'admin' || user?.qualification === 'analista' || user?.qualification === 'cliente'}
               />
             </Suspense>
           );
@@ -557,7 +557,7 @@ const AppContent: React.FC = () => {
           );
         }
         if (viewMode === 'agile-planning') {
-          return user?.role === 'admin' || user?.qualification === 'analista' ? (
+          return user?.role === 'admin' || user?.qualification === 'analista' || user?.qualification === 'cliente' ? (
             <Suspense fallback={<LoadingFallback />}>
               <AgilePlanning onToast={handleToast} />
             </Suspense>
@@ -743,7 +743,7 @@ const AppContent: React.FC = () => {
           </div>
         );
       case 'agile-planning':
-        return user.role === 'admin' || user.qualification === 'analista' ? (
+        return user.role === 'admin' || user.qualification === 'analista' || user.qualification === 'cliente' ? (
           <Suspense fallback={<LoadingFallback />}>
             <AgilePlanning onToast={handleToast} />
           </Suspense>
