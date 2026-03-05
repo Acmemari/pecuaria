@@ -173,35 +173,43 @@ const ProjectManagement: React.FC<ProjectManagementProps> = ({ onToast }) => {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => handleExport('download')}
-              disabled={!!isExporting}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-ai-border bg-ai-surface text-sm font-medium text-ai-text hover:bg-ai-border/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Baixar PDF do Programa de Trabalho"
-            >
-              {isExporting === 'download' ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <Download size={15} />
-              )}
-              Download
-            </button>
-            <button
-              type="button"
-              onClick={() => handleExport('save')}
-              disabled={!!isExporting}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-ai-accent/30 bg-ai-accent/10 text-sm font-medium text-ai-accent hover:bg-ai-accent/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Salvar PDF do Programa de Trabalho"
-            >
-              {isExporting === 'save' ? (
-                <Loader2 size={15} className="animate-spin" />
-              ) : (
-                <Save size={15} />
-              )}
-              Salvar
-            </button>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleExport('download')}
+                disabled={!!isExporting}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-ai-border bg-ai-surface text-sm font-medium text-ai-text hover:bg-ai-border/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Baixar PDF do Programa de Trabalho"
+              >
+                {isExporting === 'download' ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Download size={15} />
+                )}
+                Download
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExport('save')}
+                disabled={!!isExporting}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-ai-accent/30 bg-ai-accent/10 text-sm font-medium text-ai-accent hover:bg-ai-accent/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Salvar PDF do Programa de Trabalho"
+              >
+                {isExporting === 'save' ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : (
+                  <Save size={15} />
+                )}
+                Salvar
+              </button>
+            </div>
+            {isCliente && (
+              <div className="flex flex-col gap-0.5 text-right">
+                <p className="text-sm font-medium text-red-600">Disponível para apenas visualização</p>
+                <p className="text-sm text-ai-subtext">Edição permitida para o time de analistas.</p>
+              </div>
+            )}
           </div>
         </div>
       </header>
