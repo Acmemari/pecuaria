@@ -59,6 +59,9 @@ function buildPermissionsResult(
   analystFarm: { permissions: Record<string, string>; is_responsible: boolean } | null,
   isLoading: boolean,
 ): FarmPermissionsResult {
+  if (analystFarm?.is_responsible === true) {
+    return { ...FULL_ACCESS, isLoading };
+  }
   const merged: Record<string, PermissionLevel> = { ...DEFAULT_PERMISSIONS };
   if (analystFarm?.permissions) {
     for (const [k, v] of Object.entries(analystFarm.permissions)) {

@@ -24,6 +24,7 @@ import FarmPermissionsModal from '../components/FarmPermissionsModal';
 import {
   useFarmPermissions,
   useBatchFarmPermissions,
+  FULL_ACCESS,
   NO_ACCESS,
   VIEW_ONLY,
   type FarmPermissionsResult,
@@ -168,17 +169,22 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const [permissionsModalFarm, setPermissionsModalFarm] = useState<Farm | null>(null);
 
   const isCliente = user?.qualification === 'cliente';
+  const isAnalyst = user?.qualification === 'analista' && user?.role !== 'admin';
   const formPerms = useFarmPermissions(editingFarm?.id ?? null, user?.id, user?.role);
   const batchPerms = useBatchFarmPermissions(
     farms.map(f => f.id),
     user?.id,
     user?.role,
   );
-  const effectiveFormPerms = isCliente ? VIEW_ONLY : formPerms;
-  const effectiveBatchPerms = isCliente
-    ? Object.fromEntries(farms.map(f => [f.id, VIEW_ONLY]))
-    : batchPerms;
-  const formReadOnly = isCliente || (editingFarm ? !formPerms.canEdit('farms:form') : false);
+  // Analista no cadastro de fazendas: permitir incluir, editar e excluir (RLS no backend restringe por analyst_farms).
+  const effectiveFormPerms = isCliente ? VIEW_ONLY : isAnalyst ? FULL_ACCESS : formPerms;
+  const effectiveBatchPerms =
+    isCliente
+      ? Object.fromEntries(farms.map(f => [f.id, VIEW_ONLY]))
+      : isAnalyst
+        ? Object.fromEntries(farms.map(f => [f.id, FULL_ACCESS]))
+        : batchPerms;
+  const formReadOnly = isCliente || (editingFarm ? !effectiveFormPerms.canEdit('farms:form') : false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -360,10 +366,12 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   };
 
   // Format integer number for display (with thousands separator, no decimals)
-  const formatIntegerForDisplay = (value: number | undefined): string => {
-    if (value === undefined || value === null || isNaN(value)) return '';
+  // Aceita number ou string (ex.: dados vindos do localStorage/API) para evitar erro ao editar fazenda.
+  const formatIntegerForDisplay = (value: number | string | undefined): string => {
+    const num = typeof value === 'number' ? value : value === undefined || value === null || value === '' ? undefined : Number(String(value).replace(/\./g, ''));
+    if (num === undefined || isNaN(num)) return '';
     // Convert to integer and format with thousands separator
-    const integerValue = Math.floor(value);
+    const integerValue = Math.floor(num);
     return integerValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   };
 
@@ -375,6 +383,23 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     const num = parseInt(cleaned, 10);
     return isNaN(num) ? undefined : num;
   };
+
+  // Habilitar botão Salvar apenas quando todos os campos obrigatórios estão preenchidos e a regra de dimensões é respeitada
+  const isSaveEnabled = useMemo(() => {
+    if (!formData.name.trim()) return false;
+    if (!formData.productionSystem) return false;
+    if (!formData.country.trim()) return false;
+    if (formData.country === 'Brasil' && !formData.state) return false;
+    const totalAreaNum = parseNumber(formData.totalArea);
+    if (totalAreaNum === undefined || totalAreaNum <= 0) return false;
+    const pastureNum = parseNumber(formData.pastureArea);
+    if (pastureNum === undefined || pastureNum < 0) return false;
+    const propVal = parseInteger(formData.propertyValue);
+    if (propVal === undefined || propVal < 0) return false;
+    const herdVal = parseInteger(formData.herdValue);
+    if (herdVal === undefined || herdVal < 0) return false;
+    return isTotalAreaValid();
+  }, [formData.name, formData.productionSystem, formData.country, formData.state, formData.totalArea, formData.pastureArea, formData.propertyValue, formData.herdValue, formData.forageProductionArea, formData.agricultureAreaOwned, formData.agricultureAreaLeased, formData.otherCrops, formData.infrastructure, formData.reserveAndAPP, formData.otherArea]);
 
   // Calcular valores das áreas baseado na proporção e variação
   // Seguindo os passos:
@@ -681,8 +706,31 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       newErrors.productionSystem = 'Sistema de produção é obrigatório';
     }
 
-    // Validar se a soma dos valores de operação é igual ao valor da propriedade
+    // Área total obrigatória
+    const totalAreaValue = parseNumber(formData.totalArea);
+    if (totalAreaValue === undefined || totalAreaValue <= 0) {
+      newErrors.totalArea = 'Área total é obrigatória';
+    }
+
+    // Área de pastagem obrigatória
+    const pastureAreaValue = parseNumber(formData.pastureArea);
+    if (pastureAreaValue === undefined || pastureAreaValue < 0) {
+      newErrors.pastureArea = 'Área de pastagem é obrigatória';
+    }
+
+    // Valor da propriedade obrigatório
     const propertyValueNum = parseInteger(formData.propertyValue);
+    if (propertyValueNum === undefined || propertyValueNum < 0) {
+      newErrors.propertyValue = 'Valor da propriedade é obrigatório';
+    }
+
+    // Valor do rebanho obrigatório
+    const herdValueNum = parseInteger(formData.herdValue);
+    if (herdValueNum === undefined || herdValueNum < 0) {
+      newErrors.herdValue = 'Valor do rebanho é obrigatório';
+    }
+
+    // Validar se a soma dos valores de operação é igual ao valor da propriedade
     const operationPecuaryNum = parseInteger(formData.operationPecuary) || 0;
     const operationAgriculturalNum = parseInteger(formData.operationAgricultural) || 0;
     const otherOperationsNum = parseInteger(formData.otherOperations) || 0;
@@ -695,7 +743,6 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     }
 
     // Validar se a área total bate com a soma das áreas parciais
-    const totalAreaValue = parseNumber(formData.totalArea);
     const calculatedSum = calculateTotalAreaSum();
 
     // Se a área total foi preenchida, deve bater com a soma das áreas parciais
@@ -766,12 +813,15 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
         .maybeSingle();
 
       if (!existing) {
-        // Criar vínculo se não existir
+        // Criar vínculo se não existir (responsável = permissões de edição para fazenda)
+        const permissions = isResponsible
+          ? { 'farms:card': 'edit', 'farms:form': 'edit', 'farms:delete': 'edit' }
+          : {};
         const { error } = await supabase.from('analyst_farms').insert({
           analyst_id: analystId,
           farm_id: farmId,
           is_responsible: isResponsible,
-          permissions: {},
+          permissions,
         });
 
         if (error) {
@@ -979,10 +1029,12 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   };
 
   // Format number for display (with thousands separator (.) and 2 decimals (,))
-  const formatNumberForDisplay = (value: number | undefined): string => {
-    if (value === undefined || value === null || isNaN(value)) return '';
+  // Aceita number ou string (ex.: dados vindos do localStorage/API) para evitar erro ao editar fazenda.
+  const formatNumberForDisplay = (value: number | string | undefined): string => {
+    const num = typeof value === 'number' ? value : value === undefined || value === null || value === '' ? undefined : Number(String(value).replace(',', '.'));
+    if (num === undefined || isNaN(num)) return '';
     // Format with 2 decimals, then replace dot with comma for decimal separator
-    const formatted = value.toFixed(2);
+    const formatted = num.toFixed(2);
     const parts = formatted.split('.');
     const integerPart = parts[0];
     const decimalPart = parts[1] || '00';
@@ -996,11 +1048,18 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const handleEdit = (farm: Farm) => {
     setEditingFarm(farm);
     setIsCreatingNew(false);
+    const avgHerd = farm.averageHerd;
+    const averageHerdStr =
+      avgHerd === undefined || avgHerd === null || avgHerd === ''
+        ? ''
+        : (typeof avgHerd === 'number' ? Math.floor(avgHerd) : parseInt(String(avgHerd).replace(/[^\d]/g, ''), 10) || 0)
+            .toString()
+            .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     setFormData({
-      name: farm.name,
-      country: farm.country,
-      state: farm.state,
-      city: farm.city,
+      name: farm.name ?? '',
+      country: farm.country ?? 'Brasil',
+      state: farm.state ?? '',
+      city: farm.city ?? '',
       totalArea: formatNumberForDisplay(farm.totalArea),
       pastureArea: formatNumberForDisplay(farm.pastureArea),
       forageProductionArea: formatNumberForDisplay(farm.forageProductionArea),
@@ -1014,13 +1073,13 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       operationPecuary: formatIntegerForDisplay(farm.operationPecuary),
       operationAgricultural: formatIntegerForDisplay(farm.operationAgricultural),
       otherOperations: formatIntegerForDisplay(farm.otherOperations),
-      agricultureVariation: farm.agricultureVariation || 0,
-      propertyType: farm.propertyType,
-      weightMetric: farm.weightMetric,
-      averageHerd: farm.averageHerd ? farm.averageHerd.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '',
+      agricultureVariation: farm.agricultureVariation ?? 0,
+      propertyType: (farm.propertyType as Farm['propertyType']) || 'Própria',
+      weightMetric: (farm.weightMetric as Farm['weightMetric']) || 'Arroba (@)',
+      averageHerd: averageHerdStr,
       herdValue: formatIntegerForDisplay(farm.herdValue),
-      commercializesGenetics: farm.commercializesGenetics,
-      productionSystem: farm.productionSystem,
+      commercializesGenetics: !!farm.commercializesGenetics,
+      productionSystem: (farm.productionSystem as Farm['productionSystem']) ?? '',
     });
     setView('form');
   };
@@ -1343,7 +1402,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               <div className="grid grid-cols-5 gap-2 mb-2">
                 <div>
                   <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
-                    Área Total
+                    Área Total <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1364,7 +1423,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 </div>
                 <div>
                   <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
-                    Área Pastagem
+                    Área Pastagem <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1373,8 +1432,11 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                     onBlur={() => handleNumericBlur('pastureArea')}
                     placeholder="0,00"
                     inputMode="decimal"
-                    className="w-full px-2 py-1.5 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                    className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
+                      errors.pastureArea ? 'border-red-500' : 'border-ai-border'
+                    }`}
                   />
+                  {errors.pastureArea && <p className="text-red-500 text-xs mt-1">{errors.pastureArea}</p>}
                 </div>
                 <div>
                   <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide flex items-center gap-1">
@@ -1492,7 +1554,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
               <div className="grid grid-cols-5 gap-2 mb-3">
                 <div>
                   <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
-                    Valor da propriedade
+                    Valor da propriedade <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-ai-subtext">
@@ -1504,9 +1566,12 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                       onChange={e => handleCurrencyChange('propertyValue', e.target.value)}
                       placeholder="0"
                       inputMode="numeric"
-                      className="w-full pl-8 pr-2 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                      className={`w-full pl-8 pr-2 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
+                        errors.propertyValue ? 'border-red-500' : 'border-ai-border'
+                      }`}
                     />
                   </div>
+                  {errors.propertyValue && <p className="text-red-500 text-xs mt-1">{errors.propertyValue}</p>}
                 </div>
                 <div>
                   <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
@@ -1665,7 +1730,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 </div>
                 <div>
                   <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
-                    Valor do Rebanho
+                    Valor do Rebanho <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-ai-subtext">
@@ -1677,9 +1742,12 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                       onChange={e => handleCurrencyChange('herdValue', e.target.value)}
                       placeholder="0"
                       inputMode="numeric"
-                      className="w-full pl-10 pr-3 py-2 text-sm border border-ai-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white"
+                      className={`w-full pl-10 pr-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-ai-accent bg-white ${
+                        errors.herdValue ? 'border-red-500' : 'border-ai-border'
+                      }`}
                     />
                   </div>
+                  {errors.herdValue && <p className="text-red-500 text-xs mt-1">{errors.herdValue}</p>}
                 </div>
                 <div>
                   <label className="block text-[10px] font-semibold text-ai-text mb-1.5 uppercase tracking-wide">
@@ -1713,9 +1781,9 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           </button>
           <button
             type="submit"
-            disabled={formReadOnly || (!editingFarm && !selectedClient)}
+            disabled={formReadOnly || (!editingFarm && !selectedClient) || !isSaveEnabled}
             className="flex-1 px-4 py-2 text-sm bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={!editingFarm && !selectedClient ? 'Selecione uma organização antes de cadastrar uma fazenda' : ''}
+            title={!editingFarm && !selectedClient ? 'Selecione uma organização antes de cadastrar uma fazenda' : !isSaveEnabled ? 'Preencha todos os campos obrigatórios e respeite a soma total das dimensões' : ''}
           >
             <CheckCircle2 size={16} />
             {editingFarm ? 'Atualizar Fazenda' : 'Cadastrar Fazenda'}
