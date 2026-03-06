@@ -44,6 +44,20 @@ export const VIEW_ONLY: FarmPermissionsResult = {
   hasAccess: true,
 };
 
+/** Cliente: pode cadastrar, editar e excluir fazendas da própria organização; não gerencia permissões. */
+export const CLIENTE_ACCESS: FarmPermissionsResult = {
+  permissions: Object.fromEntries(Object.keys(DEFAULT_PERMISSIONS).map(k => [k, 'edit' as PermissionLevel])) as Record<
+    string,
+    PermissionLevel
+  >,
+  canView: () => true,
+  canEdit: () => true,
+  isHidden: () => false,
+  isLoading: false,
+  isResponsible: false,
+  hasAccess: true,
+};
+
 /** Estado de carregamento. Referencia estavel. */
 export const LOADING_RESULT: FarmPermissionsResult = {
   permissions: { ...DEFAULT_PERMISSIONS },

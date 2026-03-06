@@ -12,6 +12,7 @@ interface CalculatorCardProps {
   onToggleFavorite: (id: string) => void;
   onClick: () => void;
   locked?: boolean;
+  lockedLabel?: string;
 }
 
 const CalculatorCard: React.FC<CalculatorCardProps> = ({
@@ -23,6 +24,7 @@ const CalculatorCard: React.FC<CalculatorCardProps> = ({
   onToggleFavorite,
   onClick,
   locked = false,
+  lockedLabel,
 }) => (
   <button
     type="button"
@@ -50,7 +52,16 @@ const CalculatorCard: React.FC<CalculatorCardProps> = ({
     </div>
     <h3 className="text-base font-bold text-gray-900 mb-1.5">{title}</h3>
     <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-4">{description}</p>
-    {locked && <Lock size={12} className="absolute bottom-2 right-2 text-gray-400" aria-hidden />}
+    {locked && (
+      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+        {lockedLabel ? (
+          <span className="text-[11px] text-gray-500">{lockedLabel}</span>
+        ) : (
+          <span />
+        )}
+        <Lock size={12} className="text-gray-400 shrink-0" aria-hidden />
+      </div>
+    )}
   </button>
 );
 
@@ -61,6 +72,7 @@ interface CalculadorasDesktopProps {
   onSelectAvaliacaoProtocolo?: () => void;
   onSelectFeedbackAgent?: () => void;
   showPlanejamentoAgil?: boolean;
+  feedbackAgentUnlocked?: boolean;
 }
 
 const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
@@ -70,6 +82,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
   onSelectAvaliacaoProtocolo,
   onSelectFeedbackAgent,
   showPlanejamentoAgil = false,
+  feedbackAgentUnlocked = true,
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>('todos');
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
@@ -136,7 +149,8 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
       'Crie feedbacks construtivos com tom adequado e estruturas profissionais como SBI, Sanduíche e Feedforward.',
     icon: <MessageSquareText size={19} />,
     onClick: onSelectFeedbackAgent ?? (() => {}),
-    locked: false,
+    locked: !feedbackAgentUnlocked,
+    lockedLabel: !feedbackAgentUnlocked ? 'Em treinamento' : undefined,
   };
 
   const cards = [
@@ -194,6 +208,7 @@ const CalculadorasDesktop: React.FC<CalculadorasDesktopProps> = ({
               onToggleFavorite={toggleFavorite}
               onClick={card.onClick}
               locked={!!('locked' in card && card.locked)}
+              lockedLabel={'lockedLabel' in card ? card.lockedLabel : undefined}
             />
           ))
         )}

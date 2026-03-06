@@ -96,6 +96,8 @@ const AppContent: React.FC = () => {
   // Estado para controlar se está no formulário de pessoas
   const [isPeopleFormView, setIsPeopleFormView] = useState(false);
 
+  const canAccessFeedbackAgent = user?.qualification === 'analista';
+
   // Handle window resize to adjust sidebar state
   useEffect(() => {
     const handleResize = () => {
@@ -368,7 +370,13 @@ const AppContent: React.FC = () => {
       setActiveAgentId('cattle-profit');
       return;
     }
-  }, [user, activeAgentId, isLoading]);
+
+    if (activeAgentId === 'agent-feedback' && !canAccessFeedbackAgent) {
+      setViewMode('desktop');
+      setActiveAgentId('cattle-profit');
+      return;
+    }
+  }, [user, activeAgentId, isLoading, canAccessFeedbackAgent]);
 
   // Timeout de segurança para agents não carregarem
   useEffect(() => {
@@ -556,6 +564,7 @@ const AppContent: React.FC = () => {
                 onSelectAvaliacaoProtocolo={() => setViewMode('avaliacao-protocolo')}
                 onSelectFeedbackAgent={() => setActiveAgentId('agent-feedback')}
                 showPlanejamentoAgil={user?.role === 'admin' || user?.qualification === 'analista' || user?.qualification === 'cliente'}
+                feedbackAgentUnlocked={canAccessFeedbackAgent}
               />
             </Suspense>
           );
@@ -767,6 +776,9 @@ const AppContent: React.FC = () => {
           <div>Acesso negado.</div>
         );
       case 'agent-feedback':
+        if (!canAccessFeedbackAgent) {
+          return <div className="p-8 text-ai-subtext">Acesso negado.</div>;
+        }
         return (
           <Suspense fallback={<LoadingFallback />}>
             <FeedbackAgent onToast={handleToast} />

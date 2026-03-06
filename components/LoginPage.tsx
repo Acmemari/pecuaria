@@ -102,7 +102,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onToast, onForgotPassword }) => {
       <div className="w-full max-w-md mx-auto px-4 py-6 sm:py-8 pb-12">
         {/* Logo Section */}
         <div className="flex flex-col items-center mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">pecuarIA</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Gesttor</h1>
           <p className="text-ai-subtext text-xs sm:text-sm mt-1 sm:mt-2">Calculadora de resultados para a pecuária</p>
           <p className="text-ai-subtext text-xs sm:text-sm mt-1">@ntonio_chaker_</p>
           <p className="text-ai-subtext text-xs sm:text-sm mt-0.5">antonio@inttegra.com</p>

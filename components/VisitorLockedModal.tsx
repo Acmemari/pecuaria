@@ -16,7 +16,7 @@ const VisitorLockedModal: React.FC<VisitorLockedModalProps> = ({ isOpen, onClose
 
   const handleWhatsApp = () => {
     const message = encodeURIComponent(
-      `Olá! Sou visitante do pecuarIA e gostaria de conhecer a ferramenta "${featureName ?? 'Plataforma'}" e saber como contratar. Poderia me ajudar?`,
+      `Olá! Sou visitante do Gesttor e gostaria de conhecer a ferramenta "${featureName ?? 'Plataforma'}" e saber como contratar. Poderia me ajudar?`,
     );
     window.open(`https://wa.me/5544991333278?text=${message}`, '_blank');
     setSubmitted(true);
@@ -25,7 +25,7 @@ const VisitorLockedModal: React.FC<VisitorLockedModalProps> = ({ isOpen, onClose
   const handleSubmitForm = (e: React.FormEvent) => {
     e.preventDefault();
     const message = encodeURIComponent(
-      `Olá! Meu nome é ${name}. Vi o pecuarIA como visitante e quero saber mais sobre "${featureName ?? 'a plataforma'}". Meu telefone é ${phone}.`,
+      `Olá! Meu nome é ${name}. Vi o Gesttor como visitante e quero saber mais sobre "${featureName ?? 'a plataforma'}". Meu telefone é ${phone}.`,
     );
     window.open(`https://wa.me/5544991333278?text=${message}`, '_blank');
     setSubmitted(true);

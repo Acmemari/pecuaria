@@ -51,7 +51,7 @@ describe('Sidebar', () => {
       </LocationProvider>,
     );
 
-    expect(screen.getByText(/pecuarIA/i)).toBeInTheDocument();
+    expect(screen.getByText(/Gesttor/i)).toBeInTheDocument();
     expect(screen.getByText('Calculadoras')).toBeInTheDocument();
     expect(screen.getByText('Pergunte p/ Antonio')).toBeInTheDocument();
   });

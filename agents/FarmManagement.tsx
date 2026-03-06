@@ -27,6 +27,7 @@ import {
   FULL_ACCESS,
   NO_ACCESS,
   VIEW_ONLY,
+  CLIENTE_ACCESS,
   type FarmPermissionsResult,
 } from '../lib/permissions/useFarmPermissions';
 
@@ -177,14 +178,15 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     user?.role,
   );
   // Analista no cadastro de fazendas: permitir incluir, editar e excluir (RLS no backend restringe por analyst_farms).
-  const effectiveFormPerms = isCliente ? VIEW_ONLY : isAnalyst ? FULL_ACCESS : formPerms;
+  const effectiveFormPerms = isCliente ? CLIENTE_ACCESS : isAnalyst ? FULL_ACCESS : formPerms;
   const effectiveBatchPerms =
     isCliente
-      ? Object.fromEntries(farms.map(f => [f.id, VIEW_ONLY]))
+      ? Object.fromEntries(farms.map(f => [f.id, CLIENTE_ACCESS]))
       : isAnalyst
         ? Object.fromEntries(farms.map(f => [f.id, FULL_ACCESS]))
         : batchPerms;
-  const formReadOnly = isCliente || (editingFarm ? !effectiveFormPerms.canEdit('farms:form') : false);
+  const formReadOnly = editingFarm ? !effectiveFormPerms.canEdit('farms:form') : false;
+  const needsOrgForCreate = !editingFarm && !selectedClient && !(isCliente && user?.clientId);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -670,8 +672,9 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Validar se há cliente selecionado (obrigatório para criar fazenda)
-    if (!editingFarm && !selectedClient) {
+    // Validar se há cliente/organização (obrigatório para criar fazenda; cliente usa user.clientId quando não há selectedClient)
+    const clientIdForValidation = selectedClient?.id ?? (isCliente && user?.clientId ? user.clientId : null);
+    if (!editingFarm && !clientIdForValidation) {
       const isAwaitingClients = !loadingClientsAvailability && (availableClientsCount ?? 0) === 0;
       newErrors.client = isAwaitingClients
         ? 'Aguardando cadastro de organizações para liberar o cadastro de fazendas.'
@@ -838,8 +841,10 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validação adicional: não permitir criar fazenda sem cliente
-    if (!editingFarm && !selectedClient) {
+    const clientIdForNewFarm = selectedClient?.id ?? (isCliente ? user?.clientId ?? null : null);
+
+    // Validação adicional: não permitir criar fazenda sem organização
+    if (!editingFarm && !clientIdForNewFarm) {
       const isAwaitingClients = !loadingClientsAvailability && (availableClientsCount ?? 0) === 0;
       const waitingMessage = 'Aguardando cadastro de organizações para liberar o cadastro de fazendas';
       onToast?.(
@@ -854,7 +859,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       return;
     }
 
-    // Verificar se o cliente está vinculado ao analista
+    // Verificar se o cliente está vinculado ao analista (apenas analista/admin)
     if (!editingFarm && selectedClient && user) {
       if (user.role !== 'admin' && selectedClient.analystId !== user.id) {
         onToast?.('A organização selecionada não está vinculada ao seu perfil de analista', 'error');
@@ -922,17 +927,12 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
 
     saveFarms(updatedFarms);
 
-    // Para novas fazendas, sempre deve haver cliente selecionado (já validado acima)
-    if (!editingFarm) {
-      if (!selectedClient) {
-        onToast?.('Erro: Organização não selecionada. A fazenda não foi cadastrada.', 'error');
-        return;
-      }
-
+    // Para novas fazendas, usar clientIdForNewFarm (já validado acima)
+    if (!editingFarm && clientIdForNewFarm) {
       const newFarm = updatedFarms[updatedFarms.length - 1];
 
       try {
-        const { base, extended } = buildFarmDatabasePayload(newFarm, selectedClient.id);
+        const { base, extended } = buildFarmDatabasePayload(newFarm, clientIdForNewFarm);
 
         let { error: dbError } = await supabase.from('farms').insert(extended);
         if (dbError && isMissingColumnError(dbError)) {
@@ -945,7 +945,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           return;
         }
 
-        await linkFarmToClient(newFarm.id, selectedClient.id);
+        await linkFarmToClient(newFarm.id, clientIdForNewFarm);
         if (user && (user.qualification === 'analista' || user.role === 'admin')) {
           await linkFarmToAnalyst(newFarm.id, user.id, true);
         }
@@ -1154,11 +1154,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-ai-text">Cadastro de Fazendas</h1>
-              {isCliente && (
-                <p className="text-sm font-medium text-red-600 mt-0.5">Apenas disponível para visualização.</p>
-              )}
             </div>
-            {!isCliente && (
+            {effectiveFormPerms.canEdit('farms:form') && (
               <button
                 onClick={() => {
                   resetForm();
@@ -1182,7 +1179,7 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
                 onDelete={handleDelete}
                 onOpenPermissions={setPermissionsModalFarm}
                 canManagePermissions={effectiveBatchPerms[farm.id]?.isResponsible ?? false}
-                perms={effectiveBatchPerms[farm.id] ?? (isCliente ? VIEW_ONLY : NO_ACCESS)}
+                perms={effectiveBatchPerms[farm.id] ?? (isCliente ? CLIENTE_ACCESS : NO_ACCESS)}
               />
             ))}
           </div>
@@ -1234,8 +1231,8 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
       >
         <fieldset disabled={formReadOnly} className={formReadOnly ? 'opacity-75' : ''}>
           <div className="flex flex-col min-h-0">
-            {/* Alerta se não houver cliente selecionado */}
-            {!editingFarm && !selectedClient && (
+            {/* Alerta se não houver cliente/organização para criação (cliente usa user.clientId quando não há selectedClient) */}
+            {needsOrgForCreate && (
               <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <div className="flex items-start gap-2">
                   <span className="text-yellow-600 font-semibold">⚠️ Atenção:</span>
@@ -1781,9 +1778,9 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
           </button>
           <button
             type="submit"
-            disabled={formReadOnly || (!editingFarm && !selectedClient) || !isSaveEnabled}
+            disabled={formReadOnly || needsOrgForCreate || !isSaveEnabled}
             className="flex-1 px-4 py-2 text-sm bg-ai-accent text-white rounded-lg font-medium hover:bg-ai-accentHover transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={!editingFarm && !selectedClient ? 'Selecione uma organização antes de cadastrar uma fazenda' : !isSaveEnabled ? 'Preencha todos os campos obrigatórios e respeite a soma total das dimensões' : ''}
+            title={needsOrgForCreate ? 'Selecione uma organização antes de cadastrar uma fazenda' : !isSaveEnabled ? 'Preencha todos os campos obrigatórios e respeite a soma total das dimensões' : ''}
           >
             <CheckCircle2 size={16} />
             {editingFarm ? 'Atualizar Fazenda' : 'Cadastrar Fazenda'}

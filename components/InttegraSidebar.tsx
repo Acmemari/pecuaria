@@ -213,8 +213,8 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
                 onClick={onSwitchToPecuaria}
                 className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded transition-colors hover:opacity-90"
                 style={{ backgroundColor: INTEGRA_SURFACE, color: INTEGRA_TEXT }}
-                title="Voltar para pecuarIA"
-                aria-label="Voltar para pecuarIA"
+                title="Voltar para Gesttor"
+                aria-label="Voltar para Gesttor"
               >
                 <ArrowLeft size={14} />
               </button>
@@ -231,8 +231,8 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
                   onClick={onSwitchToPecuaria}
                   className="p-1.5 rounded transition-colors hover:opacity-90"
                   style={{ backgroundColor: INTEGRA_SURFACE, color: INTEGRA_TEXT }}
-                  title="Voltar para pecuarIA"
-                  aria-label="Voltar para pecuarIA"
+                  title="Voltar para Gesttor"
+                  aria-label="Voltar para Gesttor"
                 >
                   <ArrowLeft size={18} />
                 </button>
