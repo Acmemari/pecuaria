@@ -15,12 +15,14 @@
 
     <!-- Detectar hash fragment ANTES do React carregar -->
     <script>
-      // Se houver hash fragment com access_token, garantir que estamos na raiz
       (function () {
-        const hash = window.location.hash;
+        var pathname = window.location.pathname;
+        // Não interferir com a rota de callback do OAuth
+        if (pathname === '/auth/callback') return;
+
+        var hash = window.location.hash;
         if (hash.includes('access_token=') && (hash.includes('type=recovery') || hash.includes('type%3Drecovery'))) {
-          // Se não estiver na raiz, redirecionar para raiz mantendo o hash
-          if (window.location.pathname !== '/') {
+          if (pathname !== '/') {
             window.location.replace('/' + hash);
           }
         }

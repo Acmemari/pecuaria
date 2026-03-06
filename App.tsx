@@ -19,6 +19,7 @@ import { ToastContainer, Toast } from './components/Toast';
 // Lazy load auth pages
 const ForgotPasswordPage = lazy(() => import('./components/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./components/ResetPasswordPage'));
+const AuthCallback = lazy(() => import('./components/AuthCallback'));
 
 // Lazy load agents for code splitting
 const CattleProfitCalculator = lazy(() => import('./agents/CattleProfitCalculator'));
@@ -382,6 +383,21 @@ const AppContent: React.FC = () => {
       setAgentsLoadTimeout(false);
     }
   }, [agents.length, isLoading, user]);
+
+  // OAuth callback route -- render dedicated handler before anything else
+  if (window.location.pathname === '/auth/callback') {
+    return (
+      <Suspense
+        fallback={
+          <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
+            <Loader2 size={32} className="animate-spin" />
+          </div>
+        }
+      >
+        <AuthCallback />
+      </Suspense>
+    );
+  }
 
   if (isLoading) {
     return (

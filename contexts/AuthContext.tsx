@@ -88,14 +88,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (event === 'SIGNED_IN' && session?.user) {
-        // Verificar se é uma sessão de recovery (não deve fazer login completo)
         const hash = window.location.hash;
         const pathname = window.location.pathname;
+
+        // Se estiver na rota de callback, deixar o AuthCallback gerenciar o redirect
+        if (pathname === '/auth/callback') {
+          log.info('On /auth/callback route, letting AuthCallback handle redirect');
+          return;
+        }
+
         const isResetPasswordPath = pathname === '/reset-password' || pathname.includes('reset-password');
         const hasRecoveryToken =
           hash.includes('type=recovery') || hash.includes('type%3Drecovery') || hash.includes('access_token=');
 
-        // Se estiver na rota de reset OU tiver token de recovery, NÃO fazer login automático
         if (isResetPasswordPath || hasRecoveryToken) {
           log.info('Recovery session detected, skipping user set');
           return;
@@ -251,7 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}`,
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
