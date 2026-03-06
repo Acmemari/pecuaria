@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, DollarSign, Users, Zap, ArrowRight } from 'lucide-react';
+import { MapPin, DollarSign, Users, Zap, ArrowRight, Save } from 'lucide-react';
 import type { AgilePlanningReportData } from '../../lib/agilePlanningReportTypes';
 
 const formatNum = (n: number, decimals = 0): string =>
@@ -11,12 +11,16 @@ interface AgilePlanningReportViewProps {
   data: AgilePlanningReportData;
   onExportPDF: () => void;
   onBack?: () => void;
+  onSave?: () => void | Promise<void>;
+  isSaving?: boolean;
 }
 
 const AgilePlanningReportView: React.FC<AgilePlanningReportViewProps> = ({
   data,
   onExportPDF,
   onBack,
+  onSave,
+  isSaving = false,
 }) => {
   const { header, dimensions, assets, herdComposition, zootechnical, financial, productionSystem } =
     data;
@@ -59,6 +63,17 @@ const AgilePlanningReportView: React.FC<AgilePlanningReportViewProps> = ({
                   className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1.5"
                 >
                   Voltar
+                </button>
+              )}
+              {onSave && (
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Save size={16} className="opacity-90" />
+                  {isSaving ? 'Salvando...' : 'Salvar'}
                 </button>
               )}
               <button

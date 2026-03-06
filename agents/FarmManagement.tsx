@@ -862,6 +862,12 @@ const FarmManagement: React.FC<FarmManagementProps> = ({ onToast }) => {
     // Verificar se o cliente está vinculado ao analista (apenas analista/admin)
     if (!editingFarm && selectedClient && user) {
       if (user.role !== 'admin' && selectedClient.analystId !== user.id) {
+        console.warn('[FarmManagement] Binding validation failed: analystId mismatch', {
+          userId: user.id,
+          selectedClientAnalystId: selectedClient.analystId,
+          selectedClientId: selectedClient.id,
+          userRole: user.role,
+        });
         onToast?.('A organização selecionada não está vinculada ao seu perfil de analista', 'error');
         setErrors({ client: 'A organização selecionada não está vinculada ao seu perfil de analista' });
         return;

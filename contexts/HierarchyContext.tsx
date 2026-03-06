@@ -153,6 +153,9 @@ function hierarchyReducer(state: HierarchyState, action: HierarchyAction): Hiera
         analystId: action.payload.analystId,
         clientId: action.payload.clientId,
         farmId: action.payload.farmId,
+        selectedAnalyst: action.payload.analystId !== state.analystId ? null : state.selectedAnalyst,
+        selectedClient: action.payload.clientId !== state.clientId ? null : state.selectedClient,
+        selectedFarm: action.payload.farmId !== state.farmId ? null : state.selectedFarm,
       };
     case 'SET_ANALYSTS':
       return {
@@ -343,6 +346,9 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
     const initial = loadInitialPersistedIds();
+    if (user.role !== 'admin') {
+      initial.analystId = user.id;
+    }
     dispatch({ type: 'HYDRATE_IDS', payload: initial });
   }, [user?.id]);
 
@@ -658,7 +664,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (!user) return;
     const runValidation = async () => {
       const current = stateRef.current;
-      const sanitizedAnalystId = sanitizeUUID(current.analystId);
+      const sanitizedAnalystId = sanitizeUUID(effectiveAnalystId);
       const sanitizedClientId = sanitizeUUID(current.clientId);
       const sanitizedFarmId = sanitizeId(current.farmId);
       if (!sanitizedAnalystId && !sanitizedClientId && !sanitizedFarmId) return;
@@ -690,7 +696,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     void runValidation();
-  }, [user]);
+  }, [user?.id, effectiveAnalystId]);
 
   useEffect(() => {
     if (!user) return;

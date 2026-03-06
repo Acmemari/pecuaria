@@ -48,6 +48,30 @@ interface SavedScenariosProps {
   onToast?: (toast: { id: string; message: string; type: 'success' | 'error' | 'info' }) => void;
 }
 
+type ReportType = 'comparator_pdf' | 'initiatives_overview_pdf' | 'project_structure_pdf' | 'agile_planning_pdf';
+
+const REPORT_TYPES = new Set<ReportType>([
+  'comparator_pdf',
+  'initiatives_overview_pdf',
+  'project_structure_pdf',
+  'agile_planning_pdf',
+]);
+
+function getReportType(results: unknown): ReportType | null {
+  if (results && typeof results === 'object' && 'type' in results) {
+    const t = (results as Record<string, unknown>).type;
+    if (typeof t === 'string' && REPORT_TYPES.has(t as ReportType)) return t as ReportType;
+  }
+  return null;
+}
+
+const FILE_PREFIX_BY_REPORT_TYPE: Record<ReportType, string> = {
+  comparator_pdf: 'comparativo',
+  initiatives_overview_pdf: 'relatorio-visao-geral',
+  project_structure_pdf: 'estrutura-projeto',
+  agile_planning_pdf: 'planejamento-agil',
+};
+
 const SavedScenarios: React.FC<SavedScenariosProps> = ({
   onLoadScenario,
   onNavigateToCalculator,
@@ -99,20 +123,10 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     );
   }, [scenarios, questionnaires]);
 
-  const isScenarioComparador = (s: CattleScenario) =>
-    s.results && 'type' in s.results && s.results.type === 'comparator_pdf';
-  const isScenarioOverviewReport = (s: CattleScenario) =>
-    s.results && 'type' in s.results && s.results.type === 'initiatives_overview_pdf';
-  const isScenarioProjectStructure = (s: CattleScenario) =>
-    s.results && 'type' in s.results && s.results.type === 'project_structure_pdf';
-
   const filteredSavedItems: SavedItem[] = useMemo(() => {
     return savedItems.filter(item => {
       if (item.type === 'questionnaire') return filterQuestionnaires;
-      const isComparador = isScenarioComparador(item.data);
-      const isOverviewReport = isScenarioOverviewReport(item.data);
-      const isProjectStructureReport = isScenarioProjectStructure(item.data);
-      if (isComparador || isOverviewReport || isProjectStructureReport) return filterComparador;
+      if (getReportType(item.data.results) !== null) return filterComparador;
       return filterCalculadora;
     });
   }, [savedItems, filterQuestionnaires, filterCalculadora, filterComparador]);
@@ -204,13 +218,12 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     try {
       const scenario = await getScenario(scenarioId, targetUserId!);
       if (scenario) {
-        // Verificar se é um comparativo
         const results = scenario.results;
+        const reportType = getReportType(results);
 
-        if (results && 'type' in results && results.type === 'comparator_pdf') {
-          // É um comparativo - carregar no comparador
-          if (onLoadComparator && onNavigateToComparator) {
-            onLoadComparator(results.scenarios);
+        if (reportType === 'comparator_pdf') {
+          if (onLoadComparator && onNavigateToComparator && results && 'scenarios' in results) {
+            onLoadComparator((results as { scenarios: unknown[] }).scenarios);
             onNavigateToComparator();
           } else {
             onToast?.({
@@ -219,11 +232,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
               type: 'info',
             });
           }
-        } else if (
-          results &&
-          'type' in results &&
-          (results.type === 'initiatives_overview_pdf' || results.type === 'project_structure_pdf')
-        ) {
+        } else if (reportType !== null) {
           await handleDownloadReport(scenario);
         } else if (results) {
           // É um cenário individual - carregar na calculadora
@@ -340,19 +349,12 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
     }
 
     try {
-      // Verificar se é um comparativo
       const results = scenario.results;
+      const reportType = getReportType(results);
+      const hasPdfBase64 = results && typeof results === 'object' && 'pdf_base64' in results && (results as { pdf_base64: unknown }).pdf_base64;
 
-      if (
-        results &&
-        'type' in results &&
-        (results.type === 'comparator_pdf' ||
-          results.type === 'initiatives_overview_pdf' ||
-          results.type === 'project_structure_pdf') &&
-        results.pdf_base64
-      ) {
-        // É um relatório salvo (comparativo ou visão geral) - baixar o PDF armazenado
-        const pdfBase64 = results.pdf_base64;
+      if (reportType && hasPdfBase64) {
+        const pdfBase64 = (results as { pdf_base64: string }).pdf_base64;
 
         // Validação de segurança: verificar se é base64 válido
         if (typeof pdfBase64 !== 'string' || !/^[A-Za-z0-9+/=]+$/.test(pdfBase64)) {
@@ -385,19 +387,14 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
           .replace(/\s+/g, '-')
           .toLowerCase()
           .substring(0, 50); // Limitar tamanho
-        const filePrefix =
-          results.type === 'initiatives_overview_pdf'
-            ? 'relatorio-visao-geral'
-            : results.type === 'project_structure_pdf'
-              ? 'estrutura-projeto'
-              : 'comparativo';
+        const filePrefix = FILE_PREFIX_BY_REPORT_TYPE[reportType];
         const fileName = `${filePrefix}-${safeName}.pdf`;
         link.download = fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-      } else if (results && !('type' in results)) {
+      } else if (results && reportType === null) {
         // É um cenário normal - gerar PDF
         // Cast to make TS happy knowing it's CalculationResults
         const calcResults = results as CalculationResults;
@@ -700,13 +697,9 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                   {(() => {
                     const scenario = item.data;
                     const results = scenario.results;
-                    const isComparatorPDF = results && 'type' in results && results.type === 'comparator_pdf';
-                    const isOverviewReportPDF =
-                      results && 'type' in results && results.type === 'initiatives_overview_pdf';
-                    const isProjectStructureReportPDF =
-                      results && 'type' in results && results.type === 'project_structure_pdf';
+                    const reportType = getReportType(results);
 
-                    if (isComparatorPDF) {
+                    if (reportType === 'comparator_pdf') {
                       return (
                         <div className="pt-3 border-t border-ai-border">
                           <div className="flex items-center gap-2 mb-2">
@@ -720,7 +713,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                           </p>
                         </div>
                       );
-                    } else if (isOverviewReportPDF) {
+                    } else if (reportType === 'initiatives_overview_pdf') {
                       return (
                         <div className="pt-3 border-t border-ai-border">
                           <div className="flex items-center gap-2 mb-2">
@@ -734,7 +727,7 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                           </p>
                         </div>
                       );
-                    } else if (isProjectStructureReportPDF) {
+                    } else if (reportType === 'project_structure_pdf') {
                       return (
                         <div className="pt-3 border-t border-ai-border">
                           <div className="flex items-center gap-2 mb-2">
@@ -748,7 +741,21 @@ const SavedScenarios: React.FC<SavedScenariosProps> = ({
                           </p>
                         </div>
                       );
-                    } else if (results && !('type' in results)) {
+                    } else if (reportType === 'agile_planning_pdf') {
+                      return (
+                        <div className="pt-3 border-t border-ai-border">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                              Planejamento Ágil
+                            </div>
+                          </div>
+                          <p className="text-xs text-ai-subtext">
+                            PDF do relatório de Planejamento Ágil salvo em Meus Salvos. Clique no ícone de download para
+                            baixar o relatório.
+                          </p>
+                        </div>
+                      );
+                    } else if (results && reportType === null) {
                       const calcResults = results as CalculationResults;
                       return (
                         <div className="pt-3 border-t border-ai-border">

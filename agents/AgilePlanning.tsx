@@ -5,7 +5,8 @@ import { useFarm } from '../contexts/FarmContext';
 import { Farm, Client } from '../types';
 import { supabase } from '../lib/supabase';
 import type { AgilePlanningReportData, HerdCompositionRow } from '../lib/agilePlanningReportTypes';
-import { generateAgilePlanningReportPDF } from '../lib/generateAgilePlanningReportPDF';
+import { generateAgilePlanningReportPDF, generateAgilePlanningReportPDFAsBase64 } from '../lib/generateAgilePlanningReportPDF';
+import { saveReportPdf } from '../lib/scenarios';
 import AgilePlanningReportView from '../components/reports/AgilePlanningReportView';
 import { Loader2, AlertCircle, CheckCircle2, Plus, Trash2, Edit3, X, ListChecks, Info } from 'lucide-react';
 
@@ -269,6 +270,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   // Estados de UI
   const [isLoading, setIsLoading] = useState(true);
   const [showReportView, setShowReportView] = useState(false);
+  const [isSavingReport, setIsSavingReport] = useState(false);
   const [showSelectionModal, setShowSelectionModal] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isIndicatorsModalOpen, setIsIndicatorsModalOpen] = useState(false);
@@ -1488,6 +1490,26 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     resultPerHead,
   ]);
 
+  const handleSaveReport = useCallback(async () => {
+    if (!user?.id || !reportData || isSavingReport) return;
+    setIsSavingReport(true);
+    try {
+      const base64 = generateAgilePlanningReportPDFAsBase64(reportData);
+      const reportName = `Planejamento Ágil - ${reportData.header.farmName} - ${new Date().toLocaleDateString('pt-BR')}`;
+      await saveReportPdf(user.id, reportName, base64, 'agile_planning_pdf', {
+        clientId: selectedClient?.id ?? null,
+        farmId: selectedFarm?.id ?? null,
+        farmName: reportData.header.farmName || null,
+      });
+      onToast?.('Relatório salvo em Meus Salvos.', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível salvar o relatório.';
+      onToast?.(msg, 'error');
+    } finally {
+      setIsSavingReport(false);
+    }
+  }, [user?.id, reportData, selectedClient?.id, selectedFarm?.id, onToast, isSavingReport]);
+
   // ============================================================================
   // FUNÇÕES DE CARREGAMENTO
   // ============================================================================
@@ -1818,6 +1840,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
         data={reportData}
         onExportPDF={() => generateAgilePlanningReportPDF(reportData)}
         onBack={() => setShowReportView(false)}
+        onSave={user?.id ? handleSaveReport : undefined}
+        isSaving={isSavingReport}
       />
     );
   }

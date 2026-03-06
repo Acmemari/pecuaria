@@ -41,7 +41,7 @@ function checkNewPage(doc: jsPDF, yPos: number, needed: number): number {
   return yPos;
 }
 
-export function generateAgilePlanningReportPDF(data: AgilePlanningReportData): void {
+function buildAgilePlanningPdfDoc(data: AgilePlanningReportData): jsPDF {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageHeight = doc.internal.pageSize.height;
   let yPos = margin;
@@ -102,10 +102,10 @@ export function generateAgilePlanningReportPDF(data: AgilePlanningReportData): v
   if (assets.agricultureVariationPercent !== 0) {
     addText(doc, `Var. Valor Agricultura ${assets.agricultureVariationPercent > 0 ? '+' : ''}${assets.agricultureVariationPercent}%`, margin, yPos + 4, 8);
   }
-  yPos += 6;
+  yPos += assets.agricultureVariationPercent !== 0 ? 10 : 6;
   addText(doc, `Valor do rebanho: ${formatCurrency(assets.herdValue)}`, margin, yPos, 9);
   addText(doc, `Comercializa Genética: ${assets.commercializesGenetics ? 'Sim' : 'Não'}`, margin, yPos + 4, 8);
-  yPos += 6;
+  yPos += 10;
   addText(doc, `Op. pecuária: ${formatCurrency(assets.operationPecuary)}`, margin, yPos, 9);
   addText(doc, `Op. agrícola: ${formatCurrency(assets.operationAgricultural)}`, margin + 70, yPos, 9);
   yPos += 12;
@@ -196,6 +196,19 @@ export function generateAgilePlanningReportPDF(data: AgilePlanningReportData): v
   doc.setTextColor(128, 128, 128);
   addText(doc, `© ${new Date().getFullYear()} ${header.farmName.toUpperCase()} - GESTÃO DE ALTA PERFORMANCE | RELATÓRIO CONFIDENCIAL | SISTEMA: ${productionSystem || '-'}`, margin, pageHeight - margin, 8, false, contentWidth);
 
-  const fileName = `relatorio-planejamento-agil-${header.farmName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`;
+  return doc;
+}
+
+export function generateAgilePlanningReportPDF(data: AgilePlanningReportData): void {
+  const doc = buildAgilePlanningPdfDoc(data);
+  const fileName = `relatorio-planejamento-agil-${data.header.farmName.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`;
   doc.save(fileName);
+}
+
+export function generateAgilePlanningReportPDFAsBase64(data: AgilePlanningReportData): string {
+  const doc = buildAgilePlanningPdfDoc(data);
+  const parts = doc.output('datauristring').split(',');
+  const base64 = parts[1];
+  if (!base64) throw new Error('Falha ao gerar PDF: saída base64 vazia');
+  return base64;
 }
