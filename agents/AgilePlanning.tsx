@@ -4,6 +4,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFarm } from '../contexts/FarmContext';
 import { Farm, Client } from '../types';
 import { supabase } from '../lib/supabase';
+import type { AgilePlanningReportData, HerdCompositionRow } from '../lib/agilePlanningReportTypes';
+import { generateAgilePlanningReportPDF } from '../lib/generateAgilePlanningReportPDF';
+import AgilePlanningReportView from '../components/reports/AgilePlanningReportView';
 import { Loader2, AlertCircle, CheckCircle2, Plus, Trash2, Edit3, X, ListChecks, Info } from 'lucide-react';
 
 // ============================================================================
@@ -265,6 +268,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
   // Estados de UI
   const [isLoading, setIsLoading] = useState(true);
+  const [showReportView, setShowReportView] = useState(false);
   const [showSelectionModal, setShowSelectionModal] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isIndicatorsModalOpen, setIsIndicatorsModalOpen] = useState(false);
@@ -1246,6 +1250,244 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   /** Configuração de margem para o sistema atual */
   const marginConfig = useMemo(() => getMarginConfig(productionSystem), [productionSystem]);
 
+  /** Dados consolidados para o Relatório do Planejamento Ágil */
+  const reportData = useMemo((): AgilePlanningReportData | null => {
+    if (!farm || !productionSystem) return null;
+
+    const reportDate = new Date().toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const header = {
+      farmName: farm.name ?? '',
+      city: farm.city ?? '',
+      state: farm.state ?? '',
+      country: farm.country ?? 'Brasil',
+      productionSystem,
+      reportDate,
+    };
+
+    const dimensions = {
+      totalArea: sanitizeNumber(farm.totalArea),
+      pastureArea: sanitizeNumber(farm.pastureArea),
+      reserveAndAPP: sanitizeNumber(farm.reserveAndAPP),
+      agricultureLeased: sanitizeNumber(farm.agricultureAreaLeased),
+      forageProduction: sanitizeNumber(farm.forageProductionArea),
+      infrastructure: sanitizeNumber(farm.infrastructure),
+      agricultureOwned: sanitizeNumber(farm.agricultureAreaOwned),
+      otherCrops: sanitizeNumber(farm.otherCrops),
+      otherArea: sanitizeNumber(farm.otherArea),
+    };
+
+    const assets = {
+      propertyValue: sanitizeNumber(farm.propertyValue),
+      herdValue: sanitizeNumber(farm.herdValue),
+      operationPecuary: sanitizeNumber(farm.operationPecuary),
+      operationAgricultural: sanitizeNumber(farm.operationAgricultural),
+      agricultureVariationPercent: farm.agricultureVariation ?? 0,
+      commercializesGenetics: !!farm.commercializesGenetics,
+    };
+
+    const buildHerdRows = (): HerdCompositionRow[] => {
+      const rows: HerdCompositionRow[] = [];
+      const t = averageHerdTable;
+      const m = (qty: number, tempo: number) => (qty * tempo) / 12;
+
+      if (showReproductiveIndices) {
+        rows.push({
+          categoria: 'Matrizes',
+          quantidadeCabecas: Math.round(t.vacas),
+          tempoMeses: Math.round(t.tempoVacas * 10) / 10,
+          rebanhoMedio: Math.round(m(t.vacas, t.tempoVacas)),
+          pesoVivoKg: Math.round(t.pesoIndividualVaca),
+        });
+        rows.push({
+          categoria: 'Bezerros mamando',
+          quantidadeCabecas: Math.round(t.bezerrosMamando),
+          tempoMeses: t.tempoBezerros,
+          rebanhoMedio: Math.round(m(t.bezerrosMamando, t.tempoBezerros)),
+          pesoVivoKg: Math.round(t.pesoIndividualBezerro),
+        });
+        rows.push({
+          categoria: 'Novilhas 8 a 12 meses',
+          quantidadeCabecas: Math.round(t.novilhas8a12),
+          tempoMeses: t.tempoNovilhas8a12,
+          rebanhoMedio: Math.round(m(t.novilhas8a12, t.tempoNovilhas8a12)),
+          pesoVivoKg: Math.round(t.pesoIndividualNovilha8a12),
+        });
+        rows.push({
+          categoria: 'Novilhas 13 a 24 meses',
+          quantidadeCabecas: Math.round(t.novilhas13a24),
+          tempoMeses: Math.round(t.tempoNovilhas13a24 * 10) / 10,
+          rebanhoMedio: Math.round(m(t.novilhas13a24, t.tempoNovilhas13a24)),
+          pesoVivoKg: Math.round(t.pesoIndividualNovilha13a24),
+        });
+        if (productionSystem === 'Ciclo Completo') {
+          rows.push({
+            categoria: 'Machos 8 a 12 meses (Ciclo Completo)',
+            quantidadeCabecas: Math.round(t.machos8a12),
+            tempoMeses: t.tempoMachos8a12,
+            rebanhoMedio: Math.round(m(t.machos8a12, t.tempoMachos8a12)),
+            pesoVivoKg: Math.round(t.pesoIndividualMachos8a12),
+          });
+          rows.push({
+            categoria: 'Machos 13 a 24 meses (Ciclo Completo)',
+            quantidadeCabecas: Math.round(t.machos13a24),
+            tempoMeses: Math.round(t.tempoMachos13a24 * 10) / 10,
+            rebanhoMedio: Math.round(m(t.machos13a24, t.tempoMachos13a24)),
+            pesoVivoKg: Math.round(t.pesoIndividualMachos13a24),
+          });
+          rows.push({
+            categoria: 'Machos 25 a 36 meses (Ciclo Completo)',
+            quantidadeCabecas: Math.round(t.machos25a36),
+            tempoMeses: Math.round(t.tempoMachos25a36 * 10) / 10,
+            rebanhoMedio: Math.round(m(t.machos25a36, t.tempoMachos25a36)),
+            pesoVivoKg: Math.round(t.pesoIndividualMachos25a36),
+          });
+        }
+        rows.push({
+          categoria: 'Touros',
+          quantidadeCabecas: Math.round(t.touros),
+          tempoMeses: t.tempoTouros,
+          rebanhoMedio: Math.round(m(t.touros, t.tempoTouros)),
+          pesoVivoKg: Math.round(t.pesoIndividualTouro),
+        });
+      }
+
+      if (productionSystem === 'Recria-Engorda' && requiredSales > 0 && recriaRebanhoMedio > 0) {
+        const avgWeight = recriaPesoCompra + (recriaPesoVenda - recriaPesoCompra) / 2;
+        rows.push({
+          categoria: 'Animais em recria/terminação',
+          quantidadeCabecas: Math.round(requiredSales),
+          tempoMeses: Math.round(recriaTempoPermanenciaMeses * 10) / 10,
+          rebanhoMedio: Math.round(recriaRebanhoMedio),
+          pesoVivoKg: Math.round(avgWeight),
+        });
+      }
+
+      return rows;
+    };
+
+    const herdRows = buildHerdRows();
+    const totalRebanhoMedio =
+      showReproductiveIndices && productionSystem !== 'Recria-Engorda'
+        ? Math.round(rebanhoMedioCalculado)
+        : productionSystem === 'Recria-Engorda'
+          ? Math.round(recriaRebanhoMedio)
+          : 0;
+    const totalPesoVivo =
+      herdRows.length > 0 && totalRebanhoMedio > 0
+        ? Math.round(
+            herdRows.reduce((sum, r) => sum + r.rebanhoMedio * r.pesoVivoKg, 0) / totalRebanhoMedio,
+          )
+        : 0;
+
+    const herdComposition = {
+      rows: herdRows,
+      totalRebanhoMedio,
+      totalPesoVivoKg: totalPesoVivo,
+    };
+
+    const rebanhoMedioForReport =
+      productionSystem === 'Recria-Engorda' ? recriaRebanhoMedio : rebanhoMedioCalculado;
+    const totalUAsForReport =
+      productionSystem === 'Recria-Engorda' ? totalUAsCalculado : totalUAsCalculado;
+    const pesoMedioForReport =
+      totalRebanhoMedio > 0
+        ? herdRows.reduce((s, r) => s + r.rebanhoMedio * r.pesoVivoKg, 0) / totalRebanhoMedio
+        : 0;
+    const pesoMedioUAForReport =
+      totalRebanhoMedio > 0 && totalUAsForReport > 0 ? totalUAsForReport / totalRebanhoMedio : 0;
+
+    const zootechnical = {
+      rebanhoMedio: Math.round(rebanhoMedioForReport),
+      totalUAs: Math.round(totalUAsForReport * 10) / 10,
+      pesoMedio: Math.round(pesoMedioForReport),
+      pesoMedioUA: Math.round(pesoMedioUAForReport * 100) / 100,
+      gmdGlobal: gmdGlobal,
+      producaoArrobaHaAno: Math.round(producaoArrobaHa * 100) / 100,
+      ...(showReproductiveIndices && {
+        reproductive: {
+          fertilidade: fertility,
+          fertilidadeRef: '> 85%',
+          perdaPreParto: prePartumLoss,
+          perdaPrePartoRef: '< 6%',
+          mortalidadeBezerros: calfMortality,
+          mortalidadeBezerrosRef: '< 3%',
+          taxaDesmame: Math.round(weaningRate * 1000) / 10,
+          taxaDesmameRef: '> 75%',
+        },
+      }),
+      ...((productionSystem === 'Ciclo Completo' || productionSystem === 'Recria-Engorda') && {
+        recriaTerminacao: {
+          gmdPosDesmame: productionSystem === 'Recria-Engorda' ? recriaGmd : cicloGmdPosDesmame,
+          gmdGlobal: gmdGlobal,
+          lotacaoUaHa: Math.round(lotacaoCabHa * 100) / 100,
+          producaoArrobaHa: Math.round(producaoArrobaHa * 100) / 100,
+        },
+      }),
+    };
+
+    const financial = {
+      retornoValorTerra: Math.round(resultOnLandValue * 10) / 10,
+      retornoAtivoPecuario: Math.round(resultOnLivestockAsset * 10) / 10,
+      resultadoPorHectare: Math.round(resultPerHectare),
+      resultadoLiquidoTotal: Math.round(result),
+      receitaTotal: Math.round(revenue),
+      desembolsoTotal: Math.round(totalDisbursement),
+      margemSobreVenda: Math.round(marginOverSale * 10) / 10,
+      desembolsoPorArroba: Math.round(disbursementPerArroba),
+      desembolsoPorBezerro: Math.round(disbursementPerCalf),
+      desembolsoMedioMensal: Math.round(averageMonthlyDisbursement),
+      resultadoPorCabeca: Math.round(resultPerHead),
+    };
+
+    return {
+      header,
+      dimensions,
+      assets,
+      herdComposition,
+      zootechnical,
+      financial,
+      productionSystem,
+    };
+  }, [
+    farm,
+    productionSystem,
+    averageHerdTable,
+    showReproductiveIndices,
+    rebanhoMedioCalculado,
+    recriaRebanhoMedio,
+    recriaTempoPermanenciaMeses,
+    requiredSales,
+    recriaPesoCompra,
+    recriaPesoVenda,
+    totalUAsCalculado,
+    lotacaoCabHa,
+    producaoArrobaHa,
+    gmdGlobal,
+    fertility,
+    prePartumLoss,
+    calfMortality,
+    weaningRate,
+    recriaGmd,
+    cicloGmdPosDesmame,
+    financialCalculations,
+    resultOnLandValue,
+    resultOnLivestockAsset,
+    resultPerHectare,
+    result,
+    revenue,
+    totalDisbursement,
+    marginOverSale,
+    disbursementPerArroba,
+    disbursementPerCalf,
+    averageMonthlyDisbursement,
+    resultPerHead,
+  ]);
+
   // ============================================================================
   // FUNÇÕES DE CARREGAMENTO
   // ============================================================================
@@ -1570,12 +1812,34 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     );
   }
 
+  if (showReportView && reportData) {
+    return (
+      <AgilePlanningReportView
+        data={reportData}
+        onExportPDF={() => generateAgilePlanningReportPDF(reportData)}
+        onBack={() => setShowReportView(false)}
+      />
+    );
+  }
+
   // Tela principal do Planejamento Ágil
   return (
     <div className="h-full flex flex-col p-6 bg-ai-bg">
       {/* Header - Sistema de Produção e Informações da Fazenda */}
       <div className="mb-6 flex-shrink-0">
         <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm text-ai-subtext flex-wrap">
+          {/* Ver Relatório */}
+          {selectedFarm && reportData && (
+            <div className="flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowReportView(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-ai-accent text-white text-xs font-medium rounded-md hover:bg-ai-accentHover transition-colors"
+              >
+                Ver Relatório
+              </button>
+            </div>
+          )}
           {/* Sistema de Produção */}
           {selectedFarm && (
             <div className="flex items-center gap-1.5 flex-shrink-0">
