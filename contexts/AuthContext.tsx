@@ -65,6 +65,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   useEffect(() => {
+    // Limpa resíduo antigo de recovery quando não há fluxo ativo na URL
+    const initialSearchParams = new URLSearchParams(window.location.search);
+    const hasInitialCode = initialSearchParams.has('code');
+    const hasInitialRecoveryMarker =
+      initialSearchParams.get(PASSWORD_RECOVERY_MARKER) === PASSWORD_RECOVERY_MARKER_VALUE;
+    if (!hasInitialCode && !hasInitialRecoveryMarker && !isRecoveryFlowUrl()) {
+      localStorage.removeItem(PASSWORD_RECOVERY_KEY);
+    }
+
     // Detectar recovery pela URL IMEDIATAMENTE (antes de qualquer async)
     // Evita cair na tela de login enquanto o onAuthStateChange ainda não disparou
     if (isRecoveryFlowUrl()) {
@@ -154,10 +163,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (event === 'SIGNED_IN' && session?.user) {
         // PKCE flow: localStorage flag indica recovery; URL pode não ter type=recovery
-        const hasRecoveryFlag = !!localStorage.getItem(PASSWORD_RECOVERY_KEY);
         const isRootPath = window.location.pathname === '/';
         const hasCode = new URLSearchParams(window.location.search).has('code');
-        if (isRecoveryFlowUrl() || hasRecoveryFlag || (isRootPath && hasCode)) {
+        if (isRecoveryFlowUrl() || (isRootPath && hasCode)) {
           log.info('Recovery session detected via SIGNED_IN, activating recovery mode');
           setIsPasswordRecovery(true);
           clearTimeout(safetyTimeout);
@@ -484,6 +492,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         log.error('Reset password error', new Error(error.message));
+        localStorage.removeItem(PASSWORD_RECOVERY_KEY);
 
         let errorMessage = 'Erro ao enviar email de recuperação.';
         const errorMsg = error.message.toLowerCase();
@@ -528,6 +537,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: errorMessage };
       }
 
+      localStorage.removeItem(PASSWORD_RECOVERY_KEY);
+      // Garante sessão limpa pós-recovery para evitar estado residual no próximo login
+      await supabase.auth.signOut({ scope: 'local' });
       setIsPasswordRecovery(false);
       return { success: true };
     } catch (error: unknown) {
