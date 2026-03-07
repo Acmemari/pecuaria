@@ -135,6 +135,13 @@ const GestaoSemanal: React.FC = () => {
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
   const [historico, setHistorico] = useState<HistoricoSemana[]>([]);
   const [showHistorico, setShowHistorico] = useState(false);
+  const [viewingHistoricoSemana, setViewingHistoricoSemana] = useState<{
+    semanaNumero: number;
+    dataInicio?: string;
+    dataFim?: string;
+  } | null>(null);
+  const [historicoAtividades, setHistoricoAtividades] = useState<Atividade[]>([]);
+  const [historicoLoading, setHistoricoLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -144,6 +151,14 @@ const GestaoSemanal: React.FC = () => {
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [carryOverModal, setCarryOverModal] = useState<{
+    pendingSemanaId: string;
+    candidates: Atividade[];
+    semanaNumero: number;
+    dataInicio: string;
+    dataFim: string;
+  } | null>(null);
+  const [selectedCarryOver, setSelectedCarryOver] = useState<Set<string>>(new Set());
   const deletingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -385,6 +400,67 @@ const GestaoSemanal: React.FC = () => {
     await fetchData();
   }, [semana, atividades, fetchData]);
 
+  const handleVerSemanaAnterior = useCallback(async (semanaNumero: number) => {
+    setViewingHistoricoSemana({ semanaNumero });
+    setHistoricoLoading(true);
+    setHistoricoAtividades([]);
+    try {
+      const { data: semanaData } = await supabase
+        .from('semanas')
+        .select('id, data_inicio, data_fim')
+        .eq('numero', semanaNumero)
+        .eq('modo', modo)
+        .maybeSingle();
+      if (!semanaData) {
+        setHistoricoLoading(false);
+        return;
+      }
+      setViewingHistoricoSemana(prev =>
+        prev ? { ...prev, dataInicio: semanaData.data_inicio, dataFim: semanaData.data_fim } : prev
+      );
+      const { data: atividadesData } = await supabase
+        .from('atividades')
+        .select('*')
+        .eq('semana_id', semanaData.id)
+        .order('created_at');
+      setHistoricoAtividades(atividadesData || []);
+    } finally {
+      setHistoricoLoading(false);
+    }
+  }, [modo]);
+
+  const handleFecharSemanaAnterior = useCallback(() => {
+    setViewingHistoricoSemana(null);
+    setHistoricoAtividades([]);
+  }, []);
+
+  const handleConfirmCarryOver = useCallback(async (selectedIds: Set<string>) => {
+    if (!carryOverModal) return;
+    const chosen = carryOverModal.candidates.filter(a => selectedIds.has(a.id));
+    if (chosen.length > 0) {
+      await supabase.from('atividades').insert(
+        chosen.map(({ titulo, descricao, pessoa_id, data_termino, tag }) => ({
+          semana_id: carryOverModal.pendingSemanaId,
+          titulo,
+          descricao,
+          pessoa_id,
+          data_termino,
+          tag,
+          status: 'a fazer',
+        }))
+      );
+    }
+    setCarryOverModal(null);
+    setSelectedCarryOver(new Set());
+    await fetchData();
+  }, [carryOverModal, fetchData]);
+
+  const handleCancelCarryOver = useCallback(async () => {
+    setCarryOverModal(null);
+    setSelectedCarryOver(new Set());
+    await fetchData();
+  }, [fetchData]);
+
   const handleAbrirSemana = useCallback(async () => {
     if (semana?.aberta === true) return;
 
@@ -424,17 +500,16 @@ const GestaoSemanal: React.FC = () => {
       if (newSemana) {
         const pending = atividades.filter(a => a.status !== 'concluída');
         if (pending.length > 0) {
-          await supabase.from('atividades').insert(
-            pending.map(({ titulo, descricao, pessoa_id, data_termino, tag }) => ({
-              semana_id: newSemana.id,
-              titulo,
-              descricao,
-              pessoa_id,
-              data_termino,
-              tag,
-              status: 'a fazer',
-            }))
-          );
+          setCarryOverModal({
+            pendingSemanaId: newSemana.id,
+            candidates: pending,
+            semanaNumero: semana.numero,
+            dataInicio: semana.data_inicio,
+            dataFim: semana.data_fim,
+          });
+          setSelectedCarryOver(new Set(pending.map(a => a.id)));
+          await fetchData();
+          return;
         }
       }
     }
@@ -599,10 +674,20 @@ const GestaoSemanal: React.FC = () => {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {historico.map(h => (
-                  <div key={h.id} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '8px 12px', borderRadius: 8, background: '#F8FAFC', fontSize: 13,
-                  }}>
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => handleVerSemanaAnterior(h.semana_numero)}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 12px', borderRadius: 8, background: '#F8FAFC', fontSize: 13,
+                      border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left',
+                      fontFamily: font,
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; }}
+                  >
                     <span style={{ fontFamily: mono, fontWeight: 500 }}>
                       Semana {String(h.semana_numero).padStart(2, '0')}
                     </span>
@@ -614,7 +699,7 @@ const GestaoSemanal: React.FC = () => {
                         : <span style={{ color: '#059669', fontWeight: 500 }}>100%</span>
                       }
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -976,6 +1061,263 @@ const GestaoSemanal: React.FC = () => {
         </div>
 
       </div>
+
+      {/* ── MODAL CARRY-OVER TAREFAS ────────────────────────────────────────── */}
+      {carryOverModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: 24, animation: 'gsFadeIn 0.2s ease',
+          }}
+        >
+          <div
+            style={{
+              background: '#FFF', borderRadius: 12, border: '1px solid #E2E8F0',
+              maxWidth: 560, width: '100%', maxHeight: '85vh', overflow: 'hidden',
+              display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '16px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#0F172A', fontFamily: font }}>
+                  Tarefas da semana anterior
+                </h2>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94A3B8' }}>
+                  Semana {String(carryOverModal.semanaNumero).padStart(2, '0')} · {formatWeekRange(carryOverModal.dataInicio, carryOverModal.dataFim)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelCarryOver}
+                style={{
+                  width: 36, height: 36, borderRadius: 8, border: '1px solid #E2E8F0',
+                  background: '#F8FAFC', color: '#64748B', cursor: 'pointer',
+                  fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div style={{ padding: '12px 20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input
+                type="checkbox"
+                checked={selectedCarryOver.size === carryOverModal.candidates.length}
+                onChange={e => {
+                  if (e.target.checked) {
+                    setSelectedCarryOver(new Set(carryOverModal.candidates.map(a => a.id)));
+                  } else {
+                    setSelectedCarryOver(new Set());
+                  }
+                }}
+                style={{ width: 18, height: 18, accentColor: '#6366F1', cursor: 'pointer' }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedCarryOver.size === carryOverModal.candidates.length) {
+                    setSelectedCarryOver(new Set());
+                  } else {
+                    setSelectedCarryOver(new Set(carryOverModal.candidates.map(a => a.id)));
+                  }
+                }}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: 13, color: '#6366F1', fontWeight: 500, fontFamily: font,
+                }}
+              >
+                {selectedCarryOver.size === carryOverModal.candidates.length ? 'Desmarcar todas' : 'Selecionar todas'}
+              </button>
+            </div>
+            <div style={{ overflow: 'auto', flex: 1, padding: 16, maxHeight: 320 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {carryOverModal.candidates.map(at => {
+                  const tagSt = getTagStyle(at.tag);
+                  const stSt = getStatusSt(at.status);
+                  const checked = selectedCarryOver.has(at.id);
+                  return (
+                    <div
+                      key={at.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+                        borderRadius: 8, background: checked ? '#F5F3FF' : '#F8FAFC',
+                        border: `1px solid ${checked ? '#C7D2FE' : '#F1F5F9'}`,
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => {
+                        setSelectedCarryOver(prev => {
+                          const next = new Set(prev);
+                          if (next.has(at.id)) next.delete(at.id);
+                          else next.add(at.id);
+                          return next;
+                        });
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {}}
+                        style={{ width: 18, height: 18, accentColor: '#6366F1', cursor: 'pointer', pointerEvents: 'none' }}
+                      />
+                      <span
+                        style={{
+                          fontSize: 11, fontWeight: 500, padding: '2px 6px', borderRadius: 4,
+                          color: stSt.text, background: stSt.bg, border: `1px solid ${stSt.border}`,
+                          whiteSpace: 'nowrap', flexShrink: 0,
+                        }}
+                      >
+                        {at.status}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {at.titulo}
+                        </div>
+                        <div style={{ fontSize: 12, color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {getPessoaNome(at.pessoa_id)}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 11, fontWeight: 500, padding: '2px 6px', borderRadius: 4,
+                          background: tagSt.bg, color: tagSt.text, border: `1px solid ${tagSt.border}`,
+                          whiteSpace: 'nowrap', flexShrink: 0,
+                        }}
+                      >
+                        {at.tag}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div style={{ padding: 16, borderTop: '1px solid #E2E8F0', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => handleCancelCarryOver()}
+                style={{
+                  padding: '8px 18px', borderRadius: 8, border: '1px solid #E2E8F0',
+                  background: '#FFF', color: '#64748B', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 500, fontFamily: font,
+                }}
+              >
+                Não trazer nenhuma
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConfirmCarryOver(selectedCarryOver)}
+                style={{
+                  padding: '8px 20px', borderRadius: 8, border: 'none',
+                  background: '#6366F1', color: '#FFF', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600, fontFamily: font,
+                }}
+              >
+                Confirmar seleção ({selectedCarryOver.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL SEMANA ANTERIOR ───────────────────────────────────────────── */}
+      {viewingHistoricoSemana && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: 24, animation: 'gsFadeIn 0.2s ease',
+          }}
+          onClick={handleFecharSemanaAnterior}
+        >
+          <div
+            style={{
+              background: '#FFF', borderRadius: 12, border: '1px solid #E2E8F0',
+              maxWidth: 900, width: '100%', maxHeight: '85vh', overflow: 'hidden',
+              display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#0F172A', fontFamily: font }}>
+                  Semana {String(viewingHistoricoSemana.semanaNumero).padStart(2, '0')}
+                </h2>
+                {viewingHistoricoSemana.dataInicio && viewingHistoricoSemana.dataFim && (
+                  <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94A3B8' }}>
+                    {formatWeekRange(viewingHistoricoSemana.dataInicio, viewingHistoricoSemana.dataFim)}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleFecharSemanaAnterior}
+                style={{
+                  width: 36, height: 36, borderRadius: 8, border: '1px solid #E2E8F0',
+                  background: '#F8FAFC', color: '#64748B', cursor: 'pointer',
+                  fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            {/* Modal content */}
+            <div style={{ overflow: 'auto', flex: 1, padding: 16 }}>
+              {historicoLoading ? (
+                <div style={{ textAlign: 'center', padding: 48, color: '#94A3B8', fontSize: 13 }}>
+                  Carregando tarefas...
+                </div>
+              ) : historicoAtividades.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 48, color: '#94A3B8', fontSize: 13 }}>
+                  Nenhuma tarefa nesta semana.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {historicoAtividades.map(at => {
+                    const tagSt = getTagStyle(at.tag);
+                    const stSt = getStatusSt(at.status);
+                    const isConcluida = at.status === 'concluída';
+                    return (
+                      <div
+                        key={at.id}
+                        style={{
+                          display: 'grid', gridTemplateColumns: '24px 1fr 1.2fr 110px 90px 100px 100px',
+                          alignItems: 'center', gap: 12, padding: '10px 12px',
+                          borderRadius: 8, background: isConcluida ? '#FAFFF9' : '#F8FAFC',
+                          border: '1px solid #F1F5F9', fontSize: 13,
+                        }}
+                      >
+                        <span style={{ color: isConcluida ? '#059669' : '#94A3B8', fontSize: 14 }}>
+                          {isConcluida ? '✓' : '○'}
+                        </span>
+                        <div style={{ fontWeight: 600, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(isConcluida ? { textDecoration: 'line-through', opacity: 0.7 } : {}) }}>
+                          {at.titulo}
+                        </div>
+                        <div style={{ color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(isConcluida ? { textDecoration: 'line-through', opacity: 0.6 } : {}) }}>
+                          {at.descricao || '—'}
+                        </div>
+                        <div style={{ color: '#475569', fontWeight: 500, fontSize: 12 }}>{getPessoaNome(at.pessoa_id)}</div>
+                        <div style={{ color: '#94A3B8', fontFamily: mono, fontSize: 11 }}>{formatDatePtBr(at.data_termino)}</div>
+                        <span style={{
+                          fontSize: 11, fontWeight: 500, padding: '2px 6px', borderRadius: 4,
+                          background: tagSt.bg, color: tagSt.text, border: `1px solid ${tagSt.border}`, whiteSpace: 'nowrap',
+                        }}>
+                          {at.tag}
+                        </span>
+                        <span style={{
+                          fontSize: 11, fontWeight: 500, padding: '2px 6px', borderRadius: 4,
+                          color: stSt.text, background: stSt.bg, border: `1px solid ${stSt.border}`, whiteSpace: 'nowrap',
+                        }}>
+                          {at.status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
