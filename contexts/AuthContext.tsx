@@ -15,6 +15,21 @@ const PASSWORD_RECOVERY_KEY = 'password_recovery_email';
 const PASSWORD_RECOVERY_MARKER = 'recovery';
 const PASSWORD_RECOVERY_MARKER_VALUE = '1';
 
+const cleanupRecoveryUrl = () => {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  if (url.pathname !== '/reset-password') return;
+
+  // Remove parâmetros sensíveis/one-shot para evitar loop e reprocessamento
+  url.searchParams.delete('code');
+  url.searchParams.delete('token');
+  url.searchParams.delete('token_hash');
+  url.searchParams.delete('type');
+  url.hash = '';
+
+  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+};
+
 const isRecoveryFlowUrl = (): boolean => {
   if (typeof window === 'undefined') return false;
 
@@ -155,6 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Detectar evento de recovery - mostrar página de reset de senha
       if (event === 'PASSWORD_RECOVERY') {
         log.info('Password recovery token detected, showing reset password page');
+        cleanupRecoveryUrl();
         setIsPasswordRecovery(true);
         clearTimeout(safetyTimeout);
         setIsLoading(false);
@@ -167,6 +183,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const hasCode = new URLSearchParams(window.location.search).has('code');
         if (isRecoveryFlowUrl() || (isRootPath && hasCode)) {
           log.info('Recovery session detected via SIGNED_IN, activating recovery mode');
+          // Após troca do code, remove parâmetros one-shot para não entrar em loop
+          cleanupRecoveryUrl();
           setIsPasswordRecovery(true);
           clearTimeout(safetyTimeout);
           setIsLoading(false);
@@ -518,9 +536,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updatePassword = useCallback(async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      const tryUpdatePassword = async () =>
+        supabase.auth.updateUser({
+          password: newPassword,
+        });
+
+      let { error } = await tryUpdatePassword();
+
+      // Alguns links PKCE chegam sem sessão pronta. Tentar exchange e retry uma vez.
+      if (error?.message?.toLowerCase().includes('auth session missing')) {
+        const code = new URLSearchParams(window.location.search).get('code');
+        if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (!exchangeError) {
+            const retry = await tryUpdatePassword();
+            error = retry.error;
+          }
+        }
+      }
 
       if (error) {
         log.error('Update password error', new Error(error.message));
@@ -530,13 +563,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (errorMsg.includes('password')) {
           errorMessage = 'A senha não atende aos requisitos mínimos.';
-        } else if (errorMsg.includes('token') || errorMsg.includes('expired')) {
+        } else if (errorMsg.includes('token') || errorMsg.includes('expired') || errorMsg.includes('invalid grant')) {
           errorMessage = 'Link de recuperação expirado ou inválido. Solicite um novo link.';
+        } else if (error.message) {
+          errorMessage = error.message;
         }
 
         return { success: false, error: errorMessage };
       }
 
+      // Limpa URL de recovery após sucesso
+      cleanupRecoveryUrl();
       localStorage.removeItem(PASSWORD_RECOVERY_KEY);
       // Garante sessão limpa pós-recovery para evitar estado residual no próximo login
       await supabase.auth.signOut({ scope: 'local' });
