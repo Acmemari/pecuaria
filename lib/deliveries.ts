@@ -148,6 +148,18 @@ export async function fetchDeliveriesByProject(projectId: string): Promise<Deliv
   return (data || []).map(mapDeliveryRow);
 }
 
+export async function fetchDeliveriesByProjects(projectIds: string[]): Promise<DeliveryRow[]> {
+  if (!projectIds || projectIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('deliveries')
+    .select('*')
+    .in('project_id', projectIds)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true });
+  if (error) throw mapDeliveryError(error, 'Erro ao carregar entregas dos projetos lote.');
+  return (data || []).map(mapDeliveryRow);
+}
+
 export async function createDelivery(createdBy: string, payload: DeliveryPayload): Promise<DeliveryRow> {
   validateUserId(createdBy);
   validatePayload(payload);

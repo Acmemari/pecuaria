@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { APP_VERSION } from '../src/version';
+import ProdutoCadastroModal from './ProdutoCadastroModal';
 import {
   Settings,
   LogOut,
@@ -143,12 +144,30 @@ const simpleItems: { label: string; icon: React.ElementType }[] = [
   { label: 'Recentes', icon: Clock },
 ];
 
-const movimentacoesSubItems: { label: string }[] = [
-  { label: 'Receita' },
-  { label: 'Despesa' },
-  { label: 'Transferência entre Contas' },
-  { label: 'Conciliação Bancária' },
-];
+const financeiroHierarchy = {
+  cadastros: [
+    'Produtos',
+    'Grupo de Projetos',
+    'Contas',
+    'Centros de Custo',
+    'Pessoas',
+    'Natureza da Operação',
+    'Certificado Digital',
+    'Matriz Fiscal',
+  ],
+  movimentacoes: [
+    'Receita',
+    'Despesa',
+    'Transferência entre Contas',
+    'Conciliação Bancária',
+  ],
+  relatorios: [
+    'Movimentação de Caixa',
+    'Balanço Mensal',
+    'Balancete',
+    'Despesas e Receitas',
+  ],
+};
 
 const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
   isOpen,
@@ -160,7 +179,13 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
   onSettingsClick,
   onSwitchToPecuaria,
 }) => {
-  const [isFinanceiroOpen, setIsFinanceiroOpen] = useState(true);
+  const [isFinanceiroOpen, setIsFinanceiroOpen] = useState(false);
+  const [openFinanceiroSub, setOpenFinanceiroSub] = useState<Record<string, boolean>>({
+    cadastros: false,
+    movimentacoes: false,
+    relatorios: false,
+  });
+  const [isProdutoModalOpen, setIsProdutoModalOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     pecuaria: false,
     estoque: false,
@@ -175,6 +200,10 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
 
   const toggleSection = (id: string) => {
     setOpenSections(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleFinanceiroSub = (id: string) => {
+    setOpenFinanceiroSub(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const sidebarWidth = isCollapsed ? 'w-16' : 'w-64';
@@ -250,142 +279,107 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
           )}
         </div>
 
-        {/* Toggle collapse button */}
-        <div className={`shrink-0 flex ${isCollapsed ? 'justify-center' : 'px-3'} py-2`}>
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="flex items-center justify-center rounded-lg transition-colors hover:opacity-90 w-full"
-            style={{ backgroundColor: INTEGRA_SURFACE, color: INTEGRA_TEXT, minHeight: 36 }}
-            title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
-            aria-label={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
-          >
-            {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          </button>
-        </div>
-
-        {/* Scrollable Navigation Area */}
-        <div className="flex-1 min-h-0 overflow-y-auto py-2 px-2">
-          {/* Search */}
-          <div
-            className={`flex items-center rounded-lg mb-2 ${isCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2'}`}
-            style={{ backgroundColor: INTEGRA_SURFACE }}
-          >
-            <Search size={16} style={{ color: INTEGRA_ACCENT, flexShrink: 0 }} />
-            {!isCollapsed && (
-              <span className="text-sm" style={{ color: INTEGRA_PLACEHOLDER }}>
-                Procurar
-              </span>
-            )}
-          </div>
-
+        {/* Navigation Area */}
+        <div className="flex-1 min-h-0 overflow-y-auto pt-4 pb-2 px-0 space-y-0.5">
           {/* Painel Inicial */}
           <div
-            className={`flex items-center rounded-md mb-1 ${isCollapsed ? 'justify-center p-2' : 'gap-3 px-3 py-2'}`}
+            className={`flex items-center transition-colors hover:bg-white/5 cursor-pointer ${isCollapsed ? 'justify-center p-2' : 'py-2 pr-4 pl-[16px] border-l-[3px] border-transparent'}`}
             style={{ color: INTEGRA_TEXT }}
           >
-            <div
-              className="w-8 h-8 rounded flex items-center justify-center shrink-0"
-              style={{ backgroundColor: INTEGRA_SURFACE }}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-              </svg>
-            </div>
-            {!isCollapsed && <span className="text-sm font-medium">Painel Inicial</span>}
+            {!isCollapsed && <span className="text-[13px]">Painel Inicial</span>}
           </div>
 
-          {/* Financeiro (collapsible) - clickable to expand/collapse subitems */}
-          <div className="mb-2">
+          {/* Financeiro */}
+          <div>
             <button
               type="button"
               onClick={() => !isCollapsed && setIsFinanceiroOpen(!isFinanceiroOpen)}
-              className={`w-full flex items-center rounded-md transition-colors hover:opacity-90 ${isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'}`}
-              style={{ color: INTEGRA_TEXT, backgroundColor: 'transparent' }}
+              className={`w-full flex items-center transition-colors hover:bg-white/5 ${isCollapsed ? 'justify-center p-2' : 'justify-between py-2 pr-4 pl-[13px] border-l-[3px]'}`}
+              style={{
+                color: isFinanceiroOpen ? INTEGRA_ACCENT : INTEGRA_TEXT,
+                borderColor: isFinanceiroOpen ? INTEGRA_ACCENT : 'transparent',
+                backgroundColor: isFinanceiroOpen ? 'rgba(255,255,255,0.03)' : 'transparent',
+              }}
               title="Financeiro"
             >
-              <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: INTEGRA_SURFACE }}
-                >
-                  <DollarSign size={16} />
-                </div>
-                {!isCollapsed && <span className="text-sm font-medium">Financeiro</span>}
-              </div>
+              {!isCollapsed && <span className="text-[13px] font-semibold">Financeiro</span>}
               {!isCollapsed && (isFinanceiroOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
             </button>
             {!isCollapsed && isFinanceiroOpen && (
-              <div className="ml-4 pl-4 mt-1 space-y-0.5 border-l" style={{ borderColor: INTEGRA_BORDER }}>
-                {movimentacoesSubItems.map(({ label }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-md hover:opacity-90 transition-colors"
-                    style={{ color: INTEGRA_TEXT, backgroundColor: 'transparent' }}
-                  >
-                    <span className="text-sm">{label}</span>
-                    <Star size={14} className="flex-shrink-0" style={{ color: INTEGRA_PLACEHOLDER }} aria-hidden />
-                  </button>
-                ))}
-                {['Cadastros', 'Movimentações', 'Relatórios'].map(label => (
-                  <div
-                    key={label}
-                    className="flex items-center justify-between px-2 py-1.5 rounded-md"
-                    style={{ color: INTEGRA_TEXT }}
-                  >
-                    <span className="text-sm">{label}</span>
-                    <ChevronDown size={14} style={{ color: INTEGRA_PLACEHOLDER }} />
+              <div className="ml-[16px] mr-0 mt-1 space-y-0.5 border-l" style={{ borderColor: INTEGRA_BORDER }}>
+                {([
+                  { id: 'cadastros', label: 'Cadastros' },
+                  { id: 'movimentacoes', label: 'Movimentações' },
+                  { id: 'relatorios', label: 'Relatórios' },
+                ] as const).map(({ id, label }) => (
+                  <div key={id}>
+                    <button
+                      type="button"
+                      onClick={() => toggleFinanceiroSub(id)}
+                      className="w-full flex items-center justify-between pl-4 pr-4 py-1.5 hover:bg-white/5 transition-colors"
+                      style={{ color: openFinanceiroSub[id] ? INTEGRA_ACCENT : INTEGRA_TEXT }}
+                    >
+                      <span className="text-[13px] truncate">{label}</span>
+                      <ChevronDown
+                        size={14}
+                        className={`transition-transform ${openFinanceiroSub[id] ? 'rotate-180' : ''}`}
+                        style={{ color: INTEGRA_PLACEHOLDER }}
+                      />
+                    </button>
+                    {openFinanceiroSub[id] && (
+                      <div className="ml-4 border-l space-y-0.5" style={{ borderColor: INTEGRA_BORDER }}>
+                        {financeiroHierarchy[id].map(subItem => (
+                          <div
+                            key={subItem}
+                            className="flex items-center justify-between pl-4 pr-4 py-1.5 hover:bg-white/5 cursor-pointer transition-colors"
+                            style={{ color: INTEGRA_TEXT }}
+                            onClick={() => {
+                              if (subItem === 'Produtos') {
+                                setIsProdutoModalOpen(true);
+                              }
+                            }}
+                          >
+                            <span className="text-[13px] truncate">{subItem}</span>
+                            <Star size={14} className="flex-shrink-0 opacity-0 hover:opacity-100" style={{ color: INTEGRA_PLACEHOLDER }} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Expandable sections */}
+          {/* Expandable sections (Pecuária, Estoque, etc.) */}
           {expandableSections.map(({ id, label, icon: Icon, subItems }) => {
             const isOpen = openSections[id] ?? false;
             return (
-              <div key={id} className="mb-2">
+              <div key={id}>
                 <button
                   type="button"
                   onClick={() => !isCollapsed && toggleSection(id)}
-                  className={`w-full flex items-center rounded-md transition-colors hover:opacity-90 ${isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'}`}
-                  style={{ color: INTEGRA_TEXT, backgroundColor: 'transparent' }}
+                  className={`w-full flex items-center transition-colors hover:bg-white/5 ${isCollapsed ? 'justify-center p-2' : 'justify-between py-2 pr-4 pl-[13px] border-l-[3px]'}`}
+                  style={{
+                    color: isOpen ? INTEGRA_ACCENT : INTEGRA_TEXT,
+                    borderColor: isOpen ? INTEGRA_ACCENT : 'transparent',
+                    backgroundColor: isOpen ? 'rgba(255,255,255,0.03)' : 'transparent',
+                  }}
                   title={label}
                 >
-                  <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
-                    <Icon size={16} className="flex-shrink-0" style={{ color: INTEGRA_TEXT }} />
-                    {!isCollapsed && <span className="text-sm font-medium">{label}</span>}
-                  </div>
+                  {!isCollapsed && <span className={`text-[13px] ${isOpen ? 'font-semibold' : ''}`}>{label}</span>}
                   {!isCollapsed && (isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />)}
                 </button>
                 {!isCollapsed && isOpen && (
-                  <div className="ml-4 pl-4 mt-1 space-y-0.5 border-l" style={{ borderColor: INTEGRA_BORDER }}>
+                  <div className="ml-[16px] mr-0 mt-1 space-y-0.5 border-l" style={{ borderColor: INTEGRA_BORDER }}>
                     {subItems.map(sub => (
                       <div
                         key={sub.label}
-                        className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md min-w-0"
+                        className="flex items-center justify-between gap-2 pl-4 pr-4 py-1.5 hover:bg-white/5 cursor-pointer transition-colors min-w-0"
                         style={{ color: INTEGRA_TEXT }}
                       >
-                        <span className="text-sm truncate">{sub.label}</span>
-                        {sub.icon === 'star' ? (
-                          <Star size={14} className="flex-shrink-0" style={{ color: INTEGRA_PLACEHOLDER }} aria-hidden />
-                        ) : (
-                          <ChevronDown size={14} style={{ color: INTEGRA_PLACEHOLDER }} aria-hidden />
-                        )}
+                        <span className="text-[13px] truncate">{sub.label}</span>
+                        <ChevronDown size={14} style={{ color: INTEGRA_PLACEHOLDER }} className="opacity-50" />
                       </div>
                     ))}
                   </div>
@@ -395,22 +389,19 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
           })}
 
           {/* Simple items (Favoritos, Recentes) */}
-          <nav className="space-y-0.5">
+          <div className="pt-2 space-y-0.5">
             {simpleItems.map(({ label, icon: Icon }) => (
               <div
                 key={label}
-                className={`flex items-center rounded-md ${isCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'}`}
+                className={`flex items-center cursor-pointer transition-colors hover:bg-white/5 ${isCollapsed ? 'justify-center p-2' : 'justify-between py-2 pr-4 pl-[16px] border-l-[3px] border-transparent'}`}
                 style={{ color: INTEGRA_TEXT }}
                 title={isCollapsed ? label : undefined}
               >
-                <div className="flex items-center gap-3">
-                  <Icon size={16} className="flex-shrink-0" style={{ color: INTEGRA_TEXT }} />
-                  {!isCollapsed && <span className="text-sm">{label}</span>}
-                </div>
-                {!isCollapsed && <ChevronDown size={14} style={{ color: INTEGRA_PLACEHOLDER }} />}
+                {!isCollapsed && <span className="text-[13px]">{label}</span>}
+                {!isCollapsed && <ChevronDown size={16} style={{ color: INTEGRA_PLACEHOLDER }} />}
               </div>
             ))}
-          </nav>
+          </div>
         </div>
 
         {/* Footer */}
@@ -469,6 +460,11 @@ const InttegraSidebar: React.FC<InttegraSidebarProps> = ({
           </div>
         </div>
       </div>
+
+      <ProdutoCadastroModal
+        open={isProdutoModalOpen}
+        onClose={() => setIsProdutoModalOpen(false)}
+      />
     </>
   );
 };

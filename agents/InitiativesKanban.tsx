@@ -88,6 +88,12 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
   const onToastRef = useRef(onToast);
   onToastRef.current = onToast;
 
+  // Refs to break dependency cycles in the detail-fetch effect
+  const selectedMilestoneIdRef = useRef(selectedMilestoneId);
+  selectedMilestoneIdRef.current = selectedMilestoneId;
+  const selectedDeliveryIdRef = useRef(selectedDeliveryId);
+  selectedDeliveryIdRef.current = selectedDeliveryId;
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -150,18 +156,18 @@ const InitiativesKanban: React.FC<InitiativesKanbanProps> = ({ onToast }) => {
         if (!mounted) return;
         setViewing(detail);
         // Se o marco selecionado (usado no modal) não existir mais para esta iniciativa, resetar.
-        if (selectedMilestoneId && !detail.milestones?.some(m => m.id === selectedMilestoneId))
+        if (selectedMilestoneIdRef.current && !detail.milestones?.some(m => m.id === selectedMilestoneIdRef.current))
           setSelectedMilestoneId('');
         // Pré-preencher "Projeto" no modal com base na atividade selecionada.
-        if (detail.delivery_id && !selectedDeliveryId) setSelectedDeliveryId(detail.delivery_id);
+        if (detail.delivery_id && !selectedDeliveryIdRef.current) setSelectedDeliveryId(detail.delivery_id);
       } catch (e) {
-        onToast?.(e instanceof Error ? e.message : 'Erro ao carregar iniciativa', 'error');
+        onToastRef.current?.(e instanceof Error ? e.message : 'Erro ao carregar iniciativa', 'error');
       }
     })();
     return () => {
       mounted = false;
     };
-  }, [selectedInitiativeId, selectedMilestoneId, selectedDeliveryId, onToast]);
+  }, [selectedInitiativeId]); // Only re-fetch when the selected initiative changes
 
   const canCreateTask = !!viewing && (viewing.milestones || []).length > 0;
 

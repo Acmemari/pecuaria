@@ -1,15 +1,8 @@
-/**
- * EAP Tree — Carregamento e conversão para formato React Flow
- * Estrutura: Project (Programa) → Delivery (Entrega) → Initiative (Atividade) → Task (Tarefa)
- */
-
 import type { Node, Edge } from '@xyflow/react';
 import { fetchProjects, type ProjectRow } from './projects';
-import { fetchDeliveriesByProject, type DeliveryRow } from './deliveries';
+import { fetchDeliveriesByProjects, type DeliveryRow } from './deliveries';
 import {
-  fetchInitiativesByDelivery,
-  fetchTasksByInitiative,
-  ensureDefaultMilestone,
+  fetchInitiativesByDeliveries,
   type InitiativeWithProgress,
   type InitiativeTaskRow,
 } from './initiatives';
@@ -53,7 +46,7 @@ function formatDateBR(raw: string | null): string {
 }
 
 /**
- * Carrega a árvore completa EAP para um analista.
+ * Carrega a árvore completa EAP para um analista de forma otimizada (Bulk Fetch).
  */
 export interface LoadFullEAPTreeOptions {
   clientId?: string | null;
@@ -68,20 +61,54 @@ export async function loadFullEAPTree(
   const filters = options?.clientId
     ? { clientId: options.clientId, farmId: options.farmId ?? undefined, clientMode: options.clientMode }
     : undefined;
+    
+  // Nível 1: Projetos
   const projects = await fetchProjects(effectiveUserId, filters);
+  if (projects.length === 0) return [];
+  
+  const projectIds = projects.map(p => p.id);
+
+  // Nível 2: Entregas (Bulk fetch)
+  const deliveries = await fetchDeliveriesByProjects(projectIds);
+  const deliveryIds = deliveries.map(d => d.id);
+
+  // Nível 3 e 4: Atividades e Tarefas embutidas (Bulk fetch via joined tables)
+  // Nota: fetchInitiativesByDeliveries já processa milestones -> tasks e agrupa adequadamente.
+  const initiatives = await fetchInitiativesByDeliveries(deliveryIds);
+
+  // Agrupamento em memórias
+  const initiativesByDelivery = initiatives.reduce((acc, init) => {
+    const dId = init.delivery_id;
+    if (dId) {
+      if (!acc[dId]) acc[dId] = [];
+      acc[dId].push(init);
+    }
+    return acc;
+  }, {} as Record<string, typeof initiatives>);
+
+  const deliveriesByProject = deliveries.reduce((acc, del) => {
+    const pId = del.project_id;
+    if (pId) {
+      if (!acc[pId]) acc[pId] = [];
+      acc[pId].push(del);
+    }
+    return acc;
+  }, {} as Record<string, typeof deliveries>);
+
   const rootNodes: WBSNode[] = [];
 
   for (const project of projects) {
-    const deliveries = await fetchDeliveriesByProject(project.id);
+    const projectDeliveries = deliveriesByProject[project.id] || [];
     const children: WBSNode[] = [];
 
-    for (const delivery of deliveries) {
-      const initiatives = await fetchInitiativesByDelivery(delivery.id);
+    for (const delivery of projectDeliveries) {
+      const deliveryInitiatives = initiativesByDelivery[delivery.id] || [];
       const activityChildren: WBSNode[] = [];
 
-      for (const initiative of initiatives) {
-        await ensureDefaultMilestone(initiative.id);
-        const tasks = await fetchTasksByInitiative(initiative.id);
+      for (const initiative of deliveryInitiatives) {
+        // Obter as tarefas que já vieram aninhadas (resolvidas dentro de fetchInitiativesByDeliveries)
+        const tasks = initiative.milestones?.flatMap(m => m.tasks || []) || [];
+        
         const taskChildren: WBSNode[] = tasks.map(t => ({
           id: `task-${t.id}`,
           level: 'task' as const,
@@ -92,7 +119,7 @@ export async function loadFullEAPTree(
             subtitle: `${t.kanban_status ?? 'A Fazer'}${t.due_date ? ` · ${formatDateBR(t.due_date)}` : ''}`,
             rawId: t.id,
             parentId: initiative.id,
-            task: t,
+            task: t as any,
           },
           children: [],
         }));

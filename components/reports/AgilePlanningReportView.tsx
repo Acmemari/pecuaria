@@ -281,11 +281,11 @@ const AgilePlanningReportView: React.FC<AgilePlanningReportViewProps> = ({
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-white border border-gray-200 rounded-lg p-3">
                     <p className="text-[10px] uppercase text-gray-500">GMD Pós desmame</p>
-                    <p className="text-lg font-bold text-gray-900">{zootechnical.recriaTerminacao.gmdPosDesmame.toFixed(2)} kg/dia</p>
+                    <p className="text-lg font-bold text-gray-900">{Number(zootechnical.recriaTerminacao.gmdPosDesmame || 0).toFixed(2)} kg/dia</p>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-lg p-3">
                     <p className="text-[10px] uppercase text-gray-500">GMD Global</p>
-                    <p className="text-lg font-bold text-gray-900">{zootechnical.recriaTerminacao.gmdGlobal.toFixed(2)} kg/dia</p>
+                    <p className="text-lg font-bold text-gray-900">{Number(zootechnical.recriaTerminacao.gmdGlobal || 0).toFixed(2)} kg/dia</p>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-lg p-3">
                     <p className="text-[10px] uppercase text-gray-500">Lotação UA/ha</p>
@@ -303,7 +303,7 @@ const AgilePlanningReportView: React.FC<AgilePlanningReportViewProps> = ({
           <div className="bg-gray-900 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-xs uppercase text-gray-400 mb-0.5">Destaque de performance</p>
-              <p className="text-3xl font-bold text-white">{zootechnical.gmdGlobal.toFixed(2)} kg/dia</p>
+              <p className="text-3xl font-bold text-white">{Number(zootechnical.gmdGlobal || 0).toFixed(2)} kg/dia</p>
               <p className="text-sm text-gray-300">GMD Global</p>
             </div>
             <div className="text-right">

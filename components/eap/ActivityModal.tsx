@@ -33,16 +33,30 @@ export const ActivityModal: React.FC<ActivityModalProps> = ({
 }) => (
   <ModalShell
     title={mode === 'create' ? 'Nova Macro Atividade' : 'Editar Macro Atividade'}
-    onClose={saving ? () => {} : onClose}
+    onClose={saving ? () => { } : onClose}
   >
-    <div>
-      <label className="block text-sm font-medium text-ai-text mb-1">Nome *</label>
-      <input
-        type="text"
-        value={form.name}
-        onChange={e => onChange({ ...form, name: e.target.value })}
-        className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
-      />
+    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+      <div>
+        <label className="block text-sm font-medium text-ai-text mb-1">Nome *</label>
+        <input
+          type="text"
+          value={form.name}
+          onChange={e => onChange({ ...form, name: e.target.value })}
+          className="w-full rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-ai-text mb-1">Peso na Entrega (%) *</label>
+        <input
+          type="number"
+          min={0}
+          max={100}
+          value={form.percent}
+          onChange={e => onChange({ ...form, percent: e.target.value })}
+          placeholder="0"
+          className="w-24 rounded-md border border-ai-border bg-ai-surface px-3 py-2 text-sm text-ai-text text-center"
+        />
+      </div>
     </div>
     <div>
       <label className="block text-sm font-medium text-ai-text mb-1">Descrição</label>

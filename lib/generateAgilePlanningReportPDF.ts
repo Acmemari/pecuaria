@@ -159,7 +159,7 @@ function buildAgilePlanningPdfDoc(data: AgilePlanningReportData): jsPDF {
   addText(doc, `Total UAs: ${formatNum(zootechnical.totalUAs, 1)}`, margin + 55, yPos, 9);
   addText(doc, `Peso médio: ${formatNum(zootechnical.pesoMedio)} kg`, margin + 110, yPos, 9);
   yPos += 5;
-  addText(doc, `GMD Global: ${zootechnical.gmdGlobal.toFixed(2)} kg/dia`, margin, yPos, 9);
+  addText(doc, `GMD Global: ${Number(zootechnical.gmdGlobal || 0).toFixed(2)} kg/dia`, margin, yPos, 9);
   addText(doc, `Produção @/HA/ANO: ${formatNum(zootechnical.producaoArrobaHaAno, 2)}`, margin + 70, yPos, 9);
   if (zootechnical.reproductive) {
     yPos += 5;

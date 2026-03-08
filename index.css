@@ -60,8 +60,8 @@ body {
 
 /* Webkit Scrollbar Customization */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -69,8 +69,8 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #e0e3e7;
-  border-radius: 3px;
+  background: #cbd5e1;
+  border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {

@@ -11,7 +11,6 @@ import {
 import { deleteDelivery, fetchDeliveriesByProject, type DeliveryRow } from '../lib/deliveries';
 import {
   fetchInitiativesByDelivery,
-  fetchTasksByInitiative,
   ensureDefaultMilestone,
   type InitiativeWithProgress,
 } from '../lib/initiatives';
@@ -140,6 +139,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingDeliveries, setLoadingDeliveries] = useState(false);
   const [loadingActivities, setLoadingActivities] = useState(false);
+  const [loadingTasks, setLoadingTasks] = useState(false);
 
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [deliveries, setDeliveries] = useState<DeliveryRow[]>([]);
@@ -259,23 +259,37 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     };
   }, [effectiveUserId, selectedFarmId, toast]);
 
-  const loadTasksForActivity = useCallback(async (initiativeId: string): Promise<WorkbenchTask[]> => {
-    const rows = await fetchTasksByInitiative(initiativeId);
-    return rows as WorkbenchTask[];
-  }, []);
+  const extractTasksFromInitiative = useCallback((initiativeId: string): WorkbenchTask[] => {
+    const initiative = initiatives.find(i => i.id === initiativeId);
+    if (!initiative?.milestones) return [];
+    return initiative.milestones
+      .flatMap(m => (m.tasks || []).map(t => ({ ...t, milestone_id: m.id } as WorkbenchTask)))
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }, [initiatives]);
 
   const refreshTasks = useCallback(async () => {
     if (!selectedActivityId) {
       setTasks([]);
       return;
     }
+    // Extract tasks from already-loaded initiative milestones (no extra query)
+    const extracted = extractTasksFromInitiative(selectedActivityId);
+    if (extracted.length > 0) {
+      setTasks(extracted);
+      return;
+    }
+    // Fallback: if milestones were loaded without tasks, reload from API
+    setLoadingTasks(true);
     try {
-      const rows = await loadTasksForActivity(selectedActivityId);
-      if (mountedRef.current) setTasks(rows);
+      const { fetchTasksByInitiative } = await import('../lib/initiatives');
+      const rows = await fetchTasksByInitiative(selectedActivityId);
+      if (mountedRef.current) setTasks(rows as WorkbenchTask[]);
     } catch (err) {
       toast(err instanceof Error ? err.message : 'Erro ao carregar tarefas.', 'error');
+    } finally {
+      if (mountedRef.current) setLoadingTasks(false);
     }
-  }, [selectedActivityId, loadTasksForActivity, toast]);
+  }, [selectedActivityId, extractTasksFromInitiative, toast]);
 
   useEffect(() => {
     refreshTasks();
@@ -294,26 +308,20 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
 
   useEffect(() => {
     if (projects.length === 0) return;
-    const hasValidSelection = selectedProgramId && projects.some(p => p.id === selectedProgramId);
-    if (!hasValidSelection) {
-      setSelectedProgramId(projects[0].id);
-    }
+    if (selectedProgramId && projects.some(p => p.id === selectedProgramId)) return;
+    setSelectedProgramId(projects[0].id);
   }, [projects, selectedProgramId]);
 
   useEffect(() => {
     if (deliveries.length === 0) return;
-    const hasValidSelection = selectedDeliveryId && deliveries.some(d => d.id === selectedDeliveryId);
-    if (!hasValidSelection) {
-      setSelectedDeliveryId(deliveries[0].id);
-    }
+    if (selectedDeliveryId && deliveries.some(d => d.id === selectedDeliveryId)) return;
+    setSelectedDeliveryId(deliveries[0].id);
   }, [deliveries, selectedDeliveryId]);
 
   useEffect(() => {
     if (selectedDeliveryActivities.length === 0) return;
-    const hasValidSelection = selectedActivityId && selectedDeliveryActivities.some(a => a.id === selectedActivityId);
-    if (!hasValidSelection) {
-      setSelectedActivityId(selectedDeliveryActivities[0].id);
-    }
+    if (selectedActivityId && selectedDeliveryActivities.some(a => a.id === selectedActivityId)) return;
+    setSelectedActivityId(selectedDeliveryActivities[0].id);
   }, [selectedDeliveryActivities, selectedActivityId]);
 
   // ── Column items (memoized) ───────────────────────────────────────────
@@ -341,7 +349,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       selectedDeliveryActivities.map(a => ({
         id: a.id,
         title: a.name,
-        subtitle: `${a.progress ?? 0}% · ${a.status || 'Não Iniciado'}`,
+        subtitle: `${a.progress ?? 0}% concluído · Peso: ${a.percent ?? 0}%`,
       })),
     [selectedDeliveryActivities],
   );
@@ -445,6 +453,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
         leader_id: leaderPerson?.id ?? '',
         internal_leader_id: internalLeaderPerson?.id ?? '',
         participant_ids: participantIds,
+        percent: String(t.percent ?? 0),
       });
     },
     [selectedDeliveryActivities, people],
@@ -575,9 +584,10 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
         const { error } = await supabase.from('deliveries').update(payload).eq('id', editingId);
         if (error) throw new Error(error.message);
       } else {
+        const currentCount = deliveries.length;
         const { error } = await supabase.from('deliveries').insert({
           created_by: effectiveUserId,
-          sort_order: deliveries.length,
+          sort_order: currentCount,
           ...payload,
         });
         if (error) throw new Error(error.message);
@@ -597,6 +607,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     selectedClientId,
     editingId,
     effectiveUserId,
+    deliveries.length,
     loadDeliveriesForProject,
     toast,
     closeModal,
@@ -638,6 +649,19 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       toast('Nome é obrigatório.', 'warning');
       return;
     }
+    const percentVal = Math.round(Math.min(100, Math.max(0, Number(activityForm.percent) || 0)));
+
+    // Validate: sum of all activity percents for this delivery must be <= 100
+    const othersSum = selectedDeliveryActivities
+      .filter(a => a.id !== editingId)
+      .reduce((sum, a) => sum + (a.percent ?? 0), 0);
+    if (othersSum + percentVal > 100) {
+      toast(
+        `A soma dos pesos ultrapassa 100% (atual: ${othersSum}% + ${percentVal}% = ${othersSum + percentVal}%). Revise os percentuais das atividades.`,
+        'error',
+      );
+      return;
+    }
 
     setSaving(true);
     try {
@@ -661,6 +685,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
             status: activityForm.status || 'Não Iniciado',
             leader: leaderName,
             internal_leader: internalLeaderName,
+            percent: percentVal,
           })
           .eq('id', editingId);
         if (error) throw new Error(error.message);
@@ -694,6 +719,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
             client_id: selectedClientId || null,
             farm_id: selectedFarmId || null,
             sort_order: selectedDeliveryActivities.length,
+            percent: percentVal,
           })
           .select('id')
           .single();
@@ -814,7 +840,8 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
         });
         if (error) throw new Error(error.message);
       }
-      await refreshTasks();
+      // Reload activities (which include tasks via milestones) — refreshTasks runs reactively via useEffect
+      if (selectedDeliveryId) await loadActivitiesForDelivery(selectedDeliveryId);
       toast(editingId ? 'Tarefa atualizada.' : 'Tarefa criada.', 'success');
       closeModal();
     } catch (err) {
@@ -822,7 +849,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     } finally {
       setSaving(false);
     }
-  }, [saving, selectedActivityId, taskForm, editingId, tasks.length, refreshTasks, toast, closeModal]);
+  }, [saving, selectedActivityId, taskForm, editingId, tasks.length, selectedDeliveryId, loadActivitiesForDelivery, toast, closeModal]);
 
   const deleteTaskById = useCallback(
     async (id: string) => {
@@ -832,7 +859,8 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
       try {
         const { error } = await supabase.from('initiative_tasks').delete().eq('id', id);
         if (error) throw new Error(error.message);
-        await refreshTasks();
+        // Reload activities (tasks are embedded) — refreshTasks runs reactively
+        if (selectedDeliveryId) await loadActivitiesForDelivery(selectedDeliveryId);
         toast('Tarefa removida.', 'success');
       } catch (err) {
         toast(err instanceof Error ? err.message : 'Erro ao excluir tarefa.', 'error');
@@ -840,7 +868,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
         setDeleting(null);
       }
     },
-    [tasks, refreshTasks, toast],
+    [tasks, selectedDeliveryId, loadActivitiesForDelivery, toast],
   );
 
   // ── Selection handlers ────────────────────────────────────────────────
@@ -862,7 +890,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
     setSelectedActivityId(id);
   }, []);
 
-  const noopSelect = useCallback(() => {}, []);
+  const noopSelect = useCallback(() => { }, []);
 
   const swapSortOrder = useCallback(
     async (
@@ -1193,6 +1221,7 @@ const ProgramaWorkbench: React.FC<ProgramaWorkbenchProps> = ({
           accentClassName="bg-amber-100 text-amber-900"
           addLabel="Nova"
           addDisabled={!selectedActivityId}
+          loading={loadingTasks}
           onAdd={readonly ? undefined : () => openCreateModal('task')}
           onSelect={noopSelect}
           onEdit={readonly ? undefined : openEditTask}

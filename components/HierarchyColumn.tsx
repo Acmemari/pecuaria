@@ -329,7 +329,7 @@ const HierarchyColumn: React.FC<HierarchyColumnProps> = React.memo(
     );
 
     return (
-      <section className="rounded-xl border border-ai-border bg-ai-surface flex min-h-[480px] flex-col">
+      <section className="rounded-xl border border-ai-border bg-ai-surface flex h-[70vh] min-h-[480px] flex-col">
         <header className="px-3 py-2.5 border-b border-ai-border flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
             {icon}

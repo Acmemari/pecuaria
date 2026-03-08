@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Plus,
   ChevronRight,
@@ -118,6 +118,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
 
   // ─── Identidade efetiva ───────────────────────────────────────────
   const isAdmin = user?.role === 'admin';
+
+  // Ref to avoid onToast in useCallback deps (prevents re-render loops)
+  const onToastRef = useRef(onToast);
+  onToastRef.current = onToast;
 
   /** ID do analista cujas iniciativas são exibidas */
   const effectiveUserId = useMemo(
@@ -522,12 +526,12 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
         milestones:
           milestones.length > 0
             ? milestones.map(m => ({
-                id: m.id,
-                title: m.title,
-                percent: m.percent,
-                dueDate: m.due_date ? m.due_date.slice(0, 10) : '',
-                completed: m.completed,
-              }))
+              id: m.id,
+              title: m.title,
+              percent: m.percent,
+              dueDate: m.due_date ? m.due_date.slice(0, 10) : '',
+              completed: m.completed,
+            }))
             : [{ id: safeUUID(), title: '', percent: 0, dueDate: '' }],
       });
     } catch (e) {
@@ -636,11 +640,11 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
       const list = await fetchInitiatives(effectiveUserId, Object.keys(filters).length > 0 ? filters : undefined);
       setInitiatives(list);
     } catch (e) {
-      onToast?.(e instanceof Error ? e.message : 'Erro ao carregar iniciativas', 'error');
+      onToastRef.current?.(e instanceof Error ? e.message : 'Erro ao carregar iniciativas', 'error');
     } finally {
       setLoading(false);
     }
-  }, [effectiveUserId, selectedClient?.id, selectedFarm?.id, onToast]);
+  }, [effectiveUserId, selectedClient?.id, selectedFarm?.id]);
 
   useEffect(() => {
     loadInitiatives();
@@ -1084,22 +1088,20 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
             <button
               type="button"
               onClick={() => setActiveTab('geral')}
-              className={`pb-3 text-sm font-medium transition-colors ${
-                activeTab === 'geral'
+              className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'geral'
                   ? 'text-ai-accent border-b-2 border-ai-accent'
                   : 'text-ai-subtext hover:text-ai-text'
-              }`}
+                }`}
             >
               Geral & Atividades
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('time')}
-              className={`pb-3 text-sm font-medium transition-colors ${
-                activeTab === 'time'
+              className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'time'
                   ? 'text-ai-accent border-b-2 border-ai-accent'
                   : 'text-ai-subtext hover:text-ai-text'
-              }`}
+                }`}
             >
               Time do Projeto
             </button>
@@ -1159,9 +1161,8 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                   {(v.milestones || []).map(m => (
                     <div
                       key={m.id}
-                      className={`w-full p-4 rounded-lg border transition-colors ${
-                        m.completed ? 'bg-ai-accent/5 border-ai-accent/30' : 'bg-ai-surface border-ai-border'
-                      }`}
+                      className={`w-full p-4 rounded-lg border transition-colors ${m.completed ? 'bg-ai-accent/5 border-ai-accent/30' : 'bg-ai-surface border-ai-border'
+                        }`}
                     >
                       <div className="flex items-center gap-4">
                         <button
@@ -1269,7 +1270,7 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                                           addDaysIso(
                                             taskEditDraft.activityDate || toLocalIso(new Date()),
                                             Math.max(1, Number.parseInt(taskEditDraft.durationDays || '1', 10) || 1) -
-                                              1,
+                                            1,
                                           ),
                                         )}
                                       </div>
@@ -1320,23 +1321,23 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                                         task.activity_date ||
                                         task.responsible_person_id ||
                                         typeof task.duration_days === 'number') && (
-                                        <div className="text-[11px] text-ai-subtext mt-0.5">
-                                          {task.description && (
-                                            <p className="whitespace-pre-wrap">{task.description}</p>
-                                          )}
-                                          <p>
-                                            Resp.:{' '}
-                                            {task.responsible_person_id
-                                              ? personDisplayName(peopleById[task.responsible_person_id])
-                                              : '—'}
-                                          </p>
-                                          {task.activity_date && <p>Início: {formatDate(task.activity_date)}</p>}
-                                          {typeof task.duration_days === 'number' && (
-                                            <p>Duração: {task.duration_days} dia(s)</p>
-                                          )}
-                                          {task.due_date && <p>Prazo: {formatDate(task.due_date)}</p>}
-                                        </div>
-                                      )}
+                                          <div className="text-[11px] text-ai-subtext mt-0.5">
+                                            {task.description && (
+                                              <p className="whitespace-pre-wrap">{task.description}</p>
+                                            )}
+                                            <p>
+                                              Resp.:{' '}
+                                              {task.responsible_person_id
+                                                ? personDisplayName(peopleById[task.responsible_person_id])
+                                                : '—'}
+                                            </p>
+                                            {task.activity_date && <p>Início: {formatDate(task.activity_date)}</p>}
+                                            {typeof task.duration_days === 'number' && (
+                                              <p>Duração: {task.duration_days} dia(s)</p>
+                                            )}
+                                            {task.due_date && <p>Prazo: {formatDate(task.due_date)}</p>}
+                                          </div>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-1">
                                       <button
@@ -1515,11 +1516,10 @@ const InitiativesActivities: React.FC<InitiativesActivitiesProps> = ({ onToast }
                       type="button"
                       title={labels[i]}
                       onClick={() => applyPreset(presets[i])}
-                      className={`min-w-[28px] h-7 px-1.5 rounded-md text-xs font-bold transition-colors ${
-                        active
+                      className={`min-w-[28px] h-7 px-1.5 rounded-md text-xs font-bold transition-colors ${active
                           ? 'bg-ai-accent/20 text-ai-accent border border-ai-accent/40'
                           : 'bg-ai-surface border border-ai-border text-ai-subtext hover:text-ai-text hover:border-ai-subtext'
-                      }`}
+                        }`}
                     >
                       {letter}
                     </button>

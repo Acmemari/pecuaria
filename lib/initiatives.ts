@@ -18,6 +18,7 @@ export interface InitiativeRow {
   delivery_id: string | null;
   client_id: string | null;
   farm_id: string | null;
+  percent: number;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -80,6 +81,7 @@ export interface CreateInitiativePayload {
   delivery_id: string;
   client_id?: string | null;
   farm_id?: string | null;
+  percent?: number;
   team: string[];
   milestones: { title: string; percent: number; due_date?: string | null; completed?: boolean }[];
 }
@@ -219,13 +221,11 @@ export async function fetchInitiatives(
         })
         .sort((a, b) => a.sort_order - b.sort_order);
 
-      const progress = Math.min(
-        100,
-        Math.max(
-          0,
-          list.filter(m => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0),
-        ),
-      );
+      // Progress = completed tasks / total tasks (across all milestones)
+      const allTasks = list.flatMap(m => m.tasks || []);
+      const totalTasks = allTasks.length;
+      const completedTasks = allTasks.filter(t => t.completed).length;
+      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
       // Cleanup keys that came nested
       const { initiative_milestones, ...initData } = i;
@@ -252,7 +252,10 @@ export async function fetchInitiativesByDelivery(deliveryId: string): Promise<In
       `
       *,
       initiative_milestones (
-        id, initiative_id, title, percent, completed, completed_at, sort_order, due_date
+        id, initiative_id, title, percent, completed, completed_at, sort_order, due_date,
+        initiative_tasks (
+          id, milestone_id, title, description, completed, completed_at, due_date, activity_date, duration_days, responsible_person_id, kanban_status, kanban_order, sort_order, created_at, updated_at
+        )
       )
     `,
     )
@@ -266,20 +269,68 @@ export async function fetchInitiativesByDelivery(deliveryId: string): Promise<In
   return initiatives.map((i: any) => {
     const list = (i.initiative_milestones || [])
       .map((m: any) => {
-        const { ...rest } = m;
-        return rest;
+        const { initiative_tasks, ...rest } = m;
+        return { ...rest, tasks: initiative_tasks || [] };
       })
       .sort((a: any, b: any) => a.sort_order - b.sort_order) as InitiativeMilestoneRow[];
 
-    const progress = Math.min(
-      100,
-      Math.max(
-        0,
-        list.filter(m => m.completed === true).reduce((s, m) => s + (m.percent ?? 0), 0),
-      ),
-    );
+    // Progress = completed tasks / total tasks (across all milestones)
+    const allTasks = list.flatMap((m: any) => m.tasks || []);
+    const totalTasks = allTasks.length;
+    const completedTasks = allTasks.filter((t: any) => t.completed).length;
+    const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
     // Cleanup keys
+    const { initiative_milestones, ...initData } = i;
+
+    return {
+      ...initData,
+      progress,
+      milestones: list,
+    } as InitiativeWithProgress;
+  });
+}
+
+/**
+ * Busca iniciativas vinculadas a MÚLTIPLAS entregas, otimizando o N+1.
+ */
+export async function fetchInitiativesByDeliveries(deliveryIds: string[]): Promise<InitiativeWithProgress[]> {
+  if (!deliveryIds || deliveryIds.length === 0) return [];
+
+  const { data: initiatives, error: initError } = await supabase
+    .from('initiatives')
+    .select(
+      `
+      *,
+      initiative_milestones (
+        id, initiative_id, title, percent, completed, completed_at, sort_order, due_date,
+        initiative_tasks (
+          id, milestone_id, completed, title, kanban_status, due_date, sort_order
+        )
+      )
+    `,
+    )
+    .in('delivery_id', deliveryIds)
+    .order('sort_order', { ascending: true })
+    .order('start_date', { ascending: true, nullsFirst: false });
+
+  if (initError) throw initError;
+  if (!initiatives?.length) return [];
+
+  return initiatives.map((i: any) => {
+    const list = (i.initiative_milestones || [])
+      .map((m: any) => {
+        const { initiative_tasks, ...rest } = m;
+        return { ...rest, tasks: initiative_tasks || [] };
+      })
+      .sort((a: any, b: any) => a.sort_order - b.sort_order) as InitiativeMilestoneRow[];
+
+    // Progress
+    const allTasks = list.flatMap((m: any) => m.tasks || []);
+    const totalTasks = allTasks.length;
+    const completedTasks = allTasks.filter((t: any) => t.completed).length;
+    const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
     const { initiative_milestones, ...initData } = i;
 
     return {
@@ -340,13 +391,11 @@ export async function fetchInitiativesWithTeams(
       })
       .sort((a: any, b: any) => a.sort_order - b.sort_order);
 
-    const progress = Math.min(
-      100,
-      Math.max(
-        0,
-        list.filter((m: any) => m.completed === true).reduce((s: any, m: any) => s + (m.percent ?? 0), 0),
-      ),
-    );
+    // Progress = completed tasks / total tasks (across all milestones)
+    const allTasks = list.flatMap((m: any) => m.tasks || []);
+    const totalTasks = allTasks.length;
+    const completedTasks = allTasks.filter((t: any) => t.completed).length;
+    const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
     const team = (i.initiative_team || [])
       .sort((a: any, b: any) => a.sort_order - b.sort_order)
@@ -430,6 +479,7 @@ export async function createInitiative(createdBy: string, payload: CreateInitiat
       delivery_id: payload.delivery_id,
       client_id: payload.client_id || null,
       farm_id: payload.farm_id || null,
+      percent: Math.round(Math.min(100, Math.max(0, payload.percent ?? 0))),
     })
     .select()
     .single();
@@ -500,6 +550,7 @@ export async function updateInitiative(initiativeId: string, payload: CreateInit
       delivery_id: payload.delivery_id,
       client_id: payload.client_id || null,
       farm_id: payload.farm_id || null,
+      percent: Math.round(Math.min(100, Math.max(0, payload.percent ?? 0))),
     })
     .eq('id', initiativeId)
     .select()
@@ -668,13 +719,11 @@ export async function fetchInitiativeDetail(
     })
     .sort((a: any, b: any) => a.sort_order - b.sort_order);
 
-  const progress = Math.min(
-    100,
-    Math.max(
-      0,
-      milestonesList.filter((m: any) => m.completed === true).reduce((s: any, m: any) => s + (m.percent ?? 0), 0),
-    ),
-  );
+  // Progress = completed tasks / total tasks (across all milestones)
+  const allDetailTasks = milestonesList.flatMap((m: any) => m.tasks || []);
+  const totalDetailTasks = allDetailTasks.length;
+  const completedDetailTasks = allDetailTasks.filter((t: any) => t.completed).length;
+  const progress = totalDetailTasks > 0 ? Math.round((completedDetailTasks / totalDetailTasks) * 100) : 0;
 
   return {
     ...initData,
