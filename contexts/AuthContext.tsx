@@ -65,11 +65,9 @@ const isRecoveryFlowUrl = (): boolean => {
   // PKCE flow: URL has ?code=xxx and user requested recovery from same browser
   const hasRecoveryFlag = typeof localStorage !== 'undefined' && !!localStorage.getItem(PASSWORD_RECOVERY_KEY);
   const hasPkceCode = searchParams.has('code');
-  const isRootPath = normalizedPath === '/';
-  // Fallback importante: links de recovery podem chegar em "/?code=..." quando redirectTo é ignorado.
-  // Com OAuth indo para /auth/callback, code na raiz passa a ser tratado como recovery.
-  const isRootCodeFallback = isRootPath && hasPkceCode;
-  const isPkceRecovery = hasPkceCode && (hasRecoveryFlag || hasRecoveryMarker || isRootCodeFallback);
+  // Recovery PKCE exige flag explícita (localStorage ou marker na URL).
+  // NÃO tratar ?code= sozinho na raiz como recovery — isso conflita com login normal.
+  const isPkceRecovery = hasPkceCode && (hasRecoveryFlag || hasRecoveryMarker);
 
   return isPkceRecovery || hasRecoveryMarker || (hasRecoveryType && hasRecoveryToken);
 };
@@ -141,8 +139,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const hasPkceCode = searchParams.has('code');
           const hasRecoveryFlag = !!localStorage.getItem(PASSWORD_RECOVERY_KEY);
           const hasRecoveryMarker = searchParams.get(PASSWORD_RECOVERY_MARKER) === PASSWORD_RECOVERY_MARKER_VALUE;
-          const isRootPath = window.location.pathname === '/';
-          const waitingForPkceExchange = hasPkceCode && (hasRecoveryFlag || hasRecoveryMarker || isRootPath);
+          // Só esperar PKCE exchange quando há flag explícita de recovery
+          const waitingForPkceExchange = hasPkceCode && (hasRecoveryFlag || hasRecoveryMarker);
 
           if (!waitingForPkceExchange) {
             setUser(null);
@@ -178,12 +176,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (event === 'SIGNED_IN' && session?.user) {
-        // PKCE flow: localStorage flag indica recovery; URL pode não ter type=recovery
-        const isRootPath = window.location.pathname === '/';
-        const hasCode = new URLSearchParams(window.location.search).has('code');
-        if (isRecoveryFlowUrl() || (isRootPath && hasCode)) {
+        // Recovery só é detectado via isRecoveryFlowUrl() que exige flag explícita
+        if (isRecoveryFlowUrl()) {
           log.info('Recovery session detected via SIGNED_IN, activating recovery mode');
-          // Após troca do code, remove parâmetros one-shot para não entrar em loop
           cleanupRecoveryUrl();
           setIsPasswordRecovery(true);
           clearTimeout(safetyTimeout);
