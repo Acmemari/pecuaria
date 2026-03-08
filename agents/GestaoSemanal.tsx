@@ -681,7 +681,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
         display: 'flex', alignItems: 'center', gap: 3,
         fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px',
         color: sortConfig?.column === col ? '#4338CA' : '#94A3B8',
-        padding: '2px 0', fontFamily: font,
+        padding: '2px 0', fontFamily: FONT,
       };
     });
     return map;
@@ -696,7 +696,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
     opacity: isAbertaForStyles ? 1 : 0.5,
     cursor: isAbertaForStyles ? 'pointer' : 'default',
     fontSize: 13, fontWeight: 500,
-    transition: 'all 0.15s ease', fontFamily: font,
+    transition: 'all 0.15s ease', fontFamily: FONT,
   }), [isAbertaForStyles]);
   const actionBtnStAbrir = useMemo(() => ({
     padding: '8px 18px', borderRadius: 8, border: 'none',
@@ -705,14 +705,14 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
     opacity: canAbrirForStyles ? 1 : 0.5,
     cursor: canAbrirForStyles ? 'pointer' : 'default',
     fontSize: 13, fontWeight: 500,
-    transition: 'all 0.15s ease', fontFamily: font,
+    transition: 'all 0.15s ease', fontFamily: FONT,
   }), [canAbrirForStyles]);
 
   // ─── Loading / empty ──────────────────────────────────────────────────────────
 
   if (!selectedFarm) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: '#94A3B8', fontFamily: font, flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: '#94A3B8', fontFamily: FONT, flexDirection: 'column', gap: 8 }}>
         <span style={{ fontSize: 32 }}>🌾</span>
         <span>Selecione uma fazenda para acessar a gestão semanal.</span>
       </div>
@@ -721,7 +721,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: '#94A3B8', fontFamily: font }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300, color: '#94A3B8', fontFamily: FONT }}>
         Carregando...
       </div>
     );
@@ -737,7 +737,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
   // ─── Render ───────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ background: '#F8FAFC', minHeight: '100%', fontFamily: font }}>
+    <div style={{ background: '#F8FAFC', minHeight: '100%', fontFamily: FONT }}>
       <div style={{ maxWidth: 1060, margin: '0 auto', padding: '24px 16px 48px' }}>
 
         {/* ── 1. HEADER ─────────────────────────────────────────────────────── */}
@@ -773,10 +773,10 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
             {/* Title + badge */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, marginTop: 4 }}>
               <h1 style={{ margin: 0, lineHeight: 1 }}>
-                <span style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.5px', color: '#0F172A', fontFamily: font }}>
+                <span style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.5px', color: '#0F172A', fontFamily: FONT }}>
                   Semana {String(semana?.numero ?? 0).padStart(2, '0')}
                 </span>
-                <span style={{ fontSize: 16, fontWeight: 400, color: '#94A3B8', fontFamily: font }}> de 53</span>
+                <span style={{ fontSize: 16, fontWeight: 400, color: '#94A3B8', fontFamily: FONT }}> de 53</span>
               </h1>
               <span style={{
                 background: semana === null ? '#F1F5F9' : isAberta ? '#ECFDF5' : '#FEF2F2',
@@ -802,7 +802,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
                 style={{
                   padding: '8px 16px', borderRadius: 8, border: '1px solid #6366F1',
                   background: '#EEF2FF', color: '#4338CA', fontSize: 13, fontWeight: 500,
-                  cursor: 'pointer', transition: 'all 0.15s ease', fontFamily: font,
+                  cursor: 'pointer', transition: 'all 0.15s ease', fontFamily: FONT,
                 }}
               >
                 Voltar para semana atual
@@ -814,7 +814,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
                 padding: '8px 16px', borderRadius: 8, border: '1px solid #E2E8F0',
                 background: showHistorico ? '#F1F5F9' : '#FFF',
                 color: '#475569', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                transition: 'all 0.15s ease', fontFamily: font,
+                transition: 'all 0.15s ease', fontFamily: FONT,
               }}
             >
               Histórico
@@ -849,7 +849,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
                       style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         padding: '8px 12px', borderRadius: 8, background: '#F8FAFC', fontSize: 13,
-                        border: 'none', width: '100%', fontFamily: font,
+                        border: 'none', width: '100%', fontFamily: FONT,
                         transition: 'background 0.15s', gap: 8,
                       }}
                       onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; }}
@@ -861,7 +861,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
                         style={{
                           flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                           padding: 0, border: 'none', cursor: 'pointer', background: 'transparent',
-                          textAlign: 'left', fontFamily: font, fontSize: 13,
+                          textAlign: 'left', fontFamily: FONT, fontSize: 13,
                         }}
                       >
                         <span style={{ fontFamily: mono, fontWeight: 500 }}>
@@ -1006,7 +1006,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
                   flex: '0 0 auto', padding: '7px 16px', borderRadius: 8,
                   border: '1px solid #E2E8F0', background: '#F8FAFC',
                   color: '#64748B', cursor: 'pointer',
-                  fontSize: 13, fontWeight: 500, fontFamily: font,
+                  fontSize: 13, fontWeight: 500, fontFamily: FONT,
                 }}
               >
                 Cancelar
@@ -1020,7 +1020,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
                 flex: '0 0 auto', padding: '7px 20px', borderRadius: 8, border: 'none',
                 background: (editingId ? newForm.titulo.trim() : (canEditInWeek && newForm.titulo.trim())) ? '#6366F1' : '#C7D2FE',
                 color: '#FFF', cursor: (editingId ? newForm.titulo.trim() : (canEditInWeek && newForm.titulo.trim())) ? 'pointer' : 'default',
-                fontSize: 13, fontWeight: 600, fontFamily: font,
+                fontSize: 13, fontWeight: 600, fontFamily: FONT,
               }}
             >
               {editingId ? 'Salvar' : 'Adicionar'}
@@ -1199,7 +1199,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
                   style={{
                     fontSize: 11, fontWeight: 500, padding: '2px 4px', borderRadius: 4, width: '100%',
                     color: stSt.text, background: stSt.bg, border: `1px solid ${stSt.border}`,
-                    cursor: isDisabled ? 'default' : 'pointer', fontFamily: font,
+                    cursor: isDisabled ? 'default' : 'pointer', fontFamily: FONT,
                   }}
                 >
                   {STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1239,7 +1239,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
           {hasActiveFilters && (
             <button onClick={clearFilters} style={{
               fontSize: 11, color: '#6366F1', fontWeight: 500,
-              background: 'none', border: 'none', cursor: 'pointer', fontFamily: font,
+              background: 'none', border: 'none', cursor: 'pointer', fontFamily: FONT,
             }}>
               Limpar filtros
             </button>
@@ -1272,7 +1272,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '16px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#0F172A', fontFamily: font }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: '#0F172A', fontFamily: FONT }}>
                   Tarefas da semana anterior
                 </h2>
                 <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94A3B8' }}>
@@ -1315,7 +1315,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
                 }}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer',
-                  fontSize: 13, color: '#6366F1', fontWeight: 500, fontFamily: font,
+                  fontSize: 13, color: '#6366F1', fontWeight: 500, fontFamily: FONT,
                 }}
               >
                 {selectedCarryOver.size === carryOverModal.candidates.length ? 'Desmarcar todas' : 'Selecionar todas'}
@@ -1389,7 +1389,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
                 style={{
                   padding: '8px 18px', borderRadius: 8, border: '1px solid #E2E8F0',
                   background: '#FFF', color: '#64748B', cursor: 'pointer',
-                  fontSize: 13, fontWeight: 500, fontFamily: font,
+                  fontSize: 13, fontWeight: 500, fontFamily: FONT,
                 }}
               >
                 Não trazer nenhuma
@@ -1400,7 +1400,7 @@ const GestaoSemanal: React.FC<GestaoSemanalProps> = ({ onToast }) => {
                 style={{
                   padding: '8px 20px', borderRadius: 8, border: 'none',
                   background: '#6366F1', color: '#FFF', cursor: 'pointer',
-                  fontSize: 13, fontWeight: 600, fontFamily: font,
+                  fontSize: 13, fontWeight: 600, fontFamily: FONT,
                 }}
               >
                 Confirmar seleção ({selectedCarryOver.size})
