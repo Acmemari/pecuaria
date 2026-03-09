@@ -302,7 +302,7 @@ function mapClientRow(row: ClientRow): Client {
 }
 
 export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, isProfileReady } = useAuth();
   const [state, dispatch] = useReducer(hierarchyReducer, initialState);
   const stateRef = useRef(state);
   const paginationRef = useRef({
@@ -323,10 +323,21 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     farms: null,
   });
   const validationFailureCountRef = useRef(0);
+  const prevUserIdRef = useRef<string | null>(null);
+  const loadAnalystsRef = useRef<((options?: { append?: boolean; search?: string }) => Promise<void>) | null>(null);
+  const loadClientsRef = useRef<((options?: { append?: boolean; search?: string }) => Promise<void>) | null>(null);
+  const loadFarmsRef = useRef<((options?: { append?: boolean; search?: string }) => Promise<void>) | null>(null);
 
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    if (user?.id !== prevUserIdRef.current) {
+      validationFailureCountRef.current = 0;
+      prevUserIdRef.current = user?.id ?? null;
+    }
+  }, [user?.id]);
 
   const effectiveAnalystId = useMemo(() => {
     if (!user) return null;
@@ -339,7 +350,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [user, state.analystId]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isProfileReady) return;
     if (user.qualification === 'visitante') {
       dispatch({
         type: 'HYDRATE_IDS',
@@ -380,10 +391,10 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       initial.analystId = user.id;
     }
     dispatch({ type: 'HYDRATE_IDS', payload: initial });
-  }, [user?.id, user?.role, user?.qualification, user?.clientId]);
+  }, [user?.id, user?.role, user?.qualification, user?.clientId, isProfileReady]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isProfileReady) return;
     if (user.qualification === 'visitante') return; // IDs são determinísticos, não persistir
     const scopedKey = getHierarchyStorageKey(user.id);
     if (user.qualification === 'cliente') {
@@ -404,7 +415,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       farmId: state.farmId,
     };
     localStorage.setItem(scopedKey, JSON.stringify(payload));
-  }, [state.analystId, state.clientId, state.farmId, user]);
+  }, [state.analystId, state.clientId, state.farmId, user, isProfileReady]);
 
   const nextController = useCallback((level: keyof HierarchyLoadingState) => {
     abortRef.current[level]?.abort();
@@ -645,7 +656,19 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 
   useEffect(() => {
-    if (!user) return;
+    loadAnalystsRef.current = loadAnalysts;
+  }, [loadAnalysts]);
+
+  useEffect(() => {
+    loadClientsRef.current = loadClients;
+  }, [loadClients]);
+
+  useEffect(() => {
+    loadFarmsRef.current = loadFarms;
+  }, [loadFarms]);
+
+  useEffect(() => {
+    if (!user || !isProfileReady) return;
     if (user.qualification === 'visitante') {
       dispatch({
         type: 'SET_SELECTED_ANALYST',
@@ -666,7 +689,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
     if (user.role === 'admin') {
-      void loadAnalysts({ append: false, search: '' });
+      void loadAnalystsRef.current?.({ append: false, search: '' });
       return;
     }
     dispatch({
@@ -679,78 +702,86 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         qualification: user.qualification,
       },
     });
-  }, [loadAnalysts, user]);
+  }, [user, isProfileReady]);
 
   useEffect(() => {
-    if (!user) return;
-    void loadClients({ append: false, search: '' });
-  }, [effectiveAnalystId, loadClients, user]);
+    if (!user || !isProfileReady) return;
+    void loadClientsRef.current?.({ append: false, search: '' });
+  }, [effectiveAnalystId, isProfileReady, user]);
 
   useEffect(() => {
-    if (!user) return;
-    void loadFarms({ append: false, search: '' });
-  }, [state.clientId, loadFarms, user]);
+    if (!user || !isProfileReady) return;
+    void loadFarmsRef.current?.({ append: false, search: '' });
+  }, [state.clientId, isProfileReady, user]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isProfileReady) return;
     if (user.qualification === 'visitante') return;
-    const runValidation = async () => {
-      const current = stateRef.current;
-      const sanitizedAnalystId = sanitizeUUID(effectiveAnalystId);
-      const sanitizedClientId = sanitizeUUID(current.clientId);
-      const sanitizedFarmId = sanitizeId(current.farmId);
-      if (!sanitizedAnalystId && !sanitizedClientId && !sanitizedFarmId) return;
 
-      const { data, error } = await supabase.rpc('validate_hierarchy', {
-        p_analyst_id: sanitizedAnalystId,
-        p_client_id: sanitizedClientId,
-        p_farm_id: sanitizedFarmId,
-      });
+    const timer = window.setTimeout(() => {
+      const runValidation = async () => {
+        const current = stateRef.current;
+        const sanitizedAnalystId = sanitizeUUID(effectiveAnalystId);
+        const sanitizedClientId = sanitizeUUID(current.clientId);
+        const sanitizedFarmId = sanitizeId(current.farmId);
+        if (!sanitizedAnalystId && !sanitizedClientId && !sanitizedFarmId) return;
 
-      if (error) {
-        validationFailureCountRef.current += 1;
-        console.warn('[HierarchyContext] validate_hierarchy failed:', error.message);
-        // Evita reset agressivo em falha transitória: só limpa após erro consecutivo.
-        if (validationFailureCountRef.current >= 2) {
-          dispatch({
-            type: 'HYDRATE_IDS',
-            payload: {
-              analystId: stateRef.current.analystId,
-              clientId: null,
-              farmId: null,
-            },
-          });
+        const { data, error } = await supabase.rpc('validate_hierarchy', {
+          p_analyst_id: sanitizedAnalystId,
+          p_client_id: sanitizedClientId,
+          p_farm_id: sanitizedFarmId,
+        });
+
+        if (error) {
+          validationFailureCountRef.current += 1;
+          console.warn('[HierarchyContext] validate_hierarchy failed:', error.message);
+          // Evita reset agressivo em falha transitória: só limpa após erro consecutivo.
+          if (validationFailureCountRef.current >= 2) {
+            dispatch({
+              type: 'HYDRATE_IDS',
+              payload: {
+                analystId: stateRef.current.analystId,
+                clientId: null,
+                farmId: null,
+              },
+            });
+          }
+          return;
         }
-        return;
-      }
 
-      if (!data || !Array.isArray(data) || data.length === 0) {
-        console.warn('[HierarchyContext] validate_hierarchy returned empty data');
-        return;
-      }
+        if (!data || !Array.isArray(data) || data.length === 0) {
+          console.warn('[HierarchyContext] validate_hierarchy returned empty data');
+          return;
+        }
 
-      validationFailureCountRef.current = 0;
-      const result = data[0];
-      const nextAnalystId = result.analyst_valid ? sanitizedAnalystId : null;
-      const nextClientId = result.client_valid ? sanitizedClientId : null;
-      const nextFarmId = result.farm_valid ? sanitizedFarmId : null;
+        validationFailureCountRef.current = 0;
+        const result = data[0];
+        const nextAnalystId = result.analyst_valid ? sanitizedAnalystId : null;
+        const nextClientId = result.client_valid ? sanitizedClientId : null;
+        const nextFarmId = result.farm_valid ? sanitizedFarmId : null;
 
-      dispatch({
-        type: 'HYDRATE_IDS',
-        payload: {
-          analystId: nextAnalystId,
-          clientId: nextClientId,
-          farmId: nextFarmId,
-        },
-      });
+        dispatch({
+          type: 'HYDRATE_IDS',
+          payload: {
+            analystId: nextAnalystId,
+            clientId: nextClientId,
+            farmId: nextFarmId,
+          },
+        });
+      };
+
+      void runValidation();
+    }, 150);
+
+    return () => {
+      window.clearTimeout(timer);
     };
-
-    void runValidation();
   }, [
     user?.id,
     user?.role,
     user?.qualification,
     user?.clientId,
+    isProfileReady,
     effectiveAnalystId,
     state.analystId,
     state.clientId,
@@ -758,7 +789,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   ]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isProfileReady) return;
     const shouldSubscribeClients = Boolean(effectiveAnalystId);
     const shouldSubscribeFarms = Boolean(state.clientId);
     if (!shouldSubscribeClients && !shouldSubscribeFarms) return;
@@ -775,7 +806,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           filter: `analyst_id=eq.${effectiveAnalystId}`,
         },
         () => {
-          void loadClients({ append: false, search: paginationRef.current.clientsSearch });
+          void loadClientsRef.current?.({ append: false, search: paginationRef.current.clientsSearch });
         },
       );
     }
@@ -789,7 +820,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           filter: `client_id=eq.${state.clientId}`,
         },
         () => {
-          void loadFarms({ append: false, search: paginationRef.current.farmsSearch });
+          void loadFarmsRef.current?.({ append: false, search: paginationRef.current.farmsSearch });
         },
       );
     }
@@ -799,7 +830,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => {
       void supabase.removeChannel(subscribedChannel);
     };
-  }, [effectiveAnalystId, loadClients, loadFarms, state.clientId, user]);
+  }, [effectiveAnalystId, isProfileReady, state.clientId, user]);
 
   const setSelectedAnalyst = useCallback((analyst: User | null) => {
     dispatch({ type: 'SELECT_ANALYST_ID', payload: analyst?.id || null });

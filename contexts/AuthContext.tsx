@@ -151,6 +151,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const loginInProgressRef = useRef(false);
+  const isProfileReady = useMemo(() => {
+    if (!user) return false;
+    return user.qualification !== undefined;
+  }, [user]);
 
   useEffect(() => {
     // Limpa resíduo antigo de recovery quando não há fluxo ativo na URL
@@ -660,6 +664,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login,
       logout,
       isLoading,
+      isProfileReady,
       isPasswordRecovery,
       checkPermission,
       checkLimit,
@@ -676,6 +681,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login,
       logout,
       isLoading,
+      isProfileReady,
       isPasswordRecovery,
       checkPermission,
       checkLimit,

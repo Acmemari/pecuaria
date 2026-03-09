@@ -89,6 +89,7 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isLoading: boolean;
+  isProfileReady: boolean;
   isPasswordRecovery: boolean;
   checkPermission: (feature: string) => boolean;
   checkLimit: (limit: keyof Plan['limits'], value: number) => boolean;
