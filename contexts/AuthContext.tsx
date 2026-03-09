@@ -384,6 +384,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       log.error('Logout error', error instanceof Error ? error : new Error(String(error)));
     } finally {
       await clearBrowserSessionData();
+      if (typeof window !== 'undefined') {
+        window.location.replace('/');
+      }
     }
   }, []);
 
