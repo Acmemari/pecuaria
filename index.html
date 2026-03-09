@@ -37,14 +37,11 @@
 
         // PKCE: ?code=xxx + localStorage indica que usuário pediu recovery no mesmo browser
         var hasPkceCode = search.indexOf('code=') !== -1;
-        var isRootPath = pathname === '/';
         var hasRecoveryFlag = false;
         try {
           hasRecoveryFlag = !!localStorage.getItem('password_recovery_email');
         } catch (e) {}
-        // Fallback: em produção o Supabase pode cair em "/?code=..." no recovery.
-        // Como OAuth vai para /auth/callback, tratamos code na raiz como recovery.
-        var isPkceRecovery = hasPkceCode && (hasRecoveryFlag || hasRecoveryMarker || isRootPath);
+        var isPkceRecovery = hasPkceCode && (hasRecoveryFlag || hasRecoveryMarker);
 
         if ((hasRecoveryHash || hasRecoverySearch || isPkceRecovery || hasRecoveryMarker) && pathname !== '/reset-password') {
           window.location.replace('/reset-password' + search + hash);

@@ -2,7 +2,7 @@
  * Service Worker para cache de recursos estáticos
  * Versão do cache - atualizar quando necessário invalidar cache
  */
-const CACHE_VERSION = 'v3-' + Date.now(); // Dynamic version to force update
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `pecuaria-cache-${CACHE_VERSION}`;
 
 // Recursos estáticos para cache

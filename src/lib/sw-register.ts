@@ -30,10 +30,17 @@ export function registerServiceWorker(): void {
           console.error('[SW] Service Worker registration failed:', error);
         });
 
-      // Verificar se há atualizações do service worker
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('[SW] Service Worker controller changed - reloading page');
-        window.location.reload();
+        const key = 'sw-reload-guard';
+        const lastReload = sessionStorage.getItem(key);
+        const now = Date.now();
+        if (!lastReload || now - Number(lastReload) > 10000) {
+          console.log('[SW] Service Worker controller changed - reloading page');
+          sessionStorage.setItem(key, String(now));
+          window.location.reload();
+        } else {
+          console.log('[SW] Service Worker controller changed - reload skipped (guard active)');
+        }
       });
     });
   } else {

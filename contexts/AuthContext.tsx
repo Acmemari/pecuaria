@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { User, AuthContextType, Plan } from '../types';
 import { supabase } from '../lib/supabase';
 import { loadUserProfile } from '../lib/auth/loadUserProfile';
@@ -76,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const loginInProgressRef = useRef(false);
 
   useEffect(() => {
     // Limpa resíduo antigo de recovery quando não há fluxo ativo na URL
@@ -186,6 +187,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
 
+        // Se login() já está tratando, não duplicar o processamento de perfil
+        if (loginInProgressRef.current) {
+          log.debug('Login in progress, skipping profile load in onAuthStateChange');
+          clearTimeout(safetyTimeout);
+          setIsLoading(false);
+          return;
+        }
+
         // Wait a bit for trigger to create profile
         await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -225,7 +234,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         const userProfile = await loadUserProfile(session.user.id);
         if (userProfile) {
-          setUser(userProfile);
+          setUser(prev => {
+            if (prev && prev.id === userProfile.id && prev.email === userProfile.email) {
+              const changed = Object.keys(userProfile).some(
+                key => (userProfile as any)[key] !== (prev as any)[key]
+              );
+              return changed ? userProfile : prev;
+            }
+            return userProfile;
+          });
         }
       }
     });
@@ -239,6 +256,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     // NÃO chamar setIsLoading(true) aqui para não causar re-montagem do LoginPage
     // O LoginPage já tem seu próprio estado de loading (isSubmitting)
+    loginInProgressRef.current = true;
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -247,7 +265,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         log.error('Login error', new Error(error.message));
-        // NÃO chamar setIsLoading aqui - o LoginPage permanece montado e mantém o estado de erro
 
         // Map Supabase errors to user-friendly messages
         let errorMessage = 'Erro ao realizar login.';
@@ -272,53 +289,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (data.user) {
         log.info('Login successful', { userId: data.user.id });
-        // Wait a moment for the trigger to potentially create the profile
-        await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Try to load the profile with retries
-        let userProfile = await loadUserProfile(data.user.id, 3, 1000);
+        // Helper para criar user básico a partir dos metadata do auth
+        const makeBasicUser = (): User => ({
+          id: data.user!.id,
+          email: data.user!.email || '',
+          name: data.user!.user_metadata?.name || data.user!.user_metadata?.full_name || 'Usuário',
+          role: (data.user!.user_metadata?.role as 'admin' | 'client') || 'client',
+          plan: (data.user!.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
+          avatar: data.user!.user_metadata?.avatar || data.user!.email?.[0].toUpperCase() || 'U',
+          status: 'active',
+        });
 
-        // If profile doesn't exist, try to create it
-        if (!userProfile) {
-          log.info('Profile not found after login, attempting to create');
-          const created = await createUserProfileIfMissing(data.user.id);
+        // Setar user básico imediatamente para desbloquear a UI
+        setUser(makeBasicUser());
+        setIsLoading(false);
 
-          if (created) {
-            // Wait a bit more and try loading again
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            userProfile = await loadUserProfile(data.user.id, 3, 1000);
+        // Carregar perfil completo em background com timeout de 8s
+        const loadFullProfile = async () => {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const userProfile = await loadUserProfile(data.user!.id, 2, 800);
+          if (userProfile) {
+            setUser(userProfile);
+            return;
           }
-        }
+          // Se perfil não existe, tentar criar
+          log.info('Profile not found after login, attempting to create');
+          await createUserProfileIfMissing(data.user!.id);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const retryProfile = await loadUserProfile(data.user!.id, 2, 800);
+          if (retryProfile) {
+            setUser(retryProfile);
+          }
+        };
 
-        if (userProfile) {
-          log.info('User profile loaded, setting user state');
-          setUser(userProfile);
-          setIsLoading(false);
-          return { success: true };
-        } else {
-          log.warn('Profile not found after login and creation attempt');
-          // Create a temporary user object from auth data
-          // The profile will be created by trigger or on next login
-          setUser({
-            id: data.user.id,
-            email: data.user.email || '',
-            name: data.user.user_metadata?.name || data.user.user_metadata?.full_name || 'Usuário',
-            role: (data.user.user_metadata?.role as 'admin' | 'client') || 'client',
-            plan: (data.user.user_metadata?.plan as 'basic' | 'pro' | 'enterprise') || 'basic',
-            avatar: data.user.user_metadata?.avatar || data.user.email?.[0].toUpperCase() || 'U',
-            status: 'active',
+        // Não bloquear o login — carregar perfil completo em background
+        loadFullProfile().catch((err: unknown) => {
+          log.warn('Background profile load failed, using basic user', {
+            error: err instanceof Error ? err.message : String(err),
           });
-          setIsLoading(false);
-          return { success: true };
-        }
+        });
+
+        return { success: true };
       }
 
-      // NÃO chamar setIsLoading aqui para manter o LoginPage montado
       return { success: false, error: 'Erro inesperado ao realizar login.' };
     } catch (error: unknown) {
       const err = error instanceof Error ? error : new Error(String(error));
       log.error('Login error', err);
       return { success: false, error: err.message || 'Erro inesperado ao realizar login.' };
+    } finally {
+      setTimeout(() => {
+        loginInProgressRef.current = false;
+      }, 3000);
     }
   }, []);
 
