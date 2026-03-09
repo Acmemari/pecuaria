@@ -140,16 +140,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const hasPkceCode = searchParams.has('code');
           const hasRecoveryFlag = !!localStorage.getItem(PASSWORD_RECOVERY_KEY);
           const hasRecoveryMarker = searchParams.get(PASSWORD_RECOVERY_MARKER) === PASSWORD_RECOVERY_MARKER_VALUE;
-          // Só esperar PKCE exchange quando há flag explícita de recovery
-          const waitingForPkceExchange = hasPkceCode && (hasRecoveryFlag || hasRecoveryMarker);
+          const isAuthCallback = window.location.pathname === '/auth/callback';
+
+          const waitingForPkceExchange = hasPkceCode && (hasRecoveryFlag || hasRecoveryMarker || isAuthCallback);
 
           if (!waitingForPkceExchange) {
             setUser(null);
             clearTimeout(safetyTimeout);
             setIsLoading(false);
           }
-          // Se waitingForPkceExchange: não setar isLoading=false aqui;
-          // PASSWORD_RECOVERY ou SIGNED_IN vai chamar setIsLoading(false)
+          // Se waitingForPkceExchange: o safetyTimeout de 10s garante que isLoading eventualmente será false
+          // O onAuthStateChange com SIGNED_IN vai setar o user e isLoading
         }
       } catch (error: unknown) {
         log.error('Error initializing auth', error instanceof Error ? error : new Error(String(error)));
