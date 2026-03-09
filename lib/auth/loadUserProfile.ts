@@ -74,6 +74,6 @@ export const loadUserProfile = async (userId: string, retries = 3, delay = 500):
       }
     }
   }
-  console.warn(`Failed to load profile after ${retries} attempts`);
+  logger.warn(`Failed to load profile after ${retries} attempts`, { component: 'loadUserProfile' });
   return null;
 };

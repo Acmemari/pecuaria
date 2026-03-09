@@ -87,8 +87,7 @@ const AppContent: React.FC = () => {
     return true; // Default to open for SSR
   });
   const [isInttegraSidebarCollapsed, setIsInttegraSidebarCollapsed] = useState(false);
-  // Timeout de segurança para evitar loading infinito quando agents não carregam
-  const [agentsLoadTimeout, setAgentsLoadTimeout] = useState(false);
+  
   // Estado para controlar se está no formulário de fazendas
   const [isFarmFormView, setIsFarmFormView] = useState(false);
   // Estado para controlar se está no formulário de clientes
@@ -379,17 +378,11 @@ const AppContent: React.FC = () => {
     }
   }, [user, activeAgentId, isLoading, canAccessFeedbackAgent]);
 
-  // Timeout de segurança para agents não carregarem
+  // Agents devem sempre estar preenchidos aqui (user existe, isLoading é false).
+  // O useMemo já tem try-catch com fallback. Este useEffect é só um log de diagnóstico.
   useEffect(() => {
     if (agents.length === 0 && !isLoading && user) {
-      // Se após 5 segundos ainda não tiver agents, forçar renderização
-      const timeout = setTimeout(() => {
-        console.warn('Agents não carregaram após 5 segundos, forçando renderização');
-        setAgentsLoadTimeout(true);
-      }, 5000);
-      return () => clearTimeout(timeout);
-    } else {
-      setAgentsLoadTimeout(false);
+      console.warn('[App] Agents vazios com user autenticado — possível erro no useMemo');
     }
   }, [agents.length, isLoading, user]);
 
@@ -451,36 +444,10 @@ const AppContent: React.FC = () => {
     return <LoginPage onToast={handleToast} onForgotPassword={() => setAuthPage('forgot-password')} />;
   }
 
-  // If agents are not loaded yet, show loading
-  if (agents.length === 0 && !agentsLoadTimeout) {
+  if (agents.length === 0) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
         <Loader2 size={32} className="animate-spin" />
-      </div>
-    );
-  }
-
-  // Se timeout ocorreu, tentar renderizar mesmo sem agents (fallback)
-  if (agents.length === 0 && agentsLoadTimeout) {
-    console.error('Erro: agents não carregaram. Renderizando fallback.');
-    // Retornar pelo menos um agente básico para evitar tela branca
-    const fallbackAgents: Agent[] = [
-      {
-        id: 'cattle-profit',
-        name: 'Assistentes',
-        description: 'Análise econômica completa.',
-        icon: 'bot',
-        category: 'financeiro',
-        status: 'active',
-      },
-    ];
-    // Usar fallback temporariamente
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-ai-bg text-ai-text">
-        <div className="text-center">
-          <Loader2 size={32} className="animate-spin mx-auto mb-4" />
-          <p className="text-sm text-ai-subtext">Carregando aplicação...</p>
-        </div>
       </div>
     );
   }

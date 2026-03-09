@@ -57,15 +57,22 @@ const AnalystHeader: React.FC<AnalystHeaderProps> = () => {
     void refreshUnread();
   }, [refreshUnread]);
 
-  // Não mostrar se não for analista, admin, visitante ou cliente
-  if (
-    !user ||
-    (user.qualification !== 'analista' &&
-      user.role !== 'admin' &&
-      user.qualification !== 'visitante' &&
-      user.qualification !== 'cliente')
-  ) {
-    return null;
+  if (!user) return null;
+
+  const isProfileLoaded = user.qualification !== undefined || user.role === 'admin';
+
+  if (!isProfileLoaded) {
+    return (
+      <header className="h-12 bg-ai-surface border-b border-ai-border flex items-center px-4 shrink-0 sticky top-0 z-50">
+        <div className="flex items-center gap-4 animate-pulse">
+          <div className="h-4 w-20 bg-ai-border rounded" />
+          <div className="h-6 w-px bg-ai-border" />
+          <div className="h-4 w-32 bg-ai-border rounded" />
+          <div className="h-6 w-px bg-ai-border" />
+          <div className="h-4 w-24 bg-ai-border rounded" />
+        </div>
+      </header>
+    );
   }
 
   const isVisitor = user.qualification === 'visitante';
