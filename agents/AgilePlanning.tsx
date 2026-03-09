@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFarm } from '../contexts/FarmContext';
 import { Farm, Client } from '../types';
 import { supabase } from '../lib/supabase';
+import { mapFarmsFromDatabase } from '../lib/utils/farmMapper';
 import type { AgilePlanningReportData, HerdCompositionRow } from '../lib/agilePlanningReportTypes';
 import { generateAgilePlanningReportPDF, generateAgilePlanningReportPDFAsBase64 } from '../lib/generateAgilePlanningReportPDF';
 import { saveReportPdf } from '../lib/scenarios';
@@ -1523,30 +1524,12 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       }
 
       try {
-        // Carregar fazendas do localStorage com tratamento de erros robusto
-        let allFarms: Farm[] = [];
-
-        if (typeof window !== 'undefined' && window.localStorage) {
-          try {
-            const storedFarms = localStorage.getItem('agro-farms');
-            if (storedFarms) {
-              const parsed = JSON.parse(storedFarms);
-              // Validação de tipo
-              if (Array.isArray(parsed)) {
-                allFarms = parsed;
-              }
-            }
-          } catch (parseError) {
-            console.error('[AgilePlanning] Error parsing farms from localStorage:', parseError);
-            onToast?.('Erro ao carregar dados locais de fazendas.', 'warning');
-          }
-        }
-
-        // Buscar fazendas vinculadas ao cliente
-        const { data: clientFarmsData, error } = await supabase
-          .from('client_farms')
-          .select('farm_id')
-          .eq('client_id', clientId);
+        // Fonte canônica: farms.client_id
+        const { data: farmsData, error } = await supabase
+          .from('farms')
+          .select('*')
+          .eq('client_id', clientId)
+          .order('name', { ascending: true });
 
         if (error) {
           console.error('[AgilePlanning] Error loading client farms:', error);
@@ -1555,22 +1538,11 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
           return;
         }
 
-        // Processar e filtrar fazendas com validação
-        if (clientFarmsData && Array.isArray(clientFarmsData) && allFarms.length > 0) {
-          const farmIds = new Set(
-            clientFarmsData
-              .map(cf => cf?.farm_id)
-              .filter((id): id is string => typeof id === 'string' && id.length > 0),
-          );
+        const farmsForClient = farmsData ? mapFarmsFromDatabase(farmsData) : [];
+        setFarms(farmsForClient);
 
-          const farmsForClient = allFarms.filter(f => f?.id && farmIds.has(f.id));
-          setFarms(farmsForClient);
-
-          if (farmsForClient.length > 0) {
-            setTempSelectedFarm(prev => prev || farmsForClient[0]);
-          }
-        } else {
-          setFarms([]);
+        if (farmsForClient.length > 0) {
+          setTempSelectedFarm(prev => prev || farmsForClient[0]);
         }
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';

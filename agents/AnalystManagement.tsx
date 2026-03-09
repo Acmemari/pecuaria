@@ -15,6 +15,7 @@ import {
 import { Client, Farm } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { mapFarmsFromDatabase } from '../lib/utils/farmMapper';
 
 interface AnalystManagementProps {
   onToast?: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
@@ -93,11 +94,12 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
           // 3. Para cada cliente, buscar suas fazendas
           const clientsWithFarms = await Promise.all(
             (clientsData || []).map(async client => {
-              // Buscar fazendas vinculadas ao cliente na tabela client_farms
-              const { data: clientFarmsData, error: farmsError } = await supabase
-                .from('client_farms')
-                .select('farm_id')
-                .eq('client_id', client.id);
+              // Fonte canônica: farms.client_id
+              const { data: farmsData, error: farmsError } = await supabase
+                .from('farms')
+                .select('*')
+                .eq('client_id', client.id)
+                .order('name', { ascending: true });
 
               if (farmsError) {
                 console.error(`[AnalystManagement] Error loading farms for client ${client.id}:`, farmsError);
@@ -107,25 +109,11 @@ const AnalystManagement: React.FC<AnalystManagementProps> = ({ onToast }) => {
                 };
               }
 
-              // Buscar fazendas do localStorage usando os IDs
-              const farmIds = clientFarmsData?.map(cf => cf.farm_id) || [];
-              const farms: Farm[] = [];
-
-              if (farmIds.length > 0) {
-                try {
-                  const storedFarms = localStorage.getItem('farms');
-                  if (storedFarms) {
-                    const allFarms: Farm[] = JSON.parse(storedFarms);
-                    farms.push(...allFarms.filter(farm => farmIds.includes(farm.id)));
-                  }
-                } catch (err) {
-                  console.error('[AnalystManagement] Error parsing farms from localStorage:', err);
-                }
-              }
+              const farms = farmsData ? mapFarmsFromDatabase(farmsData) : [];
 
               return {
                 ...client,
-                farms: farms,
+                farms,
               } as ClientData;
             }),
           );

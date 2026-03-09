@@ -1175,9 +1175,9 @@ const ClientRow: React.FC<ClientRowProps> = ({ client, onEdit, onDelete, deletin
   const loadFarmsCount = async () => {
     setLoadingFarms(true);
     try {
-      // Buscar diretamente da tabela client_farms para contar (mais eficiente)
+      // Fonte canônica: farms.client_id
       const { data, error, count } = await supabase
-        .from('client_farms')
+        .from('farms')
         .select('*', { count: 'exact', head: false })
         .eq('client_id', client.id);
 

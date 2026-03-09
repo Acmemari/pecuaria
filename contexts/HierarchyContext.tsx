@@ -7,7 +7,11 @@ import { mapFarmsFromDatabase } from '../lib/utils/farmMapper';
 import { sanitizeUUID, sanitizeId } from '../lib/uuid';
 
 const PAGE_SIZE = 50;
-const HIERARCHY_STORAGE_KEY = 'hierarchySelection.v1';
+const HIERARCHY_STORAGE_KEY_V1 = 'hierarchySelection.v1';
+
+function getHierarchyStorageKey(userId: string): string {
+  return `hierarchySelection.v2.${userId}`;
+}
 
 const VISITOR_ANALYST_ID = '0238f4f4-5967-429e-9dce-3f6cc03f5a80';
 const VISITOR_CLIENT_ID = '00000000-0000-0000-0000-000000000002';
@@ -121,10 +125,12 @@ function parseLegacyId(value: string | null): string | null {
   return null;
 }
 
-function loadInitialPersistedIds(): { analystId: string | null; clientId: string | null; farmId: string | null } {
+function loadInitialPersistedIds(userId: string): { analystId: string | null; clientId: string | null; farmId: string | null } {
   const fallback = { analystId: null, clientId: null, farmId: null };
+  const scopedKey = getHierarchyStorageKey(userId);
+
   try {
-    const modernRaw = localStorage.getItem(HIERARCHY_STORAGE_KEY);
+    const modernRaw = localStorage.getItem(scopedKey);
     if (modernRaw) {
       const modern = JSON.parse(modernRaw);
       return {
@@ -137,12 +143,35 @@ function loadInitialPersistedIds(): { analystId: string | null; clientId: string
     // ignore invalid storage
   }
 
+  try {
+    const legacyRaw = localStorage.getItem(HIERARCHY_STORAGE_KEY_V1);
+    if (legacyRaw) {
+      const legacy = JSON.parse(legacyRaw);
+      const migrated = {
+        analystId: sanitizeUUID(typeof legacy?.analystId === 'string' ? legacy.analystId : null),
+        clientId: sanitizeUUID(typeof legacy?.clientId === 'string' ? legacy.clientId : null),
+        farmId: sanitizeId(typeof legacy?.farmId === 'string' ? legacy.farmId : null),
+      };
+      localStorage.setItem(scopedKey, JSON.stringify(migrated));
+      localStorage.removeItem(HIERARCHY_STORAGE_KEY_V1);
+      return migrated;
+    }
+  } catch {
+    // ignore invalid legacy storage
+  }
+
   const analystId = sanitizeUUID(parseLegacyId(localStorage.getItem('selectedAnalystId')));
   const clientId = sanitizeUUID(parseLegacyId(localStorage.getItem('selectedClientId')));
   const farmId = sanitizeId(
     localStorage.getItem('selectedFarmId') || parseLegacyId(localStorage.getItem('selectedFarm')),
   );
-  return { analystId, clientId, farmId };
+  const normalized = { analystId, clientId, farmId };
+  try {
+    localStorage.setItem(scopedKey, JSON.stringify(normalized));
+  } catch {
+    // ignore storage write errors
+  }
+  return normalized;
 }
 
 function hierarchyReducer(state: HierarchyState, action: HierarchyAction): HierarchyState {
@@ -293,6 +322,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     clients: null,
     farms: null,
   });
+  const validationFailureCountRef = useRef(0);
 
   useEffect(() => {
     stateRef.current = state;
@@ -331,7 +361,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return;
       }
       // Carrega o cliente fixo vinculado ao perfil. Restaura fazenda do localStorage se existir.
-      const persisted = loadInitialPersistedIds();
+      const persisted = loadInitialPersistedIds(user.id);
       // Garante que não use clientId/analystId de outra sessão (ex: sessão de visitante anterior)
       const safeFarmId =
         persisted.farmId && persisted.farmId !== VISITOR_FARM_ID ? persisted.farmId : null;
@@ -345,7 +375,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
       return;
     }
-    const initial = loadInitialPersistedIds();
+    const initial = loadInitialPersistedIds(user.id);
     if (user.role !== 'admin') {
       initial.analystId = user.id;
     }
@@ -355,15 +385,16 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     if (!user) return;
     if (user.qualification === 'visitante') return; // IDs são determinísticos, não persistir
+    const scopedKey = getHierarchyStorageKey(user.id);
     if (user.qualification === 'cliente') {
       // Para clientes, persiste apenas a fazenda (o clientId vem sempre do perfil)
       try {
-        const stored = localStorage.getItem(HIERARCHY_STORAGE_KEY);
+        const stored = localStorage.getItem(scopedKey);
         const parsed = stored ? JSON.parse(stored) : {};
-        localStorage.setItem(HIERARCHY_STORAGE_KEY, JSON.stringify({ ...parsed, farmId: state.farmId }));
+        localStorage.setItem(scopedKey, JSON.stringify({ ...parsed, farmId: state.farmId }));
       } catch {
         // Dados corrompidos: sobrescreve com estado limpo
-        localStorage.setItem(HIERARCHY_STORAGE_KEY, JSON.stringify({ farmId: state.farmId }));
+        localStorage.setItem(scopedKey, JSON.stringify({ farmId: state.farmId }));
       }
       return;
     }
@@ -372,7 +403,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       clientId: state.clientId,
       farmId: state.farmId,
     };
-    localStorage.setItem(HIERARCHY_STORAGE_KEY, JSON.stringify(payload));
+    localStorage.setItem(scopedKey, JSON.stringify(payload));
   }, [state.analystId, state.clientId, state.farmId, user]);
 
   const nextController = useCallback((level: keyof HierarchyLoadingState) => {
@@ -675,11 +706,29 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         p_farm_id: sanitizedFarmId,
       });
 
-      if (error || !data || !Array.isArray(data) || data.length === 0) {
-        // Se RPC ainda não existir, mantém fallback sem quebrar.
+      if (error) {
+        validationFailureCountRef.current += 1;
+        console.warn('[HierarchyContext] validate_hierarchy failed:', error.message);
+        // Evita reset agressivo em falha transitória: só limpa após erro consecutivo.
+        if (validationFailureCountRef.current >= 2) {
+          dispatch({
+            type: 'HYDRATE_IDS',
+            payload: {
+              analystId: stateRef.current.analystId,
+              clientId: null,
+              farmId: null,
+            },
+          });
+        }
         return;
       }
 
+      if (!data || !Array.isArray(data) || data.length === 0) {
+        console.warn('[HierarchyContext] validate_hierarchy returned empty data');
+        return;
+      }
+
+      validationFailureCountRef.current = 0;
       const result = data[0];
       const nextAnalystId = result.analyst_valid ? sanitizedAnalystId : null;
       const nextClientId = result.client_valid ? sanitizedClientId : null;
@@ -700,37 +749,45 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     if (!user) return;
+    const shouldSubscribeClients = Boolean(effectiveAnalystId);
+    const shouldSubscribeFarms = Boolean(state.clientId);
+    if (!shouldSubscribeClients && !shouldSubscribeFarms) return;
+
     const channelName = `hierarchy-sync-${user.id}-${effectiveAnalystId || 'none'}-${state.clientId || 'none'}`;
-    const channel: RealtimeChannel = supabase
-      .channel(channelName)
-      .on(
+    let channel = supabase.channel(channelName);
+    if (shouldSubscribeClients) {
+      channel = channel.on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'clients',
-          filter: effectiveAnalystId ? `analyst_id=eq.${effectiveAnalystId}` : undefined,
+          filter: `analyst_id=eq.${effectiveAnalystId}`,
         },
         () => {
           void loadClients({ append: false, search: paginationRef.current.clientsSearch });
         },
-      )
-      .on(
+      );
+    }
+    if (shouldSubscribeFarms) {
+      channel = channel.on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'farms',
-          filter: state.clientId ? `client_id=eq.${state.clientId}` : undefined,
+          filter: `client_id=eq.${state.clientId}`,
         },
         () => {
           void loadFarms({ append: false, search: paginationRef.current.farmsSearch });
         },
-      )
-      .subscribe();
+      );
+    }
+
+    const subscribedChannel: RealtimeChannel = channel.subscribe();
 
     return () => {
-      void supabase.removeChannel(channel);
+      void supabase.removeChannel(subscribedChannel);
     };
   }, [effectiveAnalystId, loadClients, loadFarms, state.clientId, user]);
 
