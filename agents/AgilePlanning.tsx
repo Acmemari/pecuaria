@@ -345,6 +345,14 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     'lotacaoCabHa',
     'producaoArrobaHa',
   ]);
+  const [selectedRecriaIndicators, setSelectedRecriaIndicators] = useState<string[]>([
+    'tempoPerm',
+    'pesoArroba',
+    'producaoArrobaHa',
+    'giroEstoque',
+    'lotacaoCabHa',
+  ]);
+  const [isRecriaIndicatorsModalOpen, setIsRecriaIndicatorsModalOpen] = useState(false);
 
   // ============================================================================
   // VALORES DERIVADOS
@@ -392,13 +400,15 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
           setTempValue('');
         } else if (isIndicatorsModalOpen) {
           setIsIndicatorsModalOpen(false);
+        } else if (isRecriaIndicatorsModalOpen) {
+          setIsRecriaIndicatorsModalOpen(false);
         } else if (isAverageHerdModalOpen) {
           setIsAverageHerdModalOpen(false);
         }
       }
     };
 
-    const hasOpenModal = isModalOpen || isIndicatorsModalOpen || isAverageHerdModalOpen;
+    const hasOpenModal = isModalOpen || isIndicatorsModalOpen || isRecriaIndicatorsModalOpen || isAverageHerdModalOpen;
 
     if (hasOpenModal) {
       document.body.style.overflow = 'hidden';
@@ -411,7 +421,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
     };
-  }, [isModalOpen, isIndicatorsModalOpen, isAverageHerdModalOpen]);
+  }, [isModalOpen, isIndicatorsModalOpen, isRecriaIndicatorsModalOpen, isAverageHerdModalOpen]);
 
   // Fechar popovers de peso ao clicar fora
   useEffect(() => {
@@ -535,13 +545,20 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     return weight * valuePerKg;
   }, []);
 
-  /** Valor médio de venda (soma ponderada) */
+  /** Valor do Boi Recria-Engorda: Peso de venda × valor de venda × rendimento de carcaça / 15 */
+  const recriaValorBoi = useMemo(() => {
+    if (productionSystem !== 'Recria-Engorda') return 0;
+    return (recriaPesoVenda * recriaValorVenda * (recriaRendimentoCarcaca / 100)) / 15;
+  }, [productionSystem, recriaPesoVenda, recriaValorVenda, recriaRendimentoCarcaca]);
+
+  /** Valor médio de venda: Recria-Engorda usa valor do boi (premissas); demais sistemas usam soma ponderada das categorias */
   const averageValue = useMemo(() => {
+    if (productionSystem === 'Recria-Engorda') return recriaValorBoi;
     return animalCategories.reduce((sum, category) => {
       const valuePerHead = calculateValuePerHead(category);
       return sum + safeDivide(category.percentage * valuePerHead, 100);
     }, 0);
-  }, [animalCategories, calculateValuePerHead]);
+  }, [productionSystem, recriaValorBoi, animalCategories, calculateValuePerHead]);
 
   /** Valor calculado (percentual × operação pecuária) */
   const calculatedValue = useMemo(() => {
@@ -554,11 +571,13 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     return safeDivide(calculatedValue * 100, expectedMargin);
   }, [calculatedValue, expectedMargin, productionSystem]);
 
-  /** Vendas necessárias (faturamento necessário ÷ valor médio) */
+  /** Vendas necessárias (faturamento necessário ÷ valor do boi ou valor médio) */
   const requiredSales = useMemo(() => {
-    if (!isPercentageSumValid || averageValue <= 0 || requiredRevenue <= 0) return 0;
+    if (averageValue <= 0 || requiredRevenue <= 0) return 0;
+    if (productionSystem === 'Recria-Engorda') return Math.round(safeDivide(requiredRevenue, averageValue));
+    if (!isPercentageSumValid) return 0;
     return Math.round(safeDivide(requiredRevenue, averageValue));
-  }, [isPercentageSumValid, averageValue, requiredRevenue]);
+  }, [productionSystem, isPercentageSumValid, averageValue, requiredRevenue]);
 
   /** Taxa de desmame: Fertilidade × (1 - Perda pré parto) × (1 - Mortalidade) */
   const weaningRate = useMemo(() => {
@@ -590,10 +609,11 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   // CÁLCULOS FINANCEIROS (OTIMIZADO - Consolidado)
   // ============================================================================
 
+  const isRecriaTerminacao = productionSystem === 'Recria-Engorda' || productionSystem === 'Ciclo Completo';
+
   /** Cálculos financeiros consolidados para melhor performance */
   const financialCalculations = useMemo(() => {
     const pastureArea = selectedFarm?.pastureArea ?? 0;
-    const herdValue = selectedFarm?.herdValue ?? 0;
     const propertyValue = selectedFarm?.propertyValue ?? 0;
 
     // Receita: Valor médio por cabeça × Vendas necessárias
@@ -612,8 +632,6 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
     const resultPerHead = result <= 0 || requiredSales <= 0 ? 0 : safeDivide(result, requiredSales);
 
-    const resultOnLivestockAsset = result <= 0 || herdValue <= 0 ? 0 : safeDivide(result, herdValue) * 100;
-
     const resultOnLandValue = result <= 0 || propertyValue <= 0 ? 0 : safeDivide(result, propertyValue) * 100;
 
     const disbursementPerCalf =
@@ -628,7 +646,6 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       resultPerHectare,
       marginOverSale,
       resultPerHead,
-      resultOnLivestockAsset,
       resultOnLandValue,
       disbursementPerCalf,
       averageMonthlyDisbursement,
@@ -639,7 +656,6 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     requiredSales,
     calculatedValue,
     selectedFarm?.pastureArea,
-    selectedFarm?.herdValue,
     selectedFarm?.propertyValue,
   ]);
 
@@ -651,7 +667,6 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     resultPerHectare,
     marginOverSale,
     resultPerHead,
-    resultOnLivestockAsset,
     resultOnLandValue,
     disbursementPerCalf,
     averageMonthlyDisbursement,
@@ -773,8 +788,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
   const { indiceTempo, indiceNovilhas, indexValorRebanho, matricesOverAverageHerd, averageHerd } =
     herdIndexCalculations;
 
-  /** Desembolso por cabeça mês: (Desembolso ÷ Rebanho médio) ÷ 12 */
-  const disbursementPerHeadMonth = useMemo(() => {
+  /** Desembolso por cabeça mês (legado - Cria): (Desembolso ÷ Rebanho médio) ÷ 12 */
+  const reproductiveDisbursementPerHeadMonth = useMemo(() => {
     if (!showReproductiveIndices || averageHerd <= 0 || totalDisbursement <= 0) return 0;
     return safeDivide(safeDivide(totalDisbursement, averageHerd), 12);
   }, [showReproductiveIndices, averageHerd, totalDisbursement]);
@@ -810,11 +825,6 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     }, 0);
   }, [animalCategories, calculateQuantity]);
 
-  /** Produção de @/ha: total de arrobas ÷ área pecuária */
-  const producaoArrobaHa = useMemo(() => {
-    if (!selectedFarm?.pastureArea || selectedFarm.pastureArea <= 0) return 0;
-    return safeDivide(totalArroba, selectedFarm.pastureArea);
-  }, [selectedFarm?.pastureArea, totalArroba]);
 
   /** Desembolso/@: Desembolso total ÷ Total de arrobas produzidas */
   const disbursementPerArroba = useMemo(() => {
@@ -824,10 +834,22 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
   // Função auxiliar para verificar se indicadores estão implementados
   const formatIndicatorValue = useCallback(
-    (value: number | undefined, format: 'currency' | 'percentage', hasRequiredData: boolean): string => {
+    (
+      value: number | undefined,
+      format: 'currency' | 'currency1' | 'percentage',
+      hasRequiredData: boolean,
+    ): string => {
       if (!hasRequiredData) return '!!!';
       if (!isFinite(value) || value === 0) return '-';
-      return format === 'currency' ? formatCurrency(value) : `${value.toFixed(1)}%`;
+      if (format === 'percentage') return `${value.toFixed(1)}%`;
+      if (format === 'currency1')
+        return new Intl.NumberFormat('pt-BR', {
+          style: 'currency',
+          currency: 'BRL',
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1,
+        }).format(value);
+      return formatCurrency(value);
     },
     [],
   );
@@ -837,16 +859,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     () => totalDisbursement > 0 && totalArroba > 0,
     [totalDisbursement, totalArroba],
   );
-  const hasDisbursementPerCalfData = useMemo(
-    () => totalDisbursement > 0 && requiredSales > 0,
-    [totalDisbursement, requiredSales],
-  );
   const hasAverageMonthlyDisbursementData = useMemo(() => totalDisbursement > 0, [totalDisbursement]);
   const hasResultPerHeadData = useMemo(() => result > 0 && requiredSales > 0, [result, requiredSales]);
-  const hasResultOnLivestockAssetData = useMemo(
-    () => result > 0 && (selectedFarm?.herdValue ?? 0) > 0,
-    [result, selectedFarm?.herdValue],
-  );
   const hasResultOnLandValueData = useMemo(
     () => result > 0 && (selectedFarm?.propertyValue ?? 0) > 0,
     [result, selectedFarm?.propertyValue],
@@ -1076,6 +1090,19 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     return somaQtdTempo / 12;
   }, [showReproductiveIndices, averageHerdTable]);
 
+  /** Rebanho médio ajustado pela mortalidade */
+  const rebanhoMedioAjustado = useMemo(() => {
+    if (!showReproductiveIndices || rebanhoMedioCalculado <= 0) return 0;
+    return rebanhoMedioCalculado * (1 + safeDivide(calfMortality, 100));
+  }, [showReproductiveIndices, rebanhoMedioCalculado, calfMortality]);
+
+  /** Valor do rebanho calculado (Cria): rebanho médio × valor médio por cabeça */
+  const valorRebanhoCalculadoCria = useMemo(() => {
+    if (productionSystem !== 'Cria' || !showReproductiveIndices || rebanhoMedioCalculado <= 0 || averageValue <= 0)
+      return 0;
+    return rebanhoMedioCalculado * averageValue;
+  }, [productionSystem, showReproductiveIndices, rebanhoMedioCalculado, averageValue]);
+
   /** Rebanho Médio Recria-Engorda: vendas × (ciclo em meses / 12) */
   const recriaRebanhoMedio = useMemo(() => {
     if (productionSystem !== 'Recria-Engorda' || recriaGmd <= 0 || requiredSales <= 0) return 0;
@@ -1084,11 +1111,16 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     return requiredSales * (cicloMeses / 12);
   }, [productionSystem, recriaPesoVenda, recriaPesoCompra, recriaGmd, requiredSales]);
 
+  /** Rebanho médio da recria ajustado pela mortalidade */
+  const recriaRebanhoMedioAjustado = useMemo(() => {
+    if (productionSystem !== 'Recria-Engorda' || recriaRebanhoMedio <= 0) return 0;
+    return recriaRebanhoMedio * (1 + safeDivide(recriaMortalidade, 100));
+  }, [productionSystem, recriaRebanhoMedio, recriaMortalidade]);
+
   /** Tempo de Permanência Recria-Engorda (meses): (Peso final - Peso inicial) / GMD / 30,4166666667 */
-  const DIAS_POR_MES = 30.4166666667;
   const recriaTempoPermanenciaMeses = useMemo(() => {
     if (productionSystem !== 'Recria-Engorda' || recriaGmd <= 0) return 0;
-    const meses = (recriaPesoVenda - recriaPesoCompra) / recriaGmd / DIAS_POR_MES;
+    const meses = (recriaPesoVenda - recriaPesoCompra) / recriaGmd / 30.4166666667;
     return meses > 0 ? meses : 0;
   }, [productionSystem, recriaPesoVenda, recriaPesoCompra, recriaGmd]);
 
@@ -1098,11 +1130,184 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     return (12 / recriaTempoPermanenciaMeses) * 100;
   }, [productionSystem, recriaTempoPermanenciaMeses]);
 
+  /** Lotação Cab/ha Recria-Engorda: Rebanho médio ÷ área pecuária */
+  const recriaLotacaoCabHa = useMemo(() => {
+    if (productionSystem !== 'Recria-Engorda' || !farm?.pastureArea || farm.pastureArea <= 0) return 0;
+    return safeDivide(recriaRebanhoMedioAjustado, farm.pastureArea);
+  }, [productionSystem, recriaRebanhoMedioAjustado, farm?.pastureArea]);
+
+  /** Lotação UA/ha Recria-Engorda: ((peso entrada + peso venda) / 450) × lotação cabeça */
+  const recriaLotacaoUaHa = useMemo(() => {
+    if (productionSystem !== 'Recria-Engorda' || recriaLotacaoCabHa <= 0) return 0;
+    const pesoMedio = (recriaPesoCompra + recriaPesoVenda) / 2;
+    return (pesoMedio / 450) * recriaLotacaoCabHa;
+  }, [productionSystem, recriaPesoCompra, recriaPesoVenda, recriaLotacaoCabHa]);
+
   /** Peso em @ Recria-Engorda: Peso de venda (kg) × (Rendimento de carcaça % / 100) / 15 */
   const recriaPesoArroba = useMemo(() => {
     if (productionSystem !== 'Recria-Engorda') return 0;
     return (recriaPesoVenda * (recriaRendimentoCarcaca / 100)) / 15;
   }, [productionSystem, recriaPesoVenda, recriaRendimentoCarcaca]);
+
+  const boiGordoSaleValue = useMemo(() => {
+    const boiGordoCategory = animalCategories.find(c => c.id === CATEGORY_IDS.BOI_GORDO);
+    return boiGordoCategory?.valuePerKg ?? 0;
+  }, [animalCategories]);
+
+  const rebanhoMedioParaRecriaTerminacao = useMemo(() => {
+    if (productionSystem === 'Recria-Engorda') return recriaRebanhoMedio;
+    if (productionSystem === 'Ciclo Completo') return rebanhoMedioCalculado;
+    return 0;
+  }, [productionSystem, recriaRebanhoMedio, rebanhoMedioCalculado]);
+
+  /** Investimento em Reposição (Recria-Engorda): peso de compra × valor de compra × vendas necessárias */
+  const investimentoReposicao = useMemo(() => {
+    if (productionSystem !== 'Recria-Engorda' || requiredSales <= 0) return 0;
+    return recriaPesoCompra * recriaValorCompra * requiredSales;
+  }, [productionSystem, recriaPesoCompra, recriaValorCompra, requiredSales]);
+
+  /** Desembolso Produção (Recria-Engorda): Receita necessária - investimento em reposição - resultado esperado */
+  const desembolsoProducao = useMemo(() => {
+    if (productionSystem !== 'Recria-Engorda') return 0;
+    return Math.max(0, requiredRevenue - investimentoReposicao - calculatedValue);
+  }, [productionSystem, requiredRevenue, investimentoReposicao, calculatedValue]);
+
+  /** Prod. @/ha/ano (Recria-Terminação)
+   * Passo 1: Peso venda @ = peso venda × rendimento carcaça / 15
+   * Passo 2: Peso entrada @ = peso entrada / 30
+   * Passo 3: Produção animal mês = (peso venda @ - peso entrada @) / tempo permanência
+   * Passo 4: Produção @/ha = produção animal mês × 12 × rebanho médio / área pecuária
+   */
+  const producaoArrobaHa = useMemo(() => {
+    if (!selectedFarm?.pastureArea || selectedFarm.pastureArea <= 0) return 0;
+    if (isRecriaTerminacao) {
+      const pesoVendaKg = productionSystem === 'Recria-Engorda' ? recriaPesoVenda : cicloPesoAbate;
+      const pesoEntradaKg = productionSystem === 'Recria-Engorda' ? recriaPesoCompra : maleWeaningWeight;
+      const rendimentoCarcaca =
+        productionSystem === 'Recria-Engorda' ? recriaRendimentoCarcaca : cicloRendimentoCarcaca;
+      const tempoPermanenciaMeses =
+        productionSystem === 'Recria-Engorda'
+          ? recriaGmd > 0
+            ? (recriaPesoVenda - recriaPesoCompra) / recriaGmd / 30.4166666667
+            : 0
+          : cicloGmdPosDesmame > 0
+            ? (cicloPesoAbate - maleWeaningWeight) / cicloGmdPosDesmame / 30.4166666667
+            : 0;
+
+      const pesoVendaArroba = safeDivide(pesoVendaKg * safeDivide(rendimentoCarcaca, 100), 15);
+      const pesoEntradaArroba = safeDivide(pesoEntradaKg, 30);
+      const producaoAnimalMes =
+        tempoPermanenciaMeses > 0
+          ? safeDivide(pesoVendaArroba - pesoEntradaArroba, tempoPermanenciaMeses)
+          : 0;
+      const producaoTotalAno = producaoAnimalMes * 12 * rebanhoMedioParaRecriaTerminacao;
+      return safeDivide(producaoTotalAno, selectedFarm.pastureArea);
+    }
+    return safeDivide(totalArroba, selectedFarm.pastureArea);
+  }, [
+    selectedFarm?.pastureArea,
+    isRecriaTerminacao,
+    productionSystem,
+    rebanhoMedioParaRecriaTerminacao,
+    recriaPesoVenda,
+    recriaPesoCompra,
+    recriaGmd,
+    recriaRendimentoCarcaca,
+    cicloPesoAbate,
+    cicloRendimentoCarcaca,
+    cicloGmdPosDesmame,
+    maleWeaningWeight,
+    totalArroba,
+  ]);
+
+  const rebanhoMedioReaisRecriaTerminacao = useMemo(() => {
+    if (!isRecriaTerminacao || rebanhoMedioParaRecriaTerminacao <= 0) return 0;
+
+    const pesoCompra = productionSystem === 'Recria-Engorda' ? recriaPesoCompra : maleWeaningWeight;
+    const pesoVenda = productionSystem === 'Recria-Engorda' ? recriaPesoVenda : cicloPesoAbate;
+    const rendimentoCarcaca =
+      productionSystem === 'Recria-Engorda' ? recriaRendimentoCarcaca : cicloRendimentoCarcaca;
+    const valorVenda = productionSystem === 'Recria-Engorda' ? recriaValorVenda : boiGordoSaleValue;
+
+    if (valorVenda <= 0 || pesoVenda <= 0) return 0;
+
+    // Passo 1: Peso @ entrada = Peso de compra / 30
+    const pesoEntradaArroba = safeDivide(pesoCompra, 30);
+    // Passo 2: Peso @ saída = Peso de venda × rendimento de carcaça (%) / 15
+    const pesoSaidaArroba = safeDivide(pesoVenda * safeDivide(rendimentoCarcaca, 100), 15);
+    // Passo 3: Peso médio = média dos passos anteriores
+    const pesoMedioArroba = (pesoEntradaArroba + pesoSaidaArroba) / 2;
+    // Passo 4: Valor do rebanho = Peso médio × valor de venda × Rebanho Médio
+    const valorUnitario = pesoMedioArroba * valorVenda;
+
+    return rebanhoMedioParaRecriaTerminacao * valorUnitario;
+  }, [
+    isRecriaTerminacao,
+    rebanhoMedioParaRecriaTerminacao,
+    productionSystem,
+    recriaPesoCompra,
+    maleWeaningWeight,
+    recriaPesoVenda,
+    cicloPesoAbate,
+    recriaRendimentoCarcaca,
+    cicloRendimentoCarcaca,
+    recriaValorVenda,
+    boiGordoSaleValue,
+  ]);
+
+  /** Valor do rebanho calculado no planejamento (usado em vez do cadastro da fazenda) */
+  const valorRebanhoCalculado = useMemo(() => {
+    if (isRecriaTerminacao) return rebanhoMedioReaisRecriaTerminacao;
+    return valorRebanhoCalculadoCria;
+  }, [isRecriaTerminacao, rebanhoMedioReaisRecriaTerminacao, valorRebanhoCalculadoCria]);
+
+  /** Resultado sobre ativo pecuário (Cria): usa valor do rebanho calculado, não do cadastro */
+  const resultOnLivestockAssetLegacy = useMemo(() => {
+    if (result <= 0 || valorRebanhoCalculadoCria <= 0) return 0;
+    return safeDivide(result, valorRebanhoCalculadoCria) * 100;
+  }, [result, valorRebanhoCalculadoCria]);
+
+  const hasDisbursementPerCalfData = useMemo(() => {
+    if (productionSystem === 'Recria-Engorda')
+      return rebanhoMedioParaRecriaTerminacao > 0; // usa desembolsoProducao / rebanho / 12
+    if (productionSystem === 'Ciclo Completo')
+      return totalDisbursement > 0 && rebanhoMedioParaRecriaTerminacao > 0;
+    return totalDisbursement > 0 && requiredSales > 0;
+  }, [productionSystem, totalDisbursement, rebanhoMedioParaRecriaTerminacao, requiredSales]);
+  const hasResultOnLivestockAssetData = useMemo(() => {
+    return result > 0 && valorRebanhoCalculado > 0;
+  }, [result, valorRebanhoCalculado]);
+
+  const resultOnLivestockAsset = useMemo(() => {
+    if (result <= 0) return 0;
+    if (isRecriaTerminacao) {
+      if (rebanhoMedioReaisRecriaTerminacao <= 0) return 0;
+      return safeDivide(result, rebanhoMedioReaisRecriaTerminacao) * 100;
+    }
+    return resultOnLivestockAssetLegacy;
+  }, [result, isRecriaTerminacao, rebanhoMedioReaisRecriaTerminacao, resultOnLivestockAssetLegacy]);
+
+  /** Desembolso/cabeça/mês para Recria-Engorda: orçamento operacional / rebanho necessário / 12
+   * (orçamento operacional = Desembolso Produção)
+   * Para Ciclo Completo: usa fórmula legada (totalDisbursement / rebanho / 12) */
+  const disbursementPerHeadMonth = useMemo(() => {
+    if (totalDisbursement <= 0) return 0;
+    if (productionSystem === 'Recria-Engorda') {
+      if (rebanhoMedioParaRecriaTerminacao <= 0) return 0;
+      return safeDivide(safeDivide(desembolsoProducao, rebanhoMedioParaRecriaTerminacao), 12);
+    }
+    if (productionSystem === 'Ciclo Completo') {
+      if (rebanhoMedioParaRecriaTerminacao <= 0) return 0;
+      return safeDivide(safeDivide(totalDisbursement, rebanhoMedioParaRecriaTerminacao), 12);
+    }
+    return reproductiveDisbursementPerHeadMonth;
+  }, [
+    totalDisbursement,
+    productionSystem,
+    desembolsoProducao,
+    rebanhoMedioParaRecriaTerminacao,
+    reproductiveDisbursementPerHeadMonth,
+  ]);
 
   /** Total de UAs: Σ(quantidade × tempo × peso) / 12 / 450 */
   const totalUAsCalculado = useMemo(() => {
@@ -1153,17 +1358,23 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     return somaQtdTempoPeso / 12 / 450;
   }, [showReproductiveIndices, averageHerdTable]);
 
+  /** Total de UAs ajustado pela mortalidade */
+  const totalUAsAjustado = useMemo(() => {
+    if (!showReproductiveIndices || totalUAsCalculado <= 0) return 0;
+    return totalUAsCalculado * (1 + safeDivide(calfMortality, 100));
+  }, [showReproductiveIndices, totalUAsCalculado, calfMortality]);
+
   /** Lotação: Total de UAs ÷ área pecuária */
   const lotacaoCabHa = useMemo(() => {
-    if (!showReproductiveIndices || totalUAsCalculado <= 0 || !farm?.pastureArea) return 0;
-    return safeDivide(totalUAsCalculado, farm.pastureArea);
-  }, [showReproductiveIndices, totalUAsCalculado, farm?.pastureArea]);
+    if (!showReproductiveIndices || totalUAsAjustado <= 0 || !farm?.pastureArea) return 0;
+    return safeDivide(totalUAsAjustado, farm.pastureArea);
+  }, [showReproductiveIndices, totalUAsAjustado, farm?.pastureArea]);
 
   /** Lotação Cab./ha: Rebanho médio ÷ área pecuária */
   const lotacaoCabecasHa = useMemo(() => {
-    if (!showReproductiveIndices || rebanhoMedioCalculado <= 0 || !farm?.pastureArea) return 0;
-    return safeDivide(rebanhoMedioCalculado, farm.pastureArea);
-  }, [showReproductiveIndices, rebanhoMedioCalculado, farm?.pastureArea]);
+    if (!showReproductiveIndices || rebanhoMedioAjustado <= 0 || !farm?.pastureArea) return 0;
+    return safeDivide(rebanhoMedioAjustado, farm.pastureArea);
+  }, [showReproductiveIndices, rebanhoMedioAjustado, farm?.pastureArea]);
 
   const MAX_PERFORMANCE_INDICATORS = 5;
   const performanceIndicators = useMemo(
@@ -1250,6 +1461,47 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     [onToast],
   );
 
+  const MAX_RECRIA_PERFORMANCE_INDICATORS = 5;
+  const recriaPerformanceIndicators = useMemo(
+    () =>
+      productionSystem === 'Recria-Engorda'
+        ? [
+            { id: 'tempoPerm', label: 'Tempo Perm.', value: recriaTempoPermanenciaMeses, format: (v: number) => `${v.toFixed(1)} meses` },
+            { id: 'pesoArroba', label: 'Peso em @', value: recriaPesoArroba, format: (v: number) => `${v.toFixed(1)} @` },
+            { id: 'producaoArrobaHa', label: 'Prod. @/ha/ano', value: producaoArrobaHa, format: (v: number) => `${v.toFixed(2)} @/ha` },
+            { id: 'giroEstoque', label: 'Giro de Estoque', value: recriaGiroEstoque, format: (v: number) => `${v.toFixed(1)}%` },
+            { id: 'lotacaoCabHa', label: 'Lotação Cab/ha', value: recriaLotacaoCabHa, format: (v: number) => v.toFixed(2) },
+            { id: 'lotacaoUaHa', label: 'Lotação UA/ha', value: recriaLotacaoUaHa, format: (v: number) => v.toFixed(2) },
+          ]
+        : [],
+    [
+      productionSystem,
+      recriaTempoPermanenciaMeses,
+      recriaPesoArroba,
+      producaoArrobaHa,
+      recriaGiroEstoque,
+      recriaLotacaoCabHa,
+      recriaLotacaoUaHa,
+    ],
+  );
+  const visibleRecriaPerformanceIndicators = useMemo(
+    () => recriaPerformanceIndicators.filter(ind => selectedRecriaIndicators.includes(ind.id)),
+    [recriaPerformanceIndicators, selectedRecriaIndicators],
+  );
+  const toggleRecriaIndicatorSelection = useCallback(
+    (indicatorId: string) => {
+      setSelectedRecriaIndicators(prev => {
+        if (prev.includes(indicatorId)) return prev.filter(id => id !== indicatorId);
+        if (prev.length >= MAX_RECRIA_PERFORMANCE_INDICATORS) {
+          onToast?.('Selecione no máximo 5 indicadores.', 'warning');
+          return prev;
+        }
+        return [...prev, indicatorId];
+      });
+    },
+    [onToast],
+  );
+
   /** Configuração de margem para o sistema atual */
   const marginConfig = useMemo(() => getMarginConfig(productionSystem), [productionSystem]);
 
@@ -1297,34 +1549,35 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       const rows: HerdCompositionRow[] = [];
       const t = averageHerdTable;
       const m = (qty: number, tempo: number) => (qty * tempo) / 12;
+      const mortalidadeCriaFator = 1 + safeDivide(calfMortality, 100);
 
       if (showReproductiveIndices) {
         rows.push({
           categoria: 'Matrizes',
           quantidadeCabecas: Math.round(t.vacas),
           tempoMeses: Math.round(t.tempoVacas * 10) / 10,
-          rebanhoMedio: Math.round(m(t.vacas, t.tempoVacas)),
+          rebanhoMedio: Math.round(m(t.vacas, t.tempoVacas) * mortalidadeCriaFator),
           pesoVivoKg: Math.round(t.pesoIndividualVaca),
         });
         rows.push({
           categoria: 'Bezerros mamando',
           quantidadeCabecas: Math.round(t.bezerrosMamando),
           tempoMeses: t.tempoBezerros,
-          rebanhoMedio: Math.round(m(t.bezerrosMamando, t.tempoBezerros)),
+          rebanhoMedio: Math.round(m(t.bezerrosMamando, t.tempoBezerros) * mortalidadeCriaFator),
           pesoVivoKg: Math.round(t.pesoIndividualBezerro),
         });
         rows.push({
           categoria: 'Novilhas 8 a 12 meses',
           quantidadeCabecas: Math.round(t.novilhas8a12),
           tempoMeses: t.tempoNovilhas8a12,
-          rebanhoMedio: Math.round(m(t.novilhas8a12, t.tempoNovilhas8a12)),
+          rebanhoMedio: Math.round(m(t.novilhas8a12, t.tempoNovilhas8a12) * mortalidadeCriaFator),
           pesoVivoKg: Math.round(t.pesoIndividualNovilha8a12),
         });
         rows.push({
           categoria: 'Novilhas 13 a 24 meses',
           quantidadeCabecas: Math.round(t.novilhas13a24),
           tempoMeses: Math.round(t.tempoNovilhas13a24 * 10) / 10,
-          rebanhoMedio: Math.round(m(t.novilhas13a24, t.tempoNovilhas13a24)),
+          rebanhoMedio: Math.round(m(t.novilhas13a24, t.tempoNovilhas13a24) * mortalidadeCriaFator),
           pesoVivoKg: Math.round(t.pesoIndividualNovilha13a24),
         });
         if (productionSystem === 'Ciclo Completo') {
@@ -1332,21 +1585,21 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
             categoria: 'Machos 8 a 12 meses (Ciclo Completo)',
             quantidadeCabecas: Math.round(t.machos8a12),
             tempoMeses: t.tempoMachos8a12,
-            rebanhoMedio: Math.round(m(t.machos8a12, t.tempoMachos8a12)),
+            rebanhoMedio: Math.round(m(t.machos8a12, t.tempoMachos8a12) * mortalidadeCriaFator),
             pesoVivoKg: Math.round(t.pesoIndividualMachos8a12),
           });
           rows.push({
             categoria: 'Machos 13 a 24 meses (Ciclo Completo)',
             quantidadeCabecas: Math.round(t.machos13a24),
             tempoMeses: Math.round(t.tempoMachos13a24 * 10) / 10,
-            rebanhoMedio: Math.round(m(t.machos13a24, t.tempoMachos13a24)),
+            rebanhoMedio: Math.round(m(t.machos13a24, t.tempoMachos13a24) * mortalidadeCriaFator),
             pesoVivoKg: Math.round(t.pesoIndividualMachos13a24),
           });
           rows.push({
             categoria: 'Machos 25 a 36 meses (Ciclo Completo)',
             quantidadeCabecas: Math.round(t.machos25a36),
             tempoMeses: Math.round(t.tempoMachos25a36 * 10) / 10,
-            rebanhoMedio: Math.round(m(t.machos25a36, t.tempoMachos25a36)),
+            rebanhoMedio: Math.round(m(t.machos25a36, t.tempoMachos25a36) * mortalidadeCriaFator),
             pesoVivoKg: Math.round(t.pesoIndividualMachos25a36),
           });
         }
@@ -1354,18 +1607,18 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
           categoria: 'Touros',
           quantidadeCabecas: Math.round(t.touros),
           tempoMeses: t.tempoTouros,
-          rebanhoMedio: Math.round(m(t.touros, t.tempoTouros)),
+          rebanhoMedio: Math.round(m(t.touros, t.tempoTouros) * mortalidadeCriaFator),
           pesoVivoKg: Math.round(t.pesoIndividualTouro),
         });
       }
 
-      if (productionSystem === 'Recria-Engorda' && requiredSales > 0 && recriaRebanhoMedio > 0) {
+      if (productionSystem === 'Recria-Engorda' && requiredSales > 0 && recriaRebanhoMedioAjustado > 0) {
         const avgWeight = recriaPesoCompra + (recriaPesoVenda - recriaPesoCompra) / 2;
         rows.push({
           categoria: 'Animais em recria/terminação',
           quantidadeCabecas: Math.round(requiredSales),
           tempoMeses: Math.round(recriaTempoPermanenciaMeses * 10) / 10,
-          rebanhoMedio: Math.round(recriaRebanhoMedio),
+          rebanhoMedio: Math.round(recriaRebanhoMedioAjustado),
           pesoVivoKg: Math.round(avgWeight),
         });
       }
@@ -1376,9 +1629,9 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     const herdRows = buildHerdRows();
     const totalRebanhoMedio =
       showReproductiveIndices && productionSystem !== 'Recria-Engorda'
-        ? Math.round(rebanhoMedioCalculado)
+        ? Math.round(rebanhoMedioAjustado)
         : productionSystem === 'Recria-Engorda'
-          ? Math.round(recriaRebanhoMedio)
+          ? Math.round(recriaRebanhoMedioAjustado)
           : 0;
     const totalPesoVivo =
       herdRows.length > 0 && totalRebanhoMedio > 0
@@ -1394,9 +1647,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     };
 
     const rebanhoMedioForReport =
-      productionSystem === 'Recria-Engorda' ? recriaRebanhoMedio : rebanhoMedioCalculado;
-    const totalUAsForReport =
-      productionSystem === 'Recria-Engorda' ? totalUAsCalculado : totalUAsCalculado;
+      productionSystem === 'Recria-Engorda' ? recriaRebanhoMedioAjustado : rebanhoMedioAjustado;
+    const totalUAsForReport = totalUAsAjustado;
     const pesoMedioForReport =
       totalRebanhoMedio > 0
         ? herdRows.reduce((s, r) => s + r.rebanhoMedio * r.pesoVivoKg, 0) / totalRebanhoMedio
@@ -1427,15 +1679,26 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
         recriaTerminacao: {
           gmdPosDesmame: productionSystem === 'Recria-Engorda' ? recriaGmd : cicloGmdPosDesmame,
           gmdGlobal: gmdGlobal,
-          lotacaoUaHa: Math.round(lotacaoCabHa * 100) / 100,
+          lotacaoUaHa:
+            productionSystem === 'Recria-Engorda'
+              ? Math.round(recriaLotacaoUaHa * 100) / 100
+              : Math.round(lotacaoCabHa * 100) / 100,
           producaoArrobaHa: Math.round(producaoArrobaHa * 100) / 100,
         },
       }),
     };
 
+    const denomPct =
+      productionSystem === 'Recria-Engorda' ? gmdGlobal * 10 * recriaValorVenda : 0;
+    const pctArrobaPor100g =
+      productionSystem === 'Recria-Engorda' && denomPct > 0
+        ? Math.round((disbursementPerHeadMonth / denomPct) * 1000) / 10
+        : undefined;
+
     const financial = {
       retornoValorTerra: Math.round(resultOnLandValue * 10) / 10,
       retornoAtivoPecuario: Math.round(resultOnLivestockAsset * 10) / 10,
+      valorRebanhoCalculado: Math.round(valorRebanhoCalculado),
       resultadoPorHectare: Math.round(resultPerHectare),
       resultadoLiquidoTotal: Math.round(result),
       receitaTotal: Math.round(revenue),
@@ -1443,8 +1706,10 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
       margemSobreVenda: Math.round(marginOverSale * 10) / 10,
       desembolsoPorArroba: Math.round(disbursementPerArroba),
       desembolsoPorBezerro: Math.round(disbursementPerCalf),
+      desembolsoPorCabecaMes: Math.round(disbursementPerHeadMonth * 10) / 10,
       desembolsoMedioMensal: Math.round(averageMonthlyDisbursement),
       resultadoPorCabeca: Math.round(resultPerHead),
+      pctArrobaPor100g,
     };
 
     return {
@@ -1461,13 +1726,13 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     productionSystem,
     averageHerdTable,
     showReproductiveIndices,
-    rebanhoMedioCalculado,
-    recriaRebanhoMedio,
+    rebanhoMedioAjustado,
+    recriaRebanhoMedioAjustado,
     recriaTempoPermanenciaMeses,
     requiredSales,
     recriaPesoCompra,
     recriaPesoVenda,
-    totalUAsCalculado,
+    totalUAsAjustado,
     lotacaoCabHa,
     producaoArrobaHa,
     gmdGlobal,
@@ -1480,6 +1745,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     financialCalculations,
     resultOnLandValue,
     resultOnLivestockAsset,
+    valorRebanhoCalculado,
     resultPerHectare,
     result,
     revenue,
@@ -1487,8 +1753,10 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
     marginOverSale,
     disbursementPerArroba,
     disbursementPerCalf,
+    disbursementPerHeadMonth,
     averageMonthlyDisbursement,
     resultPerHead,
+    recriaValorVenda,
   ]);
 
   const handleSaveReport = useCallback(async () => {
@@ -1976,7 +2244,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                 {/* Valor Calculado - Compacto */}
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-1.5 border border-blue-200 min-w-[140px]">
                   <div className="text-[8px] text-blue-700 mb-0 font-medium">Valor Calculado</div>
-                  <div className="text-sm font-bold text-blue-900">{formatCurrency(calculatedValue)}</div>
+                  <div className="text-[12.6px] font-bold text-blue-900">{formatCurrency(calculatedValue)}</div>
                   <div className="text-[7px] text-blue-600 bg-blue-50 rounded px-1 py-0.5 border border-blue-200 mt-0.5">
                     {percentage.toFixed(1)}% × {formatCurrency(operationPecuaryValue)}
                   </div>
@@ -2053,7 +2321,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                   {/* Faturamento Necessário - Compacto */}
                   <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-1.5 border border-purple-200 min-w-[140px]">
                     <div className="text-[8px] text-purple-700 mb-0 font-medium">Faturamento Necessário</div>
-                    <div className="text-sm font-bold text-purple-900">{formatCurrency(requiredRevenue)}</div>
+                    <div className="text-[12.6px] font-bold text-purple-900">{formatCurrency(requiredRevenue)}</div>
                     <div className="text-[7px] text-purple-600 bg-purple-50 rounded px-1 py-0.5 border border-purple-200 mt-0.5">
                       {formatCurrency(calculatedValue)} ÷ {expectedMargin.toFixed(1)}%
                     </div>
@@ -2080,16 +2348,18 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           <br />
                           Venda
                         </span>
-                        <button
-                          onClick={() => setIsModalOpen(true)}
-                          className="p-0.5 rounded hover:bg-ai-surface2 transition-colors"
-                          title="Editar categorias"
-                          aria-label="Editar categorias"
-                        >
-                          <Edit3 size={12} className="text-ai-accent" />
-                        </button>
+                        {productionSystem !== 'Recria-Engorda' && (
+                          <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="p-0.5 rounded hover:bg-ai-surface2 transition-colors"
+                            title="Editar categorias"
+                            aria-label="Editar categorias"
+                          >
+                            <Edit3 size={12} className="text-ai-accent" />
+                          </button>
+                        )}
                       </div>
-                      <span className="text-sm font-bold text-ai-text">{formatCurrency(averageValue)}</span>
+                      <span className="text-[12.6px] font-bold text-ai-text">{formatCurrency(averageValue)}</span>
                     </div>
                     <div
                       className={`flex items-start justify-between ${showReproductiveIndices || productionSystem === 'Recria-Engorda' ? 'pb-2 border-b border-ai-border/60' : ''}`}
@@ -2099,7 +2369,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                         <br />
                         Necessárias
                       </span>
-                      <span className="text-sm font-bold text-ai-text">
+                      <span className="text-[12.6px] font-bold text-ai-text">
                         {requiredSales > 0 ? `${requiredSales} Cabeças` : '-'}
                       </span>
                     </div>
@@ -2110,8 +2380,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                           <br />
                           Médio
                         </span>
-                        <span className="text-sm font-bold text-ai-text">
-                          {recriaRebanhoMedio > 0 ? `${Math.round(recriaRebanhoMedio)} Cabeças` : '-'}
+                        <span className="text-[12.6px] font-bold text-ai-text">
+                          {recriaRebanhoMedioAjustado > 0 ? `${Math.round(recriaRebanhoMedioAjustado)} Cabeças` : '-'}
                         </span>
                       </div>
                     )}
@@ -2123,7 +2393,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                             <br />
                             Necessárias
                           </span>
-                          <span className="text-sm font-bold text-ai-text">
+                          <span className="text-[12.6px] font-bold text-ai-text">
                             {requiredMatrixes > 0 ? `${requiredMatrixes} Matrizes` : '-'}
                           </span>
                         </div>
@@ -2143,8 +2413,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                               <Edit3 size={12} className="text-ai-accent" />
                             </button>
                           </div>
-                          <span className="text-sm font-bold text-ai-text">
-                            {rebanhoMedioCalculado > 0 ? `${Math.round(rebanhoMedioCalculado)} Cabeças` : '-'}
+                          <span className="text-[12.6px] font-bold text-ai-text">
+                            {rebanhoMedioAjustado > 0 ? `${Math.round(rebanhoMedioAjustado)} Cabeças` : '-'}
                           </span>
                         </div>
                         <div className="flex items-start justify-between pt-1 border-t border-ai-border/40">
@@ -2153,8 +2423,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                             <br />
                             UAs
                           </span>
-                          <span className="text-sm font-bold text-ai-text">
-                            {totalUAsCalculado > 0 ? `${Math.round(totalUAsCalculado)} UA's` : '-'}
+                          <span className="text-[12.6px] font-bold text-ai-text">
+                            {totalUAsAjustado > 0 ? `${Math.round(totalUAsAjustado)} UA's` : '-'}
                           </span>
                         </div>
                       </>
@@ -2170,13 +2440,13 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
               {/* Card de Índices de Referência - Recria-Engorda (na mesma linha que Valores) */}
               {productionSystem === 'Recria-Engorda' && (
-                <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex-1 flex flex-col min-w-0">
-                  <div className="pb-1.5 mb-2 border-b border-ai-border/60">
+                <div className="bg-white border border-ai-border/70 rounded-lg p-1 flex-1 flex flex-col min-w-0">
+                  <div className="pb-0.5 mb-1 border-b border-ai-border/60">
                     <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">
                       Índices de Referência
                     </h3>
                   </div>
-                  <div className="flex flex-col justify-between flex-1 gap-2">
+                  <div className="flex flex-col justify-between flex-1 gap-1">
                     {/* Ganho Médio Diário */}
                     <div>
                       <div className="flex items-center justify-between text-[9px] mb-0.5">
@@ -2251,13 +2521,13 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
               {/* Card de Valores de Compra e Venda - Recria-Engorda */}
               {productionSystem === 'Recria-Engorda' && (
-                <div className="bg-white border border-ai-border/70 rounded-lg p-2 flex-1 flex flex-col min-w-0">
-                  <div className="pb-1.5 mb-2 border-b border-ai-border/60">
+                <div className="bg-white border border-ai-border/70 rounded-lg p-1 flex-1 flex flex-col min-w-0">
+                  <div className="pb-0.5 mb-1 border-b border-ai-border/60">
                     <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">
                       Valores de Compra e Venda
                     </h3>
                   </div>
-                  <div className="flex flex-col justify-between flex-1 gap-2">
+                  <div className="flex flex-col justify-between flex-1 gap-1">
                     {/* Peso de Compra */}
                     <div>
                       <div className="flex items-center justify-between text-[9px] mb-0.5">
@@ -2356,38 +2626,34 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
               {/* Resultados de Performance - Recria-Engorda */}
               {productionSystem === 'Recria-Engorda' && (
                 <div className="bg-white border border-ai-border/70 rounded-lg p-2 min-w-[150px] flex flex-col">
-                  <div className="pb-1.5 mb-2 border-b border-ai-border/60">
+                  <div className="pb-1.5 mb-2 border-b border-ai-border/60 flex items-center justify-between gap-1">
                     <h3 className="text-[10px] font-bold uppercase tracking-wide text-ai-text">
                       Resultados de Performance
                     </h3>
+                    <button
+                      onClick={() => setIsRecriaIndicatorsModalOpen(true)}
+                      className="p-1 rounded hover:bg-ai-surface2 transition-colors"
+                      title="Selecionar indicadores"
+                      aria-label="Selecionar indicadores"
+                    >
+                      <ListChecks size={14} className="text-ai-subtext" />
+                    </button>
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between pb-2 border-b border-ai-border/60">
-                      <span className="text-[9px] text-ai-subtext">Tempo Perm.</span>
-                      <span className="text-sm font-bold text-ai-text">
-                        {recriaTempoPermanenciaMeses > 0 ? `${recriaTempoPermanenciaMeses.toFixed(1)} meses` : '-'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between pb-2 border-b border-ai-border/60">
-                      <span className="text-[9px] text-ai-subtext">Peso em @</span>
-                      <span className="text-sm font-bold text-ai-text">
-                        {recriaPesoArroba > 0 ? `${recriaPesoArroba.toFixed(1)} @` : '-'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between pb-2 border-b border-ai-border/60">
-                      <span className="text-[9px] text-ai-subtext">Produção de @/ha/ano</span>
-                      <span className="text-sm font-bold text-ai-text">-</span>
-                    </div>
-                    <div className="flex items-center justify-between pb-2 border-b border-ai-border/60">
-                      <span className="text-[9px] text-ai-subtext">Giro de Estoque</span>
-                      <span className="text-sm font-bold text-ai-text">
-                        {recriaGiroEstoque > 0 ? `${recriaGiroEstoque.toFixed(1)}%` : '-'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-ai-subtext">Taxa de Desfrute</span>
-                      <span className="text-sm font-bold text-ai-text">-</span>
-                    </div>
+                    {visibleRecriaPerformanceIndicators.map((indicator, index, list) => (
+                      <div
+                        key={indicator.id}
+                        className={`flex items-center justify-between ${index < list.length - 1 ? 'pb-2 border-b border-ai-border/60' : ''}`}
+                      >
+                        <span className="text-[9px] text-ai-subtext">{indicator.label}</span>
+                        <span className="text-[12.6px] font-bold text-ai-text">
+                          {indicator.value > 0 ? indicator.format(indicator.value) : '-'}
+                        </span>
+                      </div>
+                    ))}
+                    {visibleRecriaPerformanceIndicators.length === 0 && (
+                      <div className="text-[9px] text-ai-subtext">Selecione indicadores</div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2798,9 +3064,11 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
           {/* Bloco Finanças */}
           <div className="mb-4">
             <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-1.5 border border-indigo-200">
-              <h3 className="text-[8px] font-semibold text-indigo-700 mb-1">Finanças</h3>
+              <h3 className="text-[8px] font-semibold text-indigo-700 mb-1">
+                Finanças: <span className="text-green-700">Meta de Resultado: {formatCurrency(calculatedValue)}</span>
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1.5">
-                {/* Coluna A: Receita/Desembolso/Resultado */}
+                {/* Coluna A: Receita/Desembolso (Recria-Engorda: + Invest. Reposição, Desemb. Produção) */}
                 <div className="space-y-0.5">
                   <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
                     <div className="text-[7px] text-indigo-600 mb-0 font-medium">Receita</div>
@@ -2822,23 +3090,41 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                     <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Custo operacional efetivo</div>
                   </div>
 
-                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
-                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Resultado</div>
-                    <div
-                      className={`text-xs font-bold leading-tight ${isFinite(result) && result >= 0 ? 'text-green-700' : 'text-red-700'}`}
-                    >
-                      {isFinite(result) && result !== 0 ? formatCurrency(result) : '-'}
-                    </div>
-                    {isFinite(revenue) && isFinite(totalDisbursement) && revenue !== 0 && totalDisbursement !== 0 && (
-                      <div className="text-[6px] text-indigo-500 mt-0 leading-tight">
-                        {formatCurrency(revenue)} - {formatCurrency(totalDisbursement)}
+                  {productionSystem === 'Recria-Engorda' && (
+                    <>
+                      <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                        <div className="text-[7px] text-indigo-600 mb-0 font-medium">Investimento em Reposição</div>
+                        <div className="text-xs font-bold text-indigo-900 leading-tight">
+                          {investimentoReposicao > 0 ? formatCurrency(investimentoReposicao) : '-'}
+                        </div>
+                        <div className="text-[6px] text-indigo-500 mt-0 leading-tight">
+                          Peso compra × valor compra × vendas
+                        </div>
                       </div>
-                    )}
-                  </div>
+                      <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                        <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso Produção</div>
+                        <div className="text-xs font-bold text-indigo-900 leading-tight">
+                          {desembolsoProducao > 0 ? formatCurrency(desembolsoProducao) : '-'}
+                        </div>
+                        <div className="text-[6px] text-indigo-500 mt-0 leading-tight">
+                          Receita - invest. reposição - resultado esperado
+                        </div>
+                      </div>
+                    </>
+                  )}
+
                 </div>
 
-                {/* Coluna B: Desembolso/@ - Desembolso/Bez - Desembolso/Cab/mês */}
+                {/* Coluna B: Valor do rebanho (calculado) / Desembolso/@ / Desembolso/Cab/mês (ou Desembolso/Bezerro para Cria) */}
                 <div className="space-y-0.5">
+                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Valor do rebanho</div>
+                    <div className="text-xs font-bold text-indigo-900 leading-tight">
+                      {valorRebanhoCalculado > 0 ? formatCurrency(valorRebanhoCalculado) : '-'}
+                    </div>
+                    <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Ativo pecuário calculado</div>
+                  </div>
+
                   <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
                     <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso/@</div>
                     <div className="text-xs font-bold text-indigo-900 leading-tight">
@@ -2847,20 +3133,56 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                     <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Custo por arroba produzida</div>
                   </div>
 
-                  <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
-                    <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso/Bezerro</div>
-                    <div className="text-xs font-bold text-indigo-900 leading-tight">
-                      {formatIndicatorValue(disbursementPerCalf, 'currency', hasDisbursementPerCalfData)}
-                    </div>
-                    <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Custo por animal desmamado</div>
-                  </div>
+                  {productionSystem === 'Recria-Engorda' && (
+                    <>
+                      <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                        <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso/Cab/Mês</div>
+                        <div className="text-xs font-bold text-indigo-900 leading-tight">
+                          {formatIndicatorValue(disbursementPerHeadMonth, 'currency1', hasDisbursementPerCalfData)}
+                        </div>
+                        <div className="text-[6px] text-indigo-500 mt-0 leading-tight">
+                          Desembolso total por cabeça ao mês
+                        </div>
+                      </div>
+                      {recriaGmd * 10 * recriaValorVenda > 0 && (
+                        <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                          <div className="text-[7px] text-indigo-600 mb-0 font-medium">% @/100g</div>
+                          <div className="text-xs font-bold text-indigo-900 leading-tight">
+                            {((disbursementPerHeadMonth / (recriaGmd * 10 * recriaValorVenda)) * 100).toFixed(1)}%
+                          </div>
+                          <div className="text-[6px] text-indigo-500 mt-0 leading-tight">
+                            Desemb./cab/mês ÷ (GMD×10) ÷ valor @. Ideal até 7%
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
 
-                  {showReproductiveIndices && (
+                  {productionSystem === 'Ciclo Completo' && (
+                    <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                      <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso/Cab/Mês</div>
+                      <div className="text-xs font-bold text-indigo-900 leading-tight">
+                        {formatIndicatorValue(disbursementPerHeadMonth, 'currency1', hasDisbursementPerCalfData)}
+                      </div>
+                      <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Desembolso total por cabeça ao mês</div>
+                    </div>
+                  )}
+                  {productionSystem === 'Cria' && (
+                    <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
+                      <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso/Bezerro</div>
+                      <div className="text-xs font-bold text-indigo-900 leading-tight">
+                        {formatIndicatorValue(disbursementPerCalf, 'currency', hasDisbursementPerCalfData)}
+                      </div>
+                      <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Custo por animal desmamado</div>
+                    </div>
+                  )}
+
+                  {showReproductiveIndices && !isRecriaTerminacao && (
                     <div className="bg-white/70 rounded-md px-1 py-0.5 border border-indigo-200/50">
                       <div className="text-[7px] text-indigo-600 mb-0 font-medium">Desembolso/Cab/Mês</div>
                       <div className="text-xs font-bold text-indigo-900 leading-tight">
                         {isFinite(disbursementPerHeadMonth) && disbursementPerHeadMonth !== 0
-                          ? formatCurrency(disbursementPerHeadMonth)
+                          ? formatIndicatorValue(disbursementPerHeadMonth, 'currency1', true)
                           : '-'}
                       </div>
                       <div className="text-[6px] text-indigo-500 mt-0 leading-tight">Custo de manutenção mensal</div>
@@ -2937,6 +3259,7 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                     </div>
                   )}
                 </div>
+
               </div>
             </div>
           </div>
@@ -3003,6 +3326,76 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
               </span>
               <button
                 onClick={() => setIsIndicatorsModalOpen(false)}
+                className="px-4 py-2 bg-ai-accent text-white rounded-lg hover:bg-ai-accentHover transition-colors font-medium"
+              >
+                Concluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal - Seleção de Indicadores Recria-Engorda */}
+      {isRecriaIndicatorsModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={e => {
+            if (e.target === e.currentTarget) {
+              setIsRecriaIndicatorsModalOpen(false);
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-ai-border flex items-center justify-between bg-gradient-to-r from-ai-accent/10 to-transparent">
+              <div className="flex flex-col">
+                <h2 className="text-base font-bold text-ai-text">Selecionar Indicadores</h2>
+                <span className="text-[10px] text-ai-subtext">Escolha até {MAX_RECRIA_PERFORMANCE_INDICATORS}</span>
+              </div>
+              <button
+                onClick={() => setIsRecriaIndicatorsModalOpen(false)}
+                className="p-2 hover:bg-ai-surface2 rounded-lg transition-colors"
+                title="Fechar"
+              >
+                <X size={18} className="text-ai-subtext" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="space-y-3">
+                {recriaPerformanceIndicators.map(indicator => {
+                  const isChecked = selectedRecriaIndicators.includes(indicator.id);
+                  const isDisabled =
+                    !isChecked && selectedRecriaIndicators.length >= MAX_RECRIA_PERFORMANCE_INDICATORS;
+                  return (
+                    <label
+                      key={indicator.id}
+                      className={`flex items-center justify-between gap-3 rounded-lg border border-ai-border/70 px-3 py-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-ai-surface2/50'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          disabled={isDisabled}
+                          onChange={() => toggleRecriaIndicatorSelection(indicator.id)}
+                          className="accent-ai-accent"
+                        />
+                        <span className="text-sm text-ai-text">{indicator.label}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-ai-border bg-ai-surface flex items-center justify-between">
+              <span className="text-xs text-ai-subtext">
+                Selecionados: {selectedRecriaIndicators.length}/{MAX_RECRIA_PERFORMANCE_INDICATORS}
+              </span>
+              <button
+                onClick={() => setIsRecriaIndicatorsModalOpen(false)}
                 className="px-4 py-2 bg-ai-accent text-white rounded-lg hover:bg-ai-accentHover transition-colors font-medium"
               >
                 Concluir
@@ -3894,8 +4287,8 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
                       <td className="px-4 py-3 text-center text-sm font-bold text-ai-text">-</td>
                       <td className="px-4 py-3 text-center text-sm text-ai-text font-bold">-</td>
                       <td className="px-4 py-3 text-center text-sm font-bold text-ai-text">
-                        {rebanhoMedioCalculado > 0
-                          ? Math.round(rebanhoMedioCalculado).toLocaleString('pt-BR')
+                        {rebanhoMedioAjustado > 0
+                          ? Math.round(rebanhoMedioAjustado).toLocaleString('pt-BR')
                           : '-'}
                       </td>
                       <td className="px-4 py-3 text-center text-sm font-bold text-ai-text">
@@ -3982,14 +4375,17 @@ const AgilePlanning: React.FC<AgilePlanningProps> = ({ onToast }) => {
 
                 // Rebanho médio: Σ(quantidade × tempo) / 12
                 const somaQtdTempo = categorias.reduce((sum, c) => sum + c.quantidade * c.tempo, 0);
-                const rebanhoMedio = somaQtdTempo / 12;
+                const fatorMortalidade = 1 + safeDivide(calfMortality, 100);
+                const rebanhoMedioBase = somaQtdTempo / 12;
+                const rebanhoMedio = rebanhoMedioBase * fatorMortalidade;
 
                 // Total de UAs: Σ(quantidade × tempo × peso) / 12 / 450
                 const somaQtdTempoPeso = categorias.reduce((sum, c) => sum + c.quantidade * c.tempo * c.peso, 0);
-                const totalUAs = somaQtdTempoPeso / 12 / 450;
+                const somaQtdTempoPesoAjustado = somaQtdTempoPeso * fatorMortalidade;
+                const totalUAs = somaQtdTempoPesoAjustado / 12 / 450;
 
                 // Peso médio em kg: Σ(quantidade × peso × tempo) / 12 / rebanho médio
-                const pesoMedioKg = rebanhoMedio > 0 ? somaQtdTempoPeso / 12 / rebanhoMedio : 0;
+                const pesoMedioKg = rebanhoMedio > 0 ? somaQtdTempoPesoAjustado / 12 / rebanhoMedio : 0;
 
                 // Peso médio em UA: peso médio em kg / 450
                 const pesoMedioUA = pesoMedioKg / 450;

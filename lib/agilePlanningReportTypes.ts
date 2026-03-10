@@ -80,6 +80,8 @@ export interface AgilePlanningReportZootechnical {
 export interface AgilePlanningReportFinancial {
   retornoValorTerra: number;
   retornoAtivoPecuario: number;
+  /** Valor do rebanho calculado no planejamento (não do cadastro) */
+  valorRebanhoCalculado: number;
   resultadoPorHectare: number;
   resultadoLiquidoTotal: number;
   receitaTotal: number;
@@ -87,8 +89,11 @@ export interface AgilePlanningReportFinancial {
   margemSobreVenda: number;
   desembolsoPorArroba: number;
   desembolsoPorBezerro: number;
+  desembolsoPorCabecaMes?: number;
   desembolsoMedioMensal: number;
   resultadoPorCabeca: number;
+  /** % da @ para cada 100g de ganho. Desembolso/cab/mês ÷ (GMD×10) ÷ valor venda @. Só Recria/Ciclo. */
+  pctArrobaPor100g?: number;
 }
 
 export interface AgilePlanningReportData {

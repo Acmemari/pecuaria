@@ -202,6 +202,12 @@ export function useAgilePlanningCalculations(params: AgilePlanningParams): Agile
     };
   }, [showReproductiveIndices, requiredMatrixes, firstMatingAge]);
 
+  // 8.1 Rebanho médio ajustado pela mortalidade
+  const averageHerdAdjusted = useMemo(() => {
+    if (!showReproductiveIndices || averageHerd <= 0) return 0;
+    return averageHerd * (1 + safeDivide(calfMortality, 100));
+  }, [showReproductiveIndices, averageHerd, calfMortality]);
+
   // 9. Função: calcular quantidade
   const calculateQuantity = useMemo(
     () =>
@@ -228,9 +234,9 @@ export function useAgilePlanningCalculations(params: AgilePlanningParams): Agile
 
   // 11. Lotação cab/ha
   const lotacaoCabHa = useMemo(() => {
-    if (!showReproductiveIndices || averageHerd <= 0 || validatedPastureArea <= 0) return 0;
-    return safeDivide(averageHerd, validatedPastureArea);
-  }, [showReproductiveIndices, averageHerd, validatedPastureArea]);
+    if (!showReproductiveIndices || averageHerdAdjusted <= 0 || validatedPastureArea <= 0) return 0;
+    return safeDivide(averageHerdAdjusted, validatedPastureArea);
+  }, [showReproductiveIndices, averageHerdAdjusted, validatedPastureArea]);
 
   // 12. Vendas por hectare
   const salesPerHectare = useMemo(() => {

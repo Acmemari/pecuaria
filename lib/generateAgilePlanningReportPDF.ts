@@ -28,8 +28,8 @@ function addText(
 function formatNum(n: number, decimals = 0): string {
   return n.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
-function formatCurrency(n: number): string {
-  return `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+function formatCurrency(n: number, decimals = 0): string {
+  return `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 }
 
 function checkNewPage(doc: jsPDF, yPos: number, needed: number): number {
@@ -177,6 +177,8 @@ function buildAgilePlanningPdfDoc(data: AgilePlanningReportData): jsPDF {
   addText(doc, `Retorno s/ valor da terra: ${financial.retornoValorTerra}%`, margin, yPos, 9);
   addText(doc, `Retorno s/ ativo pecuário: ${financial.retornoAtivoPecuario}%`, margin + 65, yPos, 9);
   yPos += 5;
+  addText(doc, `Valor do rebanho (calculado): ${formatCurrency(financial.valorRebanhoCalculado)}`, margin, yPos, 9);
+  yPos += 5;
   addText(doc, `Resultado por hectare: ${formatCurrency(financial.resultadoPorHectare)}`, margin, yPos, 9);
   yPos += 6;
   addText(doc, `Resultado líquido total: ${formatCurrency(financial.resultadoLiquidoTotal)}`, margin, yPos, 9);
@@ -186,10 +188,22 @@ function buildAgilePlanningPdfDoc(data: AgilePlanningReportData): jsPDF {
   addText(doc, `Margem s/ venda: ${financial.margemSobreVenda}%`, margin + 65, yPos, 9);
   yPos += 5;
   addText(doc, `Desembolso/@: ${formatCurrency(financial.desembolsoPorArroba)}`, margin, yPos, 9);
-  addText(doc, `Desembolso/bezerro: ${formatCurrency(financial.desembolsoPorBezerro)}`, margin + 65, yPos, 9);
+  addText(
+    doc,
+    productionSystem === 'Recria-Engorda' || productionSystem === 'Ciclo Completo'
+      ? `Desembolso/cabeça/mês: ${formatCurrency(financial.desembolsoPorCabecaMes || 0, 1)}`
+      : `Desembolso/bezerro: ${formatCurrency(financial.desembolsoPorBezerro)}`,
+    margin + 65,
+    yPos,
+    9,
+  );
   yPos += 5;
   addText(doc, `Desembolso médio mensal: ${formatCurrency(financial.desembolsoMedioMensal)}`, margin, yPos, 9);
   addText(doc, `Resultado por cabeça: ${formatCurrency(financial.resultadoPorCabeca)}`, margin + 65, yPos, 9);
+  if (financial.pctArrobaPor100g != null) {
+    yPos += 5;
+    addText(doc, `% @/100g: ${financial.pctArrobaPor100g}%`, margin, yPos, 9);
+  }
   yPos += 10;
 
   doc.setFontSize(8);

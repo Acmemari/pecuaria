@@ -4,8 +4,8 @@ import type { AgilePlanningReportData } from '../../lib/agilePlanningReportTypes
 
 const formatNum = (n: number, decimals = 0): string =>
   n.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-const formatCurrency = (n: number): string =>
-  `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+const formatCurrency = (n: number, decimals = 0): string =>
+  `R$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 
 interface AgilePlanningReportViewProps {
   data: AgilePlanningReportData;
@@ -319,11 +319,16 @@ const AgilePlanningReportView: React.FC<AgilePlanningReportViewProps> = ({
             <DollarSign size={18} className="text-green-600" />
             $ ANÁLISE FINANCEIRA CONSOLIDADA
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
               <p className="text-sm font-medium text-gray-900">Retorno s/ valor da terra</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">{financial.retornoValorTerra}%</p>
               <p className="text-xs text-gray-500 mt-0.5">Retorno patrimonial imobiliário</p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+              <p className="text-sm font-medium text-gray-900">Valor do rebanho</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(financial.valorRebanhoCalculado)}</p>
+              <p className="text-xs text-gray-500 mt-0.5">Ativo pecuário calculado</p>
             </div>
             <div className="bg-gray-900 rounded-xl p-4 shadow-sm">
               <p className="text-sm font-medium text-white">Retorno s/ ativo pecuário</p>
@@ -339,11 +344,33 @@ const AgilePlanningReportView: React.FC<AgilePlanningReportViewProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'Resultado líquido total', value: formatCurrency(financial.resultadoLiquidoTotal) },
+              ...(financial.pctArrobaPor100g != null
+                ? [
+                    {
+                      label: '% @/100g',
+                      value: `${financial.pctArrobaPor100g}%`,
+                      sub: 'Desembolso/cab/mês ÷ (GMD×10) ÷ valor venda @. Ideal até 7%',
+                    },
+                  ]
+                : []),
               { label: 'Receita total', value: formatCurrency(financial.receitaTotal) },
               { label: 'Desembolso total', value: formatCurrency(financial.desembolsoTotal), sub: 'Desembolso operacional efetivo' },
               { label: 'Margem s/ venda', value: `${financial.margemSobreVenda}%`, green: true },
               { label: 'Desembolso/@', value: formatCurrency(financial.desembolsoPorArroba), sub: 'Desembolso por arroba produzida' },
-              { label: 'Desembolso/bezerro', value: formatCurrency(financial.desembolsoPorBezerro), sub: 'Desembolso por animal desmamado' },
+              {
+                label:
+                  productionSystem === 'Recria-Engorda' || productionSystem === 'Ciclo Completo'
+                    ? 'Desembolso/cabeça/mês'
+                    : 'Desembolso/bezerro',
+                value:
+                  productionSystem === 'Recria-Engorda' || productionSystem === 'Ciclo Completo'
+                    ? formatCurrency(financial.desembolsoPorCabecaMes || 0, 1)
+                    : formatCurrency(financial.desembolsoPorBezerro),
+                sub:
+                  productionSystem === 'Recria-Engorda' || productionSystem === 'Ciclo Completo'
+                    ? 'Desembolso total por cabeça ao mês'
+                    : 'Desembolso por animal desmamado',
+              },
               { label: 'Desembolso médio mensal', value: formatCurrency(financial.desembolsoMedioMensal) },
               { label: 'Resultado por cabeça', value: formatCurrency(financial.resultadoPorCabeca), sub: 'Resultado médio por animal' },
             ].map((item, i) => (
