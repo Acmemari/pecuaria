@@ -8,6 +8,7 @@ import { sanitizeUUID, sanitizeId } from '../lib/uuid';
 
 const PAGE_SIZE = 50;
 const HIERARCHY_STORAGE_KEY_V1 = 'hierarchySelection.v1';
+const DEBUG_HIERARCHY = typeof import.meta !== 'undefined' && import.meta.env?.DEV;
 
 function getHierarchyStorageKey(userId: string): string {
   return `hierarchySelection.v2.${userId}`;
@@ -327,6 +328,8 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const loadAnalystsRef = useRef<((options?: { append?: boolean; search?: string }) => Promise<void>) | null>(null);
   const loadClientsRef = useRef<((options?: { append?: boolean; search?: string }) => Promise<void>) | null>(null);
   const loadFarmsRef = useRef<((options?: { append?: boolean; search?: string }) => Promise<void>) | null>(null);
+  const lastLoadClientsKeyRef = useRef<string>('');
+  const lastLoadFarmsKeyRef = useRef<string>('');
 
   useEffect(() => {
     stateRef.current = state;
@@ -336,6 +339,8 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (user?.id !== prevUserIdRef.current) {
       validationFailureCountRef.current = 0;
       prevUserIdRef.current = user?.id ?? null;
+      lastLoadClientsKeyRef.current = '';
+      lastLoadFarmsKeyRef.current = '';
     }
   }, [user?.id]);
 
@@ -509,6 +514,11 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       paginationRef.current.clientsSearch = search;
       if (!append) paginationRef.current.clientsOffset = 0;
 
+      const trigger = append || search ? 'user' : 'effect';
+      if (DEBUG_HIERARCHY) {
+        console.debug('[HierarchyContext] loadClients start', { trigger, effectiveAnalystId, append, search });
+      }
+
       const offset = paginationRef.current.clientsOffset;
       const controller = nextController('clients');
       dispatch({ type: 'SET_LOADING', payload: { level: 'clients', value: true } });
@@ -541,6 +551,9 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (error) throw error;
 
         const mapped = (data || []).map(mapClientRow);
+        if (DEBUG_HIERARCHY) {
+          console.debug('[HierarchyContext] loadClients end ok', { count: mapped.length });
+        }
         dispatch({
           type: 'SET_CLIENTS',
           payload: {
@@ -567,7 +580,18 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }
         }
       } catch (error: unknown) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          if (DEBUG_HIERARCHY) console.debug('[HierarchyContext] loadClients end aborted');
+          return;
+        }
+        const msg = error instanceof Error ? error.message : '';
+        const isNetwork = error instanceof TypeError || /fetch|network|ECONNREFUSED/i.test(msg);
+        if (DEBUG_HIERARCHY) {
+          console.debug('[HierarchyContext] loadClients end error', {
+            type: isNetwork ? 'network' : 'rpc',
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
         const message = error instanceof Error ? error.message : 'Falha ao carregar organizações.';
         dispatch({
           type: 'SET_ERROR',
@@ -577,7 +601,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         dispatch({ type: 'SET_LOADING', payload: { level: 'clients', value: false } });
       }
     },
-    [effectiveAnalystId, nextController, user],
+    [effectiveAnalystId, nextController, user?.id, user?.qualification, user?.clientId],
   );
 
   const loadFarms = useCallback(
@@ -593,6 +617,11 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const search = options?.search ?? paginationRef.current.farmsSearch;
       paginationRef.current.farmsSearch = search;
       if (!append) paginationRef.current.farmsOffset = 0;
+
+      const trigger = append || search ? 'user' : 'effect';
+      if (DEBUG_HIERARCHY) {
+        console.debug('[HierarchyContext] loadFarms start', { trigger, selectedClientId, append, search });
+      }
 
       const offset = paginationRef.current.farmsOffset;
       const controller = nextController('farms');
@@ -616,6 +645,9 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (error) throw error;
 
         const mapped = mapFarmsFromDatabase(data || []);
+        if (DEBUG_HIERARCHY) {
+          console.debug('[HierarchyContext] loadFarms end ok', { count: mapped.length });
+        }
         dispatch({
           type: 'SET_FARMS',
           payload: {
@@ -642,7 +674,18 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }
         }
       } catch (error: unknown) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          if (DEBUG_HIERARCHY) console.debug('[HierarchyContext] loadFarms end aborted');
+          return;
+        }
+        const msg = error instanceof Error ? error.message : '';
+        const isNetwork = error instanceof TypeError || /fetch|network|ECONNREFUSED/i.test(msg);
+        if (DEBUG_HIERARCHY) {
+          console.debug('[HierarchyContext] loadFarms end error', {
+            type: isNetwork ? 'network' : 'rpc',
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
         const message = error instanceof Error ? error.message : 'Falha ao carregar fazendas.';
         dispatch({
           type: 'SET_ERROR',
@@ -702,17 +745,23 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         qualification: user.qualification,
       },
     });
-  }, [user, isProfileReady]);
+  }, [user?.id, user?.role, user?.qualification, user?.clientId, user?.name, user?.email, isProfileReady]);
 
   useEffect(() => {
     if (!user || !isProfileReady) return;
+    const key = `${effectiveAnalystId ?? ''}-${user.clientId ?? ''}`;
+    if (lastLoadClientsKeyRef.current === key) return;
+    lastLoadClientsKeyRef.current = key;
     void loadClientsRef.current?.({ append: false, search: '' });
-  }, [effectiveAnalystId, isProfileReady, user]);
+  }, [effectiveAnalystId, isProfileReady, user?.id, user?.role, user?.qualification, user?.clientId]);
 
   useEffect(() => {
     if (!user || !isProfileReady) return;
+    const key = String(state.clientId ?? '');
+    if (lastLoadFarmsKeyRef.current === key) return;
+    lastLoadFarmsKeyRef.current = key;
     void loadFarmsRef.current?.({ append: false, search: '' });
-  }, [state.clientId, isProfileReady, user]);
+  }, [state.clientId, isProfileReady, user?.id]);
 
   useEffect(() => {
     if (!user || !isProfileReady) return;
@@ -726,6 +775,14 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const sanitizedFarmId = sanitizeId(current.farmId);
         if (!sanitizedAnalystId && !sanitizedClientId && !sanitizedFarmId) return;
 
+        if (DEBUG_HIERARCHY) {
+          console.debug('[HierarchyContext] validate_hierarchy start', {
+            analystId: sanitizedAnalystId,
+            clientId: sanitizedClientId,
+            farmId: sanitizedFarmId,
+          });
+        }
+
         const { data, error } = await supabase.rpc('validate_hierarchy', {
           p_analyst_id: sanitizedAnalystId,
           p_client_id: sanitizedClientId,
@@ -733,10 +790,22 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         });
 
         if (error) {
-          validationFailureCountRef.current += 1;
+          const msg = error.message || '';
+          const isNetwork = /fetch|network|ECONNREFUSED|Failed to fetch|aggregateerror/i.test(msg);
+          if (DEBUG_HIERARCHY) {
+            console.debug('[HierarchyContext] validate_hierarchy error', {
+              type: isNetwork ? 'network' : 'rpc',
+              message: msg,
+            });
+          }
           console.warn('[HierarchyContext] validate_hierarchy failed:', error.message);
-          // Evita reset agressivo em falha transitória: só limpa após erro consecutivo.
+          // Em falha de rede, não resetar IDs — apenas em erro RPC explícito (hierarquia inválida)
+          if (isNetwork) return;
+          validationFailureCountRef.current += 1;
           if (validationFailureCountRef.current >= 2) {
+            if (DEBUG_HIERARCHY) {
+              console.debug('[HierarchyContext] validate_hierarchy RESET IDs (consecutive RPC failures)');
+            }
             dispatch({
               type: 'HYDRATE_IDS',
               payload: {
@@ -750,6 +819,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         }
 
         if (!data || !Array.isArray(data) || data.length === 0) {
+          if (DEBUG_HIERARCHY) console.debug('[HierarchyContext] validate_hierarchy empty data');
           console.warn('[HierarchyContext] validate_hierarchy returned empty data');
           return;
         }
@@ -759,6 +829,14 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const nextAnalystId = result.analyst_valid ? sanitizedAnalystId : null;
         const nextClientId = result.client_valid ? sanitizedClientId : null;
         const nextFarmId = result.farm_valid ? sanitizedFarmId : null;
+
+        if (DEBUG_HIERARCHY) {
+          console.debug('[HierarchyContext] validate_hierarchy end ok', {
+            analystValid: result.analyst_valid,
+            clientValid: result.client_valid,
+            farmValid: result.farm_valid,
+          });
+        }
 
         dispatch({
           type: 'HYDRATE_IDS',
@@ -830,7 +908,7 @@ export const HierarchyProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => {
       void supabase.removeChannel(subscribedChannel);
     };
-  }, [effectiveAnalystId, isProfileReady, state.clientId, user]);
+  }, [effectiveAnalystId, isProfileReady, state.clientId, user?.id]);
 
   const setSelectedAnalyst = useCallback((analyst: User | null) => {
     dispatch({ type: 'SELECT_ANALYST_ID', payload: analyst?.id || null });

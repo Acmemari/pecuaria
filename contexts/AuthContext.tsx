@@ -20,6 +20,7 @@ const AUTH_TIMEOUTS = {
   SAFETY: 10_000,
   PROFILE_WAIT: 500,
   LOGIN_REF_RESET: 3_000,
+  IDLE_LOGOUT: 300_000,
 } as const;
 
 const clearBrowserSessionData = async () => {
@@ -151,10 +152,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const loginInProgressRef = useRef(false);
+  const inactivityTimerRef = useRef<number | null>(null);
+  const isAutoLogoutRunningRef = useRef(false);
   const isProfileReady = useMemo(() => {
     if (!user) return false;
     return user.qualification !== undefined;
   }, [user]);
+
+  const clearInactivityTimer = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    if (inactivityTimerRef.current !== null) {
+      window.clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     // Limpa resíduo antigo de recovery quando não há fluxo ativo na URL
@@ -282,13 +293,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userProfile = await loadUserProfile(session.user.id);
         if (userProfile) {
           setUser(prev => {
-            if (prev && prev.id === userProfile.id && prev.email === userProfile.email) {
-              const changed = Object.keys(userProfile).some(
-                key => (userProfile as any)[key] !== (prev as any)[key]
-              );
-              return changed ? userProfile : prev;
-            }
-            return userProfile;
+            if (!prev || prev.id !== userProfile.id) return userProfile;
+            const hierarchyKeys: (keyof User)[] = ['id', 'role', 'qualification', 'clientId', 'name', 'email'];
+            const hierarchyChanged = hierarchyKeys.some(
+              k => (userProfile as User)[k] !== (prev as User)[k],
+            );
+            return hierarchyChanged ? userProfile : prev;
           });
         }
       }
@@ -380,6 +390,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(async () => {
+    clearInactivityTimer();
+    isAutoLogoutRunningRef.current = false;
     // Clear user state immediately to ensure UI update
     setUser(null);
     try {
@@ -392,7 +404,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.location.replace('/');
       }
     }
-  }, []);
+  }, [clearInactivityTimer]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (!user || isPasswordRecovery) {
+      clearInactivityTimer();
+      return;
+    }
+
+    const activityEvents: Array<keyof WindowEventMap> = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+
+    const scheduleAutoLogout = () => {
+      if (document.visibilityState === 'hidden' || isAutoLogoutRunningRef.current) {
+        return;
+      }
+
+      clearInactivityTimer();
+      inactivityTimerRef.current = window.setTimeout(async () => {
+        if (isAutoLogoutRunningRef.current) {
+          return;
+        }
+
+        isAutoLogoutRunningRef.current = true;
+        try {
+          log.info('Idle timeout reached, auto logging out user', { userId: user.id });
+          await logout();
+        } finally {
+          isAutoLogoutRunningRef.current = false;
+        }
+      }, AUTH_TIMEOUTS.IDLE_LOGOUT);
+    };
+
+    activityEvents.forEach(eventName => {
+      window.addEventListener(eventName, scheduleAutoLogout);
+    });
+    document.addEventListener('visibilitychange', scheduleAutoLogout);
+    scheduleAutoLogout();
+
+    return () => {
+      activityEvents.forEach(eventName => {
+        window.removeEventListener(eventName, scheduleAutoLogout);
+      });
+      document.removeEventListener('visibilitychange', scheduleAutoLogout);
+      clearInactivityTimer();
+    };
+  }, [user, isPasswordRecovery, logout, clearInactivityTimer]);
 
   const signInWithOAuth = useCallback(async (provider: 'google') => {
     try {
