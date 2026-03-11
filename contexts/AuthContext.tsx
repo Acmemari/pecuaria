@@ -203,6 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (error) {
           log.error('Error getting session', error instanceof Error ? error : new Error(String(error)));
+          setUser(null);
           setIsLoading(false);
           setSessionReady(true);
         } else if (session?.user) {
@@ -220,7 +221,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           clearTimeout(safetyTimeout);
           setIsLoading(false);
         } else {
-          setSessionReady(true);
           // Sem sessão: verificar se há code PKCE na URL (SDK ainda pode trocar)
           const searchParams = new URLSearchParams(window.location.search);
           const hasPkceCode = searchParams.has('code');
@@ -232,14 +232,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (!waitingForPkceExchange) {
             setUser(null);
+            setSessionReady(true);
             clearTimeout(safetyTimeout);
             setIsLoading(false);
+          } else {
+            setSessionReady(true);
           }
           // Se waitingForPkceExchange: o safetyTimeout de 10s garante que isLoading eventualmente será false
           // O onAuthStateChange com SIGNED_IN vai setar o user e isLoading
         }
       } catch (error: unknown) {
         log.error('Error initializing auth', error instanceof Error ? error : new Error(String(error)));
+        setUser(null);
         clearTimeout(safetyTimeout);
         setIsLoading(false);
         setSessionReady(true);
