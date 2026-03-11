@@ -1,0 +1,52 @@
+import { z } from 'zod';
+import type { AgentManifest } from '../../ai/types.js';
+
+const FEEDBACK_CONTEXTS = ['desempenho', 'comportamento', 'pessoal'] as const;
+const FEEDBACK_TYPES = ['positivo', 'construtivo'] as const;
+const FEEDBACK_TONES = ['formal', 'direto', 'motivador', 'tecnico', 'informal'] as const;
+const FEEDBACK_FORMATS = ['escrito', 'falado'] as const;
+const FEEDBACK_STRUCTURES = ['sanduiche', 'feedforward', 'marca', 'auto'] as const;
+const FEEDBACK_LENGTHS = ['curto', 'medio', 'longo'] as const;
+
+export const feedbackInputSchema = z.object({
+  context: z.enum(FEEDBACK_CONTEXTS),
+  feedbackType: z.enum(FEEDBACK_TYPES),
+  objective: z.string().min(5, 'O objetivo deve ter pelo menos 5 caracteres.'),
+  recipient: z.string().min(2, 'O destinatário deve ter pelo menos 2 caracteres.'),
+  whatHappened: z.string().optional().default(''),
+  eventDate: z.string().optional().default(''),
+  eventMoment: z.string().optional().default(''),
+  damages: z.string().optional().default(''),
+  tone: z.enum(FEEDBACK_TONES),
+  format: z.enum(FEEDBACK_FORMATS),
+  model: z.enum(FEEDBACK_STRUCTURES),
+  existingText: z.string().optional().default(''),
+  lengthPreference: z.enum(FEEDBACK_LENGTHS),
+});
+
+export const feedbackOutputSchema = z.object({
+  feedback: z.string().min(10),
+  structure: z.enum(['Sanduíche', 'Feedforward', 'MARCA']),
+  tips: z.array(z.string()).max(6),
+});
+
+export type FeedbackInput = z.infer<typeof feedbackInputSchema>;
+export type FeedbackOutput = z.infer<typeof feedbackOutputSchema>;
+
+export const feedbackManifest: AgentManifest = {
+  id: 'feedback',
+  version: '1.0.0',
+  name: 'Assistente de Feedback',
+  description: 'Gera, reescreve e adapta feedbacks construtivos com modelos profissionais.',
+  inputSchema: feedbackInputSchema,
+  outputSchema: feedbackOutputSchema,
+  modelPolicy: {
+    provider: 'anthropic',
+    model: 'claude-3-haiku-20240307',
+    fallback: [
+      { provider: 'gemini', model: 'gemini-2.0-flash' },
+      { provider: 'openai', model: 'gpt-4o-mini' },
+    ],
+  },
+  estimatedTokensPerCall: 1500,
+};

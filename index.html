@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gesttor - Suite de Gestão</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Detectar fluxo de recovery ANTES do React carregar -->
+    <script>
+      (function () {
+        var pathname = window.location.pathname;
+        if (pathname === '/auth/callback') return;
+
+        var hash = window.location.hash;
+        var search = window.location.search;
+
+        // Fluxo hash (implicit): type=recovery + access_token
+        var hasRecoveryHash =
+          (hash.includes('type=recovery') || hash.includes('type%3Drecovery')) &&
+          (hash.includes('access_token=') || hash.includes('token_hash=') || hash.includes('token='));
+
+        // Fluxo query (recovery com type=recovery)
+        var hasRecoverySearch =
+          (search.includes('type=recovery') || search.includes('type%3Drecovery')) &&
+          (search.includes('code=') || search.includes('token_hash=') || search.includes('token='));
+
+        // Marker explícito de recovery no redirect URL
+        var hasRecoveryMarker = search.indexOf('recovery=1') !== -1;
+
+        // PKCE: ?code=xxx + localStorage indica que usuário pediu recovery no mesmo browser
+        var hasPkceCode = search.indexOf('code=') !== -1;
+        var hasRecoveryFlag = false;
+        try {
+          hasRecoveryFlag = !!localStorage.getItem('password_recovery_email');
+        } catch (e) {}
+        var isPkceRecovery = hasPkceCode && (hasRecoveryFlag || hasRecoveryMarker);
+
+        if ((hasRecoveryHash || hasRecoverySearch || isPkceRecovery || hasRecoveryMarker) && pathname !== '/reset-password') {
+          window.location.replace('/reset-password' + search + hash);
+        }
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

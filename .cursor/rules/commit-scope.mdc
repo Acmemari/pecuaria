@@ -1,0 +1,17 @@
+---
+description: Commit scope - only commit what user explicitly requests
+alwaysApply: true
+---
+
+# Commit Scope
+
+When the user requests a commit:
+
+- **Commit only** the files/changes the user explicitly asks to keep.
+- **Discard or leave untracked** everything else. Do not ask again.
+
+Common files to exclude from commits unless requested:
+- `lib/evaluateExpression.ts`
+- `.claude/launch.json`
+- `.code/*` (internal docs)
+- `components/LoginPage.tsx` when diff is only line endings
